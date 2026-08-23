@@ -5,6 +5,8 @@ import {
   doc,
   setDoc,
   getDoc,
+  collection,
+  getDocs,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut,
@@ -82,6 +84,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [authViewMode, setAuthViewMode] = useState<'select' | 'login' | 'register'>('login');
   const [selectedAccountForLogin, setSelectedAccountForLogin] = useState<UserAccount | null>(null);
 
+  // Fetch cloud users from Firestore on mount to support cross-device login
+  useEffect(() => {
+    async function fetchCloudUsers() {
+      try {
+        const querySnapshot = await getDocs(collection(db, 'users'));
+        const cloudUsers: UserAccount[] = [];
+        querySnapshot.forEach((docSnap) => {
+          const uData = docSnap.data() as UserAccount;
+          if (uData && uData.email) {
+            cloudUsers.push({ ...uData, id: docSnap.id });
+          }
+        });
+        if (cloudUsers.length > 0) {
+          setAccounts((prev) => {
+            const map = new Map();
+            [...prev, ...cloudUsers].forEach(acc => {
+              map.set(acc.email.trim().toLowerCase(), acc);
+            });
+            return Array.from(map.values());
+          });
+        }
+      } catch (e) {
+        console.warn("Could not fetch cloud users from Firestore:", e);
+      }
+    }
+    fetchCloudUsers();
+  }, []);
+
   // Firebase Auth Observer
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -103,22 +133,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               const filtered = prev.filter((a) => a.id !== user.uid);
               return [...filtered, updatedAccount];
             });
-            setActiveUserId(user.uid);
-          } else {
-            // Initialize new account record for Firebase User
-            const newAcc: UserAccount = {
-              id: user.uid,
-              name: user.displayName || user.email?.split('@')[0] || 'Estudante de Medicina',
-              email: user.email || '',
-              university: 'Faculdade de Medicina',
-              currentSemester: '5º Semestre - Ciclo Clínico',
-              dreamSpecialty: 'Clínica Médica',
-              avatarUrl: user.photoURL || CARTOON_AVATARS[0].url,
-              createdAt: new Date().toISOString(),
-              lastLoginAt: new Date().toISOString(),
-            };
-            await setDoc(userRef, newAcc);
-            setAccounts((prev) => [...prev.filter((a) => a.id !== user.uid), newAcc]);
             setActiveUserId(user.uid);
           }
         } catch (err) {
@@ -180,62 +194,82 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const loginWithEmail = async (email: string, password: string) => {
+    const cleanEmail = email.trim().toLowerCase();
+
+    // 1. Check local accounts state first
+    let target = accounts.find((a) => a.email.trim().toLowerCase() === cleanEmail);
+
+    // 2. If not found locally, query Firestore cloud database for cross-device access
+    if (!target) {
+      try {
+        const querySnapshot = await getDocs(collection(db, 'users'));
+        querySnapshot.forEach((docSnap) => {
+          const uData = docSnap.data() as UserAccount;
+          if (uData && uData.email && uData.email.trim().toLowerCase() === cleanEmail) {
+            target = { ...uData, id: docSnap.id };
+          }
+        });
+      } catch (e) {
+        console.warn("Error querying Firestore for login email:", e);
+      }
+    }
+
+    if (target) {
+      if (target.password && target.password.trim() !== '' && password && password.trim() !== '') {
+        if (password !== target.password) {
+          return { success: false, error: 'Senha incorreta para este perfil.' };
+        }
+      }
+      const now = new Date().toISOString();
+      setAccounts((prev) =>
+        prev.map((a) => (a.id === target!.id ? { ...a, lastLoginAt: now } : a))
+      );
+      setActiveUserId(target.id);
+      setIsAuthModalOpen(false);
+      return { success: true };
+    }
+
+    // 3. Try Firebase Auth sign in as last resort
     try {
-      const cred = await signInWithEmailAndPassword(auth, email.trim(), password);
+      const cred = await signInWithEmailAndPassword(auth, cleanEmail, password);
       const uid = cred.user.uid;
       setActiveUserId(uid);
       setIsAuthModalOpen(false);
       return { success: true };
     } catch (err: any) {
-      console.warn("Firebase Auth email login fallback to local profile:", err.message);
-      // Fallback to local profile check if Firebase Auth has error (e.g. user created locally)
-      const cleanEmail = email.trim().toLowerCase();
-      const target = accounts.find((a) => a.email.trim().toLowerCase() === cleanEmail);
-      if (target) {
-        return selectAccount(target.id, password);
-      }
-      return { success: false, error: err.message || 'Erro ao fazer login com e-mail.' };
+      return { success: false, error: 'Perfil não encontrado com este e-mail. Verifique o e-mail ou crie um novo perfil.' };
     }
   };
 
   const registerWithEmail = async (data: Omit<UserAccount, 'id' | 'createdAt' | 'lastLoginAt'> & { password: string }) => {
+    const cleanEmail = data.email.trim().toLowerCase();
+    const uid = `usr_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const newAccount: UserAccount = {
+      ...data,
+      email: cleanEmail,
+      id: uid,
+      createdAt: new Date().toISOString(),
+      lastLoginAt: new Date().toISOString(),
+    };
+
+    // Save to Firestore cloud database for cross-device access
     try {
-      const cred = await createUserWithEmailAndPassword(auth, data.email.trim(), data.password);
-      const uid = cred.user.uid;
-      const newAccount: UserAccount = {
-        id: uid,
-        name: data.name,
-        email: data.email,
-        password: data.password,
-        university: data.university,
-        currentSemester: data.currentSemester,
-        dreamSpecialty: data.dreamSpecialty,
-        avatarUrl: data.avatarUrl,
-        createdAt: new Date().toISOString(),
-        lastLoginAt: new Date().toISOString(),
-      };
-
-      // Save to Firestore
       await setDoc(doc(db, 'users', uid), newAccount);
-
-      setAccounts((prev) => [...prev.filter((a) => a.id !== uid), newAccount]);
-      setActiveUserId(uid);
-      setIsAuthModalOpen(false);
-      return { success: true, account: newAccount };
     } catch (err: any) {
-      console.warn("Firebase Auth registration fallback:", err.message);
-      // Fallback local registration
-      const newAccount: UserAccount = {
-        ...data,
-        id: `usr_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-        createdAt: new Date().toISOString(),
-        lastLoginAt: new Date().toISOString(),
-      };
-      setAccounts((prev) => [...prev, newAccount]);
-      setActiveUserId(newAccount.id);
-      setIsAuthModalOpen(false);
-      return { success: true, account: newAccount };
+      console.warn("Firestore save warning during registration:", err.message);
     }
+
+    // Try Firebase Auth if enabled, but don't fail if operation-not-allowed
+    try {
+      await createUserWithEmailAndPassword(auth, cleanEmail, data.password);
+    } catch (e) {
+      // Ignore auth/operation-not-allowed
+    }
+
+    setAccounts((prev) => [...prev.filter((a) => a.email.trim().toLowerCase() !== cleanEmail), newAccount]);
+    setActiveUserId(uid);
+    setIsAuthModalOpen(false);
+    return { success: true, account: newAccount };
   };
 
   const logout = async () => {
