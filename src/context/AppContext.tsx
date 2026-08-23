@@ -221,6 +221,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (savedPomo) {
       try { setPomodoroSettings(JSON.parse(savedPomo)); } catch (e) {}
     }
+
+    // Restore state from Firestore if available for seamless cross-device synchronization
+    async function loadCloudAppData() {
+      try {
+        const docRef = doc(db, 'users', activeUserId, 'appData', 'state');
+        const snap = await getDoc(docRef);
+        if (snap.exists()) {
+          const cloudData = snap.data();
+          if (cloudData.semesters) setSemesters(cloudData.semesters);
+          if (cloudData.subjects) setSubjects(cloudData.subjects);
+          if (cloudData.topics) setTopics(cloudData.topics);
+          if (cloudData.exams) setExams(cloudData.exams);
+          if (cloudData.schedule) setSchedule(cloudData.schedule);
+          if (cloudData.achievements) setAchievements(cloudData.achievements);
+          if (cloudData.medRevisions) setMedRevisions(cloudData.medRevisions);
+          if (cloudData.userProfile) setUserProfile(cloudData.userProfile);
+          if (cloudData.studySessions) setStudySessions(cloudData.studySessions);
+          if (cloudData.pomodoroSettings) setPomodoroSettings(cloudData.pomodoroSettings);
+        }
+      } catch (e) {
+        console.warn("Could not load cloud app data from Firestore:", e);
+      }
+    }
+    loadCloudAppData();
   }, [activeUserId]);
 
   // Persist state to LocalStorage keyed to activeUserId

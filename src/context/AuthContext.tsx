@@ -215,16 +215,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     if (target) {
-      if (target.password && target.password.trim() !== '' && password && password.trim() !== '') {
-        if (password !== target.password) {
+      // Validate password if user set a password
+      if (target.password && target.password.trim() !== '') {
+        if (!password || password.trim() !== target.password.trim()) {
           return { success: false, error: 'Senha incorreta para este perfil.' };
         }
       }
       const now = new Date().toISOString();
-      setAccounts((prev) =>
-        prev.map((a) => (a.id === target!.id ? { ...a, lastLoginAt: now } : a))
-      );
-      setActiveUserId(target.id);
+      const updatedTarget = { ...target, lastLoginAt: now };
+
+      // Ensure local state includes the logged-in target user so activeUser is immediately populated
+      setAccounts((prev) => {
+        const exists = prev.some((a) => a.id === updatedTarget.id || a.email.trim().toLowerCase() === cleanEmail);
+        if (exists) {
+          return prev.map((a) => (a.id === updatedTarget.id || a.email.trim().toLowerCase() === cleanEmail) ? updatedTarget : a);
+        } else {
+          return [...prev, updatedTarget];
+        }
+      });
+
+      setActiveUserId(updatedTarget.id);
       setIsAuthModalOpen(false);
       return { success: true };
     }
@@ -243,6 +253,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const registerWithEmail = async (data: Omit<UserAccount, 'id' | 'createdAt' | 'lastLoginAt'> & { password: string }) => {
     const cleanEmail = data.email.trim().toLowerCase();
+
+    // Check if user already exists locally or in cloud to avoid overwriting or duplicate confusion
+    let existingAccount = accounts.find((a) => a.email.trim().toLowerCase() === cleanEmail);
+    if (!existingAccount) {
+      try {
+        const querySnapshot = await getDocs(collection(db, 'users'));
+        querySnapshot.forEach((docSnap) => {
+          const uData = docSnap.data() as UserAccount;
+          if (uData && uData.email && uData.email.trim().toLowerCase() === cleanEmail) {
+            existingAccount = { ...uData, id: docSnap.id };
+          }
+        });
+      } catch (e) {
+        console.warn("Error checking existing user in Firestore:", e);
+      }
+    }
+
+    if (existingAccount) {
+      return {
+        success: false,
+        error: 'Este e-mail já possui um perfil cadastrado. Vá para a aba "Login" para acessar seu perfil.',
+      };
+    }
+
     const uid = `usr_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     const newAccount: UserAccount = {
       ...data,
@@ -287,13 +321,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       prev.map((a) => (a.id === userId ? { ...a, ...data } : a))
     );
 
-    // Sync to Firestore if authenticated user
-    if (auth.currentUser && auth.currentUser.uid === userId) {
-      try {
-        await setDoc(doc(db, 'users', userId), data, { merge: true });
-      } catch (err) {
-        console.error("Error updating user in Firestore:", err);
-      }
+    // Sync updates to Firestore
+    try {
+      await setDoc(doc(db, 'users', userId), data, { merge: true });
+    } catch (err) {
+      console.error("Error updating user in Firestore:", err);
     }
   };
 
