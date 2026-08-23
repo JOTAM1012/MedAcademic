@@ -14,14 +14,18 @@ import {
   Award,
   X,
   BookOpen,
+  Users,
+  LogOut,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
 
 interface TopBarProps {
   onToggleMobileMenu: () => void;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({ onToggleMobileMenu }) => {
+  const { openAuthModal } = useAuth();
   const {
     currentTab,
     currentSemester,
@@ -345,13 +349,13 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleMobileMenu }) => {
           )}
         </button>
 
-        {/* User Avatar */}
-        <div className="flex items-center gap-3 border-l pl-3 sm:pl-4 border-slate-200 dark:border-slate-800">
+        {/* User Profile & Account Switcher */}
+        <div className="flex items-center gap-2 border-l pl-3 sm:pl-4 border-slate-200 dark:border-slate-800">
           <button
             id="topbar-user-avatar-btn"
             onClick={() => setCurrentTab('profile')}
             className="w-9 h-9 rounded-full bg-blue-100 dark:bg-blue-950 border-2 border-white dark:border-slate-800 shadow-xs flex items-center justify-center overflow-hidden transition-transform hover:scale-105"
-            title="Ir para o Perfil"
+            title={`Perfil de ${userProfile.name}`}
           >
             <img
               src={userProfile.avatarUrl}

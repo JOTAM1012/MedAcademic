@@ -287,11 +287,15 @@ export const StudyStopwatchView: React.FC = () => {
               onChange={(e) => setTimerSubject(e.target.value)}
               className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-2 text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-sky-500"
             >
-              {subjects.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
+              {subjects.length === 0 ? (
+                <option value="">Geral / Nenhuma Matéria Cadastrada</option>
+              ) : (
+                subjects.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))
+              )}
             </select>
           </div>
 

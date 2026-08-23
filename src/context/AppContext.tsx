@@ -22,6 +22,9 @@ import {
   INITIAL_USER_PROFILE,
 } from '../mockData';
 
+import { useAuth } from './AuthContext';
+import { db, doc, setDoc, getDoc } from '../lib/firebase';
+
 interface TimerState {
   isRunning: boolean;
   mode: 'pomodoro' | 'short_break' | 'medium_break' | 'long_break' | 'stopwatch';
@@ -121,116 +124,182 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-const STORAGE_KEYS = {
-  SEMESTERS: 'medacademic_semesters_v1',
-  SUBJECTS: 'medacademic_subjects_v1',
-  TOPICS: 'medacademic_topics_v1',
-  EXAMS: 'medacademic_exams_v1',
-  SCHEDULE: 'medacademic_schedule_v1',
-  ACHIEVEMENTS: 'medacademic_achievements_v1',
-  MED_REVISIONS: 'medacademic_med_revisions_v1',
-  USER_PROFILE: 'medacademic_user_profile_v1',
-  STUDY_SESSIONS: 'medacademic_study_sessions_v1',
+const getUserKey = (keyName: string, userId: string | null) => {
+  const uid = userId || 'default';
+  return `medacademic_usr_${uid}_${keyName}_v2`;
 };
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentTab, setCurrentTab] = useState<string>('dashboard');
+  const { activeUserId, activeUser, updateAccount } = useAuth();
+
+  const [currentTab, setCurrentTab] = useState<string>('profile');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isOnboardingOpen, setIsOnboardingOpen] = useState<boolean>(false);
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'info' | 'warning' } | null>(null);
 
-  // Load Initial State with LocalStorage
-  const [semesters, setSemesters] = useState<Semester[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.SEMESTERS);
-    return saved ? JSON.parse(saved) : INITIAL_SEMESTERS;
-  });
+  // States
+  const [semesters, setSemesters] = useState<Semester[]>(INITIAL_SEMESTERS);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [topics, setTopics] = useState<Topic[]>([]);
+  const [exams, setExams] = useState<Exam[]>([]);
+  const [schedule, setSchedule] = useState<ScheduleClass[]>([]);
+  const [achievements, setAchievements] = useState<Achievement[]>(INITIAL_ACHIEVEMENTS);
+  const [medRevisions, setMedRevisions] = useState<MedRevisionTopic[]>([]);
+  const [userProfile, setUserProfile] = useState<UserProfile>(INITIAL_USER_PROFILE);
+  const [studySessions, setStudySessions] = useState<StudySession[]>([]);
 
-  const [subjects, setSubjects] = useState<Subject[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.SUBJECTS);
-    return saved ? JSON.parse(saved) : INITIAL_SUBJECTS;
-  });
-
-  const [topics, setTopics] = useState<Topic[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.TOPICS);
-    return saved ? JSON.parse(saved) : INITIAL_TOPICS;
-  });
-
-  const [exams, setExams] = useState<Exam[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.EXAMS);
-    return saved ? JSON.parse(saved) : INITIAL_EXAMS;
-  });
-
-  const [schedule, setSchedule] = useState<ScheduleClass[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.SCHEDULE);
-    return saved ? JSON.parse(saved) : INITIAL_SCHEDULE;
-  });
-
-  const [achievements, setAchievements] = useState<Achievement[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.ACHIEVEMENTS);
-    return saved ? JSON.parse(saved) : INITIAL_ACHIEVEMENTS;
-  });
-
-  const [medRevisions, setMedRevisions] = useState<MedRevisionTopic[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.MED_REVISIONS);
-    return saved ? JSON.parse(saved) : INITIAL_MED_REVISIONS;
-  });
-
-  const [userProfile, setUserProfile] = useState<UserProfile>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.USER_PROFILE);
-    return saved ? JSON.parse(saved) : INITIAL_USER_PROFILE;
-  });
-
-  const [studySessions, setStudySessions] = useState<StudySession[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.STUDY_SESSIONS);
-    if (saved) return JSON.parse(saved);
-    return [
-      {
-        id: 'sess-1',
-        subjectId: 'sub-cardio',
-        durationMinutes: 45,
-        timestamp: new Date(Date.now() - 3600000 * 4).toISOString(),
-        type: 'pomodoro',
-        notes: 'Estudo dos 4 pilares da ICFER e dosagem de betabloqueadores.',
-        xpEarned: 150,
-      },
-      {
-        id: 'sess-2',
-        subjectId: 'sub-semiologia',
-        durationMinutes: 60,
-        timestamp: new Date(Date.now() - 3600000 * 24).toISOString(),
-        type: 'stopwatch',
-        notes: 'Ausculta pulmonar e sons pleurais.',
-        xpEarned: 200,
-      },
-    ];
-  });
-
-  // Timer State
   const [timer, setTimer] = useState<TimerState>({
     isRunning: false,
     mode: 'pomodoro',
     timeLeftSeconds: 25 * 60,
     elapsedSeconds: 0,
-    selectedSubjectId: 'sub-cardio',
+    selectedSubjectId: '',
     totalPomodorosCompleted: 0,
   });
 
-  const [pomodoroSettings, setPomodoroSettings] = useState(() => {
-    const saved = localStorage.getItem('medacademic_pomodoro_settings_v1');
-    if (saved) {
-      try { return JSON.parse(saved); } catch {}
-    }
-    return {
-      workMinutes: 25,
-      shortBreakMinutes: 5,
-      mediumBreakMinutes: 10,
-      longBreakMinutes: 15,
-    };
+  const [pomodoroSettings, setPomodoroSettings] = useState({
+    workMinutes: 25,
+    shortBreakMinutes: 5,
+    mediumBreakMinutes: 10,
+    longBreakMinutes: 15,
   });
 
+  // Rehydrate state on activeUserId change
   useEffect(() => {
-    localStorage.setItem('medacademic_pomodoro_settings_v1', JSON.stringify(pomodoroSettings));
-  }, [pomodoroSettings]);
+    if (!activeUserId) return;
+
+    setCurrentTab('dashboard');
+
+    const savedProfile = localStorage.getItem(getUserKey('user_profile', activeUserId));
+    if (savedProfile) {
+      setUserProfile(JSON.parse(savedProfile));
+    } else if (activeUser) {
+      setUserProfile({
+        name: activeUser.name,
+        email: activeUser.email,
+        university: activeUser.university,
+        currentSemesterId: 'sem-1',
+        weeklyTargetHours: 30,
+        targetAverageGrade: 8.5,
+        dreamSpecialty: activeUser.dreamSpecialty,
+        avatarUrl: activeUser.avatarUrl,
+        totalXp: 0,
+        level: 1,
+        currentStreakDays: 0,
+        bestStreakDays: 0,
+        darkMode: false,
+        soundEnabled: true,
+        onboardingCompleted: false,
+      });
+    }
+
+    const savedSem = localStorage.getItem(getUserKey('semesters', activeUserId));
+    setSemesters(savedSem ? JSON.parse(savedSem) : INITIAL_SEMESTERS);
+
+    const savedSub = localStorage.getItem(getUserKey('subjects', activeUserId));
+    setSubjects(savedSub ? JSON.parse(savedSub) : []);
+
+    const savedTop = localStorage.getItem(getUserKey('topics', activeUserId));
+    setTopics(savedTop ? JSON.parse(savedTop) : []);
+
+    const savedEx = localStorage.getItem(getUserKey('exams', activeUserId));
+    setExams(savedEx ? JSON.parse(savedEx) : []);
+
+    const savedSch = localStorage.getItem(getUserKey('schedule', activeUserId));
+    setSchedule(savedSch ? JSON.parse(savedSch) : []);
+
+    const savedAch = localStorage.getItem(getUserKey('achievements', activeUserId));
+    setAchievements(savedAch ? JSON.parse(savedAch) : INITIAL_ACHIEVEMENTS);
+
+    const savedMed = localStorage.getItem(getUserKey('med_revisions', activeUserId));
+    setMedRevisions(savedMed ? JSON.parse(savedMed) : []);
+
+    const savedSess = localStorage.getItem(getUserKey('study_sessions', activeUserId));
+    setStudySessions(savedSess ? JSON.parse(savedSess) : []);
+
+    const savedPomo = localStorage.getItem(getUserKey('pomodoro_settings', activeUserId));
+    if (savedPomo) {
+      try { setPomodoroSettings(JSON.parse(savedPomo)); } catch (e) {}
+    }
+  }, [activeUserId]);
+
+  // Persist state to LocalStorage keyed to activeUserId
+  useEffect(() => {
+    if (activeUserId) localStorage.setItem(getUserKey('semesters', activeUserId), JSON.stringify(semesters));
+  }, [semesters, activeUserId]);
+
+  useEffect(() => {
+    if (activeUserId) localStorage.setItem(getUserKey('subjects', activeUserId), JSON.stringify(subjects));
+  }, [subjects, activeUserId]);
+
+  useEffect(() => {
+    if (activeUserId) localStorage.setItem(getUserKey('topics', activeUserId), JSON.stringify(topics));
+  }, [topics, activeUserId]);
+
+  useEffect(() => {
+    if (activeUserId) localStorage.setItem(getUserKey('exams', activeUserId), JSON.stringify(exams));
+  }, [exams, activeUserId]);
+
+  useEffect(() => {
+    if (activeUserId) localStorage.setItem(getUserKey('schedule', activeUserId), JSON.stringify(schedule));
+  }, [schedule, activeUserId]);
+
+  useEffect(() => {
+    if (activeUserId) localStorage.setItem(getUserKey('achievements', activeUserId), JSON.stringify(achievements));
+  }, [achievements, activeUserId]);
+
+  useEffect(() => {
+    if (activeUserId) localStorage.setItem(getUserKey('med_revisions', activeUserId), JSON.stringify(medRevisions));
+  }, [medRevisions, activeUserId]);
+
+  useEffect(() => {
+    if (activeUserId) localStorage.setItem(getUserKey('user_profile', activeUserId), JSON.stringify(userProfile));
+  }, [userProfile, activeUserId]);
+
+  useEffect(() => {
+    if (activeUserId) localStorage.setItem(getUserKey('study_sessions', activeUserId), JSON.stringify(studySessions));
+  }, [studySessions, activeUserId]);
+
+  // Sync state to Firestore in cloud when activeUserId changes or state updates
+  useEffect(() => {
+    if (!activeUserId) return;
+
+    const syncToFirestore = async () => {
+      try {
+        const docRef = doc(db, 'users', activeUserId, 'appData', 'state');
+        await setDoc(docRef, {
+          semesters,
+          subjects,
+          topics,
+          exams,
+          schedule,
+          achievements,
+          medRevisions,
+          userProfile,
+          studySessions,
+          pomodoroSettings,
+          updatedAt: new Date().toISOString(),
+        }, { merge: true });
+      } catch (err) {
+        // Silent fallback to local storage
+      }
+    };
+
+    const timer = setTimeout(syncToFirestore, 1000);
+    return () => clearTimeout(timer);
+  }, [
+    activeUserId,
+    semesters,
+    subjects,
+    topics,
+    exams,
+    schedule,
+    achievements,
+    medRevisions,
+    userProfile,
+    studySessions,
+    pomodoroSettings,
+  ]);
 
   const updatePomodoroSettings = (settings: { workMinutes: number; shortBreakMinutes: number; mediumBreakMinutes: number; longBreakMinutes: number }) => {
     setPomodoroSettings(settings);
@@ -246,43 +315,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
     });
   };
-
-  // Persist State to LocalStorage
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.SEMESTERS, JSON.stringify(semesters));
-  }, [semesters]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.SUBJECTS, JSON.stringify(subjects));
-  }, [subjects]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.TOPICS, JSON.stringify(topics));
-  }, [topics]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.EXAMS, JSON.stringify(exams));
-  }, [exams]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.SCHEDULE, JSON.stringify(schedule));
-  }, [schedule]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.ACHIEVEMENTS, JSON.stringify(achievements));
-  }, [achievements]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.MED_REVISIONS, JSON.stringify(medRevisions));
-  }, [medRevisions]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.USER_PROFILE, JSON.stringify(userProfile));
-  }, [userProfile]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.STUDY_SESSIONS, JSON.stringify(studySessions));
-  }, [studySessions]);
 
   // Dark Mode side-effect
   useEffect(() => {
@@ -607,7 +639,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updateUserProfile = (profile: Partial<UserProfile>) => {
-    setUserProfile((prev) => ({ ...prev, ...profile }));
+    setUserProfile((prev) => {
+      const updated = { ...prev, ...profile };
+      if (activeUserId) {
+        updateAccount(activeUserId, {
+          name: updated.name,
+          email: updated.email,
+          university: updated.university,
+          dreamSpecialty: updated.dreamSpecialty,
+          avatarUrl: updated.avatarUrl,
+        });
+      }
+      return updated;
+    });
     showNotification('Perfil atualizado com sucesso!', 'success');
   };
 
@@ -674,48 +718,52 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       totalPomodorosCompleted: 0,
     });
 
-    // Clear and re-seed LocalStorage with clean blank state
-    localStorage.setItem(STORAGE_KEYS.SEMESTERS, JSON.stringify([blankSemester]));
-    localStorage.setItem(STORAGE_KEYS.SUBJECTS, JSON.stringify([]));
-    localStorage.setItem(STORAGE_KEYS.TOPICS, JSON.stringify([]));
-    localStorage.setItem(STORAGE_KEYS.EXAMS, JSON.stringify([]));
-    localStorage.setItem(STORAGE_KEYS.SCHEDULE, JSON.stringify([]));
-    localStorage.setItem(STORAGE_KEYS.STUDY_SESSIONS, JSON.stringify([]));
+    // Clear and re-seed LocalStorage with clean blank state for active user
+    if (activeUserId) {
+      localStorage.setItem(getUserKey('semesters', activeUserId), JSON.stringify([blankSemester]));
+      localStorage.setItem(getUserKey('subjects', activeUserId), JSON.stringify([]));
+      localStorage.setItem(getUserKey('topics', activeUserId), JSON.stringify([]));
+      localStorage.setItem(getUserKey('exams', activeUserId), JSON.stringify([]));
+      localStorage.setItem(getUserKey('schedule', activeUserId), JSON.stringify([]));
+      localStorage.setItem(getUserKey('study_sessions', activeUserId), JSON.stringify([]));
+    }
 
     showNotification('O site foi completamente zerado! Dados limpos com sucesso.', 'warning');
   };
 
-  // Restore Default Medical Curriculum Demo
+  // Reset to Clean Slate
   const resetAllData = () => {
     setSemesters(INITIAL_SEMESTERS);
-    setSubjects(INITIAL_SUBJECTS);
-    setTopics(INITIAL_TOPICS);
-    setExams(INITIAL_EXAMS);
-    setSchedule(INITIAL_SCHEDULE);
+    setSubjects([]);
+    setTopics([]);
+    setExams([]);
+    setSchedule([]);
     setAchievements(INITIAL_ACHIEVEMENTS);
-    setMedRevisions(INITIAL_MED_REVISIONS);
+    setMedRevisions([]);
     setUserProfile(INITIAL_USER_PROFILE);
-    setStudySessions([
-      {
-        id: 'sess-1',
-        subjectId: 'sub-cardio',
-        durationMinutes: 45,
-        timestamp: new Date(Date.now() - 3600000 * 4).toISOString(),
-        type: 'pomodoro',
-        notes: 'Estudo dos 4 pilares da ICFER e dosagem de betabloqueadores.',
-        xpEarned: 150,
-      },
-    ]);
+    setStudySessions([]);
     setTimer({
       isRunning: false,
       mode: 'pomodoro',
       timeLeftSeconds: 25 * 60,
       elapsedSeconds: 0,
-      selectedSubjectId: 'sub-cardio',
+      selectedSubjectId: '',
       totalPomodorosCompleted: 0,
     });
 
-    showNotification('Currículo médico de demonstração restaurado!', 'success');
+    if (activeUserId) {
+      localStorage.removeItem(getUserKey('semesters', activeUserId));
+      localStorage.removeItem(getUserKey('subjects', activeUserId));
+      localStorage.removeItem(getUserKey('topics', activeUserId));
+      localStorage.removeItem(getUserKey('exams', activeUserId));
+      localStorage.removeItem(getUserKey('schedule', activeUserId));
+      localStorage.removeItem(getUserKey('achievements', activeUserId));
+      localStorage.removeItem(getUserKey('med_revisions', activeUserId));
+      localStorage.removeItem(getUserKey('study_sessions', activeUserId));
+      localStorage.removeItem(getUserKey('user_profile', activeUserId));
+    }
+
+    showNotification('Workspace redefinido para estado inicial limpo com sucesso!', 'success');
   };
 
   // Timer controls

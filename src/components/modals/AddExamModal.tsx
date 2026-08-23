@@ -13,7 +13,7 @@ export const AddExamModal: React.FC<AddExamModalProps> = ({
   onClose,
   defaultSubjectId,
 }) => {
-  const { subjects, addExam, addXp, triggerConfetti } = useApp();
+  const { subjects, addExam, addXp, triggerConfetti, showNotification } = useApp();
 
   const [subjectId, setSubjectId] = useState(defaultSubjectId || subjects[0]?.id || '');
   const [title, setTitle] = useState('');
@@ -26,7 +26,11 @@ export const AddExamModal: React.FC<AddExamModalProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim() || !date || !subjectId) return;
+    if (!subjectId) {
+      showNotification('Cadastre ao menos uma disciplina antes de agendar uma avaliação.', 'warning');
+      return;
+    }
+    if (!title.trim() || !date) return;
 
     addExam({
       subjectId,
@@ -77,11 +81,15 @@ export const AddExamModal: React.FC<AddExamModalProps> = ({
               className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-sky-500"
               required
             >
-              {subjects.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name} ({s.code})
-                </option>
-              ))}
+              {subjects.length === 0 ? (
+                <option value="">(Nenhuma disciplina cadastrada)</option>
+              ) : (
+                subjects.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name} ({s.code})
+                  </option>
+                ))
+              )}
             </select>
           </div>
 

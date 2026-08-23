@@ -31,7 +31,7 @@ interface GeneratedTopicItem {
 }
 
 export const GeminiTutorView: React.FC = () => {
-  const { subjects, addTopic, addXp, triggerConfetti } = useApp();
+  const { subjects, addTopic, addXp, triggerConfetti, showNotification } = useApp();
   const [activeMode, setActiveMode] = useState<'chat' | 'topics' | 'quiz'>('chat');
   const [inputPrompt, setInputPrompt] = useState<string>('');
   const [selectedSubjectId, setSelectedSubjectId] = useState<string>(subjects[0]?.id || '');
@@ -203,7 +203,12 @@ export const GeminiTutorView: React.FC = () => {
   };
 
   const handleAddTopicToSpacedRepetition = (item: GeneratedTopicItem, index: number) => {
-    const targetSubId = selectedSubjectId || subjects[0]?.id || 'sub-1';
+    const targetSubId = selectedSubjectId || subjects[0]?.id;
+
+    if (!targetSubId) {
+      showNotification('Cadastre ao menos uma disciplina no semestre antes de adicionar tópicos.', 'warning');
+      return;
+    }
 
     addTopic({
       subjectId: targetSubId,
@@ -395,11 +400,15 @@ export const GeminiTutorView: React.FC = () => {
                   onChange={(e) => setSelectedSubjectId(e.target.value)}
                   className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3 py-2.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-sky-500"
                 >
-                  {subjects.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      Disciplina: {s.name}
-                    </option>
-                  ))}
+                  {subjects.length === 0 ? (
+                    <option value="">(Nenhuma disciplina cadastrada)</option>
+                  ) : (
+                    subjects.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        Disciplina: {s.name}
+                      </option>
+                    ))
+                  )}
                 </select>
               </div>
             </div>

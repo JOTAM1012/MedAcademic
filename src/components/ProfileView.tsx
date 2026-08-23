@@ -23,12 +23,18 @@ import {
   Calendar,
   Clock,
   BookOpen,
-  ArrowLeft
+  ArrowLeft,
+  Users,
+  Lock,
+  ShieldCheck,
+  LogOut,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
 import { CARTOON_AVATARS } from '../data/avatars';
 
 export const ProfileView: React.FC = () => {
+  const { accounts, activeUser, openAuthModal, updateAccount } = useAuth();
   const {
     userProfile,
     updateUserProfile,
@@ -46,6 +52,7 @@ export const ProfileView: React.FC = () => {
 
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState(userProfile.name);
+  const [email, setEmail] = useState(userProfile.email || '');
   const [university, setUniversity] = useState(userProfile.university);
   const [dreamSpecialty, setDreamSpecialty] = useState(userProfile.dreamSpecialty || '');
   const [targetExam, setTargetExam] = useState(userProfile.targetExam || '');
@@ -56,6 +63,17 @@ export const ProfileView: React.FC = () => {
   );
   const [googleSyncEnabled, setGoogleSyncEnabled] = useState(userProfile.googleSyncEnabled || false);
   const [savedSuccess, setSavedSuccess] = useState(false);
+
+  // Sync state when userProfile updates
+  React.useEffect(() => {
+    setName(userProfile.name);
+    setEmail(userProfile.email || '');
+    setUniversity(userProfile.university);
+    setDreamSpecialty(userProfile.dreamSpecialty || '');
+    setTargetExam(userProfile.targetExam || '');
+    setWeeklyTargetHours(userProfile.weeklyTargetHours || 30);
+    setAvatarUrl(userProfile.avatarUrl || CARTOON_AVATARS[0].url);
+  }, [userProfile]);
 
   // Clear / Wipe Modal state
   const [isWipeModalOpen, setIsWipeModalOpen] = useState(false);
@@ -86,11 +104,34 @@ export const ProfileView: React.FC = () => {
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!name.trim()) {
+      showNotification('O campo Nome Completo é obrigatório.', 'warning');
+      return;
+    }
+    if (!email.trim() || !email.includes('@')) {
+      showNotification('O campo E-mail Acadêmico é obrigatório.', 'warning');
+      return;
+    }
+    if (!university.trim()) {
+      showNotification('O campo Faculdade de Medicina é obrigatório.', 'warning');
+      return;
+    }
+    if (!targetExam.trim()) {
+      showNotification('O campo Prova Alvo R1 é obrigatório.', 'warning');
+      return;
+    }
+    if (!dreamSpecialty.trim()) {
+      showNotification('O campo Especialidade dos Sonhos é obrigatório.', 'warning');
+      return;
+    }
+
     updateUserProfile({
-      name,
-      university,
-      dreamSpecialty,
-      targetExam,
+      name: name.trim(),
+      email: email.trim(),
+      university: university.trim(),
+      dreamSpecialty: dreamSpecialty.trim(),
+      targetExam: targetExam.trim(),
       googleSyncEnabled,
       weeklyTargetHours: Number(weeklyTargetHours),
       avatarUrl,
@@ -99,7 +140,7 @@ export const ProfileView: React.FC = () => {
     setTimeout(() => {
       setSavedSuccess(false);
       setIsEditing(false);
-    }, 1500);
+    }, 1200);
   };
 
   const toggleGoogleSync = () => {
@@ -212,13 +253,15 @@ export const ProfileView: React.FC = () => {
           </p>
         </div>
         {!isEditing ? (
-          <button
-            onClick={() => setIsEditing(true)}
-            className="shrink-0 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer"
-          >
-            <Edit3 className="h-4 w-4" />
-            <span>Editar Perfil</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsEditing(true)}
+              className="shrink-0 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer"
+            >
+              <Edit3 className="h-4 w-4" />
+              <span>Editar Perfil</span>
+            </button>
+          </div>
         ) : (
           <button
             onClick={() => setIsEditing(false)}
@@ -267,33 +310,20 @@ export const ProfileView: React.FC = () => {
               </div>
               <div>
                 <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2 mb-2">
-                  {userProfile.googleSyncEnabled ? <Cloud className="h-5 w-5 text-sky-500" /> : <CloudOff className="h-5 w-5 text-slate-400" />}
+                  <Cloud className="h-5 w-5 text-sky-500" />
                   Google Cloud Sync
+                  <span className="text-[10px] bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-800 px-2 py-0.5 rounded-full uppercase font-bold">
+                    Sempre Ativo
+                  </span>
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mb-5 leading-relaxed">
-                  Mantenha suas matérias, revisões espaçadas e dados acadêmicos sincronizados em tempo real na nuvem de forma segura.
+                  Sincronização contínua via Firebase Firestore ativada automaticamente. Suas matérias, revisões espaçadas, notas e métricas são salvas na nuvem em tempo real.
                 </p>
               </div>
-              <button
-                onClick={toggleGoogleSync}
-                className={`w-full py-3 rounded-xl text-xs font-black shadow-xs transition-all cursor-pointer flex items-center justify-center gap-2 ${
-                  userProfile.googleSyncEnabled
-                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 dark:bg-emerald-950/30 dark:border-emerald-800/50 dark:text-emerald-400 dark:hover:bg-emerald-900/40'
-                    : 'bg-sky-600 text-white hover:bg-sky-700 border border-transparent'
-                }`}
-              >
-                {userProfile.googleSyncEnabled ? (
-                  <>
-                    <Check className="h-4 w-4" />
-                    Sincronização Ativa
-                  </>
-                ) : (
-                  <>
-                    <Cloud className="h-4 w-4" />
-                    Ativar Sincronização
-                  </>
-                )}
-              </button>
+              <div className="w-full py-3 rounded-xl text-xs font-black shadow-xs flex items-center justify-center gap-2 bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:border-emerald-800/60 dark:text-emerald-400">
+                <Check className="h-4 w-4 text-emerald-500" />
+                <span>Sincronização em Tempo Real Ativa</span>
+              </div>
             </div>
 
             {/* Study Metrics */}
@@ -404,17 +434,35 @@ export const ProfileView: React.FC = () => {
                 </div>
 
                 <div className="flex-1 space-y-4 w-full">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                      Nome de Exibição
-                    </label>
-                    <input
-                      type="text"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-4 py-2.5 text-sm text-slate-900 dark:text-white focus:outline-hidden focus:border-sky-500"
-                      required
-                    />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
+                        <span>Nome Completo</span>
+                        <span className="text-[10px] text-rose-500 font-extrabold uppercase">* Obrigatório</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-4 py-2.5 text-sm text-slate-900 dark:text-white focus:outline-hidden focus:border-sky-500"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
+                        <span>E-mail Acadêmico</span>
+                        <span className="text-[10px] text-rose-500 font-extrabold uppercase">* Obrigatório</span>
+                      </label>
+                      <input
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="ex: mariana@med.ufmg.br"
+                        className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-4 py-2.5 text-sm text-slate-900 dark:text-white focus:outline-hidden focus:border-sky-500"
+                        required
+                      />
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2">
@@ -464,8 +512,9 @@ export const ProfileView: React.FC = () => {
               
               <div className="space-y-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Universidade / Faculdade
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
+                    <span>Universidade / Faculdade de Medicina</span>
+                    <span className="text-[10px] text-rose-500 font-extrabold uppercase">* Obrigatório</span>
                   </label>
                   <input
                     type="text"
@@ -477,8 +526,9 @@ export const ProfileView: React.FC = () => {
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                      Prova de Acesso Direto (Meta)
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
+                      <span>Prova de Acesso Direto (Meta R1 / Revalida)</span>
+                      <span className="text-[10px] text-rose-500 font-extrabold uppercase">* Obrigatório</span>
                     </label>
                     <input
                       type="text"
@@ -489,8 +539,9 @@ export const ProfileView: React.FC = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                      Especialidade dos Sonhos
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
+                      <span>Especialidade dos Sonhos (R1)</span>
+                      <span className="text-[10px] text-rose-500 font-extrabold uppercase">* Obrigatório</span>
                     </label>
                     <input
                       type="text"

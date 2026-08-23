@@ -14,8 +14,10 @@ import {
   Flame,
   Award,
   BookOpen,
+  Users,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
 
 interface SidebarProps {
   isMobileOpen: boolean;
@@ -23,6 +25,7 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen }) => {
+  const { openAuthModal } = useAuth();
   const {
     currentTab,
     setCurrentTab,
@@ -349,14 +352,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
         </div>
 
         {/* User Mini Profile Bar */}
-        <div className="px-3 pb-3">
+        <div className="px-3 pb-3 flex items-center gap-2">
           <button
             id="sidebar-profile-footer-btn"
             onClick={() => {
               setCurrentTab('profile');
               setIsMobileOpen(false);
             }}
-            className="flex w-full items-center gap-3 rounded-xl p-2 text-left bg-slate-800/20 hover:bg-slate-800/60 border border-slate-800 transition-colors"
+            className="flex flex-1 items-center gap-3 rounded-xl p-2 text-left bg-slate-800/20 hover:bg-slate-800/60 border border-slate-800 transition-colors min-w-0"
           >
             <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-950 border border-slate-700 overflow-hidden shrink-0">
               <img

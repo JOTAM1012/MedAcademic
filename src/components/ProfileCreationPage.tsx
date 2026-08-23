@@ -101,6 +101,7 @@ export const ProfileCreationPage: React.FC = () => {
     triggerConfetti,
     showNotification,
     setIsOnboardingOpen,
+    setCurrentTab,
   } = useApp();
 
   const [currentStep, setCurrentStep] = useState<number>(1);
@@ -116,7 +117,7 @@ export const ProfileCreationPage: React.FC = () => {
   const [semesterCode, setSemesterCode] = useState('2026.1');
   const [dreamSpecialty, setDreamSpecialty] = useState(userProfile.dreamSpecialty || 'Clínica Médica');
   const [targetExam, setTargetExam] = useState(userProfile.targetExam || '');
-  const [googleSyncEnabled, setGoogleSyncEnabled] = useState(userProfile.googleSyncEnabled || false);
+  const [googleSyncEnabled, setGoogleSyncEnabled] = useState(true);
   const [weeklyTargetHours, setWeeklyTargetHours] = useState<number>(userProfile.weeklyTargetHours || 30);
   const [targetAverageGrade, setTargetAverageGrade] = useState<number>(userProfile.targetAverageGrade || 8.5);
   const [selectedAvatarUrl, setSelectedAvatarUrl] = useState<string>(
@@ -168,8 +169,28 @@ export const ProfileCreationPage: React.FC = () => {
 
   const handleFinish = () => {
     if (!name.trim()) {
-      showNotification('Por favor, informe seu nome para continuar.', 'warning');
+      showNotification('Por favor, informe seu nome completo para continuar.', 'warning');
       setCurrentStep(1);
+      return;
+    }
+    if (!email.trim() || !email.includes('@')) {
+      showNotification('Por favor, informe um e-mail acadêmico válido.', 'warning');
+      setCurrentStep(1);
+      return;
+    }
+    if (!university.trim()) {
+      showNotification('Por favor, informe sua Faculdade de Medicina.', 'warning');
+      setCurrentStep(2);
+      return;
+    }
+    if (!targetExam.trim()) {
+      showNotification('Por favor, informe a Prova Alvo para o R1/Revalida.', 'warning');
+      setCurrentStep(3);
+      return;
+    }
+    if (!dreamSpecialty.trim()) {
+      showNotification('Por favor, selecione ou digite sua Especialidade Alvo.', 'warning');
+      setCurrentStep(3);
       return;
     }
 
@@ -189,8 +210,8 @@ export const ProfileCreationPage: React.FC = () => {
     // Update user profile
     const updated: Partial<UserProfile> = {
       name: name.trim(),
-      email: email.trim() || 'estudante@medstudy.com',
-      university: university.trim() || 'Faculdade de Medicina',
+      email: email.trim(),
+      university: university.trim(),
       dreamSpecialty: dreamSpecialty.trim(),
       targetExam: targetExam.trim(),
       googleSyncEnabled: googleSyncEnabled,
@@ -204,7 +225,11 @@ export const ProfileCreationPage: React.FC = () => {
     updateUserProfile(updated);
     addXp(150, 'Perfil Médico Criado com Sucesso!');
     triggerConfetti();
-    showNotification(`Bem-vindo(a), ${name.trim()}! Seu painel foi inicializado limpo no ${selectedSemesterNum}º Semestre.`, 'success');
+    
+    // Redirect directly to the Dashboard Tab
+    setCurrentTab('dashboard');
+    
+    showNotification(`Bem-vindo(a), ${name.trim()}! Seu perfil foi configurado com sucesso e o painel iniciado no ${selectedSemesterNum}º Semestre.`, 'success');
 
     // Open quick tutorial guide right after finishing
     setTimeout(() => {
@@ -308,8 +333,9 @@ export const ProfileCreationPage: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-300 mb-1.5">
-                      E-mail Acadêmico / Principal
+                    <label className="block text-xs font-bold text-slate-300 mb-1.5 flex items-center justify-between">
+                      <span>E-mail Acadêmico / Principal</span>
+                      <span className="text-[10px] text-rose-400 font-extrabold uppercase">* Obrigatório</span>
                     </label>
                     <input
                       type="email"
@@ -416,8 +442,9 @@ export const ProfileCreationPage: React.FC = () => {
                 <div className="space-y-5">
                   {/* University Freeform Input */}
                   <div>
-                    <label className="block text-xs font-bold text-slate-300 mb-1.5">
-                      Faculdade de Medicina / Instituição de Ensino
+                    <label className="block text-xs font-bold text-slate-300 mb-1.5 flex items-center justify-between">
+                      <span>Faculdade de Medicina / Instituição de Ensino</span>
+                      <span className="text-[10px] text-rose-400 font-extrabold uppercase">* Obrigatório</span>
                     </label>
                     <input
                       type="text"
@@ -550,8 +577,9 @@ export const ProfileCreationPage: React.FC = () => {
                 <div className="space-y-5">
                   {/* Target Exam */}
                   <div>
-                    <label className="block text-xs font-bold text-slate-300 mb-1.5">
-                      Prova de Acesso Direto (Meta)
+                    <label className="block text-xs font-bold text-slate-300 mb-1.5 flex items-center justify-between">
+                      <span>Prova de Acesso Direto (Meta R1 / Revalida)</span>
+                      <span className="text-[10px] text-rose-400 font-extrabold uppercase">* Obrigatório</span>
                     </label>
                     <input
                       type="text"
@@ -564,8 +592,9 @@ export const ProfileCreationPage: React.FC = () => {
 
                   {/* Specialty for R1 */}
                   <div>
-                    <label className="block text-xs font-bold text-slate-300 mb-1.5">
-                      Especialidade dos Sonhos (R1 / Entrada Direta)
+                    <label className="block text-xs font-bold text-slate-300 mb-1.5 flex items-center justify-between">
+                      <span>Especialidade dos Sonhos (R1 / Entrada Direta)</span>
+                      <span className="text-[10px] text-rose-400 font-extrabold uppercase">* Obrigatório</span>
                     </label>
                     <input
                       type="text"
@@ -757,31 +786,20 @@ export const ProfileCreationPage: React.FC = () => {
                 <div className="p-6 rounded-3xl bg-slate-950 border border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
                   <div>
                     <h4 className="text-sm font-black text-white flex items-center gap-2">
-                      {googleSyncEnabled ? <Cloud className="h-4 w-4 text-sky-400" /> : <CloudOff className="h-4 w-4 text-slate-500" />}
+                      <Cloud className="h-4 w-4 text-sky-400" />
                       Google Cloud Sync
+                      <span className="text-[10px] uppercase font-extrabold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                        Sempre Ativo
+                      </span>
                     </h4>
                     <p className="text-xs text-slate-400 mt-1">
-                      Sincronize seus estudos em tempo real e nunca perca seu progresso.
+                      Sincronize seus estudos em tempo real na nuvem do Google de forma automática e nunca perca seu progresso.
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setGoogleSyncEnabled(!googleSyncEnabled)}
-                    className={`shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                      googleSyncEnabled
-                        ? 'bg-sky-500/10 text-sky-400 border border-sky-500/20 hover:bg-sky-500/20'
-                        : 'bg-slate-900 border border-slate-800 text-slate-300 hover:bg-slate-800'
-                    }`}
-                  >
-                    {googleSyncEnabled ? (
-                      <>
-                        <Check className="h-4 w-4" />
-                        Ativado
-                      </>
-                    ) : (
-                      'Ativar'
-                    )}
-                  </button>
+                  <div className="shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                    <Check className="h-4 w-4 text-emerald-400" />
+                    <span>Ativado Automaticamente</span>
+                  </div>
                 </div>
               </div>
             )}
@@ -805,9 +823,31 @@ export const ProfileCreationPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => {
-                    if (currentStep === 1 && !name.trim()) {
-                      showNotification('Informe seu nome para prosseguir.', 'warning');
-                      return;
+                    if (currentStep === 1) {
+                      if (!name.trim()) {
+                        showNotification('Por favor, informe seu Nome Completo (campo obrigatório).', 'warning');
+                        return;
+                      }
+                      if (!email.trim() || !email.includes('@')) {
+                        showNotification('Por favor, informe um E-mail Acadêmico válido (campo obrigatório).', 'warning');
+                        return;
+                      }
+                    }
+                    if (currentStep === 2) {
+                      if (!university.trim()) {
+                        showNotification('Por favor, informe sua Faculdade de Medicina (campo obrigatório).', 'warning');
+                        return;
+                      }
+                    }
+                    if (currentStep === 3) {
+                      if (!targetExam.trim()) {
+                        showNotification('Por favor, informe sua Prova Alvo para o R1/Revalida (campo obrigatório).', 'warning');
+                        return;
+                      }
+                      if (!dreamSpecialty.trim()) {
+                        showNotification('Por favor, informe sua Especialidade Alvo para o R1 (campo obrigatório).', 'warning');
+                        return;
+                      }
                     }
                     setCurrentStep((prev) => prev + 1);
                   }}

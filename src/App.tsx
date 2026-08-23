@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { AppProvider, useApp } from './context/AppContext';
 import { Sidebar } from './components/Sidebar';
 import { TopBar } from './components/TopBar';
@@ -21,9 +22,16 @@ import { AddExamModal } from './components/modals/AddExamModal';
 import { AddSemesterModal } from './components/modals/AddSemesterModal';
 import { AddScheduleModal } from './components/modals/AddScheduleModal';
 import { OnboardingModal } from './components/modals/OnboardingModal';
+import { AuthModal } from './components/modals/AuthModal';
 
 const AppContent: React.FC = () => {
+  const { activeUserId } = useAuth();
   const { currentTab, isOnboardingOpen, setIsOnboardingOpen, userProfile } = useApp();
+
+  // If user is not logged in / authenticated, show Login & Create Account as the mandatory entry screen
+  if (!activeUserId) {
+    return <AuthModal isPage={true} />;
+  }
 
   // If user has not completed initial profile creation wizard, show the initial profile creation page
   if (!userProfile.onboardingCompleted) {
@@ -148,14 +156,18 @@ const AppContent: React.FC = () => {
         isOpen={isOnboardingOpen}
         onClose={() => setIsOnboardingOpen(false)}
       />
+
+      <AuthModal />
     </div>
   );
 };
 
 export default function App() {
   return (
-    <AppProvider>
-      <AppContent />
-    </AppProvider>
+    <AuthProvider>
+      <AppProvider>
+        <AppContent />
+      </AppProvider>
+    </AuthProvider>
   );
 }

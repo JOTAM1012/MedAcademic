@@ -34,7 +34,7 @@ export const AddStudyTopicModal: React.FC<AddStudyTopicModalProps> = ({
   onClose,
   defaultSubjectId,
 }) => {
-  const { subjects, addSubject, addTopic, addXp, triggerConfetti } = useApp();
+  const { subjects, addSubject, addTopic, addXp, triggerConfetti, showNotification } = useApp();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Hierarchy state
@@ -160,7 +160,7 @@ export const AddStudyTopicModal: React.FC<AddStudyTopicModalProps> = ({
     }
 
     if (!targetSubId) {
-      alert('Por favor, crie ou selecione uma disciplina primeiro.');
+      showNotification('Por favor, crie ou selecione uma disciplina primeiro.', 'warning');
       return;
     }
 
