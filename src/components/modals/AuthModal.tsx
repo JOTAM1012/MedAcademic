@@ -292,7 +292,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isPage = false }) => {
                   <input
                     type="email"
                     required
-                    placeholder="ex: joao@med.edu.br"
+                    placeholder="ex: user@med.com"
                     value={loginEmail}
                     onChange={(e) => setLoginEmail(e.target.value)}
                     className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-xs text-slate-900 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
@@ -376,7 +376,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isPage = false }) => {
                   <input
                     type="email"
                     required
-                    placeholder="ex: joao@med.edu.br"
+                    placeholder="ex: user@med.com"
                     value={regEmail}
                     onChange={(e) => setRegEmail(e.target.value)}
                     className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-xs text-slate-900 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-blue-500"

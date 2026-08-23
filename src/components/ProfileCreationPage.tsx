@@ -183,16 +183,6 @@ export const ProfileCreationPage: React.FC = () => {
       setCurrentStep(2);
       return;
     }
-    if (!targetExam.trim()) {
-      showNotification('Por favor, informe a Prova Alvo para o R1/Revalida.', 'warning');
-      setCurrentStep(3);
-      return;
-    }
-    if (!dreamSpecialty.trim()) {
-      showNotification('Por favor, selecione ou digite sua Especialidade Alvo.', 'warning');
-      setCurrentStep(3);
-      return;
-    }
 
     // Always initialize system 100% clean and blank as requested
     clearAllData();
@@ -564,65 +554,77 @@ export const ProfileCreationPage: React.FC = () => {
                 <div>
                   <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 text-xs font-bold border border-emerald-500/20 mb-2">
                     <Target className="h-3.5 w-3.5" />
-                    <span>Passo 3 de 4: Residência Médica (R1) & Metas</span>
+                    <span>
+                      {selectedCycle === 'internato' 
+                        ? 'Passo 3 de 4: Residência Médica (R1) & Metas'
+                        : 'Passo 3 de 4: Metas Acadêmicas & de Estudos'}
+                    </span>
                   </div>
                   <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
-                    Especialidade R1 & Metas de Estudos
+                    {selectedCycle === 'internato' 
+                      ? 'Especialidade R1 & Metas de Estudos'
+                      : 'Metas Acadêmicas & de Estudos'}
                   </h2>
                   <p className="text-xs sm:text-sm text-slate-400 mt-1">
-                    Defina sua especialidade principal para o R1 e configure suas metas de horas e média acadêmica.
+                    {selectedCycle === 'internato'
+                      ? 'Defina sua especialidade principal para o R1 e configure suas metas de horas e média acadêmica.'
+                      : 'Configure suas metas semanais de estudos e sua média acadêmica alvo para o seu ciclo de formação.'}
                   </p>
                 </div>
 
                 <div className="space-y-5">
-                  {/* Target Exam */}
-                  <div>
-                    <label className="block text-xs font-bold text-slate-300 mb-1.5 flex items-center justify-between">
-                      <span>Prova de Acesso Direto (Meta R1 / Revalida)</span>
-                      <span className="text-[10px] text-rose-400 font-extrabold uppercase">* Obrigatório</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={targetExam}
-                      onChange={(e) => setTargetExam(e.target.value)}
-                      placeholder="Ex: ENARE, USP-SP, UNIFESP"
-                      className="w-full rounded-2xl bg-slate-950 border border-slate-800 px-4 py-3 text-sm text-white placeholder:text-slate-600 focus:outline-hidden focus:border-sky-500 transition-colors"
-                    />
-                  </div>
+                  {selectedCycle === 'internato' && (
+                    <>
+                      {/* Target Exam */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-300 mb-1.5 flex items-center justify-between">
+                          <span>Prova de Acesso Direto (Meta R1 / Revalida)</span>
+                          <span className="text-[10px] text-slate-400 font-bold uppercase">Opcional</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={targetExam}
+                          onChange={(e) => setTargetExam(e.target.value)}
+                          placeholder="Ex: ENARE, USP-SP, UNIFESP"
+                          className="w-full rounded-2xl bg-slate-950 border border-slate-800 px-4 py-3 text-sm text-white placeholder:text-slate-600 focus:outline-hidden focus:border-sky-500 transition-colors"
+                        />
+                      </div>
 
-                  {/* Specialty for R1 */}
-                  <div>
-                    <label className="block text-xs font-bold text-slate-300 mb-1.5 flex items-center justify-between">
-                      <span>Especialidade dos Sonhos (R1 / Entrada Direta)</span>
-                      <span className="text-[10px] text-rose-400 font-extrabold uppercase">* Obrigatório</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={dreamSpecialty}
-                      onChange={(e) => setDreamSpecialty(e.target.value)}
-                      placeholder="Ex: Clínica Médica, Cirurgia Geral, Pediatria, Ginecologia e Obstetrícia..."
-                      className="w-full rounded-2xl bg-slate-950 border border-slate-800 px-4 py-3 text-sm text-white placeholder:text-slate-600 focus:outline-hidden focus:border-sky-500 transition-colors"
-                      autoFocus
-                    />
+                      {/* Specialty for R1 */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-300 mb-1.5 flex items-center justify-between">
+                          <span>Especialidade dos Sonhos (R1 / Entrada Direta)</span>
+                          <span className="text-[10px] text-slate-400 font-bold uppercase">Opcional</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={dreamSpecialty}
+                          onChange={(e) => setDreamSpecialty(e.target.value)}
+                          placeholder="Ex: Clínica Médica, Cirurgia Geral, Pediatria, Ginecologia e Obstetrícia..."
+                          className="w-full rounded-2xl bg-slate-950 border border-slate-800 px-4 py-3 text-sm text-white placeholder:text-slate-600 focus:outline-hidden focus:border-sky-500 transition-colors"
+                          autoFocus
+                        />
 
-                    {/* Quick R1 Specialty Chips */}
-                    <div className="flex flex-wrap gap-1.5 mt-2.5">
-                      {SPECIALTIES_R1.map((spec) => (
-                        <button
-                          key={spec}
-                          type="button"
-                          onClick={() => setDreamSpecialty(spec)}
-                          className={`text-[11px] px-3 py-1 rounded-xl border transition-all cursor-pointer ${
-                            dreamSpecialty === spec
-                              ? 'bg-sky-500/20 border-sky-500 text-sky-300 font-bold shadow-xs'
-                              : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'
-                          }`}
-                        >
-                          {spec}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+                        {/* Quick R1 Specialty Chips */}
+                        <div className="flex flex-wrap gap-1.5 mt-2.5">
+                          {SPECIALTIES_R1.map((spec) => (
+                            <button
+                              key={spec}
+                              type="button"
+                              onClick={() => setDreamSpecialty(spec)}
+                              className={`text-[11px] px-3 py-1 rounded-xl border transition-all cursor-pointer ${
+                                dreamSpecialty === spec
+                                  ? 'bg-sky-500/20 border-sky-500 text-sky-300 font-bold shadow-xs'
+                                  : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'
+                              }`}
+                            >
+                              {spec}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </>
+                  )}
 
                   {/* Target Study Hours focused on R1 */}
                   <div className="p-4.5 rounded-2xl bg-slate-950 border border-slate-800 space-y-3.5">
@@ -836,16 +838,6 @@ export const ProfileCreationPage: React.FC = () => {
                     if (currentStep === 2) {
                       if (!university.trim()) {
                         showNotification('Por favor, informe sua Faculdade de Medicina (campo obrigatório).', 'warning');
-                        return;
-                      }
-                    }
-                    if (currentStep === 3) {
-                      if (!targetExam.trim()) {
-                        showNotification('Por favor, informe sua Prova Alvo para o R1/Revalida (campo obrigatório).', 'warning');
-                        return;
-                      }
-                      if (!dreamSpecialty.trim()) {
-                        showNotification('Por favor, informe sua Especialidade Alvo para o R1 (campo obrigatório).', 'warning');
                         return;
                       }
                     }

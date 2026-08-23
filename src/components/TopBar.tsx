@@ -25,7 +25,7 @@ interface TopBarProps {
 }
 
 export const TopBar: React.FC<TopBarProps> = ({ onToggleMobileMenu }) => {
-  const { openAuthModal } = useAuth();
+  const { openAuthModal, logout } = useAuth();
   const {
     currentTab,
     currentSemester,
@@ -354,7 +354,7 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleMobileMenu }) => {
           <button
             id="topbar-user-avatar-btn"
             onClick={() => setCurrentTab('profile')}
-            className="w-9 h-9 rounded-full bg-blue-100 dark:bg-blue-950 border-2 border-white dark:border-slate-800 shadow-xs flex items-center justify-center overflow-hidden transition-transform hover:scale-105"
+            className="w-9 h-9 rounded-full bg-blue-100 dark:bg-blue-950 border-2 border-white dark:border-slate-800 shadow-xs flex items-center justify-center overflow-hidden transition-transform hover:scale-105 cursor-pointer"
             title={`Perfil de ${userProfile.name}`}
           >
             <img
@@ -363,6 +363,16 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleMobileMenu }) => {
               referrerPolicy="no-referrer"
               className="w-full h-full object-cover"
             />
+          </button>
+          <button
+            id="topbar-logout-btn"
+            onClick={logout}
+            className="rounded-lg p-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 hover:text-rose-600 dark:hover:text-rose-400 transition-colors flex items-center gap-1.5 text-xs font-semibold cursor-pointer"
+            title="Sair da Conta (Logout)"
+            aria-label="Sair da Conta"
+          >
+            <LogOut className="h-4 w-4" />
+            <span className="hidden sm:inline">Sair</span>
           </button>
         </div>
       </div>

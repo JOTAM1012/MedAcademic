@@ -34,7 +34,7 @@ import { useAuth } from '../context/AuthContext';
 import { CARTOON_AVATARS } from '../data/avatars';
 
 export const ProfileView: React.FC = () => {
-  const { accounts, activeUser, openAuthModal, updateAccount } = useAuth();
+  const { accounts, activeUser, openAuthModal, updateAccount, logout } = useAuth();
   const {
     userProfile,
     updateUserProfile,
@@ -63,6 +63,9 @@ export const ProfileView: React.FC = () => {
   );
   const [googleSyncEnabled, setGoogleSyncEnabled] = useState(userProfile.googleSyncEnabled || false);
   const [savedSuccess, setSavedSuccess] = useState(false);
+
+  const currentSemester = semesters.find((s) => s.id === userProfile.currentSemesterId) || semesters[0];
+  const isInternato = currentSemester?.name?.toLowerCase().includes('internato') || false;
 
   // Sync state when userProfile updates
   React.useEffect(() => {
@@ -115,14 +118,6 @@ export const ProfileView: React.FC = () => {
     }
     if (!university.trim()) {
       showNotification('O campo Faculdade de Medicina é obrigatório.', 'warning');
-      return;
-    }
-    if (!targetExam.trim()) {
-      showNotification('O campo Prova Alvo R1 é obrigatório.', 'warning');
-      return;
-    }
-    if (!dreamSpecialty.trim()) {
-      showNotification('O campo Especialidade dos Sonhos é obrigatório.', 'warning');
       return;
     }
 
@@ -261,6 +256,15 @@ export const ProfileView: React.FC = () => {
               <Edit3 className="h-4 w-4" />
               <span>Editar Perfil</span>
             </button>
+            <button
+              id="profile-logout-btn"
+              onClick={logout}
+              className="shrink-0 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 font-bold text-xs border border-rose-200 dark:border-rose-900/50 shadow-xs transition-colors cursor-pointer"
+              title="Sair da Conta (Logout)"
+            >
+              <LogOut className="h-4 w-4" />
+              <span>Sair da Conta</span>
+            </button>
           </div>
         ) : (
           <button
@@ -290,14 +294,22 @@ export const ProfileView: React.FC = () => {
               </div>
               
               <div className="mt-4 flex flex-wrap items-center justify-center md:justify-start gap-3">
-                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 text-xs font-bold border border-sky-100 dark:border-sky-900/50">
-                  <Target className="h-4 w-4" />
-                  <span>Prova: {userProfile.targetExam || 'Não definida'}</span>
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 text-xs font-bold border border-indigo-100 dark:border-indigo-900/50">
+                  <GraduationCap className="h-4 w-4" />
+                  <span>{currentSemester?.name || 'Ciclo Médico'}</span>
                 </div>
-                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 text-xs font-bold border border-emerald-100 dark:border-emerald-900/50">
-                  <Award className="h-4 w-4" />
-                  <span>Esp: {userProfile.dreamSpecialty || 'Não definida'}</span>
-                </div>
+                {isInternato && userProfile.targetExam && (
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 text-xs font-bold border border-sky-100 dark:border-sky-900/50">
+                    <Target className="h-4 w-4" />
+                    <span>Prova: {userProfile.targetExam}</span>
+                  </div>
+                )}
+                {isInternato && userProfile.dreamSpecialty && (
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 text-xs font-bold border border-emerald-100 dark:border-emerald-900/50">
+                    <Award className="h-4 w-4" />
+                    <span>Esp: {userProfile.dreamSpecialty}</span>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -524,34 +536,36 @@ export const ProfileView: React.FC = () => {
                   />
                 </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
-                      <span>Prova de Acesso Direto (Meta R1 / Revalida)</span>
-                      <span className="text-[10px] text-rose-500 font-extrabold uppercase">* Obrigatório</span>
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Ex: ENARE, USP-SP, UNIFESP"
-                      value={targetExam}
-                      onChange={(e) => setTargetExam(e.target.value)}
-                      className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-4 py-2.5 text-sm text-slate-900 dark:text-white focus:outline-hidden focus:border-sky-500"
-                    />
+                {isInternato && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
+                        <span>Prova de Acesso Direto (Meta R1 / Revalida)</span>
+                        <span className="text-[10px] text-slate-400 font-bold uppercase">Opcional</span>
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Ex: ENARE, USP-SP, UNIFESP"
+                        value={targetExam}
+                        onChange={(e) => setTargetExam(e.target.value)}
+                        className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-4 py-2.5 text-sm text-slate-900 dark:text-white focus:outline-hidden focus:border-sky-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
+                        <span>Especialidade dos Sonhos (R1)</span>
+                        <span className="text-[10px] text-slate-400 font-bold uppercase">Opcional</span>
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Ex: Cardiologia, Neurocirurgia"
+                        value={dreamSpecialty}
+                        onChange={(e) => setDreamSpecialty(e.target.value)}
+                        className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-4 py-2.5 text-sm text-slate-900 dark:text-white focus:outline-hidden focus:border-sky-500"
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
-                      <span>Especialidade dos Sonhos (R1)</span>
-                      <span className="text-[10px] text-rose-500 font-extrabold uppercase">* Obrigatório</span>
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Ex: Cardiologia, Neurocirurgia"
-                      value={dreamSpecialty}
-                      onChange={(e) => setDreamSpecialty(e.target.value)}
-                      className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-4 py-2.5 text-sm text-slate-900 dark:text-white focus:outline-hidden focus:border-sky-500"
-                    />
-                  </div>
-                </div>
+                )}
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">

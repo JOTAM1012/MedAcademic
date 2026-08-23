@@ -15,6 +15,7 @@ import {
   Award,
   BookOpen,
   Users,
+  LogOut,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
@@ -25,7 +26,7 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen }) => {
-  const { openAuthModal } = useAuth();
+  const { openAuthModal, logout } = useAuth();
   const {
     currentTab,
     setCurrentTab,
@@ -340,7 +341,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
         {/* Bottom Weekly Goal Card (from Sleek Interface design) */}
         <div className="mt-auto p-4 bg-slate-800/40 m-3 rounded-xl border border-slate-700/50">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-medium text-slate-300">Weekly Goal</span>
+            <span className="text-xs font-medium text-slate-300">Meta Semanal</span>
             <span className="text-xs font-bold text-blue-400">{weeklyGoalPercent}%</span>
           </div>
           <div className="w-full bg-slate-700 h-1.5 rounded-full overflow-hidden">
@@ -350,8 +351,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
             />
           </div>
           <div className="mt-2.5 text-[10px] text-slate-400 flex justify-between">
-            <span>{totalHoursStudiedWeek}h studied</span>
-            <span>{weeklyGoalTarget}h goal</span>
+            <span>{totalHoursStudiedWeek}h estudados</span>
+            <span>meta de {weeklyGoalTarget}h</span>
           </div>
         </div>
 
@@ -382,6 +383,18 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
                 Nv. {userProfile.level} • {userProfile.currentStreakDays}d streak
               </p>
             </div>
+          </button>
+          <button
+            id="sidebar-logout-btn"
+            onClick={() => {
+              setIsMobileOpen(false);
+              logout();
+            }}
+            className="p-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/25 text-rose-400 border border-rose-500/20 transition-colors shrink-0 flex items-center justify-center cursor-pointer"
+            title="Sair da Conta (Logout)"
+            aria-label="Sair da Conta"
+          >
+            <LogOut className="h-4 w-4" />
           </button>
         </div>
       </aside>

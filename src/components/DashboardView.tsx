@@ -145,14 +145,14 @@ export const DashboardView: React.FC = () => {
         {/* Metric 1: Hours Studied */}
         <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
           <span className="text-slate-400 dark:text-slate-500 text-xs font-medium mb-1 block uppercase tracking-tight">
-            Hours Studied (Week)
+            Horas Estudadas (Semana)
           </span>
           <div className="flex items-baseline justify-between">
             <h3 className="text-2xl font-bold text-slate-900 dark:text-white">
               {totalHoursStudiedWeek}h
             </h3>
             <span className="text-xs font-bold text-blue-600 dark:text-blue-400">
-              {weeklyGoalPercentage}% of {weeklyTarget}h
+              {weeklyGoalPercentage}% de {weeklyTarget}h
             </span>
           </div>
           <div className="mt-2 w-full h-1 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
@@ -166,11 +166,11 @@ export const DashboardView: React.FC = () => {
         {/* Metric 2: Active Streak */}
         <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
           <span className="text-slate-400 dark:text-slate-500 text-xs font-medium mb-1 block uppercase tracking-tight">
-            Active Streak
+            Sessões Consecutivas
           </span>
           <div className="flex items-baseline justify-between">
             <h3 className="text-2xl font-bold text-slate-900 dark:text-white">
-              {userProfile.currentStreakDays} Days
+              {userProfile.currentStreakDays} Dias
             </h3>
             <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
               <Flame className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
@@ -199,7 +199,7 @@ export const DashboardView: React.FC = () => {
         {/* Metric 4: Topics Mastery */}
         <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
           <span className="text-slate-400 dark:text-slate-500 text-xs font-medium mb-1 block uppercase tracking-tight">
-            Topics Mastery
+            Domínio de Tópicos
           </span>
           <div className="flex items-baseline justify-between">
             <h3 className="text-2xl font-bold text-slate-900 dark:text-white">
@@ -227,7 +227,7 @@ export const DashboardView: React.FC = () => {
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className="font-bold text-slate-900 dark:text-white text-base">
-                  Today's Schedule & Clinical Rotations
+                  Grade de Hoje & Rodízios Clínicos
                 </h3>
                 <p className="text-xs text-slate-400">
                   Grade sincronizada para o dia letivo ({currentSemester?.name})
@@ -359,7 +359,7 @@ export const DashboardView: React.FC = () => {
           <div className="bg-gradient-to-br from-blue-600 to-indigo-700 p-6 rounded-2xl text-white shadow-lg shadow-blue-200/50 dark:shadow-none relative overflow-hidden">
             <div className="relative z-10">
               <span className="bg-white/20 text-white text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider">
-                Next Major Exam
+                Próxima Grande Avaliação
               </span>
 
               {primaryNextExam ? (
@@ -377,7 +377,7 @@ export const DashboardView: React.FC = () => {
                         {primaryCountdown?.days || 0}
                       </span>
                       <span className="text-[9px] uppercase tracking-tighter text-blue-100">
-                        Days
+                        Dias
                       </span>
                     </div>
                     <div className="bg-white/20 backdrop-blur-md rounded-lg p-2.5 text-center flex-1">
@@ -385,7 +385,7 @@ export const DashboardView: React.FC = () => {
                         {primaryCountdown?.hours || 0}
                       </span>
                       <span className="text-[9px] uppercase tracking-tighter text-blue-100">
-                        Hours
+                        Horas
                       </span>
                     </div>
                     <div className="bg-white/20 backdrop-blur-md rounded-lg p-2.5 text-center flex-1">
@@ -393,7 +393,7 @@ export const DashboardView: React.FC = () => {
                         {primaryCountdown?.minutes || 0}
                       </span>
                       <span className="text-[9px] uppercase tracking-tighter text-blue-100">
-                        Mins
+                        Minutos
                       </span>
                     </div>
                     <div className="bg-white/20 backdrop-blur-md rounded-lg p-2.5 text-center flex-1">
@@ -401,7 +401,7 @@ export const DashboardView: React.FC = () => {
                         {primaryCountdown?.seconds || 0}
                       </span>
                       <span className="text-[9px] uppercase tracking-tighter text-blue-100">
-                        Secs
+                        Segundos
                       </span>
                     </div>
                   </div>

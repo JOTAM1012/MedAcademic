@@ -49,8 +49,8 @@ interface AuthContextType {
   deleteAccount: (userId: string) => void;
 }
 
-const ACCOUNTS_STORAGE_KEY = 'medacademic_registered_accounts_v4';
-const ACTIVE_USER_STORAGE_KEY = 'medacademic_active_user_id_v4';
+const ACCOUNTS_STORAGE_KEY = 'medacademic_registered_accounts_v5';
+const ACTIVE_USER_STORAGE_KEY = 'medacademic_active_user_id_v5';
 
 const DEFAULT_ACCOUNTS: UserAccount[] = [];
 
@@ -195,11 +195,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const loginWithEmail = async (email: string, password: string) => {
     const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail) {
+      return { success: false, error: 'Por favor, informe seu e-mail.' };
+    }
 
     // 1. Check local accounts state first
     let target = accounts.find((a) => a.email.trim().toLowerCase() === cleanEmail);
 
-    // 2. If not found locally, query Firestore cloud database for cross-device access
+    // 2. Direct O(1) Firestore doc lookup by cleanEmail for instant cross-device access
+    if (!target) {
+      try {
+        const emailDocRef = doc(db, 'users', cleanEmail);
+        const emailSnap = await getDoc(emailDocRef);
+        if (emailSnap.exists()) {
+          target = { ...emailSnap.data() as UserAccount, id: emailSnap.id };
+        }
+      } catch (e) {
+        console.warn("Direct email doc lookup warning:", e);
+      }
+    }
+
+    // 3. Fallback collection query if direct doc lookup didn't match
     if (!target) {
       try {
         const querySnapshot = await getDocs(collection(db, 'users'));
@@ -239,7 +255,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { success: true };
     }
 
-    // 3. Try Firebase Auth sign in as last resort
+    // 4. Try Firebase Auth sign in as last resort
     try {
       const cred = await signInWithEmailAndPassword(auth, cleanEmail, password);
       const uid = cred.user.uid;
@@ -253,9 +269,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const registerWithEmail = async (data: Omit<UserAccount, 'id' | 'createdAt' | 'lastLoginAt'> & { password: string }) => {
     const cleanEmail = data.email.trim().toLowerCase();
+    if (!cleanEmail) {
+      return { success: false, error: 'Por favor, informe um e-mail válido.' };
+    }
 
-    // Check if user already exists locally or in cloud to avoid overwriting or duplicate confusion
+    // Check if user already exists locally or in cloud
     let existingAccount = accounts.find((a) => a.email.trim().toLowerCase() === cleanEmail);
+    if (!existingAccount) {
+      try {
+        const emailSnap = await getDoc(doc(db, 'users', cleanEmail));
+        if (emailSnap.exists()) {
+          existingAccount = emailSnap.data() as UserAccount;
+        }
+      } catch (e) {
+        console.warn("Error checking email doc in Firestore:", e);
+      }
+    }
+
     if (!existingAccount) {
       try {
         const querySnapshot = await getDocs(collection(db, 'users'));
@@ -277,7 +307,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       };
     }
 
-    const uid = `usr_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const uid = cleanEmail; // Use cleanEmail as canonical document ID for O(1) cross-device resolution
     const newAccount: UserAccount = {
       ...data,
       email: cleanEmail,
@@ -286,9 +316,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       lastLoginAt: new Date().toISOString(),
     };
 
-    // Save to Firestore cloud database for cross-device access
+    // Save to Firestore cloud database with cleanEmail as key for cross-device instant access
     try {
-      await setDoc(doc(db, 'users', uid), newAccount);
+      await setDoc(doc(db, 'users', cleanEmail), newAccount);
     } catch (err: any) {
       console.warn("Firestore save warning during registration:", err.message);
     }
