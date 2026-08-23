@@ -62,21 +62,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isPage = false }) => {
     deleteAccount,
   } = useAuth();
 
-  const [activeTab, setActiveTab] = useState<'login' | 'register' | 'profiles'>(
-    authViewMode === 'register'
-      ? 'register'
-      : authViewMode === 'select'
-      ? accounts.length > 0
-        ? 'profiles'
-        : 'login'
-      : 'login'
+  const [activeTab, setActiveTab] = useState<'login' | 'register'>(
+    authViewMode === 'register' ? 'register' : 'login'
   );
 
   useEffect(() => {
     if (authViewMode === 'register') setActiveTab('register');
-    else if (authViewMode === 'select') setActiveTab(accounts.length > 0 ? 'profiles' : 'login');
     else setActiveTab('login');
-  }, [authViewMode, accounts.length]);
+  }, [authViewMode]);
 
   // Password Prompt for Selected Profile
   const [selectedUserForPassword, setSelectedUserForPassword] = useState<UserAccount | null>(null);
@@ -89,13 +82,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isPage = false }) => {
   const [loginPassword, setLoginPassword] = useState<string>('');
 
   // Register Tab State
-  const [regName, setRegName] = useState<string>('');
   const [regEmail, setRegEmail] = useState<string>('');
   const [regPassword, setRegPassword] = useState<string>('');
-  const [regUniversity, setRegUniversity] = useState<string>('Faculdade de Medicina');
-  const [regSemester, setRegSemester] = useState<string>('5º Semestre - Ciclo Clínico');
-  const [regSpecialty, setRegSpecialty] = useState<string>('Clínica Médica');
-  const [regAvatar, setRegAvatar] = useState<string>(CARTOON_AVATARS[0].url);
 
   if (!isPage && !isAuthModalOpen && activeUserId) return null;
 
@@ -156,31 +144,29 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isPage = false }) => {
     e.preventDefault();
     setErrorMessage(null);
 
-    if (!regName.trim()) {
-      setErrorMessage('Informe seu Nome Completo.');
-      return;
-    }
     if (!regEmail.trim() || !regEmail.includes('@')) {
       setErrorMessage('Informe um e-mail válido para seu perfil.');
       return;
     }
-    if (!regUniversity.trim()) {
-      setErrorMessage('Informe sua Faculdade de Medicina.');
+    if (!regPassword.trim() || regPassword.length < 4) {
+      setErrorMessage('Crie uma senha de acesso (mínimo 4 caracteres).');
       return;
     }
 
+    const defaultName = regEmail.split('@')[0] || 'Estudante de Medicina';
+    const formattedName = defaultName.charAt(0).toUpperCase() + defaultName.slice(1);
+
     const res = await registerWithEmail({
-      name: regName.trim(),
+      name: formattedName,
       email: regEmail.trim(),
       password: regPassword.trim(),
-      university: regUniversity.trim(),
-      currentSemester: regSemester,
-      dreamSpecialty: regSpecialty,
-      avatarUrl: regAvatar,
+      university: 'Faculdade de Medicina',
+      currentSemester: '5º Semestre - Ciclo Clínico',
+      dreamSpecialty: 'Clínica Médica',
+      avatarUrl: CARTOON_AVATARS[0].url,
     });
 
     if (res.success) {
-      setRegName('');
       setRegEmail('');
       setRegPassword('');
     } else {
@@ -279,21 +265,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isPage = false }) => {
             <UserPlus className="h-4 w-4" />
             Criar Novo Usuário
           </button>
-
-          <button
-            onClick={() => {
-              setActiveTab('profiles');
-              setErrorMessage(null);
-            }}
-            className={`pb-3 px-4 text-xs font-semibold border-b-2 transition-colors flex items-center gap-2 cursor-pointer ${
-              activeTab === 'profiles'
-                ? 'border-blue-600 text-blue-600 dark:text-blue-400 font-bold'
-                : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-            }`}
-          >
-            <Users className="h-4 w-4" />
-            Perfis neste Dispositivo ({accounts.length})
-          </button>
         </div>
 
         {/* Modal Body */}
@@ -303,120 +274,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isPage = false }) => {
             <div className="mb-4 p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 text-rose-700 dark:text-rose-300 text-xs flex items-center gap-2">
               <AlertCircle className="h-4 w-4 shrink-0" />
               <span>{errorMessage}</span>
-            </div>
-          )}
-
-          {/* TAB 1: Registered Profiles List */}
-          {activeTab === 'profiles' && (
-            <div className="space-y-4">
-              <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/40 text-blue-800 dark:text-blue-300 text-xs flex items-start gap-2.5">
-                <ShieldCheck className="h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400 mt-0.5" />
-                <div>
-                  <p className="font-semibold mb-0.5">Isolamento Total de Dados</p>
-                  <p className="text-[11px] opacity-90">
-                    Vários estudantes podem utilizar a aplicação de forma simultânea ou alternada. Cada perfil possui matérias, revisões espaçadas, notas e horas de estudo totalmente separadas.
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-80 overflow-y-auto pr-1">
-                {accounts.map((account) => {
-                  const isActive = account.id === activeUserId;
-                  return (
-                    <div
-                      key={account.id}
-                      onClick={() => handleProfileClick(account)}
-                      className={`relative group p-4 rounded-xl border transition-all cursor-pointer flex flex-col justify-between ${
-                        isActive
-                          ? 'border-blue-500 ring-2 ring-blue-500/20 bg-blue-50/50 dark:bg-blue-950/20'
-                          : 'border-slate-200 dark:border-slate-800 hover:border-blue-400 dark:hover:border-blue-500/50 bg-white dark:bg-slate-900 hover:shadow-md'
-                      }`}
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className="relative">
-                            <img
-                              src={account.avatarUrl}
-                              alt={account.name}
-                              referrerPolicy="no-referrer"
-                              className="w-12 h-12 rounded-full object-cover border-2 border-white dark:border-slate-800 shadow-xs"
-                            />
-                            {account.password && (
-                              <div
-                                className="absolute -bottom-1 -right-1 bg-amber-500 text-white p-1 rounded-full shadow-xs"
-                                title="Perfil protegido por senha"
-                              >
-                                <Lock className="h-2.5 w-2.5" />
-                              </div>
-                            )}
-                          </div>
-
-                          <div className="min-w-0">
-                            <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate flex items-center gap-1.5">
-                              {account.name}
-                              {isActive && (
-                                <span className="text-[10px] bg-blue-600 text-white font-semibold px-1.5 py-0.2 rounded-md">
-                                  Ativo
-                                </span>
-                              )}
-                            </h4>
-                            <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
-                              {account.email}
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* Delete account icon button (show on hover if more than 1 account) */}
-                        {accounts.length > 1 && (
-                          <button
-                            onClick={(e) => handleDeleteProfile(account, e)}
-                            className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-rose-500 p-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-all"
-                            title="Apagar este perfil"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        )}
-                      </div>
-
-                      <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800/80 text-[11px] text-slate-500 dark:text-slate-400 space-y-1">
-                        <div className="flex items-center justify-between">
-                          <span className="truncate">{account.university}</span>
-                          <span className="font-medium text-slate-700 dark:text-slate-300 shrink-0 ml-2">
-                            {account.currentSemester}
-                          </span>
-                        </div>
-                        <div className="text-[10px] text-blue-600 dark:text-blue-400 font-semibold truncate">
-                          🎯 {account.dreamSpecialty}
-                        </div>
-                      </div>
-
-                      <div className="mt-3 flex items-center justify-between text-xs font-semibold text-blue-600 dark:text-blue-400 pt-1">
-                        <span className="flex items-center gap-1 text-[11px]">
-                          {isActive ? (
-                            <UserCheck className="h-3.5 w-3.5" />
-                          ) : (
-                            <ArrowRight className="h-3.5 w-3.5" />
-                          )}
-                          {isActive ? 'Perfil em Uso' : 'Entrar no Perfil'}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div className="pt-2 flex justify-end">
-                <button
-                  onClick={() => {
-                    setActiveTab('register');
-                    setErrorMessage(null);
-                  }}
-                  className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition-colors flex items-center gap-2 shadow-sm"
-                >
-                  <Plus className="h-4 w-4" />
-                  Cadastrar Novo Estudante
-                </button>
-              </div>
             </div>
           )}
 
@@ -526,138 +383,57 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isPage = false }) => {
 
           {/* TAB 3: Register New Profile */}
           {activeTab === 'register' && (
-            <form onSubmit={handleRegisterSubmit} className="space-y-4 max-h-96 overflow-y-auto pr-1">
-              <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/40 text-xs text-blue-800 dark:text-blue-300 flex items-center gap-2">
-                <Sparkles className="h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" />
-                <span>
-                  Cadastre um novo perfil individual para acompanhar suas disciplinas, metas de R1/Revalida e horas de estudos separadamente.
-                </span>
+            <form onSubmit={handleRegisterSubmit} className="space-y-4 max-w-md mx-auto py-2">
+              <div className="text-center mb-4">
+                <div className="w-12 h-12 rounded-2xl bg-blue-100 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400 flex items-center justify-center mx-auto mb-2">
+                  <UserPlus className="h-6 w-6" />
+                </div>
+                <h4 className="text-base font-bold text-slate-900 dark:text-slate-100">
+                  Criar Novo Perfil de Estudante
+                </h4>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Insira seu e-mail e crie uma senha. Você poderá personalizar seu perfil detalhadamente na aba de edição posteriormente.
+                </p>
               </div>
 
-              {/* Avatar Selection */}
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                  Escolha o Avatar do Perfil
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  E-mail do Estudante
                 </label>
-                <div className="flex gap-2 overflow-x-auto pb-2">
-                  {CARTOON_AVATARS.map((av) => (
-                    <button
-                      key={av.id}
-                      type="button"
-                      onClick={() => setRegAvatar(av.url)}
-                      className={`relative rounded-full p-1 border-2 transition-all shrink-0 ${
-                        regAvatar === av.url
-                          ? 'border-blue-600 ring-2 ring-blue-500/30 scale-105'
-                          : 'border-transparent hover:scale-100 opacity-80'
-                      }`}
-                    >
-                      <img
-                        src={av.url}
-                        alt={av.label}
-                        referrerPolicy="no-referrer"
-                        className="w-10 h-10 rounded-full object-cover"
-                      />
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
-                    <span>Nome Completo</span>
-                    <span className="text-[10px] text-rose-500 font-extrabold uppercase">* Obrigatório</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="ex: Dra. Mariana Costa"
-                    value={regName}
-                    onChange={(e) => setRegName(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-xs text-slate-900 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
-                    <span>E-mail do Estudante</span>
-                    <span className="text-[10px] text-rose-500 font-extrabold uppercase">* Obrigatório</span>
-                  </label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                   <input
                     type="email"
                     required
-                    placeholder="ex: mariana@medicina.edu.br"
+                    placeholder="ex: joao@med.edu.br"
                     value={regEmail}
                     onChange={(e) => setRegEmail(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-xs text-slate-900 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                    className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-xs text-slate-900 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
-                    <span>Faculdade de Medicina</span>
-                    <span className="text-[10px] text-rose-500 font-extrabold uppercase">* Obrigatório</span>
-                  </label>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Criar Senha de Acesso
+                </label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                   <input
-                    type="text"
+                    type={showPassword ? 'text' : 'password'}
                     required
-                    placeholder="ex: USP, UNIFESP, UFRJ"
-                    value={regUniversity}
-                    onChange={(e) => setRegUniversity(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-xs text-slate-900 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Semestre Atual
-                  </label>
-                  <select
-                    value={regSemester}
-                    onChange={(e) => setRegSemester(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-xs text-slate-900 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="1º Semestre - Ciclo Básico">1º Semestre - Ciclo Básico</option>
-                    <option value="3º Semestre - Ciclo Básico">3º Semestre - Ciclo Básico</option>
-                    <option value="5º Semestre - Ciclo Clínico">5º Semestre - Ciclo Clínico</option>
-                    <option value="7º Semestre - Ciclo Clínico">7º Semestre - Ciclo Clínico</option>
-                    <option value="9º Semestre - Internato I">9º Semestre - Internato I</option>
-                    <option value="11º Semestre - Internato II">11º Semestre - Internato II</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Especialidade dos Sonhos
-                  </label>
-                  <select
-                    value={regSpecialty}
-                    onChange={(e) => setRegSpecialty(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-xs text-slate-900 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
-                  >
-                    {SPECIALTIES_LIST.map((sp) => (
-                      <option key={sp} value={sp}>
-                        {sp}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Senha de Proteção <span className="text-[10px] font-normal text-slate-400">(Opcional)</span>
-                  </label>
-                  <input
-                    type="password"
                     placeholder="Sua senha secreta"
                     value={regPassword}
                     onChange={(e) => setRegPassword(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-xs text-slate-900 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                    className="w-full pl-9 pr-10 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-xs text-slate-900 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600"
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
                 </div>
               </div>
 
@@ -667,10 +443,30 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isPage = false }) => {
                   className="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-colors flex items-center justify-center gap-2 shadow-md cursor-pointer"
                 >
                   <UserPlus className="h-4 w-4" />
-                  <span>Criar Novo Usuário e Acessar</span>
+                  <span>Criar Conta e Acessar</span>
                 </button>
 
-                <div className="pt-2 border-t border-slate-200 dark:border-slate-800 text-center">
+                <div className="relative flex py-1 items-center">
+                  <div className="grow border-t border-slate-200 dark:border-slate-800"></div>
+                  <span className="shrink mx-3 text-[10px] font-semibold text-slate-400 uppercase">ou</span>
+                  <div className="grow border-t border-slate-200 dark:border-slate-800"></div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleGoogleAuth}
+                  className="w-full py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-semibold transition-colors flex items-center justify-center gap-2.5 cursor-pointer shadow-xs"
+                >
+                  <svg className="w-4 h-4" viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                  </svg>
+                  <span>Cadastrar com Conta Google</span>
+                </button>
+
+                <div className="pt-3 border-t border-slate-200 dark:border-slate-800 text-center">
                   <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">
                     Já possui um perfil de estudante?
                   </p>
@@ -680,9 +476,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isPage = false }) => {
                       setActiveTab('login');
                       setErrorMessage(null);
                     }}
-                    className="w-full py-2 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                    className="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-blue-600 dark:text-blue-400 text-xs font-bold transition-colors flex items-center justify-center gap-2 cursor-pointer border border-blue-200 dark:border-blue-900/50"
                   >
-                    <LogIn className="h-4 w-4 text-blue-500" />
+                    <LogIn className="h-4 w-4" />
                     <span>Já tenho conta, fazer Login</span>
                   </button>
                 </div>

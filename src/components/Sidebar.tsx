@@ -81,10 +81,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
     },
     {
       id: 'med_revision',
-      label: 'MedRevision (Residência)',
+      label: 'MedRevision',
       icon: Stethoscope,
-      badge: 'High-Yield',
-      badgeColor: 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/30',
+      badge: null,
     },
   ];
 
@@ -116,13 +115,18 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
     },
   ];
 
-  const aiItems = [
+  const aiItems: Array<{
+    id: string;
+    label: string;
+    icon: any;
+    badge: string | null;
+    badgeColor?: string;
+  }> = [
     {
       id: 'gemini_tutor',
       label: 'Tutor',
       icon: Sparkles,
-      badge: 'Gemini 2.5',
-      badgeColor: 'bg-indigo-500/20 text-indigo-300 border border-indigo-400/30 font-semibold',
+      badge: null,
     },
     {
       id: 'profile',

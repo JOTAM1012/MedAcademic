@@ -133,7 +133,7 @@ export const DashboardView: React.FC = () => {
                 className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-all shadow-md shadow-blue-500/20 flex items-center gap-1.5 cursor-pointer"
               >
                 <Plus className="w-4 h-4" />
-                <span>+ Cadastrar 1ª Matéria</span>
+                <span>Cadastrar Matéria</span>
               </button>
             </div>
           </div>
