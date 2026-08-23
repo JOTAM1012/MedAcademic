@@ -1,0 +1,6 @@
+{
+  "name": "MedAcademic - Gestão de Estudos Médicos",
+  "description": "Sistema completo para estudantes de medicina: semestres, matérias, tópicos, repetição espaçada, MedRevision, cronômetro Pomodoro, gestão de notas, grade horária, calendário, conquistas e tutor inteligente com Gemini AI.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
