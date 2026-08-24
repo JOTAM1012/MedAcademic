@@ -26,6 +26,7 @@ export interface UserAccount {
   currentSemester: string;
   dreamSpecialty: string;
   avatarUrl: string;
+  onboardingCompleted?: boolean;
   createdAt: string;
   lastLoginAt: string;
 }

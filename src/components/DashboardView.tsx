@@ -20,6 +20,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { WeeklyStatsCard } from './WeeklyStatsCard';
 
 export const DashboardView: React.FC = () => {
   const {
@@ -100,6 +101,8 @@ export const DashboardView: React.FC = () => {
     : null;
   const primarySubject = primaryNextExam ? getSubject(primaryNextExam.subjectId) : null;
 
+  const isReturning = userProfile.onboardingCompleted;
+
   return (
     <div className="space-y-6 pb-12">
       {/* Clean Slate / First Steps Guide Banner */}
@@ -112,10 +115,14 @@ export const DashboardView: React.FC = () => {
               </div>
               <div>
                 <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
-                  Seja bem-vindo(a) ao seu Painel Acadêmico, {userProfile.name.split(' ')[0]}! 🩺
+                  {isReturning 
+                    ? `Seja bem-vindo(a) novamente ao seu Painel Acadêmico, ${userProfile.name.split(' ')[0]}! 🩺`
+                    : `Seja bem-vindo(a) ao seu Painel Acadêmico, ${userProfile.name.split(' ')[0]}! 🩺`}
                 </h2>
                 <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 max-w-2xl">
-                  Seu painel foi iniciado limpo e pronto para a sua rotina. Comece cadastrando as disciplinas do seu semestre ou explore o tutorial com todas as funcionalidades.
+                  {isReturning 
+                    ? "Sua jornada rumo à excelência médica continua. Mantenha o foco, sua dedicação de hoje constrói o grande profissional de amanhã!"
+                    : "Seu painel foi iniciado limpo e pronto para a sua rotina. Comece cadastrando suas disciplinas ou explore o tutorial com todas as funcionalidades."}
                 </p>
               </div>
             </div>
@@ -136,6 +143,30 @@ export const DashboardView: React.FC = () => {
                 <span>Cadastrar Matéria</span>
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {subjects.length > 0 && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              Seja bem-vindo(a) novamente, {userProfile.name.split(' ')[0]}! 🩺
+            </h1>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              Sua jornada rumo à excelência médica continua. Mantenha o foco, sua dedicação de hoje constrói o grande profissional de amanhã!
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              id="dashboard-how-to-use-btn"
+              onClick={() => setIsOnboardingOpen(true)}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-sky-50 dark:bg-sky-950/40 border border-sky-200 dark:border-sky-800/80 text-sky-700 dark:text-sky-300 hover:bg-sky-100 dark:hover:bg-sky-900/60 text-xs font-bold transition-all shadow-xs cursor-pointer"
+            >
+              <Sparkles className="w-4 h-4 text-sky-500" />
+              <span>Como Usar a Plataforma</span>
+            </button>
           </div>
         </div>
       )}
@@ -220,8 +251,11 @@ export const DashboardView: React.FC = () => {
 
       {/* Main Grid: Left Column & Right Column */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left 2 Cols: Schedule + Weekly Goal Breakdown + Upcoming Exams */}
+        {/* Left 2 Cols: Recharts Weekly Performance + Schedule + Structure Breakdown */}
         <div className="lg:col-span-2 space-y-6">
+          {/* Recharts Weekly Stats & Retention Rate Card */}
+          <WeeklyStatsCard />
+
           {/* Today's Schedule (Grade Horária de Hoje) - Sleek List */}
           <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs p-5 sm:p-6">
             <div className="flex items-center justify-between mb-4">
@@ -331,7 +365,7 @@ export const DashboardView: React.FC = () => {
                     <div className="flex items-center gap-2 mb-2">
                       <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: sub.color }} />
                       <span className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">
-                        {sub.name}
+                        {sub.universitySubject || sub.name}
                       </span>
                     </div>
                     <div className="flex items-center justify-between text-[11px] text-slate-500 mb-1.5">

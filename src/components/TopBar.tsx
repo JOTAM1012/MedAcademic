@@ -5,38 +5,19 @@ import {
   Moon,
   Sun,
   Bell,
-  Play,
-  Pause,
-  Timer,
-  Film,
-  Sparkles,
-  Flame,
-  Award,
   X,
-  BookOpen,
-  Users,
-  LogOut,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { useAuth } from '../context/AuthContext';
 
 interface TopBarProps {
   onToggleMobileMenu: () => void;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({ onToggleMobileMenu }) => {
-  const { openAuthModal, logout } = useAuth();
   const {
-    currentTab,
-    currentSemester,
-    timer,
-    startTimer,
-    pauseTimer,
     setCurrentTab,
     isDarkMode,
     toggleDarkMode,
-    setIsOnboardingOpen,
-    userProfile,
     searchQuery,
     setSearchQuery,
     subjects,
@@ -46,13 +27,6 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleMobileMenu }) => {
 
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
-
-  // Format seconds mm:ss
-  const formatTime = (secs: number) => {
-    const mins = Math.floor(secs / 60);
-    const remainderSecs = secs % 60;
-    return `${mins.toString().padStart(2, '0')}:${remainderSecs.toString().padStart(2, '0')}`;
-  };
 
   // Search Results
   const filteredSubjects = searchQuery.trim()
@@ -221,59 +195,14 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleMobileMenu }) => {
         </div>
       </div>
 
-      {/* Right section: Sleek Pomodoro Badge + Actions + User Status */}
-      <div className="flex items-center gap-3 sm:gap-5 shrink-0">
-        {/* Sleek Live Timer Pill (from design) */}
-        <div
-          id="topbar-timer-widget"
-          className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-full px-3 py-1.5 gap-2 border border-slate-200 dark:border-slate-700 shadow-xs"
-        >
-          <div
-            className={`w-2 h-2 rounded-full ${
-              timer.isRunning ? 'bg-red-500 animate-pulse' : 'bg-slate-400'
-            }`}
-          />
-          <button
-            onClick={() => setCurrentTab('stopwatch')}
-            className="text-xs font-mono font-bold text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-            title="Abrir Cronômetro"
-          >
-            {timer.mode === 'stopwatch'
-              ? formatTime(timer.elapsedSeconds)
-              : formatTime(timer.timeLeftSeconds)}
-          </button>
-          <button
-            id="topbar-timer-play-pause-btn"
-            onClick={timer.isRunning ? pauseTimer : startTimer}
-            className="text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-            aria-label={timer.isRunning ? 'Pausar' : 'Iniciar'}
-          >
-            {timer.isRunning ? (
-              <Pause className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
-            ) : (
-              <Play className="h-3.5 w-3.5 fill-current ml-0.5" />
-            )}
-          </button>
-        </div>
-
-        {/* Tutorial / Como Usar Button */}
-        <button
-          id="topbar-onboarding-btn"
-          onClick={() => setIsOnboardingOpen(true)}
-          className="flex items-center gap-1.5 rounded-xl border border-sky-200 dark:border-sky-800/80 bg-sky-50 dark:bg-sky-950/40 px-2.5 sm:px-3 py-1.5 text-xs font-bold text-sky-700 dark:text-sky-300 hover:bg-sky-100 dark:hover:bg-sky-900/60 transition-colors cursor-pointer"
-          title="Guia Prático: Como Usar o Site"
-        >
-          <Sparkles className="h-3.5 w-3.5 text-sky-500" />
-          <span className="hidden sm:inline">Como Usar</span>
-          <span className="sm:hidden text-[11px]">Guia</span>
-        </button>
-
+      {/* Right section: Notifications & Dark Mode */}
+      <div className="flex items-center gap-2 sm:gap-3 shrink-0">
         {/* Notification Bell */}
         <div className="relative">
           <button
             id="topbar-notifications-btn"
             onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
-            className="relative rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            className="relative rounded-xl p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
             aria-label="Notificações"
           >
             <Bell className="h-4 w-4" />
@@ -339,7 +268,7 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleMobileMenu }) => {
         <button
           id="topbar-theme-toggle-btn"
           onClick={toggleDarkMode}
-          className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+          className="rounded-xl p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
           aria-label={isDarkMode ? 'Ativar Modo Claro' : 'Ativar Modo Escuro'}
         >
           {isDarkMode ? (
@@ -348,33 +277,6 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleMobileMenu }) => {
             <Moon className="h-4 w-4 text-slate-600" />
           )}
         </button>
-
-        {/* User Profile & Account Switcher */}
-        <div className="flex items-center gap-2 border-l pl-3 sm:pl-4 border-slate-200 dark:border-slate-800">
-          <button
-            id="topbar-user-avatar-btn"
-            onClick={() => setCurrentTab('profile')}
-            className="w-9 h-9 rounded-full bg-blue-100 dark:bg-blue-950 border-2 border-white dark:border-slate-800 shadow-xs flex items-center justify-center overflow-hidden transition-transform hover:scale-105 cursor-pointer"
-            title={`Perfil de ${userProfile.name}`}
-          >
-            <img
-              src={userProfile.avatarUrl}
-              alt={userProfile.name}
-              referrerPolicy="no-referrer"
-              className="w-full h-full object-cover"
-            />
-          </button>
-          <button
-            id="topbar-logout-btn"
-            onClick={logout}
-            className="rounded-lg p-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 hover:text-rose-600 dark:hover:text-rose-400 transition-colors flex items-center gap-1.5 text-xs font-semibold cursor-pointer"
-            title="Sair da Conta (Logout)"
-            aria-label="Sair da Conta"
-          >
-            <LogOut className="h-4 w-4" />
-            <span className="hidden sm:inline">Sair</span>
-          </button>
-        </div>
       </div>
     </header>
   );

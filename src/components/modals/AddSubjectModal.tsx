@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Plus, BookOpen, Sparkles } from 'lucide-react';
+import { X, BookOpen, Check, Sparkles, GraduationCap } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
 interface AddSubjectModalProps {
@@ -7,40 +7,39 @@ interface AddSubjectModalProps {
   onClose: () => void;
 }
 
+const COLOR_PRESETS = [
+  { name: 'Azul Céu', value: '#0284c7' },
+  { name: 'Vermelho Clínico', value: '#e11d48' },
+  { name: 'Verde Cirúrgico', value: '#10b981' },
+  { name: 'Roxo Obstétrico', value: '#8b5cf6' },
+  { name: 'Âmbar Preventiva', value: '#f59e0b' },
+  { name: 'Índigo Noturno', value: '#4f46e5' },
+  { name: 'Teal Eletivo', value: '#0d9488' },
+  { name: 'Rosa Pediátrico', value: '#db2777' },
+];
+
 export const AddSubjectModal: React.FC<AddSubjectModalProps> = ({ isOpen, onClose }) => {
   const { currentSemester, addSubject, addXp, triggerConfetti } = useApp();
 
   const [name, setName] = useState('');
-  const [professor, setProfessor] = useState('');
-  const [color, setColor] = useState('#0284c7');
-  const [workloadHours, setWorkloadHours] = useState(80);
+  const [color, setColor] = useState(COLOR_PRESETS[0].value);
   const [targetGrade, setTargetGrade] = useState(7.0);
+  const [workloadHours, setWorkloadHours] = useState<number | ''>('');
 
   if (!isOpen) return null;
 
-  const colorPalette = [
-    '#0284c7', // Sky
-    '#e11d48', // Rose
-    '#10b981', // Emerald
-    '#8b5cf6', // Purple
-    '#f59e0b', // Amber
-    '#06b6d4', // Cyan
-    '#4f46e5', // Indigo
-    '#ec4899', // Pink
-  ];
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !currentSemester) return;
+    if (!name.trim()) return;
 
     addSubject({
-      semesterId: currentSemester.id,
       name: name.trim(),
-      code: 'MED-' + Math.floor(100 + Math.random() * 900),
-      professor: professor.trim() || 'Docente Responsável',
+      code: '',
       color,
-      workloadHours: Number(workloadHours) || 60,
       targetGrade: Number(targetGrade) || 7.0,
+      workloadHours: workloadHours ? Number(workloadHours) : undefined,
+      semesterId: currentSemester?.id,
+      universitySubject: name.trim(),
     });
 
     addXp(50, 'Nova Disciplina Cadastrada');
@@ -52,15 +51,15 @@ export const AddSubjectModal: React.FC<AddSubjectModalProps> = ({ isOpen, onClos
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
       <div className="relative w-full max-w-md rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-2xl">
         <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
             <div className="p-2 rounded-xl bg-sky-500/10 text-sky-600 dark:text-sky-400">
               <BookOpen className="h-5 w-5" />
             </div>
             <div>
               <h2 className="text-base font-bold text-slate-900 dark:text-white">
-                Nova Matéria / Disciplina
+                Nova Disciplina da Faculdade
               </h2>
-              <p className="text-xs text-slate-500">Semestre: {currentSemester?.name}</p>
+              <p className="text-xs text-slate-500">Cadastre a disciplina da sua grade curricular</p>
             </div>
           </div>
 
@@ -73,63 +72,93 @@ export const AddSubjectModal: React.FC<AddSubjectModalProps> = ({ isOpen, onClos
         </div>
 
         <form onSubmit={handleSubmit} className="mt-4 space-y-4">
+          {/* Active Semester Pill */}
+          <div className="p-3 rounded-2xl bg-sky-50/70 dark:bg-sky-950/40 border border-sky-100 dark:border-sky-900/50 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <GraduationCap className="h-4 w-4 text-sky-600 dark:text-sky-400 shrink-0" />
+              <div>
+                <div className="text-[10px] font-bold text-sky-900 dark:text-sky-300 uppercase tracking-wider">
+                  Semestre Vinculado
+                </div>
+                <div className="text-xs font-black text-sky-700 dark:text-sky-200">
+                  {currentSemester?.name || 'Semestre Vigente'}
+                </div>
+              </div>
+            </div>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-sky-200/80 dark:bg-sky-900 text-sky-800 dark:text-sky-200">
+              {currentSemester?.code || 'Atual'}
+            </span>
+          </div>
+
+          {/* Discipline Name (Manual input) */}
           <div>
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-              Nome da Disciplina
+              Nome da Disciplina da Faculdade
             </label>
             <input
               type="text"
-              placeholder="Ex: Neurologia Clínica, Farmacologia II..."
+              placeholder="Ex: Clínica Médica I, Saúde Pública, Habilidades Médicas IV..."
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-sky-500"
+              className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2.5 text-xs text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-sky-500 font-medium"
               required
+              autoFocus
             />
           </div>
 
+          {/* Color Selection */}
+          <div>
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+              Cor de Identificação
+            </label>
+            <div className="flex items-center gap-2 flex-wrap">
+              {COLOR_PRESETS.map((preset) => (
+                <button
+                  key={preset.value}
+                  type="button"
+                  onClick={() => setColor(preset.value)}
+                  className={`w-7 h-7 rounded-xl flex items-center justify-center transition-all ${
+                    color === preset.value
+                      ? 'ring-2 ring-offset-2 ring-slate-900 dark:ring-white scale-110 shadow-xs'
+                      : 'hover:scale-105'
+                  }`}
+                  style={{ backgroundColor: preset.value }}
+                  title={preset.name}
+                >
+                  {color === preset.value && <Check className="h-3.5 w-3.5 text-white" />}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Target Grade and Workload */}
           <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                Meta de Média
+              </label>
+              <input
+                type="number"
+                step="0.1"
+                min="0"
+                max="10"
+                value={targetGrade}
+                onChange={(e) => setTargetGrade(parseFloat(e.target.value) || 7.0)}
+                className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-sky-500"
+              />
+            </div>
+
             <div>
               <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                 Carga Horária (h)
               </label>
               <input
                 type="number"
+                placeholder="Ex: 80"
                 value={workloadHours}
-                onChange={(e) => setWorkloadHours(Number(e.target.value))}
-                className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-sky-500"
+                onChange={(e) => setWorkloadHours(parseInt(e.target.value) || '')}
+                className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-xs text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-sky-500"
               />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                Docente / Preceptor
-              </label>
-              <input
-                type="text"
-                placeholder="Ex: Dr. Carlos"
-                value={professor}
-                onChange={(e) => setProfessor(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-sky-500"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-              Cor de Identificação
-            </label>
-            <div className="flex items-center gap-2">
-              {colorPalette.map((c) => (
-                <button
-                  type="button"
-                  key={c}
-                  onClick={() => setColor(c)}
-                  className={`h-7 w-7 rounded-full transition-transform ${
-                    color === c ? 'scale-125 ring-2 ring-slate-900 dark:ring-white' : 'hover:scale-110'
-                  }`}
-                  style={{ backgroundColor: c }}
-                />
-              ))}
             </div>
           </div>
 
@@ -145,7 +174,7 @@ export const AddSubjectModal: React.FC<AddSubjectModalProps> = ({ isOpen, onClos
               type="submit"
               className="px-5 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs shadow-xs"
             >
-              Criar Matéria
+              Criar Disciplina
             </button>
           </div>
         </form>

@@ -388,7 +388,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ onOpenAddSchedule })
                                     {/* Subtitle / Details */}
                                     <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-2 flex-wrap">
                                       {item.room && <span>Sala: {item.room}</span>}
-                                      {sub?.professor && <span>• Prof: {sub.professor}</span>}
+                                      {sub?.majorArea && <span>• {sub.majorArea}</span>}
                                     </div>
                                   </div>
 

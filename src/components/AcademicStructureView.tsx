@@ -22,13 +22,11 @@ import { Subject, Topic, TopicStatus } from '../types';
 interface AcademicStructureViewProps {
   onOpenAddSubject: () => void;
   onOpenAddTopic: (subjectId?: string) => void;
-  onOpenAddSemester: () => void;
 }
 
 export const AcademicStructureView: React.FC<AcademicStructureViewProps> = ({
   onOpenAddSubject,
   onOpenAddTopic,
-  onOpenAddSemester,
 }) => {
   const {
     semesters,
@@ -47,7 +45,14 @@ export const AcademicStructureView: React.FC<AcademicStructureViewProps> = ({
   const [searchTerm, setSearchTerm] = useState<string>('');
 
   // Filter subjects by current semester
-  const semesterSubjects = subjects.filter((s) => s.semesterId === currentSemester?.id);
+  const semesterSubjects = subjects;
+
+  const groupedSubjects = semesterSubjects.reduce((acc, sub) => {
+    const groupKey = sub.universitySubject || sub.majorArea || 'Sem Categoria';
+    if (!acc[groupKey]) acc[groupKey] = [];
+    acc[groupKey].push(sub);
+    return acc;
+  }, {} as Record<string, typeof subjects>);
 
   // Active subject for topics view
   const activeSubject = selectedSubjectId
@@ -107,20 +112,11 @@ export const AcademicStructureView: React.FC<AcademicStructureViewProps> = ({
             </span>
           </div>
           <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
-            Organize semestres, disciplinas clínicas e assuntos prioritários com controle de domínio.
+            Organize disciplinas clínicas e assuntos prioritários com controle de domínio.
           </p>
         </div>
 
         <div className="flex items-center gap-2.5">
-          <button
-            id="academic-add-semester-btn"
-            onClick={onOpenAddSemester}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            <span>Novo Semestre</span>
-          </button>
-
           <button
             id="academic-add-subject-btn"
             onClick={onOpenAddSubject}
@@ -132,46 +128,20 @@ export const AcademicStructureView: React.FC<AcademicStructureViewProps> = ({
         </div>
       </div>
 
-      {/* Semesters Tabs Bar */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1 border-b border-slate-200 dark:border-slate-800">
-        {semesters.map((sem) => {
-          const isCurrent = sem.id === currentSemester?.id;
-          return (
-            <button
-              key={sem.id}
-              onClick={() => {
-                setCurrentSemesterId(sem.id);
-                setSelectedSubjectId(null);
-              }}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
-                isCurrent
-                  ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-xs'
-                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
-              }`}
-            >
-              <span>{sem.name}</span>
-              <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-white/20 dark:bg-slate-900/20">
-                {sem.code}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-
       {/* Subjects & Topics Split View Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left Col: Subjects List (5 cols) */}
         <div className="lg:col-span-4 space-y-3">
           <div className="flex items-center justify-between px-1">
             <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400">
-              Disciplinas do Semestre ({semesterSubjects.length})
+              Disciplinas Ativas ({semesterSubjects.length})
             </h2>
           </div>
 
           {semesterSubjects.length === 0 ? (
             <div className="text-center py-10 p-4 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800">
               <BookOpen className="h-8 w-8 text-slate-300 dark:text-slate-700 mx-auto mb-2" />
-              <p className="text-xs text-slate-500 font-medium">Nenhuma matéria neste semestre.</p>
+              <p className="text-xs text-slate-500 font-medium">Nenhuma matéria cadastrada.</p>
               <button
                 onClick={onOpenAddSubject}
                 className="mt-2 text-xs font-bold text-sky-600 hover:underline"
@@ -180,73 +150,70 @@ export const AcademicStructureView: React.FC<AcademicStructureViewProps> = ({
               </button>
             </div>
           ) : (
-            <div className="space-y-2.5">
-              {semesterSubjects.map((sub) => {
-                const isSelected = activeSubject?.id === sub.id;
-                const subTopics = topics.filter((t) => t.subjectId === sub.id);
-                const masteredCount = subTopics.filter((t) => t.status === 'dominado').length;
-                const completionPercentage =
-                  subTopics.length > 0 ? Math.round((masteredCount / subTopics.length) * 100) : 0;
+            <div className="space-y-4">
+              {Object.entries(groupedSubjects).map(([groupName, groupSubjects]: [string, any[]]) => (
+                <div key={groupName} className="space-y-2">
+                  <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-1">
+                    {groupName}
+                  </h3>
+                  <div className="space-y-2.5">
+                    {groupSubjects.map((sub) => {
+                      const isSelected = activeSubject?.id === sub.id;
+                      const subTopics = topics.filter((t) => t.subjectId === sub.id);
+                      const masteredCount = subTopics.filter((t) => t.status === 'dominado').length;
+                      const completionPercentage =
+                        subTopics.length > 0 ? Math.round((masteredCount / subTopics.length) * 100) : 0;
 
-                return (
-                  <div
-                    key={sub.id}
-                    onClick={() => setSelectedSubjectId(sub.id)}
-                    className={`group relative overflow-hidden rounded-2xl border p-4 cursor-pointer transition-all ${
-                      isSelected
-                        ? 'border-sky-500/80 bg-sky-50/40 dark:bg-sky-950/30 shadow-xs'
-                        : 'border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-700'
-                    }`}
-                  >
-                    <div
-                      className="absolute top-0 left-0 bottom-0 w-1.5"
-                      style={{ backgroundColor: sub.color }}
-                    />
+                      return (
+                        <div
+                          key={sub.id}
+                          onClick={() => setSelectedSubjectId(sub.id)}
+                          className={`group relative overflow-hidden rounded-2xl border p-4 cursor-pointer transition-all ${
+                            isSelected
+                              ? 'border-sky-500/80 bg-sky-50/40 dark:bg-sky-950/30 shadow-xs'
+                              : 'border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-700'
+                          }`}
+                        >
+                          <div
+                            className="absolute top-0 left-0 bottom-0 w-1.5"
+                            style={{ backgroundColor: sub.color }}
+                          />
 
-                    <div className="flex items-start justify-between">
-                      <div className="min-w-0 pr-2">
-                        <div className="flex items-center gap-1.5 mb-1">
-                          <span
-                            className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full"
-                            style={{
-                              backgroundColor: `${sub.color}18`,
-                              color: sub.color,
-                            }}
-                          >
-                            {sub.code}
-                          </span>
-                          <span className="text-[11px] font-semibold text-slate-500">
-                            {sub.workloadHours}h
-                          </span>
+                          <div className="flex items-start justify-between">
+                            <div className="min-w-0 pr-2">
+                              <div className="flex items-center gap-1.5 mb-1">
+                                <span className="text-[11px] font-semibold text-slate-500">
+                                  {sub.majorArea || 'Outra área'}
+                                </span>
+                              </div>
+                              <h3 className="text-xs font-bold text-slate-900 dark:text-white line-clamp-1">
+                                {sub.universitySubject || sub.name}
+                              </h3>
+                            </div>
+
+                            <div className="text-right shrink-0">
+                              <div className="text-xs font-black text-slate-900 dark:text-white">
+                                {completionPercentage}%
+                              </div>
+                              <div className="text-[10px] text-slate-400">
+                                {masteredCount}/{subTopics.length} dom.
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Mini Progress Bar */}
+                          <div className="mt-3 w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                            <div
+                              className="h-full rounded-full transition-all duration-300"
+                              style={{ backgroundColor: sub.color, width: `${completionPercentage}%` }}
+                            />
+                          </div>
                         </div>
-                        <h3 className="text-xs font-bold text-slate-900 dark:text-white line-clamp-1">
-                          {sub.name}
-                        </h3>
-                        <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-1 mt-0.5">
-                          {sub.professor || 'Docente responsável'}
-                        </p>
-                      </div>
-
-                      <div className="text-right shrink-0">
-                        <div className="text-xs font-black text-slate-900 dark:text-white">
-                          {completionPercentage}%
-                        </div>
-                        <div className="text-[10px] text-slate-400">
-                          {masteredCount}/{subTopics.length} dom.
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Mini Progress Bar */}
-                    <div className="mt-3 w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                      <div
-                        className="h-full rounded-full transition-all duration-300"
-                        style={{ backgroundColor: sub.color, width: `${completionPercentage}%` }}
-                      />
-                    </div>
+                      );
+                    })}
                   </div>
-                );
-              })}
+                </div>
+              ))}
             </div>
           )}
         </div>
@@ -269,7 +236,7 @@ export const AcademicStructureView: React.FC<AcademicStructureViewProps> = ({
                       {activeSubject.name}
                     </h2>
                     <p className="text-xs text-slate-500 dark:text-slate-400">
-                      {activeSubject.professor} • Sala: {activeSubject.room || 'Não informada'}
+                      {activeSubject.majorArea || 'Outra área'}
                     </p>
                   </div>
                 </div>

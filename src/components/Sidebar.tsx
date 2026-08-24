@@ -169,31 +169,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
           </div>
         </div>
 
-        {/* Semester Selector Dropdown */}
-        <div className="px-4 pt-3 pb-1">
-          <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider px-2 mb-1.5">
-            Semestre Letivo
-          </div>
-          <div className="relative">
-            <select
-              id="sidebar-semester-select"
-              value={currentSemester?.id || ''}
-              onChange={(e) => setCurrentSemesterId(e.target.value)}
-              aria-label="Selecionar Semestre Ativo"
-              className="w-full appearance-none rounded-lg border border-slate-800 bg-slate-800/60 py-2 pl-3 pr-8 text-xs font-semibold text-slate-200 shadow-xs focus:border-blue-500 focus:outline-hidden focus:ring-1 focus:ring-blue-500 transition-all cursor-pointer"
-            >
-              {semesters.map((sem) => (
-                <option key={sem.id} value={sem.id} className="bg-slate-900 text-slate-200">
-                  {sem.name}
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="pointer-events-none absolute right-3 top-2.5 h-4 w-4 text-slate-400" />
-          </div>
-        </div>
-
         {/* Navigation Items */}
-        <nav className="flex-1 overflow-y-auto px-3 py-2 space-y-4">
+        <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-4">
           {/* First Section */}
           <div>
             <div className="space-y-1">

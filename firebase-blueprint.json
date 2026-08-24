@@ -111,12 +111,35 @@
         "xpEarned": { "type": "number" }
       },
       "required": ["id", "subjectId", "durationMinutes", "timestamp"]
+    },
+    "AppDataState": {
+      "title": "AppDataState",
+      "description": "Persisted academic progress, statistics and user configuration",
+      "type": "object",
+      "properties": {
+        "userProfile": { "type": "object" },
+        "semesters": { "type": "array" },
+        "subjects": { "type": "array" },
+        "topics": { "type": "array" },
+        "exams": { "type": "array" },
+        "schedule": { "type": "array" },
+        "achievements": { "type": "array" },
+        "medRevisions": { "type": "array" },
+        "studySessions": { "type": "array" },
+        "pomodoroSettings": { "type": "object" },
+        "tutorMessages": { "type": "array" },
+        "updatedAt": { "type": "string" }
+      }
     }
   },
   "firestore": {
     "/users/{userId}": {
       "schema": "User",
       "description": "User profile document"
+    },
+    "/users/{userId}/appData/{docId}": {
+      "schema": "AppDataState",
+      "description": "User academic progress, profile and statistics synchronization document"
     },
     "/users/{userId}/semesters/{semesterId}": {
       "schema": "Semester",

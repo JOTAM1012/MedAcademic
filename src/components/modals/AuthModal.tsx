@@ -302,12 +302,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isPage = false }) => {
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Senha do Perfil <span className="text-[10px] font-normal text-slate-400">(Opcional, se configurada)</span>
+                  Senha do Perfil <span className="text-[10px] font-bold text-rose-600 dark:text-rose-400">(Obrigatório)</span>
                 </label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                   <input
                     type={showPassword ? 'text' : 'password'}
+                    required
                     placeholder="Sua senha secreta"
                     value={loginPassword}
                     onChange={(e) => setLoginPassword(e.target.value)}

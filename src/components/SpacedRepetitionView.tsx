@@ -45,6 +45,7 @@ export const SpacedRepetitionView: React.FC<SpacedRepetitionViewProps> = ({
     setCurrentTab,
     setTimerSubject,
     addXp,
+    updateTopic,
     triggerConfetti,
   } = useApp();
 
@@ -56,6 +57,9 @@ export const SpacedRepetitionView: React.FC<SpacedRepetitionViewProps> = ({
   const [isStudySessionActive, setIsStudySessionActive] = useState<boolean>(false);
   const [sessionCurrentIndex, setSessionCurrentIndex] = useState<number>(0);
   const [sessionCompletedCount, setSessionCompletedCount] = useState<number>(0);
+  const [reviewMethod, setReviewMethod] = useState<string>("questoes");
+  const [reviewQuestions, setReviewQuestions] = useState<number | "">("");
+  const [reviewTimeMinutes, setReviewTimeMinutes] = useState<number | "">("");
 
   const todayStr = new Date().toISOString().split('T')[0];
 
@@ -149,10 +153,10 @@ export const SpacedRepetitionView: React.FC<SpacedRepetitionViewProps> = ({
   };
 
   const getMethodLabel = (topic: Topic) => {
-    if (topic.preferredStudyMethod === 'questoes') {
+    if (topic.preferredStudyMethods?.[0] === 'questoes') {
       return topic.questionCount ? `${topic.questionCount} Questões` : 'Questões';
     }
-    switch (topic.preferredStudyMethod) {
+    switch (topic.preferredStudyMethods?.[0]) {
       case 'videoaula':
         return 'Videoaula';
       case 'resumo':
@@ -204,6 +208,19 @@ export const SpacedRepetitionView: React.FC<SpacedRepetitionViewProps> = ({
     if (!activeSessionTopic) return;
     reviewTopicSpacedRepetition(activeSessionTopic.id, rating);
     setSessionCompletedCount((prev) => prev + 1);
+
+    // Save metrics
+    if (reviewTimeMinutes || reviewQuestions) {
+      updateTopic(activeSessionTopic.id, {
+        questionCount: (activeSessionTopic.questionCount || 0) + (Number(reviewQuestions) || 0),
+        estimatedHours: (activeSessionTopic.estimatedHours || 0) + (Number(reviewTimeMinutes) || 0) / 60
+      });
+      // Optionally we could add studySession here, but `updateTopic` might be enough.
+    }
+
+    setReviewMethod('questoes');
+    setReviewQuestions('');
+    setReviewTimeMinutes('');
 
     if (sessionCurrentIndex >= dueTopics.length - 1) {
       setIsStudySessionActive(false);
@@ -362,7 +379,7 @@ export const SpacedRepetitionView: React.FC<SpacedRepetitionViewProps> = ({
             <div>
               <div className="flex items-center gap-2 mb-1.5">
                 <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-0.5 rounded-md bg-sky-100 dark:bg-sky-950 text-sky-700 dark:text-sky-300">
-                  {getMethodIcon(activeSessionTopic.preferredStudyMethod)}
+                  {getMethodIcon(activeSessionTopic.preferredStudyMethods?.[0])}
                   {getMethodLabel(activeSessionTopic)}
                 </span>
                 <span className="text-xs text-slate-400">
@@ -404,6 +421,49 @@ export const SpacedRepetitionView: React.FC<SpacedRepetitionViewProps> = ({
                 <strong>Anotação Clínica:</strong> {activeSessionTopic.notes}
               </div>
             )}
+          </div>
+
+          {/* User Review Inputs */}
+          <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+            <p className="text-xs font-bold text-slate-800 dark:text-slate-200 mb-3">
+              Métricas da Revisão
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 mb-1">Método Utilizado</label>
+                <select
+                  value={reviewMethod}
+                  onChange={(e) => setReviewMethod(e.target.value)}
+                  className="w-full text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-slate-700 dark:text-slate-300 focus:outline-hidden focus:border-sky-500"
+                >
+                  <option value="questoes">Questões</option>
+                  <option value="videoaula">Videoaula</option>
+                  <option value="resumo">Resumo</option>
+                  <option value="livros">Livros / Texto</option>
+                  <option value="pessoal">Pessoal / Outro</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 mb-1">Qtd. Questões</label>
+                <input
+                  type="number"
+                  placeholder="Ex: 15"
+                  value={reviewQuestions}
+                  onChange={(e) => setReviewQuestions(parseInt(e.target.value) || '')}
+                  className="w-full text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-slate-700 dark:text-slate-300 focus:outline-hidden focus:border-sky-500"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 mb-1">Tempo (minutos)</label>
+                <input
+                  type="number"
+                  placeholder="Ex: 45"
+                  value={reviewTimeMinutes}
+                  onChange={(e) => setReviewTimeMinutes(parseInt(e.target.value) || '')}
+                  className="w-full text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-slate-700 dark:text-slate-300 focus:outline-hidden focus:border-sky-500"
+                />
+              </div>
+            </div>
           </div>
 
           {/* Review Evaluation Rating */}
@@ -578,7 +638,7 @@ export const SpacedRepetitionView: React.FC<SpacedRepetitionViewProps> = ({
 
                     {/* Method badge */}
                     <span className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border border-sky-100 dark:border-sky-900/40 flex items-center gap-1">
-                      {getMethodIcon(topic.preferredStudyMethod)}
+                      {getMethodIcon(topic.preferredStudyMethods?.[0])}
                       {getMethodLabel(topic)}
                     </span>
                   </div>

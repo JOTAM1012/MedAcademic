@@ -16,7 +16,7 @@ export interface Topic {
   scheduleFirstContact?: boolean;
   notificationsActive?: boolean;
   inSpacedRepetition?: boolean; // Inserir no Ciclo de Revisões Espaçadas
-  preferredStudyMethod?: PreferredStudyMethod;
+  preferredStudyMethods?: PreferredStudyMethod[];
   questionCount?: number;
   difficulty?: TopicDifficulty;
   cycleStep?: number; // 1, 2, 3, 4 (R1, R2, R3, R4...)
@@ -32,15 +32,16 @@ export interface Topic {
 
 export interface Subject {
   id: string;
-  semesterId: string;
+  semesterId?: string;
   name: string;
   code: string;
-  color: string; // e.g. '#0284c7', '#059669', '#7c3aed'
+  color: string;
   iconName?: string;
-  professor?: string;
+  majorArea?: string;
+  universitySubject?: string;
   room?: string;
-  workloadHours: number;
-  targetGrade: number; // e.g. 7.0 or 8.5
+  workloadHours?: number;
+  targetGrade: number;
   currentGradeAverage?: number;
   topicsCount?: number;
   completedTopicsCount?: number;

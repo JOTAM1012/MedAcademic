@@ -31,21 +31,12 @@ interface GeneratedTopicItem {
 }
 
 export const GeminiTutorView: React.FC = () => {
-  const { subjects, addTopic, addXp, triggerConfetti, showNotification } = useApp();
+  const { subjects, addTopic, addXp, triggerConfetti, showNotification, tutorMessages: messages, setTutorMessages: setMessages } = useApp();
   const [activeMode, setActiveMode] = useState<'chat' | 'topics' | 'quiz'>('chat');
   const [inputPrompt, setInputPrompt] = useState<string>('');
   const [selectedSubjectId, setSelectedSubjectId] = useState<string>(subjects[0]?.id || '');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
-
-  // Chat message history
-  const [messages, setMessages] = useState<Array<{ role: 'user' | 'assistant'; text: string; time: string }>>([
-    {
-      role: 'assistant',
-      text: 'Olá! Sou o Dr. Gemini, seu preceptor e tutor de inteligência artificial para medicina e estudos acadêmicos. Como posso te auxiliar hoje? Podemos discutir um caso clínico, estruturar novos assuntos para seu plano de repetição espaçada ou praticar questões de residência.',
-      time: 'Agora',
-    },
-  ]);
 
   // Generated topics state
   const [generatedTopics, setGeneratedTopics] = useState<GeneratedTopicItem[]>([]);
@@ -59,6 +50,60 @@ export const GeminiTutorView: React.FC = () => {
   } | null>(null);
   const [selectedQuizOption, setSelectedQuizOption] = useState<number | null>(null);
   const [showQuizAnswer, setShowQuizAnswer] = useState<boolean>(false);
+
+  const QUICK_TOPICS = [
+    { title: '📝 Caso Clínico: Cetoacidose', prompt: 'Gostaria de discutir um caso clínico simulado de Cetoacidose Diabética (CAD). Pode apresentar o quadro do paciente?' },
+    { title: '🫀 Interpretação de ECG', prompt: 'Qual o passo a passo sistemático e seguro para interpretar um Eletrocardiograma no IAM com supra de ST?' },
+    { title: '🔍 Dispneia Aguda: Diferenciais', prompt: 'Quais os principais diagnósticos diferenciais para um paciente idoso com queixa de dispneia aguda?' },
+    { title: '💊 Crise Hipertensiva: Conduta', prompt: 'Qual a conduta inicial e escolha de drogas na Crise Hipertensiva (diferenciando Urgência de Emergência)?' },
+  ];
+
+  const handleQuickTopicClick = async (promptText: string) => {
+    if (isLoading) return;
+    const userText = promptText;
+    setInputPrompt('');
+    const newMessages = [
+      ...messages,
+      { role: 'user' as const, text: userText, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) },
+    ];
+    setMessages(newMessages);
+    setIsLoading(true);
+
+    try {
+      const res = await fetch('/api/gemini/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: newMessages.map((m) => ({ role: m.role, content: m.text })),
+          systemInstruction:
+            'Você é o Dr. Gemini, um tutor sênior e preceptor de medicina clínica e acadêmica para estudantes universitários. Seja preciso, use terminologia técnica e diretrizes médicas atualizadas (SBC, SBPT, AMB, MS). Forneça explicações didáticas, com foco em fisiopatologia, diagnóstico diferencial e condutas baseadas em evidências.',
+        }),
+      });
+
+      if (!res.ok) throw new Error('Falha no servidor');
+      const data = await res.json();
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: 'assistant',
+          text: data.reply || data.text || 'Excelente raciocínio clínico. Continue praticando!',
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        },
+      ]);
+      addXp(20, 'Dúvida tirada com Dr. Gemini');
+    } catch {
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: 'assistant',
+          text: `[Tutor Clínico]: Analisando "${userText}": Lembre-se sempre de correlacionar a anamnese completa com o exame físico minucioso. Na dúvida em situações de emergência (como dor torácica ou sepse), priorize o mnemônico ABCDE do trauma ou o protocolo de dor torácica imediata (ECG em menos de 10 min).`,
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        },
+      ]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleSendMessage = async () => {
     if (!inputPrompt.trim() || isLoading) return;
@@ -220,7 +265,7 @@ export const GeminiTutorView: React.FC = () => {
       firstContactDate: new Date().toISOString().split('T')[0],
       scheduleFirstContact: true,
       inSpacedRepetition: true,
-      preferredStudyMethod: item.preferredStudyMethod,
+      preferredStudyMethods: [item.preferredStudyMethod],
       questionCount: item.questionCount,
       difficulty: item.difficulty,
       cycleStep: undefined,
@@ -345,6 +390,30 @@ export const GeminiTutorView: React.FC = () => {
                 )}
               </div>
             ))}
+
+            {messages.length === 1 && (
+              <div className="pt-4 border-t border-slate-100 dark:border-slate-800 animate-in fade-in">
+                <p className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-2.5 flex items-center gap-1.5">
+                  <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+                  Selecione um tema abaixo para iniciar uma conversação imediatamente:
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {QUICK_TOPICS.map((topic, i) => (
+                    <button
+                      key={i}
+                      onClick={() => handleQuickTopicClick(topic.prompt)}
+                      disabled={isLoading}
+                      className="text-left p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 hover:bg-slate-100 dark:bg-slate-950/40 dark:hover:bg-slate-800/85 transition-all text-xs text-slate-800 dark:text-slate-300 font-semibold flex flex-col justify-between cursor-pointer"
+                    >
+                      <span className="text-sky-600 dark:text-sky-400">{topic.title}</span>
+                      <span className="text-[10px] text-slate-400 mt-1 font-normal line-clamp-1">
+                        {topic.prompt}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Chat Input Bar */}

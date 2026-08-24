@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import confetti from 'canvas-confetti';
 import {
   Semester,
@@ -23,7 +23,15 @@ import {
 } from '../mockData';
 
 import { useAuth } from './AuthContext';
-import { db, doc, setDoc, getDoc } from '../lib/firebase';
+import {
+  db,
+  doc,
+  setDoc,
+  getDoc,
+  onSnapshot,
+  handleFirestoreError,
+  OperationType,
+} from '../lib/firebase';
 
 interface TimerState {
   isRunning: boolean;
@@ -35,6 +43,8 @@ interface TimerState {
   totalPomodorosCompleted: number;
   customDurationSeconds?: number;
 }
+
+export type CloudSyncStatus = 'synced' | 'syncing' | 'offline' | 'error';
 
 interface AppContextType {
   // Navigation & View
@@ -113,6 +123,12 @@ interface AppContextType {
   clearAllData: () => void;
   resetAllData: () => void;
 
+  // Cloud Synchronization Status & Actions
+  isInitialLoadComplete: boolean;
+  cloudSyncStatus: CloudSyncStatus;
+  lastCloudSync: Date | null;
+  forceCloudSync: () => Promise<void>;
+
   // Search query state
   searchQuery: string;
   setSearchQuery: (q: string) => void;
@@ -120,19 +136,23 @@ interface AppContextType {
   // Quick Notification
   notification: { message: string; type: 'success' | 'info' | 'warning' } | null;
   showNotification: (message: string, type?: 'success' | 'info' | 'warning') => void;
+
+  // Tutor Chat Messages State
+  tutorMessages: Array<{ role: 'user' | 'assistant'; text: string; time: string }>;
+  setTutorMessages: React.Dispatch<React.SetStateAction<Array<{ role: 'user' | 'assistant'; text: string; time: string }>>>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 const getUserKey = (keyName: string, userId: string | null) => {
   const uid = userId || 'default';
-  return `medacademic_usr_${uid}_${keyName}_v2`;
+  return `medacademic_usr_${uid}_${keyName}_v3`;
 };
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { activeUserId, activeUser, updateAccount } = useAuth();
 
-  const [currentTab, setCurrentTab] = useState<string>('profile');
+  const [currentTab, setCurrentTab] = useState<string>('dashboard');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isOnboardingOpen, setIsOnboardingOpen] = useState<boolean>(false);
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'info' | 'warning' } | null>(null);
@@ -147,6 +167,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [medRevisions, setMedRevisions] = useState<MedRevisionTopic[]>([]);
   const [userProfile, setUserProfile] = useState<UserProfile>(INITIAL_USER_PROFILE);
   const [studySessions, setStudySessions] = useState<StudySession[]>([]);
+
+  // Cloud sync states
+  const [isInitialLoadComplete, setIsInitialLoadComplete] = useState<boolean>(false);
+  const [cloudSyncStatus, setCloudSyncStatus] = useState<CloudSyncStatus>('synced');
+  const [lastCloudSync, setLastCloudSync] = useState<Date | null>(null);
+  const isSyncInProgressRef = useRef<boolean>(false);
+
+  const INITIAL_TUTOR_MESSAGES = [
+    {
+      role: 'assistant' as const,
+      text: 'Olá! Sou o Dr. Gemini, seu preceptor e tutor de inteligência artificial para medicina e estudos acadêmicos. Como posso te auxiliar hoje? Podemos discutir um caso clínico, estruturar novos assuntos para seu plano de repetição espaçada ou praticar questões de residência.',
+      time: 'Agora',
+    },
+  ];
+
+  const [tutorMessages, setTutorMessages] = useState<Array<{ role: 'user' | 'assistant'; text: string; time: string }>>(INITIAL_TUTOR_MESSAGES);
 
   const [timer, setTimer] = useState<TimerState>({
     isRunning: false,
@@ -164,15 +200,37 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     longBreakMinutes: 15,
   });
 
-  // Rehydrate state on activeUserId change
+  // Rehydrate state on activeUserId change & subscribe to Firestore
   useEffect(() => {
-    if (!activeUserId) return;
+    if (!activeUserId) {
+      // Clear all states in memory on logout to avoid data leakage and reset flags
+      setSemesters(INITIAL_SEMESTERS);
+      setSubjects([]);
+      setTopics([]);
+      setExams([]);
+      setSchedule([]);
+      setAchievements(INITIAL_ACHIEVEMENTS);
+      setMedRevisions([]);
+      setUserProfile(INITIAL_USER_PROFILE);
+      setStudySessions([]);
+      setTutorMessages(INITIAL_TUTOR_MESSAGES);
+      setIsInitialLoadComplete(false);
+      setCloudSyncStatus('synced');
+      setLastCloudSync(null);
+      setCurrentTab('dashboard');
+      return;
+    }
 
-    setCurrentTab('dashboard');
+    setIsInitialLoadComplete(false);
+    setCloudSyncStatus('syncing');
+
+    // 1. Immediate Local Storage Cache Load (Fast First Render)
+    const savedTab = localStorage.getItem(getUserKey('current_tab', activeUserId));
+    if (savedTab) setCurrentTab(savedTab);
 
     const savedProfile = localStorage.getItem(getUserKey('user_profile', activeUserId));
     if (savedProfile) {
-      setUserProfile(JSON.parse(savedProfile));
+      try { setUserProfile(JSON.parse(savedProfile)); } catch (e) {}
     } else if (activeUser) {
       setUserProfile({
         name: activeUser.name,
@@ -194,104 +252,282 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     const savedSem = localStorage.getItem(getUserKey('semesters', activeUserId));
-    setSemesters(savedSem ? JSON.parse(savedSem) : INITIAL_SEMESTERS);
-
+    if (savedSem) {
+      try { setSemesters(JSON.parse(savedSem)); } catch (e) {}
+    }
     const savedSub = localStorage.getItem(getUserKey('subjects', activeUserId));
-    setSubjects(savedSub ? JSON.parse(savedSub) : []);
-
+    if (savedSub) {
+      try { setSubjects(JSON.parse(savedSub)); } catch (e) {}
+    }
     const savedTop = localStorage.getItem(getUserKey('topics', activeUserId));
-    setTopics(savedTop ? JSON.parse(savedTop) : []);
-
+    if (savedTop) {
+      try { setTopics(JSON.parse(savedTop)); } catch (e) {}
+    }
     const savedEx = localStorage.getItem(getUserKey('exams', activeUserId));
-    setExams(savedEx ? JSON.parse(savedEx) : []);
-
+    if (savedEx) {
+      try { setExams(JSON.parse(savedEx)); } catch (e) {}
+    }
     const savedSch = localStorage.getItem(getUserKey('schedule', activeUserId));
-    setSchedule(savedSch ? JSON.parse(savedSch) : []);
-
+    if (savedSch) {
+      try { setSchedule(JSON.parse(savedSch)); } catch (e) {}
+    }
     const savedAch = localStorage.getItem(getUserKey('achievements', activeUserId));
-    setAchievements(savedAch ? JSON.parse(savedAch) : INITIAL_ACHIEVEMENTS);
-
+    if (savedAch) {
+      try { setAchievements(JSON.parse(savedAch)); } catch (e) {}
+    }
     const savedMed = localStorage.getItem(getUserKey('med_revisions', activeUserId));
-    setMedRevisions(savedMed ? JSON.parse(savedMed) : []);
-
+    if (savedMed) {
+      try { setMedRevisions(JSON.parse(savedMed)); } catch (e) {}
+    }
     const savedSess = localStorage.getItem(getUserKey('study_sessions', activeUserId));
-    setStudySessions(savedSess ? JSON.parse(savedSess) : []);
-
+    if (savedSess) {
+      try { setStudySessions(JSON.parse(savedSess)); } catch (e) {}
+    }
     const savedPomo = localStorage.getItem(getUserKey('pomodoro_settings', activeUserId));
     if (savedPomo) {
       try { setPomodoroSettings(JSON.parse(savedPomo)); } catch (e) {}
     }
+    const savedTutor = localStorage.getItem(getUserKey('tutor_messages', activeUserId));
+    if (savedTutor) {
+      try { setTutorMessages(JSON.parse(savedTutor)); } catch (e) {}
+    }
 
-    // Restore state from Firestore if available for seamless cross-device synchronization
-    async function loadCloudAppData() {
+    // 2. Load and listen from Firestore for Cross-Device Synchronization
+    const docRef = doc(db, 'users', activeUserId, 'appData', 'state');
+    const userDocRef = doc(db, 'users', activeUserId);
+
+    let isSubscribed = true;
+
+    async function initializeCloudSync() {
       try {
-        const docRef = doc(db, 'users', activeUserId, 'appData', 'state');
-        const snap = await getDoc(docRef);
-        if (snap.exists()) {
-          const cloudData = snap.data();
-          if (cloudData.semesters) setSemesters(cloudData.semesters);
-          if (cloudData.subjects) setSubjects(cloudData.subjects);
-          if (cloudData.topics) setTopics(cloudData.topics);
-          if (cloudData.exams) setExams(cloudData.exams);
-          if (cloudData.schedule) setSchedule(cloudData.schedule);
-          if (cloudData.achievements) setAchievements(cloudData.achievements);
-          if (cloudData.medRevisions) setMedRevisions(cloudData.medRevisions);
-          if (cloudData.userProfile) setUserProfile(cloudData.userProfile);
-          if (cloudData.studySessions) setStudySessions(cloudData.studySessions);
-          if (cloudData.pomodoroSettings) setPomodoroSettings(cloudData.pomodoroSettings);
+        const userSnap = await getDoc(userDocRef);
+        if (userSnap.exists()) {
+          const uData = userSnap.data();
+          setUserProfile((prev) => ({
+            ...prev,
+            name: uData.name || prev.name,
+            email: uData.email || prev.email,
+            university: uData.university || prev.university,
+            dreamSpecialty: uData.dreamSpecialty || prev.dreamSpecialty,
+            avatarUrl: uData.avatarUrl || prev.avatarUrl,
+            totalXp: uData.totalXp ?? prev.totalXp,
+            level: uData.level ?? prev.level,
+            currentStreakDays: uData.currentStreakDays ?? prev.currentStreakDays,
+            bestStreakDays: uData.bestStreakDays ?? prev.bestStreakDays,
+            weeklyTargetHours: uData.weeklyTargetHours ?? prev.weeklyTargetHours,
+            targetAverageGrade: uData.targetAverageGrade ?? prev.targetAverageGrade,
+            darkMode: uData.darkMode !== undefined ? uData.darkMode : prev.darkMode,
+            onboardingCompleted: uData.onboardingCompleted !== undefined ? uData.onboardingCompleted : prev.onboardingCompleted,
+          }));
         }
-      } catch (e) {
-        console.warn("Could not load cloud app data from Firestore:", e);
+
+        // Fetch comprehensive appData state doc
+        const appDataSnap = await getDoc(docRef);
+        if (appDataSnap.exists() && isSubscribed) {
+          const cloudData = appDataSnap.data();
+          if (Array.isArray(cloudData.semesters) && cloudData.semesters.length > 0) {
+            setSemesters(cloudData.semesters);
+          }
+          if (Array.isArray(cloudData.subjects)) setSubjects(cloudData.subjects);
+          if (Array.isArray(cloudData.topics)) setTopics(cloudData.topics);
+          if (Array.isArray(cloudData.exams)) setExams(cloudData.exams);
+          if (Array.isArray(cloudData.schedule)) setSchedule(cloudData.schedule);
+          if (Array.isArray(cloudData.achievements)) setAchievements(cloudData.achievements);
+          if (Array.isArray(cloudData.medRevisions)) setMedRevisions(cloudData.medRevisions);
+          if (Array.isArray(cloudData.studySessions)) setStudySessions(cloudData.studySessions);
+          if (cloudData.userProfile) {
+            setUserProfile((prev) => ({
+              ...prev,
+              ...cloudData.userProfile,
+              onboardingCompleted: cloudData.userProfile.onboardingCompleted !== undefined
+                ? cloudData.userProfile.onboardingCompleted
+                : ((cloudData.subjects && cloudData.subjects.length > 0) || prev.onboardingCompleted),
+            }));
+          }
+          if (cloudData.pomodoroSettings) setPomodoroSettings(cloudData.pomodoroSettings);
+          if (Array.isArray(cloudData.tutorMessages) && cloudData.tutorMessages.length > 0) {
+            setTutorMessages(cloudData.tutorMessages);
+          }
+          setCloudSyncStatus('synced');
+          setLastCloudSync(new Date());
+        } else if (!appDataSnap.exists() && isSubscribed) {
+          // If first time cloud creation, bootstrap initial state to Firestore
+          await setDoc(docRef, {
+            semesters: INITIAL_SEMESTERS,
+            subjects: [],
+            topics: [],
+            exams: [],
+            schedule: [],
+            achievements: INITIAL_ACHIEVEMENTS,
+            medRevisions: [],
+            userProfile: activeUser ? {
+              name: activeUser.name,
+              email: activeUser.email,
+              university: activeUser.university,
+              currentSemesterId: 'sem-1',
+              weeklyTargetHours: 30,
+              targetAverageGrade: 8.5,
+              dreamSpecialty: activeUser.dreamSpecialty,
+              avatarUrl: activeUser.avatarUrl,
+              totalXp: 0,
+              level: 1,
+              currentStreakDays: 0,
+              bestStreakDays: 0,
+              darkMode: false,
+              soundEnabled: true,
+              onboardingCompleted: false,
+            } : INITIAL_USER_PROFILE,
+            studySessions: [],
+            pomodoroSettings: {
+              workMinutes: 25,
+              shortBreakMinutes: 5,
+              mediumBreakMinutes: 10,
+              longBreakMinutes: 15,
+            },
+            tutorMessages: INITIAL_TUTOR_MESSAGES,
+            updatedAt: new Date().toISOString(),
+          });
+          setCloudSyncStatus('synced');
+          setLastCloudSync(new Date());
+        }
+      } catch (err) {
+        handleFirestoreError(err, OperationType.GET, `users/${activeUserId}/appData/state`);
+        setCloudSyncStatus('offline');
+      } finally {
+        if (isSubscribed) {
+          setIsInitialLoadComplete(true);
+        }
       }
     }
-    loadCloudAppData();
+
+    initializeCloudSync();
+
+    // 3. Real-time Snapshot Listener for Live Multi-Tab / Multi-Device Synchronization
+    const unsubscribeSnapshot = onSnapshot(
+      docRef,
+      (snapshot) => {
+        if (snapshot.exists() && isSubscribed && !isSyncInProgressRef.current) {
+          const data = snapshot.data();
+          if (Array.isArray(data.semesters) && data.semesters.length > 0) {
+            setSemesters(data.semesters);
+          }
+          if (Array.isArray(data.subjects)) setSubjects(data.subjects);
+          if (Array.isArray(data.topics)) setTopics(data.topics);
+          if (Array.isArray(data.exams)) setExams(data.exams);
+          if (Array.isArray(data.schedule)) setSchedule(data.schedule);
+          if (Array.isArray(data.achievements)) setAchievements(data.achievements);
+          if (Array.isArray(data.medRevisions)) setMedRevisions(data.medRevisions);
+          if (Array.isArray(data.studySessions)) setStudySessions(data.studySessions);
+          if (data.userProfile) {
+            setUserProfile((prev) => ({ ...prev, ...data.userProfile }));
+          }
+          if (data.pomodoroSettings) setPomodoroSettings(data.pomodoroSettings);
+          if (Array.isArray(data.tutorMessages) && data.tutorMessages.length > 0) {
+            setTutorMessages(data.tutorMessages);
+          }
+          setCloudSyncStatus('synced');
+          setLastCloudSync(new Date());
+        }
+      },
+      (error) => {
+        handleFirestoreError(error, OperationType.GET, `users/${activeUserId}/appData/state`);
+      }
+    );
+
+    return () => {
+      isSubscribed = false;
+      unsubscribeSnapshot();
+    };
   }, [activeUserId]);
 
-  // Persist state to LocalStorage keyed to activeUserId
+  // Persist currentTab to LocalStorage
   useEffect(() => {
-    if (activeUserId) localStorage.setItem(getUserKey('semesters', activeUserId), JSON.stringify(semesters));
-  }, [semesters, activeUserId]);
+    if (activeUserId && isInitialLoadComplete && currentTab) {
+      localStorage.setItem(getUserKey('current_tab', activeUserId), currentTab);
+    }
+  }, [currentTab, activeUserId, isInitialLoadComplete]);
+
+  // Persist individual states to LocalStorage
+  useEffect(() => {
+    if (activeUserId && isInitialLoadComplete) {
+      localStorage.setItem(getUserKey('semesters', activeUserId), JSON.stringify(semesters));
+    }
+  }, [semesters, activeUserId, isInitialLoadComplete]);
 
   useEffect(() => {
-    if (activeUserId) localStorage.setItem(getUserKey('subjects', activeUserId), JSON.stringify(subjects));
-  }, [subjects, activeUserId]);
+    if (activeUserId && isInitialLoadComplete) {
+      localStorage.setItem(getUserKey('subjects', activeUserId), JSON.stringify(subjects));
+    }
+  }, [subjects, activeUserId, isInitialLoadComplete]);
 
   useEffect(() => {
-    if (activeUserId) localStorage.setItem(getUserKey('topics', activeUserId), JSON.stringify(topics));
-  }, [topics, activeUserId]);
+    if (activeUserId && isInitialLoadComplete) {
+      localStorage.setItem(getUserKey('topics', activeUserId), JSON.stringify(topics));
+    }
+  }, [topics, activeUserId, isInitialLoadComplete]);
 
   useEffect(() => {
-    if (activeUserId) localStorage.setItem(getUserKey('exams', activeUserId), JSON.stringify(exams));
-  }, [exams, activeUserId]);
+    if (activeUserId && isInitialLoadComplete) {
+      localStorage.setItem(getUserKey('exams', activeUserId), JSON.stringify(exams));
+    }
+  }, [exams, activeUserId, isInitialLoadComplete]);
 
   useEffect(() => {
-    if (activeUserId) localStorage.setItem(getUserKey('schedule', activeUserId), JSON.stringify(schedule));
-  }, [schedule, activeUserId]);
+    if (activeUserId && isInitialLoadComplete) {
+      localStorage.setItem(getUserKey('schedule', activeUserId), JSON.stringify(schedule));
+    }
+  }, [schedule, activeUserId, isInitialLoadComplete]);
 
   useEffect(() => {
-    if (activeUserId) localStorage.setItem(getUserKey('achievements', activeUserId), JSON.stringify(achievements));
-  }, [achievements, activeUserId]);
+    if (activeUserId && isInitialLoadComplete) {
+      localStorage.setItem(getUserKey('achievements', activeUserId), JSON.stringify(achievements));
+    }
+  }, [achievements, activeUserId, isInitialLoadComplete]);
 
   useEffect(() => {
-    if (activeUserId) localStorage.setItem(getUserKey('med_revisions', activeUserId), JSON.stringify(medRevisions));
-  }, [medRevisions, activeUserId]);
+    if (activeUserId && isInitialLoadComplete) {
+      localStorage.setItem(getUserKey('med_revisions', activeUserId), JSON.stringify(medRevisions));
+    }
+  }, [medRevisions, activeUserId, isInitialLoadComplete]);
 
   useEffect(() => {
-    if (activeUserId) localStorage.setItem(getUserKey('user_profile', activeUserId), JSON.stringify(userProfile));
-  }, [userProfile, activeUserId]);
+    if (activeUserId && isInitialLoadComplete) {
+      localStorage.setItem(getUserKey('user_profile', activeUserId), JSON.stringify(userProfile));
+    }
+  }, [userProfile, activeUserId, isInitialLoadComplete]);
 
   useEffect(() => {
-    if (activeUserId) localStorage.setItem(getUserKey('study_sessions', activeUserId), JSON.stringify(studySessions));
-  }, [studySessions, activeUserId]);
+    if (activeUserId && isInitialLoadComplete) {
+      localStorage.setItem(getUserKey('study_sessions', activeUserId), JSON.stringify(studySessions));
+    }
+  }, [studySessions, activeUserId, isInitialLoadComplete]);
 
-  // Sync state to Firestore in cloud when activeUserId changes or state updates
   useEffect(() => {
-    if (!activeUserId) return;
+    if (activeUserId && isInitialLoadComplete) {
+      localStorage.setItem(getUserKey('pomodoro_settings', activeUserId), JSON.stringify(pomodoroSettings));
+    }
+  }, [pomodoroSettings, activeUserId, isInitialLoadComplete]);
+
+  useEffect(() => {
+    if (activeUserId && isInitialLoadComplete) {
+      localStorage.setItem(getUserKey('tutor_messages', activeUserId), JSON.stringify(tutorMessages));
+    }
+  }, [tutorMessages, activeUserId, isInitialLoadComplete]);
+
+  // Debounced Sync to Firestore in Cloud on State Mutation
+  useEffect(() => {
+    if (!activeUserId || !isInitialLoadComplete) return;
+
+    setCloudSyncStatus('syncing');
 
     const syncToFirestore = async () => {
+      isSyncInProgressRef.current = true;
       try {
-        const docRef = doc(db, 'users', activeUserId, 'appData', 'state');
-        await setDoc(docRef, {
+        const stateDocRef = doc(db, 'users', activeUserId, 'appData', 'state');
+        const userDocRef = doc(db, 'users', activeUserId);
+
+        // 1. Sync full academic state
+        await setDoc(stateDocRef, {
           semesters,
           subjects,
           topics,
@@ -302,15 +538,108 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           userProfile,
           studySessions,
           pomodoroSettings,
+          tutorMessages,
           updatedAt: new Date().toISOString(),
         }, { merge: true });
+
+        // 2. Sync profile fields to user root doc for cross-device discovery
+        await setDoc(userDocRef, {
+          name: userProfile.name,
+          email: userProfile.email,
+          university: userProfile.university,
+          dreamSpecialty: userProfile.dreamSpecialty,
+          avatarUrl: userProfile.avatarUrl,
+          totalXp: userProfile.totalXp,
+          level: userProfile.level,
+          currentStreakDays: userProfile.currentStreakDays,
+          bestStreakDays: userProfile.bestStreakDays,
+          weeklyTargetHours: userProfile.weeklyTargetHours,
+          targetAverageGrade: userProfile.targetAverageGrade,
+          lastStudyDate: userProfile.lastStudyDate,
+          darkMode: userProfile.darkMode,
+          onboardingCompleted: userProfile.onboardingCompleted,
+          updatedAt: new Date().toISOString(),
+        }, { merge: true });
+
+        setCloudSyncStatus('synced');
+        setLastCloudSync(new Date());
       } catch (err) {
-        // Silent fallback to local storage
+        handleFirestoreError(err, OperationType.WRITE, `users/${activeUserId}/appData/state`);
+        setCloudSyncStatus('error');
+      } finally {
+        setTimeout(() => {
+          isSyncInProgressRef.current = false;
+        }, 300);
       }
     };
 
-    const timer = setTimeout(syncToFirestore, 1000);
+    const timer = setTimeout(syncToFirestore, 500);
     return () => clearTimeout(timer);
+  }, [
+    activeUserId,
+    isInitialLoadComplete,
+    semesters,
+    subjects,
+    topics,
+    exams,
+    schedule,
+    achievements,
+    medRevisions,
+    userProfile,
+    studySessions,
+    pomodoroSettings,
+    tutorMessages,
+  ]);
+
+  // Force Cloud Sync manually
+  const forceCloudSync = useCallback(async () => {
+    if (!activeUserId) return;
+    setCloudSyncStatus('syncing');
+    try {
+      const stateDocRef = doc(db, 'users', activeUserId, 'appData', 'state');
+      const userDocRef = doc(db, 'users', activeUserId);
+
+      await setDoc(stateDocRef, {
+        semesters,
+        subjects,
+        topics,
+        exams,
+        schedule,
+        achievements,
+        medRevisions,
+        userProfile,
+        studySessions,
+        pomodoroSettings,
+        tutorMessages,
+        updatedAt: new Date().toISOString(),
+      }, { merge: true });
+
+      await setDoc(userDocRef, {
+        name: userProfile.name,
+        email: userProfile.email,
+        university: userProfile.university,
+        dreamSpecialty: userProfile.dreamSpecialty,
+        avatarUrl: userProfile.avatarUrl,
+        totalXp: userProfile.totalXp,
+        level: userProfile.level,
+        currentStreakDays: userProfile.currentStreakDays,
+        bestStreakDays: userProfile.bestStreakDays,
+        weeklyTargetHours: userProfile.weeklyTargetHours,
+        targetAverageGrade: userProfile.targetAverageGrade,
+        lastStudyDate: userProfile.lastStudyDate,
+        darkMode: userProfile.darkMode,
+        onboardingCompleted: userProfile.onboardingCompleted,
+        updatedAt: new Date().toISOString(),
+      }, { merge: true });
+
+      setCloudSyncStatus('synced');
+      setLastCloudSync(new Date());
+      showNotification('Sincronização com Firebase Firestore concluída!', 'success');
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, `users/${activeUserId}/appData/state`);
+      setCloudSyncStatus('error');
+      showNotification('Erro ao sincronizar dados com o Firestore.', 'warning');
+    }
   }, [
     activeUserId,
     semesters,
@@ -323,6 +652,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     userProfile,
     studySessions,
     pomodoroSettings,
+    tutorMessages,
   ]);
 
   const updatePomodoroSettings = (settings: { workMinutes: number; shortBreakMinutes: number; mediumBreakMinutes: number; longBreakMinutes: number }) => {
@@ -443,7 +773,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
     setStudySessions((prev) => [newSession, ...prev]);
 
-    // Check & update achievements
+    // Check & update streak and achievements
+    const today = new Date().toISOString().split('T')[0];
+    setUserProfile((prev) => {
+      const lastDate = prev.lastStudyDate;
+      let newStreak = prev.currentStreakDays;
+      if (!lastDate) {
+        newStreak = 1;
+      } else {
+        const last = new Date(lastDate);
+        const curr = new Date(today);
+        const diffDays = Math.round((curr.getTime() - last.getTime()) / (1000 * 3600 * 24));
+        if (diffDays === 1) {
+          newStreak += 1;
+        } else if (diffDays > 1) {
+          newStreak = 1;
+        }
+      }
+      const best = Math.max(prev.bestStreakDays, newStreak);
+      return {
+        ...prev,
+        currentStreakDays: newStreak,
+        bestStreakDays: best,
+        lastStudyDate: today,
+      };
+    });
+
     setAchievements((prev) =>
       prev.map((ach) => {
         if (ach.id === 'ach-1') {
@@ -672,6 +1027,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           university: updated.university,
           dreamSpecialty: updated.dreamSpecialty,
           avatarUrl: updated.avatarUrl,
+          onboardingCompleted: updated.onboardingCompleted,
         });
       }
       return updated;
@@ -755,7 +1111,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showNotification('O site foi completamente zerado! Dados limpos com sucesso.', 'warning');
   };
 
-  // Reset to Clean Slate
+  // Reset to Clean Initial State
   const resetAllData = () => {
     setSemesters(INITIAL_SEMESTERS);
     setSubjects([]);
@@ -899,10 +1255,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setIsOnboardingOpen,
         clearAllData,
         resetAllData,
+        isInitialLoadComplete,
+        cloudSyncStatus,
+        lastCloudSync,
+        forceCloudSync,
         searchQuery,
         setSearchQuery,
         notification,
         showNotification,
+        tutorMessages,
+        setTutorMessages,
       }}
     >
       {children}
