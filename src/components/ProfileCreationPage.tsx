@@ -21,6 +21,7 @@ import {
   CloudOff,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
 import { UserProfile } from '../types';
 import { CARTOON_AVATARS } from '../data/avatars';
 
@@ -92,8 +93,14 @@ const MEDICAL_CYCLES: MedicalCycleConfig[] = [
 ];
 
 export const ProfileCreationPage: React.FC = () => {
+  const { activeUserId, updateAccount, isDeleting } = useAuth();
+
+  if (isDeleting) {
+    return null;
+  }
   const {
     userProfile,
+    subjects,
     updateUserProfile,
     clearAllData,
     updateSemester,
@@ -184,18 +191,18 @@ export const ProfileCreationPage: React.FC = () => {
       return;
     }
 
-    // Always initialize system 100% clean and blank as requested
-    clearAllData();
-
-    // Update the initial clean semester with user-selected details
-    const chosenSemesterName = semesterName.trim() || `${selectedSemesterNum}º Semestre - ${activeCycleConfig.title}`;
-    const chosenSemesterCode = semesterCode.trim() || `SEM${selectedSemesterNum}`;
-    updateSemester('sem-1', {
-      name: chosenSemesterName,
-      code: chosenSemesterCode,
-      targetHoursWeekly: Number(weeklyTargetHours),
-      description: `${activeCycleConfig.title} • ${chosenSemesterName}`,
-    });
+    // Only initialize blank data if user has no existing subjects
+    if (subjects.length === 0) {
+      clearAllData();
+      const chosenSemesterName = semesterName.trim() || `${selectedSemesterNum}º Semestre - ${activeCycleConfig.title}`;
+      const chosenSemesterCode = semesterCode.trim() || `SEM${selectedSemesterNum}`;
+      updateSemester('sem-1', {
+        name: chosenSemesterName,
+        code: chosenSemesterCode,
+        targetHoursWeekly: Number(weeklyTargetHours),
+        description: `${activeCycleConfig.title} • ${chosenSemesterName}`,
+      });
+    }
 
     // Update user profile
     const updated: Partial<UserProfile> = {
@@ -213,7 +220,16 @@ export const ProfileCreationPage: React.FC = () => {
     };
 
     updateUserProfile(updated);
-    addXp(150, 'Perfil Médico Criado com Sucesso!');
+    if (activeUserId) {
+      updateAccount(activeUserId, {
+        name: name.trim(),
+        university: university.trim(),
+        dreamSpecialty: dreamSpecialty.trim(),
+        avatarUrl: selectedAvatarUrl,
+        onboardingCompleted: true,
+      });
+    }
+    addXp(150, 'Perfil Médico Configurado com Sucesso!');
     triggerConfetti();
     
     // Redirect directly to the Dashboard Tab

@@ -10,6 +10,7 @@ import {
   MedRevisionTopic,
   UserProfile,
   StudySession,
+  ChatMessage,
 } from '../types';
 import {
   INITIAL_SEMESTERS,
@@ -23,6 +24,7 @@ import {
 } from '../mockData';
 
 import { useAuth } from './AuthContext';
+import { getIDBData, setIDBData } from '../lib/indexedDB';
 import {
   db,
   doc,
@@ -31,6 +33,7 @@ import {
   onSnapshot,
   handleFirestoreError,
   OperationType,
+  sanitizeForFirestore,
 } from '../lib/firebase';
 
 interface TimerState {
@@ -230,16 +233,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const savedProfile = localStorage.getItem(getUserKey('user_profile', activeUserId));
     if (savedProfile) {
-      try { setUserProfile(JSON.parse(savedProfile)); } catch (e) {}
+      try {
+        const parsed = JSON.parse(savedProfile);
+        setUserProfile(parsed);
+      } catch (e) {}
     } else if (activeUser) {
       setUserProfile({
-        name: activeUser.name,
-        email: activeUser.email,
-        university: activeUser.university,
+        name: activeUser.name || 'Estudante de Medicina',
+        email: activeUser.email || activeUserId,
+        university: activeUser.university || 'Faculdade de Medicina',
         currentSemesterId: 'sem-1',
         weeklyTargetHours: 30,
         targetAverageGrade: 8.5,
-        dreamSpecialty: activeUser.dreamSpecialty,
+        dreamSpecialty: activeUser.dreamSpecialty || 'Clínica Médica',
         avatarUrl: activeUser.avatarUrl,
         totalXp: 0,
         level: 1,
@@ -247,7 +253,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         bestStreakDays: 0,
         darkMode: false,
         soundEnabled: true,
-        onboardingCompleted: false,
+        onboardingCompleted: activeUser.onboardingCompleted !== undefined ? activeUser.onboardingCompleted : true,
       });
     }
 
@@ -292,151 +298,250 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       try { setTutorMessages(JSON.parse(savedTutor)); } catch (e) {}
     }
 
-    // 2. Load and listen from Firestore for Cross-Device Synchronization
-    const docRef = doc(db, 'users', activeUserId, 'appData', 'state');
-    const userDocRef = doc(db, 'users', activeUserId);
-
     let isSubscribed = true;
 
-    async function initializeCloudSync() {
+    // High-performance IndexedDB Async Hydration for Heavy Datasets (Revisões Espaçadas, Sessões, etc.)
+    const loadIDBCache = async (uid: string) => {
       try {
-        const userSnap = await getDoc(userDocRef);
-        if (userSnap.exists()) {
-          const uData = userSnap.data();
-          setUserProfile((prev) => ({
-            ...prev,
-            name: uData.name || prev.name,
-            email: uData.email || prev.email,
-            university: uData.university || prev.university,
-            dreamSpecialty: uData.dreamSpecialty || prev.dreamSpecialty,
-            avatarUrl: uData.avatarUrl || prev.avatarUrl,
-            totalXp: uData.totalXp ?? prev.totalXp,
-            level: uData.level ?? prev.level,
-            currentStreakDays: uData.currentStreakDays ?? prev.currentStreakDays,
-            bestStreakDays: uData.bestStreakDays ?? prev.bestStreakDays,
-            weeklyTargetHours: uData.weeklyTargetHours ?? prev.weeklyTargetHours,
-            targetAverageGrade: uData.targetAverageGrade ?? prev.targetAverageGrade,
-            darkMode: uData.darkMode !== undefined ? uData.darkMode : prev.darkMode,
-            onboardingCompleted: uData.onboardingCompleted !== undefined ? uData.onboardingCompleted : prev.onboardingCompleted,
-          }));
-        }
-
-        // Fetch comprehensive appData state doc
-        const appDataSnap = await getDoc(docRef);
-        if (appDataSnap.exists() && isSubscribed) {
-          const cloudData = appDataSnap.data();
-          if (Array.isArray(cloudData.semesters) && cloudData.semesters.length > 0) {
-            setSemesters(cloudData.semesters);
-          }
-          if (Array.isArray(cloudData.subjects)) setSubjects(cloudData.subjects);
-          if (Array.isArray(cloudData.topics)) setTopics(cloudData.topics);
-          if (Array.isArray(cloudData.exams)) setExams(cloudData.exams);
-          if (Array.isArray(cloudData.schedule)) setSchedule(cloudData.schedule);
-          if (Array.isArray(cloudData.achievements)) setAchievements(cloudData.achievements);
-          if (Array.isArray(cloudData.medRevisions)) setMedRevisions(cloudData.medRevisions);
-          if (Array.isArray(cloudData.studySessions)) setStudySessions(cloudData.studySessions);
-          if (cloudData.userProfile) {
-            setUserProfile((prev) => ({
-              ...prev,
-              ...cloudData.userProfile,
-              onboardingCompleted: cloudData.userProfile.onboardingCompleted !== undefined
-                ? cloudData.userProfile.onboardingCompleted
-                : ((cloudData.subjects && cloudData.subjects.length > 0) || prev.onboardingCompleted),
-            }));
-          }
-          if (cloudData.pomodoroSettings) setPomodoroSettings(cloudData.pomodoroSettings);
-          if (Array.isArray(cloudData.tutorMessages) && cloudData.tutorMessages.length > 0) {
-            setTutorMessages(cloudData.tutorMessages);
-          }
-          setCloudSyncStatus('synced');
-          setLastCloudSync(new Date());
-        } else if (!appDataSnap.exists() && isSubscribed) {
-          // If first time cloud creation, bootstrap initial state to Firestore
-          await setDoc(docRef, {
-            semesters: INITIAL_SEMESTERS,
-            subjects: [],
-            topics: [],
-            exams: [],
-            schedule: [],
-            achievements: INITIAL_ACHIEVEMENTS,
-            medRevisions: [],
-            userProfile: activeUser ? {
-              name: activeUser.name,
-              email: activeUser.email,
-              university: activeUser.university,
-              currentSemesterId: 'sem-1',
-              weeklyTargetHours: 30,
-              targetAverageGrade: 8.5,
-              dreamSpecialty: activeUser.dreamSpecialty,
-              avatarUrl: activeUser.avatarUrl,
-              totalXp: 0,
-              level: 1,
-              currentStreakDays: 0,
-              bestStreakDays: 0,
-              darkMode: false,
-              soundEnabled: true,
-              onboardingCompleted: false,
-            } : INITIAL_USER_PROFILE,
-            studySessions: [],
-            pomodoroSettings: {
-              workMinutes: 25,
-              shortBreakMinutes: 5,
-              mediumBreakMinutes: 10,
-              longBreakMinutes: 15,
-            },
-            tutorMessages: INITIAL_TUTOR_MESSAGES,
-            updatedAt: new Date().toISOString(),
-          });
-          setCloudSyncStatus('synced');
-          setLastCloudSync(new Date());
-        }
+        const [
+          idbMed, idbSess, idbTop, idbSub, idbEx,
+          idbSem, idbProf, idbSch, idbAch, idbPomo, idbTut
+        ] = await Promise.all([
+          getIDBData<MedRevisionTopic[]>(`med_revisions_${uid}`),
+          getIDBData<StudySession[]>(`study_sessions_${uid}`),
+          getIDBData<Topic[]>(`topics_${uid}`),
+          getIDBData<Subject[]>(`subjects_${uid}`),
+          getIDBData<Exam[]>(`exams_${uid}`),
+          getIDBData<Semester[]>(`semesters_${uid}`),
+          getIDBData<UserProfile>(`user_profile_${uid}`),
+          getIDBData<ScheduleClass[]>(`schedule_${uid}`),
+          getIDBData<Achievement[]>(`achievements_${uid}`),
+          getIDBData<any>(`pomodoro_settings_${uid}`),
+          getIDBData<ChatMessage[]>(`tutor_messages_${uid}`),
+        ]);
+        if (idbMed && Array.isArray(idbMed) && idbMed.length > 0) setMedRevisions(idbMed);
+        if (idbSess && Array.isArray(idbSess) && idbSess.length > 0) setStudySessions(idbSess);
+        if (idbTop && Array.isArray(idbTop) && idbTop.length > 0) setTopics(idbTop);
+        if (idbSub && Array.isArray(idbSub) && idbSub.length > 0) setSubjects(idbSub);
+        if (idbEx && Array.isArray(idbEx) && idbEx.length > 0) setExams(idbEx);
+        if (idbSem && Array.isArray(idbSem) && idbSem.length > 0) setSemesters(idbSem);
+        if (idbProf) setUserProfile((prev) => ({ ...prev, ...idbProf }));
+        if (idbSch && Array.isArray(idbSch)) setSchedule(idbSch);
+        if (idbAch && Array.isArray(idbAch) && idbAch.length > 0) setAchievements(idbAch);
+        if (idbPomo) setPomodoroSettings(idbPomo);
+        if (idbTut && Array.isArray(idbTut) && idbTut.length > 0) setTutorMessages(idbTut);
+        console.log(`[IndexedDB Cache] ⚡ Estado prioritário carregado com sucesso do IndexedDB local para o usuário ${uid}.`);
       } catch (err) {
-        handleFirestoreError(err, OperationType.GET, `users/${activeUserId}/appData/state`);
-        setCloudSyncStatus('offline');
+        console.warn('[IndexedDB Cache] ⚠️ Falha na leitura do cache IndexedDB:', err);
       } finally {
         if (isSubscribed) {
           setIsInitialLoadComplete(true);
         }
       }
-    }
+    };
 
-    initializeCloudSync();
+    // 1. Prioridade Máxima: Carrega a versão em cache do IndexedDB e exibe instantaneamente na interface
+    loadIDBCache(activeUserId);
 
-    // 3. Real-time Snapshot Listener for Live Multi-Tab / Multi-Device Synchronization
+    // 2. Simultaneamente: Conecta os Listeners Reativos do Firestore em Tempo Real
+    const docRef = doc(db, 'users', activeUserId, 'appData', 'state');
+    const userDocRef = doc(db, 'users', activeUserId);
+
+    let isBootstrapping = false;
+
+    // Listener para o documento principal de estado da aplicação
     const unsubscribeSnapshot = onSnapshot(
       docRef,
-      (snapshot) => {
+      async (snapshot) => {
+        if (snapshot.metadata?.hasPendingWrites) {
+          return;
+        }
+
         if (snapshot.exists() && isSubscribed && !isSyncInProgressRef.current) {
-          const data = snapshot.data();
-          if (Array.isArray(data.semesters) && data.semesters.length > 0) {
-            setSemesters(data.semesters);
+          const cloudData = snapshot.data();
+          if (Array.isArray(cloudData.semesters) && cloudData.semesters.length > 0) {
+            setSemesters(cloudData.semesters);
+            setIDBData(`semesters_${activeUserId}`, cloudData.semesters);
           }
-          if (Array.isArray(data.subjects)) setSubjects(data.subjects);
-          if (Array.isArray(data.topics)) setTopics(data.topics);
-          if (Array.isArray(data.exams)) setExams(data.exams);
-          if (Array.isArray(data.schedule)) setSchedule(data.schedule);
-          if (Array.isArray(data.achievements)) setAchievements(data.achievements);
-          if (Array.isArray(data.medRevisions)) setMedRevisions(data.medRevisions);
-          if (Array.isArray(data.studySessions)) setStudySessions(data.studySessions);
-          if (data.userProfile) {
-            setUserProfile((prev) => ({ ...prev, ...data.userProfile }));
+          if (Array.isArray(cloudData.subjects)) {
+            setSubjects(cloudData.subjects);
+            setIDBData(`subjects_${activeUserId}`, cloudData.subjects);
           }
-          if (data.pomodoroSettings) setPomodoroSettings(data.pomodoroSettings);
-          if (Array.isArray(data.tutorMessages) && data.tutorMessages.length > 0) {
-            setTutorMessages(data.tutorMessages);
+          if (Array.isArray(cloudData.topics)) {
+            setTopics(cloudData.topics);
+            setIDBData(`topics_${activeUserId}`, cloudData.topics);
+          }
+          if (Array.isArray(cloudData.exams)) {
+            setExams(cloudData.exams);
+            setIDBData(`exams_${activeUserId}`, cloudData.exams);
+          }
+          if (Array.isArray(cloudData.schedule)) {
+            setSchedule(cloudData.schedule);
+            setIDBData(`schedule_${activeUserId}`, cloudData.schedule);
+          }
+          if (Array.isArray(cloudData.achievements)) {
+            setAchievements(cloudData.achievements);
+            setIDBData(`achievements_${activeUserId}`, cloudData.achievements);
+          }
+          if (Array.isArray(cloudData.medRevisions)) {
+            setMedRevisions(cloudData.medRevisions);
+            setIDBData(`med_revisions_${activeUserId}`, cloudData.medRevisions);
+          }
+          if (Array.isArray(cloudData.studySessions)) {
+            setStudySessions(cloudData.studySessions);
+            setIDBData(`study_sessions_${activeUserId}`, cloudData.studySessions);
+          }
+          if (cloudData.userProfile) {
+            setUserProfile((prev) => {
+              const updated = { ...prev, ...cloudData.userProfile, onboardingCompleted: true };
+              setIDBData(`user_profile_${activeUserId}`, updated);
+              return updated;
+            });
+          }
+          if (cloudData.pomodoroSettings) {
+            setPomodoroSettings(cloudData.pomodoroSettings);
+            setIDBData(`pomodoro_settings_${activeUserId}`, cloudData.pomodoroSettings);
+          }
+          if (Array.isArray(cloudData.tutorMessages) && cloudData.tutorMessages.length > 0) {
+            setTutorMessages(cloudData.tutorMessages);
+            setIDBData(`tutor_messages_${activeUserId}`, cloudData.tutorMessages);
           }
           setCloudSyncStatus('synced');
           setLastCloudSync(new Date());
+        } else if (!snapshot.exists() && isSubscribed && !isBootstrapping) {
+          // Documento não existe na nuvem (novo usuário): faz o bootstrap inicial no Firestore
+          isBootstrapping = true;
+          try {
+            let initialSem = INITIAL_SEMESTERS;
+            if (savedSem) { try { const p = JSON.parse(savedSem); if (Array.isArray(p) && p.length > 0) initialSem = p; } catch (e) {} }
+            let initialSub: any[] = [];
+            if (savedSub) { try { const p = JSON.parse(savedSub); if (Array.isArray(p)) initialSub = p; } catch (e) {} }
+            let initialTop: any[] = [];
+            if (savedTop) { try { const p = JSON.parse(savedTop); if (Array.isArray(p)) initialTop = p; } catch (e) {} }
+            let initialEx: any[] = [];
+            if (savedEx) { try { const p = JSON.parse(savedEx); if (Array.isArray(p)) initialEx = p; } catch (e) {} }
+            let initialSch: any[] = [];
+            if (savedSch) { try { const p = JSON.parse(savedSch); if (Array.isArray(p)) initialSch = p; } catch (e) {} }
+            let initialAch = INITIAL_ACHIEVEMENTS;
+            if (savedAch) { try { const p = JSON.parse(savedAch); if (Array.isArray(p) && p.length > 0) initialAch = p; } catch (e) {} }
+            let initialMed: any[] = [];
+            if (savedMed) { try { const p = JSON.parse(savedMed); if (Array.isArray(p)) initialMed = p; } catch (e) {} }
+            let initialSess: any[] = [];
+            if (savedSess) { try { const p = JSON.parse(savedSess); if (Array.isArray(p)) initialSess = p; } catch (e) {} }
+            let initialPomo = { workMinutes: 25, shortBreakMinutes: 5, mediumBreakMinutes: 10, longBreakMinutes: 15 };
+            if (savedPomo) { try { const p = JSON.parse(savedPomo); if (p) initialPomo = p; } catch (e) {} }
+            let initialTutor = INITIAL_TUTOR_MESSAGES;
+            if (savedTutor) { try { const p = JSON.parse(savedTutor); if (Array.isArray(p) && p.length > 0) initialTutor = p; } catch (e) {} }
+
+            try {
+              await setDoc(docRef, sanitizeForFirestore({
+                semesters: initialSem,
+                subjects: initialSub,
+                topics: initialTop,
+                exams: initialEx,
+                schedule: initialSch,
+                achievements: initialAch,
+                medRevisions: initialMed,
+                userProfile: activeUser ? {
+                  name: activeUser.name,
+                  email: activeUser.email,
+                  university: activeUser.university,
+                  currentSemesterId: 'sem-1',
+                  weeklyTargetHours: 30,
+                  targetAverageGrade: 8.5,
+                  dreamSpecialty: activeUser.dreamSpecialty,
+                  avatarUrl: activeUser.avatarUrl,
+                  totalXp: 0,
+                  level: 1,
+                  currentStreakDays: 0,
+                  bestStreakDays: 0,
+                  darkMode: false,
+                  soundEnabled: true,
+                  onboardingCompleted: initialSub.length > 0 || (activeUser as any).onboardingCompleted || false,
+                } : INITIAL_USER_PROFILE,
+                studySessions: initialSess,
+                pomodoroSettings: initialPomo,
+                tutorMessages: initialTutor,
+                updatedAt: new Date().toISOString(),
+              }));
+              setCloudSyncStatus('synced');
+              setLastCloudSync(new Date());
+            } catch (err) {
+              const res = handleFirestoreError(err, OperationType.WRITE, `users/${activeUserId}/appData/state`);
+              if ((res as any)?.quotaExceeded) {
+                setCloudSyncStatus('offline');
+              } else {
+                console.warn('[Firestore] Erro no bootstrap inicial:', err);
+              }
+            }
+          } finally {
+            isBootstrapping = false;
+          }
         }
       },
       (error) => {
-        handleFirestoreError(error, OperationType.GET, `users/${activeUserId}/appData/state`);
+        const res = handleFirestoreError(error, OperationType.GET, `users/${activeUserId}/appData/state`);
+        if ((res as any)?.quotaExceeded) {
+          setCloudSyncStatus('offline');
+        } else {
+          if (typeof navigator !== 'undefined' && !navigator.onLine) {
+            setCloudSyncStatus('offline');
+          }
+        }
       }
     );
+
+    // Listener para o documento de perfil do usuário
+    const unsubscribeUser = onSnapshot(
+      userDocRef,
+      (snapshot) => {
+        if (snapshot.exists() && isSubscribed) {
+          const uData = snapshot.data();
+          setUserProfile((prev) => {
+            const updated = {
+              ...prev,
+              name: uData.name || prev.name,
+              email: uData.email || prev.email,
+              university: uData.university || prev.university,
+              dreamSpecialty: uData.dreamSpecialty || prev.dreamSpecialty,
+              avatarUrl: uData.avatarUrl || prev.avatarUrl,
+              totalXp: uData.totalXp ?? prev.totalXp,
+              level: uData.level ?? prev.level,
+              currentStreakDays: uData.currentStreakDays ?? prev.currentStreakDays,
+              bestStreakDays: uData.bestStreakDays ?? prev.bestStreakDays,
+              weeklyTargetHours: uData.weeklyTargetHours ?? prev.weeklyTargetHours,
+              targetAverageGrade: uData.targetAverageGrade ?? prev.targetAverageGrade,
+              darkMode: uData.darkMode !== undefined ? uData.darkMode : prev.darkMode,
+              onboardingCompleted: uData.onboardingCompleted !== undefined ? Boolean(uData.onboardingCompleted) : prev.onboardingCompleted,
+            };
+            setIDBData(`user_profile_${activeUserId}`, updated);
+            return updated;
+          });
+        }
+      },
+      (error) => {
+        console.warn('[Firestore Listener] Erro no listener de usuário:', error);
+      }
+    );
+
+    // Online & Offline Network State Handlers
+    const handleOnline = () => {
+      setCloudSyncStatus('syncing');
+    };
+
+    const handleOffline = () => {
+      setCloudSyncStatus('offline');
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
 
     return () => {
       isSubscribed = false;
       unsubscribeSnapshot();
+      unsubscribeUser();
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
     };
   }, [activeUserId]);
 
@@ -447,70 +552,81 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [currentTab, activeUserId, isInitialLoadComplete]);
 
-  // Persist individual states to LocalStorage
+  // Persist individual states to LocalStorage & IndexedDB
   useEffect(() => {
     if (activeUserId && isInitialLoadComplete) {
       localStorage.setItem(getUserKey('semesters', activeUserId), JSON.stringify(semesters));
+      setIDBData(`semesters_${activeUserId}`, semesters);
     }
   }, [semesters, activeUserId, isInitialLoadComplete]);
 
   useEffect(() => {
     if (activeUserId && isInitialLoadComplete) {
       localStorage.setItem(getUserKey('subjects', activeUserId), JSON.stringify(subjects));
+      setIDBData(`subjects_${activeUserId}`, subjects);
     }
   }, [subjects, activeUserId, isInitialLoadComplete]);
 
   useEffect(() => {
     if (activeUserId && isInitialLoadComplete) {
       localStorage.setItem(getUserKey('topics', activeUserId), JSON.stringify(topics));
+      setIDBData(`topics_${activeUserId}`, topics);
     }
   }, [topics, activeUserId, isInitialLoadComplete]);
 
   useEffect(() => {
     if (activeUserId && isInitialLoadComplete) {
       localStorage.setItem(getUserKey('exams', activeUserId), JSON.stringify(exams));
+      setIDBData(`exams_${activeUserId}`, exams);
     }
   }, [exams, activeUserId, isInitialLoadComplete]);
 
   useEffect(() => {
     if (activeUserId && isInitialLoadComplete) {
       localStorage.setItem(getUserKey('schedule', activeUserId), JSON.stringify(schedule));
+      setIDBData(`schedule_${activeUserId}`, schedule);
     }
   }, [schedule, activeUserId, isInitialLoadComplete]);
 
   useEffect(() => {
     if (activeUserId && isInitialLoadComplete) {
       localStorage.setItem(getUserKey('achievements', activeUserId), JSON.stringify(achievements));
+      setIDBData(`achievements_${activeUserId}`, achievements);
     }
   }, [achievements, activeUserId, isInitialLoadComplete]);
 
   useEffect(() => {
     if (activeUserId && isInitialLoadComplete) {
       localStorage.setItem(getUserKey('med_revisions', activeUserId), JSON.stringify(medRevisions));
+      setIDBData(`med_revisions_${activeUserId}`, medRevisions);
     }
   }, [medRevisions, activeUserId, isInitialLoadComplete]);
 
   useEffect(() => {
     if (activeUserId && isInitialLoadComplete) {
       localStorage.setItem(getUserKey('user_profile', activeUserId), JSON.stringify(userProfile));
+      setIDBData(`user_profile_${activeUserId}`, userProfile);
     }
   }, [userProfile, activeUserId, isInitialLoadComplete]);
 
   useEffect(() => {
     if (activeUserId && isInitialLoadComplete) {
       localStorage.setItem(getUserKey('study_sessions', activeUserId), JSON.stringify(studySessions));
+      setIDBData(`study_sessions_${activeUserId}`, studySessions);
     }
   }, [studySessions, activeUserId, isInitialLoadComplete]);
 
   useEffect(() => {
     if (activeUserId && isInitialLoadComplete) {
       localStorage.setItem(getUserKey('pomodoro_settings', activeUserId), JSON.stringify(pomodoroSettings));
+      setIDBData(`pomodoro_settings_${activeUserId}`, pomodoroSettings);
     }
   }, [pomodoroSettings, activeUserId, isInitialLoadComplete]);
 
   useEffect(() => {
     if (activeUserId && isInitialLoadComplete) {
       localStorage.setItem(getUserKey('tutor_messages', activeUserId), JSON.stringify(tutorMessages));
+      setIDBData(`tutor_messages_${activeUserId}`, tutorMessages);
     }
   }, [tutorMessages, activeUserId, isInitialLoadComplete]);
 
@@ -518,16 +634,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     if (!activeUserId || !isInitialLoadComplete) return;
 
-    setCloudSyncStatus('syncing');
-
     const syncToFirestore = async () => {
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        setCloudSyncStatus('offline');
+        return;
+      }
+
       isSyncInProgressRef.current = true;
       try {
         const stateDocRef = doc(db, 'users', activeUserId, 'appData', 'state');
         const userDocRef = doc(db, 'users', activeUserId);
 
         // 1. Sync full academic state
-        await setDoc(stateDocRef, {
+        await setDoc(stateDocRef, sanitizeForFirestore({
           semesters,
           subjects,
           topics,
@@ -540,10 +659,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           pomodoroSettings,
           tutorMessages,
           updatedAt: new Date().toISOString(),
-        }, { merge: true });
+        }), { merge: true });
 
         // 2. Sync profile fields to user root doc for cross-device discovery
-        await setDoc(userDocRef, {
+        await setDoc(userDocRef, sanitizeForFirestore({
           name: userProfile.name,
           email: userProfile.email,
           university: userProfile.university,
@@ -559,13 +678,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           darkMode: userProfile.darkMode,
           onboardingCompleted: userProfile.onboardingCompleted,
           updatedAt: new Date().toISOString(),
-        }, { merge: true });
+        }), { merge: true });
 
         setCloudSyncStatus('synced');
         setLastCloudSync(new Date());
       } catch (err) {
-        handleFirestoreError(err, OperationType.WRITE, `users/${activeUserId}/appData/state`);
-        setCloudSyncStatus('error');
+        const res = handleFirestoreError(err, OperationType.WRITE, `users/${activeUserId}/appData/state`);
+        if ((res as any)?.quotaExceeded) {
+          setCloudSyncStatus('offline');
+        } else if (typeof navigator !== 'undefined' && !navigator.onLine) {
+          setCloudSyncStatus('offline');
+        } else {
+          setCloudSyncStatus('error');
+        }
       } finally {
         setTimeout(() => {
           isSyncInProgressRef.current = false;
@@ -573,7 +698,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     };
 
-    const timer = setTimeout(syncToFirestore, 500);
+    const timer = setTimeout(syncToFirestore, 10000);
     return () => clearTimeout(timer);
   }, [
     activeUserId,
@@ -594,12 +719,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Force Cloud Sync manually
   const forceCloudSync = useCallback(async () => {
     if (!activeUserId) return;
+
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      setCloudSyncStatus('offline');
+      showNotification('Modo offline: dados salvos no dispositivo. Sincronização ocorrerá ao reconectar.', 'info');
+      return;
+    }
+
     setCloudSyncStatus('syncing');
     try {
       const stateDocRef = doc(db, 'users', activeUserId, 'appData', 'state');
       const userDocRef = doc(db, 'users', activeUserId);
 
-      await setDoc(stateDocRef, {
+      await setDoc(stateDocRef, sanitizeForFirestore({
         semesters,
         subjects,
         topics,
@@ -612,9 +744,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         pomodoroSettings,
         tutorMessages,
         updatedAt: new Date().toISOString(),
-      }, { merge: true });
+      }), { merge: true });
 
-      await setDoc(userDocRef, {
+      await setDoc(userDocRef, sanitizeForFirestore({
         name: userProfile.name,
         email: userProfile.email,
         university: userProfile.university,
@@ -630,15 +762,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         darkMode: userProfile.darkMode,
         onboardingCompleted: userProfile.onboardingCompleted,
         updatedAt: new Date().toISOString(),
-      }, { merge: true });
+      }), { merge: true });
 
       setCloudSyncStatus('synced');
       setLastCloudSync(new Date());
       showNotification('Sincronização com Firebase Firestore concluída!', 'success');
     } catch (err) {
-      handleFirestoreError(err, OperationType.WRITE, `users/${activeUserId}/appData/state`);
-      setCloudSyncStatus('error');
-      showNotification('Erro ao sincronizar dados com o Firestore.', 'warning');
+      const res = handleFirestoreError(err, OperationType.WRITE, `users/${activeUserId}/appData/state`);
+      if ((res as any)?.quotaExceeded) {
+        setCloudSyncStatus('offline');
+        showNotification('Cota diária gratuita do Firestore atingida. Salvando localmente no dispositivo.', 'warning');
+      } else if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        setCloudSyncStatus('offline');
+        showNotification('Conexão perdida. Dados preservados no dispositivo.', 'info');
+      } else {
+        setCloudSyncStatus('error');
+        showNotification('Erro ao sincronizar dados com o Firestore.', 'warning');
+      }
     }
   }, [
     activeUserId,
@@ -1088,7 +1228,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       lastStudyDate: new Date().toISOString().split('T')[0],
       darkMode: userProfile.darkMode,
       soundEnabled: true,
-      onboardingCompleted: false,
+      onboardingCompleted: true,
     });
     setTimer({
       isRunning: false,

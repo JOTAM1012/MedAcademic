@@ -1,0 +1,30 @@
+{
+  "name": "MedAcademic - Gestão de Estudos Médicos",
+  "short_name": "MedAcademic",
+  "description": "Sistema completo para estudantes de medicina: semestres, matérias, tópicos, repetição espaçada, cronômetro Pomodoro, gestão de notas, grade horária e tutor inteligente com suporte offline total.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "categories": ["education", "medical", "productivity"],
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

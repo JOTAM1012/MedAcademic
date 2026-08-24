@@ -28,13 +28,14 @@ import {
   Lock,
   ShieldCheck,
   LogOut,
+  UserX,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { CARTOON_AVATARS } from '../data/avatars';
 
 export const ProfileView: React.FC = () => {
-  const { accounts, activeUser, openAuthModal, updateAccount, logout } = useAuth();
+  const { accounts, activeUser, activeUserId, openAuthModal, updateAccount, logout, deleteAccount } = useAuth();
   const {
     userProfile,
     updateUserProfile,
@@ -83,6 +84,7 @@ export const ProfileView: React.FC = () => {
 
   // Clear / Wipe Modal state
   const [isWipeModalOpen, setIsWipeModalOpen] = useState(false);
+  const [isDeleteAccountModalOpen, setIsDeleteAccountModalOpen] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
@@ -204,6 +206,14 @@ export const ProfileView: React.FC = () => {
     setDreamSpecialty('');
     setTargetExam('');
     setWeeklyTargetHours(30);
+  };
+
+  const handleConfirmDeleteAccount = async () => {
+    const targetId = activeUser?.id || activeUser?.email || userProfile.email || activeUserId || '';
+    setIsDeleteAccountModalOpen(false);
+    showNotification('Processando exclusão de conta...', 'info');
+    await deleteAccount(targetId);
+    showNotification('Sua conta foi excluída permanentemente.', 'info');
   };
 
   // Metrics Calculation
@@ -708,6 +718,27 @@ export const ProfileView: React.FC = () => {
                   <span>Zerar Tudo do Site</span>
                 </button>
               </div>
+
+              {/* Excluir Conta Permanentemente */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-white dark:bg-slate-900 border border-rose-300 dark:border-rose-900/80">
+                <div>
+                  <div className="text-xs font-bold text-rose-700 dark:text-rose-400 flex items-center gap-1.5">
+                    <UserX className="h-3.5 w-3.5" />
+                    <span>Excluir Minha Conta Acadêmica</span>
+                  </div>
+                  <div className="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5">
+                    Exclui a conta do usuário ({activeUser?.email || userProfile.email || 'Conta Atual'}), remove suas credenciais de acesso e efetua o logout.
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsDeleteAccountModalOpen(true)}
+                  className="shrink-0 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-rose-700 hover:bg-rose-800 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
+                >
+                  <UserX className="h-4 w-4" />
+                  <span>Excluir Conta</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -763,6 +794,64 @@ export const ProfileView: React.FC = () => {
               >
                 <Trash2 className="h-4 w-4" />
                 <span>Sim, Zerar Tudo Agora</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Confirm Excluir Conta */}
+      {isDeleteAccountModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="w-full max-w-md rounded-3xl bg-white dark:bg-slate-900 border border-rose-300 dark:border-rose-900 p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400">
+                  <UserX className="h-5 w-5" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-black text-slate-900 dark:text-white">Excluir Conta Permanentemente?</h4>
+                  <p className="text-[11px] text-rose-600 font-medium">Ação irreversível de usuário</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsDeleteAccountModalOpen(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            
+            <div className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed bg-rose-50/50 dark:bg-rose-950/30 p-3.5 rounded-2xl border border-rose-100 dark:border-rose-900/40">
+              <p className="font-semibold text-rose-900 dark:text-rose-300 mb-1">
+                Você está prestes a excluir a conta:
+              </p>
+              <p className="font-mono text-[11px] font-bold text-rose-700 dark:text-rose-400 mb-2">
+                {activeUser?.email || userProfile.email || 'Usuário Atual'}
+              </p>
+              <ul className="list-disc list-inside space-y-0.5 text-[11px] text-slate-600 dark:text-slate-400">
+                <li>Sua conta será desvinculada do aplicativo.</li>
+                <li>Suas credenciais de e-mail e senha salvas serão removidas.</li>
+                <li>Você precisará se cadastrar novamente para criar um novo usuário.</li>
+              </ul>
+            </div>
+            
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setIsDeleteAccountModalOpen(false)}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteAccount}
+                className="flex items-center gap-1.5 px-5 py-2 rounded-xl bg-rose-700 hover:bg-rose-800 text-white text-xs font-black shadow-xs transition-colors cursor-pointer"
+              >
+                <UserX className="h-4 w-4" />
+                <span>Sim, Excluir Minha Conta</span>
               </button>
             </div>
           </div>

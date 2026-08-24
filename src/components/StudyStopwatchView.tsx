@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import {
   Timer,
   Play,
@@ -318,18 +319,37 @@ export const StudyStopwatchView: React.FC = () => {
           </div>
         </div>
 
-        {/* Large Timer Digits */}
-        <div className="my-6">
-          <div className="font-mono text-6xl sm:text-8xl font-black tracking-tight text-slate-900 dark:text-white select-none">
+        {/* Large Timer Digits & Animated Pulse Ring */}
+        <div className="relative my-8 py-4">
+          {timer.isRunning && (
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0.3 }}
+              animate={{ scale: [0.95, 1.05, 0.95], opacity: [0.2, 0.5, 0.2] }}
+              transition={{ repeat: Infinity, duration: 2.5, ease: 'easeInOut' }}
+              className="absolute inset-0 rounded-full bg-gradient-to-r from-sky-500/20 via-blue-500/20 to-indigo-500/20 blur-xl pointer-events-none"
+            />
+          )}
+
+          <motion.div
+            key={timer.isRunning ? 'running' : 'paused'}
+            initial={{ scale: 0.98 }}
+            animate={{ scale: 1 }}
+            className="font-mono text-6xl sm:text-8xl font-black tracking-tight text-slate-900 dark:text-white select-none relative z-10"
+          >
             {timer.mode === 'stopwatch'
               ? formatTime(timer.elapsedSeconds)
               : formatTime(timer.timeLeftSeconds)}
-          </div>
+          </motion.div>
 
-          <p className="mt-2 text-xs font-medium text-slate-400">
-            {timer.isRunning
-              ? '🔥 Sessão de estudo ativa. Mantenha o foco!'
-              : 'Pressione Iniciar para começar a contabilizar suas horas líquidas.'}
+          <p className="mt-3 text-xs font-medium text-slate-400 flex items-center justify-center gap-1.5 relative z-10">
+            {timer.isRunning ? (
+              <span className="flex items-center gap-1 text-amber-500 font-bold">
+                <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping inline-block" />
+                Sessão de estudo ativa. Mantenha o foco absoluto!
+              </span>
+            ) : (
+              'Pressione Iniciar para começar a contabilizar suas horas líquidas.'
+            )}
           </p>
         </div>
 

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import {
   Sparkles,
   Send,
@@ -289,7 +290,7 @@ export const GeminiTutorView: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 pb-12">
+    <div id="tour-gemini-tutor" className="space-y-6 pb-12">
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -352,8 +353,11 @@ export const GeminiTutorView: React.FC = () => {
           {/* Chat Messages Log */}
           <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
             {messages.map((msg, index) => (
-              <div
+              <motion.div
                 key={index}
+                initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ duration: 0.2, ease: "easeOut" }}
                 className={`flex gap-3 ${
                   msg.role === 'user' ? 'justify-end' : 'justify-start'
                 }`}
@@ -388,7 +392,7 @@ export const GeminiTutorView: React.FC = () => {
                     <User className="h-4 w-4" />
                   </div>
                 )}
-              </div>
+              </motion.div>
             ))}
 
             {messages.length === 1 && (

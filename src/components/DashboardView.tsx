@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion } from 'motion/react';
 import {
   Clock,
   Flame,
@@ -21,6 +22,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { WeeklyStatsCard } from './WeeklyStatsCard';
+import { MonthlyPerformanceChart } from './MonthlyPerformanceChart';
 
 export const DashboardView: React.FC = () => {
   const {
@@ -104,7 +106,7 @@ export const DashboardView: React.FC = () => {
   const isReturning = userProfile.onboardingCompleted;
 
   return (
-    <div className="space-y-6 pb-12">
+    <div id="tour-dashboard" className="space-y-6 pb-12">
       {/* Clean Slate / First Steps Guide Banner */}
       {subjects.length === 0 && (
         <div className="rounded-2xl border border-sky-200 dark:border-sky-800/80 bg-gradient-to-r from-sky-50 via-blue-50 to-indigo-50 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800/80 p-5 sm:p-6 shadow-xs">
@@ -171,10 +173,25 @@ export const DashboardView: React.FC = () => {
         </div>
       )}
 
-      {/* 4-Metric Grid (from Sleek Interface design) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* 4-Metric Grid with Entrance & Hover Animations */}
+      <motion.div
+        initial="hidden"
+        animate="visible"
+        variants={{
+          hidden: { opacity: 0 },
+          visible: { opacity: 1, transition: { staggerChildren: 0.08 } },
+        }}
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
+      >
         {/* Metric 1: Hours Studied */}
-        <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
+        <motion.div
+          variants={{
+            hidden: { opacity: 0, y: 16 },
+            visible: { opacity: 1, y: 0, transition: { duration: 0.35, ease: 'easeOut' } },
+          }}
+          whileHover={{ y: -3, transition: { duration: 0.15 } }}
+          className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs hover:border-blue-400/50 dark:hover:border-blue-500/40 transition-colors"
+        >
           <span className="text-slate-400 dark:text-slate-500 text-xs font-medium mb-1 block uppercase tracking-tight">
             Horas Estudadas (Semana)
           </span>
@@ -192,10 +209,17 @@ export const DashboardView: React.FC = () => {
               style={{ width: `${weeklyGoalPercentage}%` }}
             />
           </div>
-        </div>
+        </motion.div>
 
         {/* Metric 2: Active Streak */}
-        <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
+        <motion.div
+          variants={{
+            hidden: { opacity: 0, y: 16 },
+            visible: { opacity: 1, y: 0, transition: { duration: 0.35, ease: 'easeOut' } },
+          }}
+          whileHover={{ y: -3, transition: { duration: 0.15 } }}
+          className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs hover:border-amber-400/50 dark:hover:border-amber-500/40 transition-colors"
+        >
           <span className="text-slate-400 dark:text-slate-500 text-xs font-medium mb-1 block uppercase tracking-tight">
             Sessões Consecutivas
           </span>
@@ -204,15 +228,22 @@ export const DashboardView: React.FC = () => {
               {userProfile.currentStreakDays} Dias
             </h3>
             <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-              <Flame className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
+              <Flame className="w-3.5 h-3.5 fill-amber-500 text-amber-500 animate-bounce" />
               Nv. {userProfile.level}
             </span>
           </div>
           <p className="text-[11px] text-slate-400 mt-1">Consistência diária inabalável</p>
-        </div>
+        </motion.div>
 
         {/* Metric 3: Topics Due */}
-        <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
+        <motion.div
+          variants={{
+            hidden: { opacity: 0, y: 16 },
+            visible: { opacity: 1, y: 0, transition: { duration: 0.35, ease: 'easeOut' } },
+          }}
+          whileHover={{ y: -3, transition: { duration: 0.15 } }}
+          className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs hover:border-amber-400/50 dark:hover:border-amber-500/40 transition-colors"
+        >
           <span className="text-slate-400 dark:text-slate-500 text-xs font-medium mb-1 block uppercase tracking-tight">
             Revisões Para Hoje
           </span>
@@ -225,10 +256,17 @@ export const DashboardView: React.FC = () => {
             </span>
           </div>
           <p className="text-[11px] text-slate-400 mt-1">Prontos para repetição espaçada</p>
-        </div>
+        </motion.div>
 
         {/* Metric 4: Topics Mastery */}
-        <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
+        <motion.div
+          variants={{
+            hidden: { opacity: 0, y: 16 },
+            visible: { opacity: 1, y: 0, transition: { duration: 0.35, ease: 'easeOut' } },
+          }}
+          whileHover={{ y: -3, transition: { duration: 0.15 } }}
+          className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs hover:border-emerald-400/50 dark:hover:border-emerald-500/40 transition-colors"
+        >
           <span className="text-slate-400 dark:text-slate-500 text-xs font-medium mb-1 block uppercase tracking-tight">
             Domínio de Tópicos
           </span>
@@ -246,13 +284,16 @@ export const DashboardView: React.FC = () => {
               style={{ width: `${masteryPercentage}%` }}
             />
           </div>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
 
       {/* Main Grid: Left Column & Right Column */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left 2 Cols: Recharts Weekly Performance + Schedule + Structure Breakdown */}
+        {/* Left 2 Cols: Recharts Weekly Performance + Monthly Performance + Schedule + Structure Breakdown */}
         <div className="lg:col-span-2 space-y-6">
+          {/* Recharts Monthly Performance & Pomodoro Consistency Chart */}
+          <MonthlyPerformanceChart />
+
           {/* Recharts Weekly Stats & Retention Rate Card */}
           <WeeklyStatsCard />
 

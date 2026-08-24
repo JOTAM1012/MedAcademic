@@ -78,7 +78,7 @@ export const WeeklyStatsCard: React.FC = () => {
 
   const avgAccuracy = useMemo(() => {
     const activeDays = chartData.filter((d) => d.taxaAcerto > 0);
-    if (activeDays.length === 0) return 88; // standard healthy retention rate baseline
+    if (activeDays.length === 0) return 0;
     const sum = activeDays.reduce((acc, d) => acc + d.taxaAcerto, 0);
     return Math.round(sum / activeDays.length);
   }, [chartData]);
