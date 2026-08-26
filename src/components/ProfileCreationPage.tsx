@@ -109,6 +109,9 @@ export const ProfileCreationPage: React.FC = () => {
     showNotification,
     setIsOnboardingOpen,
     setCurrentTab,
+    forceCloudSync,
+    setIsEditingProfileSetup,
+    isEditingProfileSetup,
   } = useApp();
 
   const [currentStep, setCurrentStep] = useState<number>(1);
@@ -229,18 +232,29 @@ export const ProfileCreationPage: React.FC = () => {
         onboardingCompleted: true,
       });
     }
-    addXp(150, 'Perfil Médico Configurado com Sucesso!');
-    triggerConfetti();
+    if (!isEditingProfileSetup) {
+      addXp(150, 'Perfil Médico Configurado com Sucesso!');
+      triggerConfetti();
+    }
+    
+    // Force immediate sync to Firestore so logout won't lose this onboarding completion state
+    setTimeout(() => {
+      forceCloudSync();
+    }, 100);
     
     // Redirect directly to the Dashboard Tab
     setCurrentTab('dashboard');
+    setIsEditingProfileSetup(false);
     
-    showNotification(`Bem-vindo(a), ${name.trim()}! Seu perfil foi configurado com sucesso e o painel iniciado no ${selectedSemesterNum}º Semestre.`, 'success');
-
-    // Open quick tutorial guide right after finishing
-    setTimeout(() => {
-      setIsOnboardingOpen(true);
-    }, 600);
+    if (!isEditingProfileSetup) {
+      showNotification(`Bem-vindo(a), ${name.trim()}! Seu perfil foi configurado com sucesso e o painel iniciado no ${selectedSemesterNum}º Semestre.`, 'success');
+      // Open quick tutorial guide right after finishing
+      setTimeout(() => {
+        setIsOnboardingOpen(true);
+      }, 600);
+    } else {
+      showNotification(`Perfil atualizado com sucesso!`, 'success');
+    }
   };
 
   return (
@@ -268,16 +282,25 @@ export const ProfileCreationPage: React.FC = () => {
             <div className="flex items-center gap-2">
               <span className="text-base font-black tracking-tight text-white">MedAcademic</span>
               <span className="text-[10px] uppercase font-bold tracking-widest px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-400 border border-sky-500/30">
-                Setup Inicial
+                {isEditingProfileSetup ? 'Edição de Perfil' : 'Setup Inicial'}
               </span>
             </div>
             <p className="text-xs text-slate-400">Sistema de Estudos Médicos & Preparação R1</p>
           </div>
         </div>
 
-        {/* Step Indicator */}
-        <div className="flex items-center gap-2">
-          {[1, 2, 3, 4].map((step) => (
+        {/* Action / Step Indicator */}
+        <div className="flex items-center gap-4">
+          {isEditingProfileSetup && (
+            <button
+              onClick={() => setIsEditingProfileSetup(false)}
+              className="text-xs font-bold px-4 py-2 rounded-xl border border-slate-700 text-slate-300 hover:bg-slate-800 transition-colors"
+            >
+              Cancelar Edição
+            </button>
+          )}
+          <div className="flex items-center gap-2 hidden sm:flex">
+            {[1, 2, 3, 4].map((step) => (
             <div
               key={step}
               className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold transition-all ${
@@ -297,6 +320,7 @@ export const ProfileCreationPage: React.FC = () => {
               </span>
             </div>
           ))}
+          </div>
         </div>
       </header>
 

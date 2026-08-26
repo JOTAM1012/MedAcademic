@@ -34,6 +34,7 @@ const AppContent: React.FC = () => {
     setCurrentTab,
     isOnboardingOpen,
     setIsOnboardingOpen,
+    isEditingProfileSetup,
     userProfile,
     subjects,
     isInitialLoadComplete,
@@ -188,7 +189,7 @@ const AppContent: React.FC = () => {
     Boolean(activeUser && activeUser.onboardingCompleted) ||
     subjects.length > 0;
 
-  if (!isAccountSetupComplete) {
+  if (!isAccountSetupComplete || isEditingProfileSetup) {
     return <ProfileCreationPage />;
   }
 

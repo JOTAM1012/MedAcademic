@@ -121,6 +121,8 @@ interface AppContextType {
   toggleDarkMode: () => void;
   isOnboardingOpen: boolean;
   setIsOnboardingOpen: (open: boolean) => void;
+  isEditingProfileSetup: boolean;
+  setIsEditingProfileSetup: (open: boolean) => void;
 
   // Reset & Clear Everything
   clearAllData: () => void;
@@ -158,6 +160,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [currentTab, setCurrentTab] = useState<string>('dashboard');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isOnboardingOpen, setIsOnboardingOpen] = useState<boolean>(false);
+  const [isEditingProfileSetup, setIsEditingProfileSetup] = useState<boolean>(false);
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'info' | 'warning' } | null>(null);
 
   // States
@@ -1393,6 +1396,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         toggleDarkMode,
         isOnboardingOpen,
         setIsOnboardingOpen,
+        isEditingProfileSetup,
+        setIsEditingProfileSetup,
         clearAllData,
         resetAllData,
         isInitialLoadComplete,

@@ -52,6 +52,7 @@ export const ProfileView: React.FC = () => {
     cloudSyncStatus,
     lastCloudSync,
     forceCloudSync,
+    setIsEditingProfileSetup,
   } = useApp();
 
   const [isEditing, setIsEditing] = useState(false);
@@ -263,7 +264,7 @@ export const ProfileView: React.FC = () => {
         {!isEditing ? (
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setIsEditing(true)}
+              onClick={() => setIsEditingProfileSetup(true)}
               className="shrink-0 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer"
             >
               <Edit3 className="h-4 w-4" />

@@ -69,7 +69,7 @@ const TOUR_STEPS: TourStep[] = [
     description: 'Agende e cumpra suas revisões no ciclo científico (1d, 7d, 14d, 30d e 60d) para garantir retenção máxima e vencer a Curva do Esquecimento.',
     badgeText: 'Repetição Espaçada 🧠',
     icon: <Brain className="w-5 h-5 text-violet-400" />,
-    tabToNavigate: 'med-revisions',
+    tabToNavigate: 'spaced_repetition',
     position: 'bottom',
   },
   {
@@ -79,7 +79,7 @@ const TOUR_STEPS: TourStep[] = [
     description: 'Tire dúvidas clínicas complexas de fisiopatologia, consulte condutas atualizadas e gere simulados personalizados em segundos com Inteligência Artificial.',
     badgeText: 'IA Médica ⚡',
     icon: <Zap className="w-5 h-5 text-amber-400" />,
-    tabToNavigate: 'gemini-tutor',
+    tabToNavigate: 'gemini_tutor',
     position: 'left',
   },
   {
@@ -250,7 +250,7 @@ export const GuidedTour: React.FC<GuidedTourProps> = ({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="absolute inset-0 bg-slate-950/75 backdrop-blur-[2px] transition-opacity duration-300"
+          className="absolute inset-0 bg-slate-950/60 pointer-events-none transition-opacity duration-300"
           onClick={onClose}
         />
 

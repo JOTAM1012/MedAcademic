@@ -453,7 +453,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       ...data,
       email: cleanEmail,
       id: uid,
-      onboardingCompleted: true, // User account created with credentials
+      onboardingCompleted: false, // User needs to complete onboarding
       createdAt: new Date().toISOString(),
       lastLoginAt: new Date().toISOString(),
     };
