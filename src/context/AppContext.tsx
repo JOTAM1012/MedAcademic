@@ -1189,7 +1189,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
     setUserProfile({
       name: userProfile.name || 'Estudante de Medicina',
-      email: userProfile.email || 'usuario@medstudy.com',
+      email: userProfile.email || 'usuario@medacademic.com',
       university: userProfile.university || 'Faculdade de Medicina',
       currentSemesterId: 'sem-1',
       weeklyTargetHours: 30,

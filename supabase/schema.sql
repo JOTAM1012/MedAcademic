@@ -1,4 +1,4 @@
--- MedStudy — banco de dados no Supabase
+-- MedAcademic — banco de dados no Supabase
 -- Rode este arquivo uma vez no SQL Editor do seu projeto (Dashboard → SQL Editor → New query → Run).
 
 -- Estado acadêmico completo de cada estudante (matérias, tópicos, provas, perfil, sessões...),

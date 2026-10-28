@@ -1,8 +1,10 @@
-# MedStudy — Gestão de Estudos Médicos
+# MedAcademic — Gestão de Estudos Médicos
 
 Plataforma para estudantes de medicina: disciplinas e assuntos, revisões espaçadas, MedRevision,
 cronômetro Pomodoro com ciclos de estudo, notas, grade horária, calendário (dia / semana / mês) e conquistas.
-Os dados ficam no navegador e são sincronizados com o Firebase Firestore.
+Os dados ficam no navegador e são sincronizados com o Supabase.
+
+Site: https://medacademic.vercel.app
 
 ## Rodar localmente
 

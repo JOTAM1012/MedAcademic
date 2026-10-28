@@ -185,7 +185,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
             {isExpanded && (
               <div className="overflow-hidden whitespace-nowrap animate-in fade-in duration-200">
                 <span className="font-bold text-lg tracking-tight text-white block leading-tight">
-                  MED<span className="text-blue-500">.STUDY</span>
+                  Med<span className="text-blue-500">Academic</span>
                 </span>
               </div>
             )}

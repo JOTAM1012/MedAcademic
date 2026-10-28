@@ -172,7 +172,7 @@ export const ProfileView: React.FC = () => {
     const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(fullBackup, null, 2));
     const downloadAnchor = document.createElement('a');
     downloadAnchor.setAttribute('href', dataStr);
-    downloadAnchor.setAttribute('download', `medstudy-backup-completo-${new Date().toISOString().split('T')[0]}.json`);
+    downloadAnchor.setAttribute('download', `medacademic-backup-completo-${new Date().toISOString().split('T')[0]}.json`);
     document.body.appendChild(downloadAnchor);
     downloadAnchor.click();
     downloadAnchor.remove();

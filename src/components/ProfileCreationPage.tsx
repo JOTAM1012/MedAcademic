@@ -1177,7 +1177,7 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
 
       {/* Footer Info */}
       <footer className="relative z-10 w-full max-w-6xl mx-auto px-6 py-4 text-center text-xs text-slate-500">
-        MedAcademic Pro © 2026 • Plataforma de Estudos Médicos & Preparação para Residência Médica
+        MedAcademic © 2026 • Plataforma de Estudos Médicos & Preparação para Residência Médica
       </footer>
     </div>
   );
