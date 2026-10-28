@@ -35,6 +35,28 @@ interface CalendarViewProps {
 }
 
 type FilterType = 'all' | 'classes' | 'reviews' | 'exams' | 'personal';
+type ViewMode = 'daily' | 'weekly' | 'monthly';
+
+const MONTH_NAMES = [
+  'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
+];
+
+const DAY_NAMES = [
+  { name: 'SEGUNDA', short: 'Seg', long: 'Segunda-feira', dayNum: 1 },
+  { name: 'TERÇA', short: 'Ter', long: 'Terça-feira', dayNum: 2 },
+  { name: 'QUARTA', short: 'Qua', long: 'Quarta-feira', dayNum: 3 },
+  { name: 'QUINTA', short: 'Qui', long: 'Quinta-feira', dayNum: 4 },
+  { name: 'SEXTA', short: 'Sex', long: 'Sexta-feira', dayNum: 5 },
+  { name: 'SÁBADO', short: 'Sáb', long: 'Sábado', dayNum: 6 },
+  { name: 'DOMINGO', short: 'Dom', long: 'Domingo', dayNum: 7 },
+];
+
+const VIEW_LABELS: Record<ViewMode, { title: string; live: string; prev: string; next: string }> = {
+  daily: { title: 'Programação Diária', live: 'Hoje', prev: 'Dia Anterior', next: 'Próximo Dia' },
+  weekly: { title: 'Programação Semanal', live: 'Semana Atual', prev: 'Semana Anterior', next: 'Próxima Semana' },
+  monthly: { title: 'Programação Mensal', live: 'Mês Atual', prev: 'Mês Anterior', next: 'Próximo Mês' },
+};
 
 interface UnifiedCalendarItem {
   id: string;
@@ -49,6 +71,7 @@ interface UnifiedCalendarItem {
   bottomLeftIcon?: 'repeat' | 'calendar' | 'brain' | 'exam';
   statusLabel: string;
   isCompleted: boolean;
+  isFirstContact?: boolean;
   progressPercent?: number;
   subject?: Subject;
   originalData: ScheduleClass | Exam | Topic;
@@ -74,12 +97,12 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     showNotification,
   } = useApp();
 
-  // Calendar View State: default to 'weekly' as requested
-  const [viewMode, setViewMode] = useState<'weekly' | 'monthly'>('weekly');
+  // Calendar View State: default to 'weekly'
+  const [viewMode, setViewMode] = useState<ViewMode>('weekly');
   const [filterType, setFilterType] = useState<FilterType>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
-  // Weekly Navigation State: track current week reference date (defaults to today)
+  // Navigation State: reference date of the active day / week / month (defaults to today)
   const [currentWeekDate, setCurrentWeekDate] = useState<Date>(new Date());
   
   // Selected Item Modal State
@@ -111,49 +134,69 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 
   const monday = useMemo(() => getMonday(currentWeekDate), [currentWeekDate]);
 
-  // Compute the 7 days of the active week (Segunda to Domingo)
-  const weekDays = useMemo(() => {
-    const days = [];
-    const dayNames = [
-      { name: 'SEGUNDA', short: 'Seg', dayNum: 1 },
-      { name: 'TERÇA', short: 'Ter', dayNum: 2 },
-      { name: 'QUARTA', short: 'Qua', dayNum: 3 },
-      { name: 'QUINTA', short: 'Qui', dayNum: 4 },
-      { name: 'SEXTA', short: 'Sex', dayNum: 5 },
-      { name: 'SÁBADO', short: 'Sáb', dayNum: 6 },
-      { name: 'DOMINGO', short: 'Dom', dayNum: 7 },
-    ];
-
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(monday);
-      d.setDate(monday.getDate() + i);
-      const ymd = formatToYMD(d);
-      const isToday = formatToYMD(new Date()) === ymd;
-
-      days.push({
-        date: d,
-        dateStr: ymd,
-        dayNumber: d.getDate(),
-        monthNumber: d.getMonth() + 1,
-        name: dayNames[i].name,
-        short: dayNames[i].short,
-        dayNum: dayNames[i].dayNum,
-        isToday,
-      });
-    }
-    return days;
-  }, [monday]);
-
-  // Navigation handlers
-  const prevWeek = () => {
-    const d = new Date(monday);
-    d.setDate(monday.getDate() - 7);
-    setCurrentWeekDate(d);
+  // Day descriptor shared by the daily, weekly and monthly views
+  const makeDayInfo = (source: Date) => {
+    const d = new Date(source);
+    d.setHours(0, 0, 0, 0);
+    const ymd = formatToYMD(d);
+    const names = DAY_NAMES[(d.getDay() + 6) % 7]; // getDay(): 0 = Domingo
+    return {
+      date: d,
+      dateStr: ymd,
+      dayNumber: d.getDate(),
+      monthNumber: d.getMonth() + 1,
+      name: names.name,
+      short: names.short,
+      long: names.long,
+      dayNum: names.dayNum,
+      isToday: formatToYMD(new Date()) === ymd,
+    };
   };
 
-  const nextWeek = () => {
-    const d = new Date(monday);
-    d.setDate(monday.getDate() + 7);
+  // Compute the 7 days of the active week (Segunda to Domingo)
+  const weekDays = useMemo(() => {
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
+      return makeDayInfo(d);
+    });
+  }, [monday]);
+
+  // Active day for the daily view
+  const activeDay = useMemo(() => makeDayInfo(currentWeekDate), [currentWeekDate]);
+
+  // Monthly grid: full weeks (Segunda a Domingo) covering the active month
+  const monthGrid = useMemo(() => {
+    const firstOfMonth = new Date(currentWeekDate.getFullYear(), currentWeekDate.getMonth(), 1);
+    const lastOfMonth = new Date(currentWeekDate.getFullYear(), currentWeekDate.getMonth() + 1, 0);
+    const gridStart = getMonday(firstOfMonth);
+    const cells = [];
+    const cursor = new Date(gridStart);
+    while (cursor <= lastOfMonth || cells.length % 7 !== 0) {
+      cells.push({ ...makeDayInfo(cursor), inMonth: cursor.getMonth() === firstOfMonth.getMonth() });
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    return cells;
+  }, [currentWeekDate]);
+
+  // Days covered by the active view (used for the stats and filter counters)
+  const rangeDays = useMemo(() => {
+    if (viewMode === 'daily') return [activeDay];
+    if (viewMode === 'monthly') return monthGrid.filter((c) => c.inMonth);
+    return weekDays;
+  }, [viewMode, activeDay, monthGrid, weekDays]);
+
+  // Navigation handlers (step depends on the active view)
+  const shiftPeriod = (direction: 1 | -1) => {
+    const d = new Date(currentWeekDate);
+    if (viewMode === 'daily') {
+      d.setDate(d.getDate() + direction);
+    } else if (viewMode === 'weekly') {
+      d.setDate(d.getDate() + 7 * direction);
+    } else {
+      d.setDate(1); // avoid month overflow (ex: 31 -> next month)
+      d.setMonth(d.getMonth() + direction);
+    }
     setCurrentWeekDate(d);
   };
 
@@ -161,37 +204,32 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     setCurrentWeekDate(new Date());
   };
 
-  // Week description header
+  const openDay = (date: Date) => {
+    setCurrentWeekDate(new Date(date));
+    setViewMode('daily');
+  };
+
+  // Period description header
   const weekRangeLabel = useMemo(() => {
-    if (weekDays.length < 7) return '';
+    if (viewMode === 'daily') {
+      return `${activeDay.long}, ${activeDay.dayNumber} de ${MONTH_NAMES[activeDay.date.getMonth()]} de ${activeDay.date.getFullYear()}`;
+    }
+    if (viewMode === 'monthly') {
+      return `${MONTH_NAMES[currentWeekDate.getMonth()]} de ${currentWeekDate.getFullYear()}`;
+    }
     const start = weekDays[0].date;
     const end = weekDays[6].date;
-    const monthNames = [
-      'Janeiro',
-      'Fevereiro',
-      'Março',
-      'Abril',
-      'Maio',
-      'Junho',
-      'Julho',
-      'Agosto',
-      'Setembro',
-      'Outubro',
-      'Novembro',
-      'Dezembro',
-    ];
-
     if (start.getMonth() === end.getMonth()) {
-      return `${start.getDate()} a ${end.getDate()} de ${monthNames[start.getMonth()]} de ${start.getFullYear()}`;
+      return `${start.getDate()} a ${end.getDate()} de ${MONTH_NAMES[start.getMonth()]} de ${start.getFullYear()}`;
     }
-    return `${start.getDate()} de ${monthNames[start.getMonth()]} a ${end.getDate()} de ${monthNames[end.getMonth()]} de ${end.getFullYear()}`;
-  }, [weekDays]);
+    return `${start.getDate()} de ${MONTH_NAMES[start.getMonth()]} a ${end.getDate()} de ${MONTH_NAMES[end.getMonth()]} de ${end.getFullYear()}`;
+  }, [viewMode, activeDay, weekDays, currentWeekDate]);
 
-  // Check if current view is the current live week
+  // Check if the active view contains today
   const isCurrentLiveWeek = useMemo(() => {
     const todayYMD = formatToYMD(new Date());
-    return weekDays.some((d) => d.dateStr === todayYMD);
-  }, [weekDays]);
+    return rangeDays.some((d) => d.dateStr === todayYMD);
+  }, [rangeDays]);
 
   // Generate unified items for a specific day of the week
   const getItemsForDay = (dayInfo: { dateStr: string; dayNum: number }) => {
@@ -277,7 +315,11 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       })
       .forEach((topic) => {
         const sub = getSubject(topic.subjectId);
-        const isFirst = topic.firstContactDate === dayInfo.dateStr && (!topic.cycleStep || topic.cycleStep === 0);
+        // First contact = the day the topic is scheduled to be studied for the first time
+        const isFirst =
+          !!topic.scheduleFirstContact &&
+          topic.firstContactDate === dayInfo.dateStr &&
+          topic.nextReviewDate !== dayInfo.dateStr;
         
         let cycleBadge = 'D0';
         if (topic.cycleStep === 1) cycleBadge = 'D1';
@@ -306,6 +348,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           statusLabel: `${progress}%`,
           progressPercent: progress,
           isCompleted: isDone,
+          isFirstContact: isFirst,
           subject: sub,
           originalData: topic,
         });
@@ -375,14 +418,52 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     }
   };
 
-  // Count total stats for the active week
+  // Per-day summary: counts by category and spaced-review subjects (used by the daily & monthly views)
+  const summarizeItems = (items: UnifiedCalendarItem[]) => {
+    const reviewsBySubject = new Map<string, { label: string; color?: string; count: number }>();
+    const firstBySubject = new Map<string, { label: string; color?: string; count: number }>();
+    let reviews = 0;
+    let firstContacts = 0;
+    let exams = 0;
+    let classes = 0;
+
+    items.forEach((item) => {
+      if (item.sourceType === 'exam') exams++;
+      else if (item.sourceType === 'schedule') classes++;
+      else {
+        const map = item.isFirstContact ? firstBySubject : reviewsBySubject;
+        if (item.isFirstContact) firstContacts++;
+        else reviews++;
+        const key = item.subject?.id || item.subtitle || 'geral';
+        const entry = map.get(key) || {
+          label: item.subject?.name || item.subtitle || 'Geral',
+          color: item.subject?.color,
+          count: 0,
+        };
+        entry.count++;
+        map.set(key, entry);
+      }
+    });
+
+    return {
+      reviews,
+      firstContacts,
+      exams,
+      classes,
+      completed: items.filter((i) => i.isCompleted).length,
+      reviewsBySubject: Array.from(reviewsBySubject.values()),
+      firstBySubject: Array.from(firstBySubject.values()),
+    };
+  };
+
+  // Count total stats for the active period
   const weeklyStats = useMemo(() => {
     let totalItems = 0;
     let completedItems = 0;
     let examsCount = 0;
     let reviewsCount = 0;
 
-    weekDays.forEach((d) => {
+    rangeDays.forEach((d) => {
       const items = getItemsForDay(d);
       totalItems += items.length;
       completedItems += items.filter((i) => i.isCompleted).length;
@@ -391,26 +472,110 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     });
 
     return { totalItems, completedItems, examsCount, reviewsCount };
-  }, [weekDays, schedule, exams, topics, filterType, searchQuery]);
+  }, [rangeDays, schedule, exams, topics, subjects, filterType, searchQuery]);
+
+  // Item card shared by the weekly columns (compact) and the daily board
+  const renderItemCard = (item: UnifiedCalendarItem, compact = false) => (
+    <div
+      key={item.id}
+      onClick={() => setSelectedItem(item)}
+      className={`group relative min-w-0 rounded-2xl border transition-all cursor-pointer ${compact ? 'p-2' : 'p-3'} ${
+        item.isCompleted
+          ? 'bg-slate-950/40 border-slate-800/50 opacity-65 hover:opacity-100'
+          : 'bg-slate-950/80 border-slate-800 hover:border-slate-700 hover:bg-slate-950 shadow-xs'
+      }`}
+    >
+      {/* Top Line: Time on Left, Badge on Right */}
+      <div className="flex items-center justify-between gap-1 mb-1.5">
+        <span className="text-[11px] font-mono font-bold text-slate-300 flex items-center gap-1">
+          <Clock className="h-3 w-3 text-slate-400" />
+          {item.time}
+        </span>
+
+        {/* Pill Badge */}
+        <span
+          className={`text-[9px] font-black px-2 py-0.5 rounded-md border tracking-wider uppercase ${
+            item.badgeColor === 'amber'
+              ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+              : item.badgeColor === 'blue'
+              ? 'bg-sky-500/15 text-sky-400 border-sky-500/30'
+              : item.badgeColor === 'rose'
+              ? 'bg-rose-500/15 text-rose-400 border-rose-500/30'
+              : item.badgeColor === 'purple'
+              ? 'bg-purple-500/15 text-purple-400 border-purple-500/30'
+              : 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+          }`}
+        >
+          {item.badge}
+        </span>
+      </div>
+
+      {/* Middle: Prominent Title */}
+      <h3
+        className={`font-black text-white leading-snug line-clamp-2 uppercase tracking-tight break-words ${
+          compact ? 'text-[11px]' : 'text-xs'
+        }`}
+      >
+        {item.title}
+      </h3>
+
+      {/* Optional Subtitle / Room */}
+      {(item.subtitle || item.locationOrRoom) && (
+        <p className="text-[10px] text-slate-400 mt-1 flex items-center gap-1 min-w-0">
+          {item.locationOrRoom && <MapPin className="h-2.5 w-2.5 shrink-0" />}
+          <span className="truncate">{item.subtitle || item.locationOrRoom}</span>
+        </p>
+      )}
+
+      {/* Bottom Line: Recurrence/Type and Status (stacked in the narrow weekly columns) */}
+      <div
+        className={`border-t border-slate-800/60 flex text-[10px] ${
+          compact ? 'mt-2 pt-1.5 flex-col items-start gap-1' : 'mt-2.5 pt-2 items-center justify-between gap-2'
+        }`}
+      >
+        <div className="flex items-center gap-1 text-slate-400 font-medium min-w-0">
+          {item.bottomLeftIcon === 'repeat' && <Repeat className="h-3 w-3 text-slate-400 shrink-0" />}
+          {item.bottomLeftIcon === 'brain' && <Brain className="h-3 w-3 text-sky-400 shrink-0" />}
+          {item.bottomLeftIcon === 'exam' && <GraduationCap className="h-3 w-3 text-rose-400 shrink-0" />}
+          <span className="truncate">{item.bottomLeftLabel}</span>
+        </div>
+
+        <button
+          type="button"
+          onClick={(e) => handleToggleItemStatus(item, e)}
+          className={`flex items-center gap-1 font-bold transition-colors shrink-0 ${
+            item.isCompleted
+              ? 'text-emerald-400 hover:text-emerald-300'
+              : item.sourceType === 'exam'
+              ? 'text-rose-400'
+              : 'text-amber-400 hover:text-amber-300'
+          }`}
+        >
+          {item.isCompleted ? <CheckCircle2 className="h-3 w-3" /> : <AlertCircle className="h-3 w-3" />}
+          <span>{item.statusLabel}</span>
+        </button>
+      </div>
+    </div>
+  );
 
   return (
     <div className="space-y-5 pb-16 max-w-full">
       {/* Top Header & Navigation Bar */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-6 shadow-xl relative overflow-hidden">
+      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 bg-slate-900 border border-slate-800 rounded-3xl p-4 sm:p-5 shadow-xl relative overflow-hidden">
         {/* Subtle Background Glow */}
         <div className="absolute top-0 right-0 -mt-8 -mr-8 w-64 h-64 bg-sky-500/10 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute bottom-0 left-1/3 -mb-8 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
 
-        <div className="relative z-10">
+        <div className="relative z-10 min-w-0">
           <div className="flex items-center gap-2.5 flex-wrap">
             <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white flex items-center gap-2">
               <CalendarDays className="h-6 w-6 text-sky-400" />
-              <span>Programação Semanal</span>
+              <span>{VIEW_LABELS[viewMode].title}</span>
             </h1>
             {isCurrentLiveWeek && (
               <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                Semana Atual
+                {VIEW_LABELS[viewMode].live}
               </span>
             )}
           </div>
@@ -421,12 +586,34 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 
         {/* Action Controls & Navigation Buttons */}
         <div className="relative z-10 flex items-center gap-2.5 flex-wrap">
-          {/* Week Paging Buttons */}
+          {/* View Mode Switcher (Dia / Semana / Mês) */}
+          <div className="flex items-center gap-1 bg-slate-950/80 border border-slate-800 rounded-2xl p-1 shadow-inner">
+            {([
+              { mode: 'daily', label: 'Dia' },
+              { mode: 'weekly', label: 'Semana' },
+              { mode: 'monthly', label: 'Mês' },
+            ] as const).map(({ mode, label }) => (
+              <button
+                key={mode}
+                id={`calendar-view-${mode}`}
+                onClick={() => setViewMode(mode)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-black transition-colors ${
+                  viewMode === mode
+                    ? 'bg-sky-600 text-white shadow-xs'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {/* Period Paging Buttons */}
           <div className="flex items-center gap-1 bg-slate-950/80 border border-slate-800 rounded-2xl p-1 shadow-inner">
             <button
-              onClick={prevWeek}
+              onClick={() => shiftPeriod(-1)}
               className="p-2 rounded-xl text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
-              title="Semana Anterior"
+              title={VIEW_LABELS[viewMode].prev}
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
@@ -439,9 +626,9 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
             </button>
 
             <button
-              onClick={nextWeek}
+              onClick={() => shiftPeriod(1)}
               className="p-2 rounded-xl text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
-              title="Próxima Semana"
+              title={VIEW_LABELS[viewMode].next}
             >
               <ChevronRight className="h-4 w-4" />
             </button>
@@ -530,22 +717,23 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         </div>
       </div>
 
-      {/* 7-COLUMN WEEKLY BOARD (Exact layout matching the photo) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3.5 items-start">
+      {/* 7-COLUMN WEEKLY BOARD */}
+      {viewMode === 'weekly' && (
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-2.5 items-stretch">
         {weekDays.map((day) => {
           const dayItems = getItemsForDay(day);
 
           return (
             <div
               key={day.dateStr}
-              className={`flex flex-col min-h-[580px] rounded-3xl border transition-all ${
+              className={`flex flex-col min-w-0 min-h-[360px] rounded-2xl border transition-all ${
                 day.isToday
                   ? 'bg-slate-900/95 border-sky-500/50 shadow-lg shadow-sky-950/40 ring-1 ring-sky-500/30'
                   : 'bg-slate-900/70 border-slate-800/80 hover:border-slate-700 shadow-md'
-              } p-3 sm:p-3.5 relative overflow-hidden`}
+              } p-2 relative overflow-hidden`}
             >
               {/* Day Column Header */}
-              <div className="pb-3 mb-3 border-b border-slate-800/80">
+              <div className="pb-2 mb-2 px-1 border-b border-slate-800/80">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-black text-slate-400 tracking-wider uppercase">
                     {day.name}
@@ -560,7 +748,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 
                 <div className="mt-0.5 flex items-baseline justify-between">
                   <span
-                    className={`text-2xl sm:text-3xl font-black ${
+                    className={`text-2xl font-black ${
                       day.isToday ? 'text-sky-400' : 'text-white'
                     }`}
                   >
@@ -574,9 +762,9 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
               </div>
 
               {/* Day Items List */}
-              <div className="flex-1 space-y-2.5">
+              <div className="flex-1 space-y-2">
                 {dayItems.length === 0 ? (
-                  <div className="h-44 border border-dashed border-slate-800/80 rounded-2xl flex flex-col items-center justify-center p-3 text-center bg-slate-950/20">
+                  <div className="h-28 border border-dashed border-slate-800/80 rounded-xl flex flex-col items-center justify-center p-2 text-center bg-slate-950/20">
                     <CalendarIcon className="h-6 w-6 text-slate-700 mb-1.5" />
                     <p className="text-[11px] text-slate-400 font-medium">Livre</p>
                     <button
@@ -587,115 +775,201 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                     </button>
                   </div>
                 ) : (
-                  dayItems.map((item) => {
-                    const isSchedule = item.sourceType === 'schedule';
-                    const isTopic = item.sourceType === 'topic';
-                    const isExam = item.sourceType === 'exam';
-
-                    return (
-                      <div
-                        key={item.id}
-                        onClick={() => setSelectedItem(item)}
-                        className={`group relative rounded-2xl border transition-all cursor-pointer p-3 ${
-                          item.isCompleted
-                            ? 'bg-slate-950/40 border-slate-800/50 opacity-65 hover:opacity-100'
-                            : 'bg-slate-950/80 border-slate-800 hover:border-slate-700 hover:bg-slate-950 shadow-xs'
-                        }`}
-                      >
-                        {/* Top Line: Time on Left, Badge on Right */}
-                        <div className="flex items-center justify-between gap-1 mb-1.5">
-                          <span className="text-[11px] font-mono font-bold text-slate-300 flex items-center gap-1">
-                            <Clock className="h-3 w-3 text-slate-400" />
-                            {item.time}
-                          </span>
-
-                          {/* Pill Badge */}
-                          <span
-                            className={`text-[9px] font-black px-2 py-0.5 rounded-md border tracking-wider uppercase ${
-                              item.badgeColor === 'amber'
-                                ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
-                                : item.badgeColor === 'blue'
-                                ? 'bg-sky-500/15 text-sky-400 border-sky-500/30'
-                                : item.badgeColor === 'rose'
-                                ? 'bg-rose-500/15 text-rose-400 border-rose-500/30'
-                                : item.badgeColor === 'purple'
-                                ? 'bg-purple-500/15 text-purple-400 border-purple-500/30'
-                                : 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
-                            }`}
-                          >
-                            {item.badge}
-                          </span>
-                        </div>
-
-                        {/* Middle: Prominent Title */}
-                        <h3 className="text-xs font-black text-white leading-snug line-clamp-2 uppercase tracking-tight">
-                          {item.title}
-                        </h3>
-
-                        {/* Optional Subtitle / Room */}
-                        {(item.subtitle || item.locationOrRoom) && (
-                          <p className="text-[10px] text-slate-400 mt-1 line-clamp-1 flex items-center gap-1">
-                            {item.locationOrRoom && <MapPin className="h-2.5 w-2.5 shrink-0" />}
-                            <span>{item.subtitle || item.locationOrRoom}</span>
-                          </p>
-                        )}
-
-                        {/* Bottom Line: Recurrence/Type on Left, Status on Right */}
-                        <div className="mt-2.5 pt-2 border-t border-slate-800/60 flex items-center justify-between text-[10px]">
-                          {/* Left: Type / Recurrence */}
-                          <div className="flex items-center gap-1 text-slate-400 font-medium">
-                            {item.bottomLeftIcon === 'repeat' && <Repeat className="h-3 w-3 text-slate-400" />}
-                            {item.bottomLeftIcon === 'brain' && <Brain className="h-3 w-3 text-sky-400" />}
-                            {item.bottomLeftIcon === 'exam' && <GraduationCap className="h-3 w-3 text-rose-400" />}
-                            <span>{item.bottomLeftLabel}</span>
-                          </div>
-
-                          {/* Right: Status / Progress / Toggle */}
-                          <button
-                            type="button"
-                            onClick={(e) => handleToggleItemStatus(item, e)}
-                            className={`flex items-center gap-1 font-bold transition-colors ${
-                              item.isCompleted
-                                ? 'text-emerald-400 hover:text-emerald-300'
-                                : item.sourceType === 'exam'
-                                ? 'text-rose-400'
-                                : 'text-amber-400 hover:text-amber-300'
-                            }`}
-                          >
-                            {item.isCompleted ? (
-                              <>
-                                <CheckCircle2 className="h-3 w-3" />
-                                <span>{item.statusLabel}</span>
-                              </>
-                            ) : (
-                              <>
-                                <AlertCircle className="h-3 w-3" />
-                                <span>{item.statusLabel}</span>
-                              </>
-                            )}
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })
+                  dayItems.map((item) => renderItemCard(item, true))
                 )}
               </div>
 
               {/* Column Footer Quick Add */}
-              <div className="mt-3 pt-2.5 border-t border-slate-800/80 flex items-center justify-between">
+              <div className="mt-2 pt-2 border-t border-slate-800/80 flex items-center justify-between">
                 <button
                   type="button"
                   onClick={() => onOpenAddSchedule && onOpenAddSchedule(day.dayNum)}
-                  className="w-full py-1.5 px-2 rounded-xl bg-slate-950/60 hover:bg-slate-800 border border-slate-800/70 text-[10px] font-bold text-slate-400 hover:text-white transition-colors flex items-center justify-center gap-1"
+                  title={`Adicionar na ${day.short}`}
+                  className="w-full py-1.5 px-2 rounded-xl bg-slate-950/60 hover:bg-slate-800 border border-slate-800/70 text-[10px] font-bold text-slate-400 hover:text-white transition-colors flex items-center justify-center gap-1 whitespace-nowrap"
                 >
-                  <Plus className="h-3 w-3 text-sky-400" />
-                  <span>Adicionar na {day.short}</span>
+                  <Plus className="h-3 w-3 text-sky-400 shrink-0" />
+                  <span>Adicionar</span>
                 </button>
               </div>
             </div>
           );
         })}
       </div>
+      )}
+
+      {/* DAILY BOARD: a single panel with every activity of the day */}
+      {viewMode === 'daily' && (() => {
+        const dayItems = getItemsForDay(activeDay);
+        const summary = summarizeItems(dayItems);
+        const summaryTiles = [
+          { label: 'Revisões espaçadas', value: summary.reviews, icon: <Repeat className="h-4 w-4" />, color: 'text-sky-400 bg-sky-500/10 border-sky-500/30' },
+          { label: '1º contato', value: summary.firstContacts, icon: <Brain className="h-4 w-4" />, color: 'text-violet-400 bg-violet-500/10 border-violet-500/30' },
+          { label: 'Avaliações', value: summary.exams, icon: <GraduationCap className="h-4 w-4" />, color: 'text-rose-400 bg-rose-500/10 border-rose-500/30' },
+          { label: 'Aulas & compromissos', value: summary.classes, icon: <BookOpen className="h-4 w-4" />, color: 'text-amber-400 bg-amber-500/10 border-amber-500/30' },
+        ];
+
+        return (
+          <div
+            id="calendar-daily-board"
+            className={`rounded-3xl border p-4 sm:p-6 shadow-md ${
+              activeDay.isToday
+                ? 'bg-slate-900/95 border-sky-500/50 ring-1 ring-sky-500/30'
+                : 'bg-slate-900/70 border-slate-800/80'
+            }`}
+          >
+            {/* Day header */}
+            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 pb-4 mb-4 border-b border-slate-800/80">
+              <div className="flex items-baseline gap-3">
+                <span className={`text-5xl font-black ${activeDay.isToday ? 'text-sky-400' : 'text-white'}`}>
+                  {activeDay.dayNumber}
+                </span>
+                <div>
+                  <p className="text-sm font-black text-white uppercase tracking-wide">{activeDay.long}</p>
+                  <p className="text-xs text-slate-400">
+                    {MONTH_NAMES[activeDay.date.getMonth()]} de {activeDay.date.getFullYear()} • {dayItems.length}{' '}
+                    {dayItems.length === 1 ? 'atividade' : 'atividades'} ({summary.completed} concluídas)
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => onOpenAddSchedule && onOpenAddSchedule(activeDay.dayNum)}
+                className="self-start sm:self-auto flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-bold text-white transition-colors"
+              >
+                <Plus className="h-3.5 w-3.5 text-sky-400" />
+                <span>Adicionar neste dia</span>
+              </button>
+            </div>
+
+            {/* Summary tiles */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 mb-5">
+              {summaryTiles.map((tile) => (
+                <div key={tile.label} className={`rounded-2xl border p-3 flex items-center gap-3 ${tile.color}`}>
+                  {tile.icon}
+                  <div>
+                    <p className="text-xl font-black text-white leading-none">{tile.value}</p>
+                    <p className="text-[10px] font-bold uppercase tracking-wide mt-1">{tile.label}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Activities (ordered by time) */}
+            {dayItems.length === 0 ? (
+              <div className="h-48 border border-dashed border-slate-800/80 rounded-2xl flex flex-col items-center justify-center text-center bg-slate-950/20">
+                <CalendarIcon className="h-7 w-7 text-slate-700 mb-2" />
+                <p className="text-xs text-slate-400 font-medium">Nenhuma atividade neste dia.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                {dayItems.map((item) => renderItemCard(item))}
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* MONTHLY BOARD: one square per day with the study summary */}
+      {viewMode === 'monthly' && (
+        <div id="calendar-monthly-board" className="rounded-3xl border border-slate-800/80 bg-slate-900/70 p-3 sm:p-4 shadow-md">
+          {/* Weekday headers */}
+          <div className="grid grid-cols-7 gap-1.5 sm:gap-2 mb-2">
+            {DAY_NAMES.map((d) => (
+              <div key={d.dayNum} className="text-center text-[10px] sm:text-[11px] font-black text-slate-400 uppercase tracking-wider">
+                {d.short}
+              </div>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
+            {monthGrid.map((cell) => {
+              const cellItems = getItemsForDay(cell);
+              const s = summarizeItems(cellItems);
+              const subjectLines = [
+                ...s.reviewsBySubject.map((r) => ({ ...r, kind: 'review' as const })),
+                ...s.firstBySubject.map((r) => ({ ...r, kind: 'first' as const })),
+              ];
+
+              return (
+                <button
+                  key={cell.dateStr}
+                  type="button"
+                  onClick={() => openDay(cell.date)}
+                  title={`Abrir ${cell.long}, ${cell.dayNumber}/${cell.monthNumber}`}
+                  className={`min-h-[92px] sm:min-h-[128px] rounded-xl sm:rounded-2xl border p-1.5 sm:p-2 text-left flex flex-col gap-1 transition-all hover:border-sky-500/60 ${
+                    cell.isToday
+                      ? 'border-sky-500/60 bg-sky-950/30 ring-1 ring-sky-500/30'
+                      : cell.inMonth
+                      ? 'border-slate-800 bg-slate-950/60'
+                      : 'border-slate-900 bg-slate-950/20 opacity-45'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className={`text-xs sm:text-sm font-black ${cell.isToday ? 'text-sky-400' : 'text-white'}`}>
+                      {cell.dayNumber}
+                    </span>
+                    {cellItems.length > 0 && (
+                      <span className="text-[9px] font-bold text-slate-400">{cellItems.length}</span>
+                    )}
+                  </div>
+
+                  {/* Category counters */}
+                  <div className="flex flex-wrap gap-0.5 sm:gap-1">
+                    {s.reviews > 0 && (
+                      <span className="text-[9px] font-black px-1 sm:px-1.5 rounded bg-sky-500/15 text-sky-300" title="Revisões espaçadas">
+                        {s.reviews} rev
+                      </span>
+                    )}
+                    {s.firstContacts > 0 && (
+                      <span className="text-[9px] font-black px-1 sm:px-1.5 rounded bg-violet-500/15 text-violet-300" title="Estudos de 1º contato">
+                        {s.firstContacts} 1º
+                      </span>
+                    )}
+                    {s.exams > 0 && (
+                      <span className="text-[9px] font-black px-1 sm:px-1.5 rounded bg-rose-500/15 text-rose-300" title="Avaliações">
+                        {s.exams} prova{s.exams > 1 ? 's' : ''}
+                      </span>
+                    )}
+                    {s.classes > 0 && (
+                      <span className="text-[9px] font-black px-1 sm:px-1.5 rounded bg-amber-500/15 text-amber-300" title="Aulas & compromissos">
+                        {s.classes} aula{s.classes > 1 ? 's' : ''}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Subjects summary (hidden on very small screens) */}
+                  <div className="hidden sm:flex flex-col gap-0.5 mt-auto">
+                    {subjectLines.slice(0, 3).map((line) => (
+                      <span
+                        key={`${line.kind}-${line.label}`}
+                        className="text-[10px] text-slate-300 truncate flex items-center gap-1"
+                      >
+                        <span
+                          className={`h-1.5 w-1.5 rounded-full shrink-0 ${line.kind === 'first' ? 'bg-violet-400' : 'bg-sky-400'}`}
+                        />
+                        <span className="truncate">{line.label}</span>
+                        {line.count > 1 && <span className="text-slate-500">×{line.count}</span>}
+                      </span>
+                    ))}
+                    {subjectLines.length > 3 && (
+                      <span className="text-[9px] text-slate-500">+{subjectLines.length - 3} disciplinas</span>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Legend */}
+          <div className="flex flex-wrap items-center gap-3 mt-3 px-1 text-[10px] text-slate-400">
+            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-sky-400" />Revisão espaçada</span>
+            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-violet-400" />1º contato</span>
+            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-rose-400" />Avaliação</span>
+            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-amber-400" />Aulas & compromissos</span>
+            <span className="ml-auto">Clique em um dia para ver todas as atividades</span>
+          </div>
+        </div>
+      )}
 
       {/* Selected Item Detail & Quick Actions Modal */}
       {selectedItem && (

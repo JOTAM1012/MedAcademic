@@ -139,12 +139,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
     badgeColor?: string;
   }> = [
     {
-      id: 'gemini_tutor',
-      label: 'Tutor',
-      icon: Sparkles,
-      badge: null,
-    },
-    {
       id: 'profile',
       label: 'Perfil & metas',
       icon: User,

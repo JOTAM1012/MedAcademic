@@ -39,6 +39,8 @@ export const StudyStopwatchView: React.FC = () => {
     triggerConfetti,
     pomodoroSettings,
     updatePomodoroSettings,
+    startStudyCycle,
+    stopStudyCycle,
   } = useApp();
 
   const [ambientSound, setAmbientSound] = useState<'none' | 'whitenoise' | 'rain' | 'binaural'>('none');
@@ -164,13 +166,9 @@ export const StudyStopwatchView: React.FC = () => {
   const selectedSubject = subjects.find((s) => s.id === timer.selectedSubjectId);
   const subjectTopics = topics.filter((t) => t.subjectId === timer.selectedSubjectId);
 
-  const handleSelectCycleStep = (wMins: number, bMins: number, stepName: string) => {
-    // We set the work timer first
-    setTimerMode('pomodoro', timer.selectedSubjectId, timer.selectedTopicId, wMins * 60);
-    // Since we are setting custom times, we don't handle the break automatically yet,
-    // the user will manually click break after, or we can just let them use the mode.
-    // For now, setting the timer to the work mins is the first step.
-  };
+  const cycle = timer.cycle;
+  const cycleStep = cycle ? cycle.steps[cycle.index] : undefined;
+  const isWaitingNextStep = !!cycle && cycle.phase === 'work' && !timer.isRunning;
 
   return (
     <div className="space-y-6 pb-12">
@@ -210,8 +208,7 @@ export const StudyStopwatchView: React.FC = () => {
             className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs shadow-lg shadow-amber-500/20 transition-all cursor-pointer transform hover:scale-105"
           >
             <RotateCcw className="h-4 w-4" />
-            <span>Ciclos de Estudo</span>
-            <span className="px-1.5 py-0.5 rounded-md bg-slate-950/20 text-[10px] uppercase tracking-wider font-extrabold">Novo</span>
+            <span>{cycle ? 'Ciclo em andamento' : 'Ciclos de Estudo'}</span>
           </button>
         </div>
       </div>
@@ -319,6 +316,54 @@ export const StudyStopwatchView: React.FC = () => {
           </div>
         </div>
 
+        {/* Study Cycle Progress */}
+        {cycle && cycleStep && (
+          <div id="cycle-progress-panel" className="max-w-lg mx-auto mb-2 p-4 rounded-2xl border border-amber-500/30 bg-amber-500/5 text-left space-y-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[10px] font-black uppercase tracking-wider text-amber-500">
+                  Ciclo de estudos · Etapa {cycle.index + 1} de {cycle.steps.length}
+                </p>
+                <p className="text-sm font-black text-slate-900 dark:text-white truncate">{cycleStep.title}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {cycle.phase === 'work'
+                    ? `Estudo focado de ${cycleStep.workMins} min${
+                        cycleStep.breakMins > 0 && cycle.index < cycle.steps.length - 1
+                          ? ` → pausa de ${cycleStep.breakMins} min`
+                          : ''
+                      }`
+                    : `Pausa de ${cycleStep.breakMins} min · ${cycleStep.phoneAllowed ? 'celular permitido' : 'sem celular'}`}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={stopStudyCycle}
+                className="shrink-0 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 text-[11px] font-bold text-slate-500 hover:text-rose-500 hover:border-rose-400 transition-colors"
+              >
+                Encerrar ciclo
+              </button>
+            </div>
+            {/* Steps track */}
+            <div className="flex gap-1.5">
+              {cycle.steps.map((s, i) => (
+                <div
+                  key={i}
+                  title={s.title}
+                  className={`h-1.5 flex-1 rounded-full ${
+                    i < cycle.index
+                      ? 'bg-emerald-500'
+                      : i === cycle.index
+                      ? cycle.phase === 'break'
+                        ? 'bg-emerald-400 animate-pulse'
+                        : 'bg-amber-500'
+                      : 'bg-slate-200 dark:bg-slate-800'
+                  }`}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Large Timer Digits & Animated Pulse Ring */}
         <div className="relative my-8 py-4">
           {timer.isRunning && (
@@ -381,7 +426,11 @@ export const StudyStopwatchView: React.FC = () => {
             ) : (
               <>
                 <Play className="h-5 w-5 fill-current ml-0.5" />
-                <span>Iniciar Foco</span>
+                <span>
+                  {isWaitingNextStep && timer.timeLeftSeconds === (timer.customDurationSeconds || 0)
+                    ? `Iniciar Etapa ${cycle!.index + 1}`
+                    : 'Iniciar Foco'}
+                </span>
               </>
             )}
           </button>
@@ -503,7 +552,9 @@ export const StudyStopwatchView: React.FC = () => {
       <StudyCycleModal
         isOpen={isStudyCycleModalOpen}
         onClose={() => setIsStudyCycleModalOpen(false)}
-        onSelectCycleStep={handleSelectCycleStep}
+        subjects={subjects}
+        defaultSubjectId={timer.selectedSubjectId}
+        onStartCycle={startStudyCycle}
       />
 
       {/* Pomodoro Settings Modal */}

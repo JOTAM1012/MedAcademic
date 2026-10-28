@@ -70,7 +70,6 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClos
       bulletPoints: [
         'Avalie cada tópico revisado.',
         'Filtre tópicos por disciplina ou estude tudo o que está agendado para hoje.',
-        'Gere tópicos automáticos com a inteligência do Dr. Gemini.',
       ],
     },
     {
@@ -86,21 +85,6 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClos
         'Vincule a sessão à matéria correspondente para gerar gráficos de rendimento.',
         'Ative sons de Fundo: Chuva Suave, Cafeteria ou Ondas Alpha Binaurais.',
         'Histórico completo de sessões com data, horário e tempo líquido registrado.',
-      ],
-    },
-    {
-      title: '5. Dr. Gemini Preceptor IA ✨',
-      subtitle: 'Seu preceptor médico disponível 24 horas por dia.',
-      icon: Sparkles,
-      color: 'bg-indigo-500 text-white',
-      tag: 'Inteligência Artificial',
-      description:
-        'Tire dúvidas sobre casos clínicos, peça diagnósticos diferenciais, resuma diretrizes e gere simulados de questões para a Residência Médica (R1) e provas da faculdade.',
-      actionTip: '💡 Dica: Use os atalhos prontos para gerar questões inéditas com gabarito comentado na hora!',
-      bulletPoints: [
-        'Discussão de condutas médicas, posologias e diretrizes atualizadas.',
-        'Geração de casos clínicos e simulados no estilo das principais bancas de Residência.',
-        'Crie resumos de alto rendimento para levar para o plantão ou enfermaria.',
       ],
     },
   ];

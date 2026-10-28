@@ -328,61 +328,9 @@ export const ProfileView: React.FC = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Google Sync Card */}
-            <div className="lg:col-span-1 rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-xs flex flex-col justify-between relative overflow-hidden">
-              <div className="absolute top-0 right-0 p-4 opacity-10 pointer-events-none">
-                <Cloud className="h-24 w-24 text-sky-500" />
-              </div>
-              <div>
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2 mb-2">
-                  <Cloud className="h-5 w-5 text-sky-500" />
-                  Google Cloud Sync
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full uppercase font-bold border ${
-                    cloudSyncStatus === 'synced'
-                      ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-800'
-                      : cloudSyncStatus === 'syncing'
-                      ? 'bg-sky-100 dark:bg-sky-950/60 text-sky-700 dark:text-sky-400 border-sky-300 dark:border-sky-800 animate-pulse'
-                      : 'bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-800'
-                  }`}>
-                    {cloudSyncStatus === 'synced' ? 'Sincronizado' : cloudSyncStatus === 'syncing' ? 'Sincronizando...' : 'Offline'}
-                  </span>
-                </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mb-5 leading-relaxed">
-                  Sincronização contínua via Firebase Firestore. Suas matérias, revisões espaçadas, notas, provas e estatísticas estão salvas na nuvem com recuperação automática entre sessões.
-                </p>
-              </div>
-              <div className="space-y-2">
-                <div className={`w-full py-2.5 px-3 rounded-xl text-xs font-bold shadow-xs flex items-center justify-between border ${
-                  cloudSyncStatus === 'synced'
-                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:border-emerald-800/60 dark:text-emerald-400'
-                    : cloudSyncStatus === 'syncing'
-                    ? 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/40 dark:border-sky-800/60 dark:text-sky-400'
-                    : 'bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300'
-                }`}>
-                  <div className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-emerald-500" />
-                    <span>{cloudSyncStatus === 'synced' ? 'Nuvem Atualizada' : 'Atualizando nuvem...'}</span>
-                  </div>
-                  {lastCloudSync && (
-                    <span className="text-[10px] text-slate-400 dark:text-slate-500 font-normal">
-                      {lastCloudSync.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                  )}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => forceCloudSync()}
-                  className="w-full py-2 px-3 rounded-xl text-xs font-semibold text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/30 hover:bg-sky-100 dark:hover:bg-sky-900/40 border border-sky-100 dark:border-sky-900/40 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
-                >
-                  <Sparkles className="h-3.5 w-3.5" />
-                  <span>Sincronizar Agora</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Study Metrics */}
-            <div className="lg:col-span-2 rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-xs">
+          <div className="grid grid-cols-1 gap-6">
+            {/* Study Metrics (cloud sync is automatic; its status lives in the top bar) */}
+            <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-xs">
               <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2 mb-4">
                 <Clock className="h-5 w-5 text-indigo-500" />
                 Métricas de Estudo

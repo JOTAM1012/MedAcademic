@@ -13,23 +13,20 @@ import {
   Flame,
   FileText,
   Activity,
+  Plus,
+  Trash2,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { MedRevisionTopic } from '../types';
+import { AddMedRevisionModal, MED_REVISION_CATEGORIES } from './modals/AddMedRevisionModal';
 
 export const MedRevisionView: React.FC = () => {
-  const { medRevisions, toggleMedRevisionComplete, setCurrentTab } = useApp();
+  const { medRevisions, toggleMedRevisionComplete, deleteMedRevision } = useApp();
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState<string>('');
+  const [isAddOpen, setIsAddOpen] = useState(false);
 
-  const categories = [
-    'all',
-    'Clínica Médica',
-    'Cirurgia Geral',
-    'Pediatria',
-    'Ginecologia & Obstetrícia',
-    'Medicina Preventiva & SUS',
-  ];
+  const categories = ['all', ...MED_REVISION_CATEGORIES];
 
   const filteredTopics = medRevisions.filter((item) => {
     const matchesCat = selectedCategory === 'all' || item.category === selectedCategory;
@@ -42,7 +39,7 @@ export const MedRevisionView: React.FC = () => {
   });
 
   const completedCount = medRevisions.filter((m) => m.isCompleted).length;
-  const progressPercent = Math.round((completedCount / medRevisions.length) * 100);
+  const progressPercent = medRevisions.length > 0 ? Math.round((completedCount / medRevisions.length) * 100) : 0;
 
   return (
     <div className="space-y-6 pb-12">
@@ -62,15 +59,15 @@ export const MedRevisionView: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setCurrentTab('gemini_tutor')}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-sky-600 to-indigo-600 text-white text-xs font-bold shadow-xs hover:opacity-90 transition-all"
-          >
-            <Sparkles className="h-3.5 w-3.5 text-amber-300" />
-            <span>Simulador Clínico Gemini</span>
-          </button>
-        </div>
+        <button
+          id="med-revision-add-btn"
+          type="button"
+          onClick={() => setIsAddOpen(true)}
+          className="self-start sm:self-auto flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold shadow-xs transition-colors"
+        >
+          <Plus className="h-4 w-4" />
+          <span>Novo Tema</span>
+        </button>
       </div>
 
       {/* Progress & Quick Stats Card */}
@@ -130,6 +127,31 @@ export const MedRevisionView: React.FC = () => {
         </div>
       </div>
 
+      {/* Empty states */}
+      {filteredTopics.length === 0 && (
+        <div className="rounded-2xl border border-dashed border-slate-300 dark:border-slate-800 p-10 text-center bg-white/40 dark:bg-slate-900/40">
+          <BookOpen className="h-8 w-8 text-slate-400 mx-auto mb-2" />
+          <p className="text-sm font-bold text-slate-700 dark:text-slate-200">
+            {medRevisions.length === 0 ? 'Nenhum tema cadastrado ainda' : 'Nenhum tema encontrado com esse filtro'}
+          </p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            {medRevisions.length === 0
+              ? 'Cadastre os temas de alto rendimento que você quer dominar para a Residência ou o Revalida.'
+              : 'Tente outra área ou outro termo de busca.'}
+          </p>
+          {medRevisions.length === 0 && (
+            <button
+              type="button"
+              onClick={() => setIsAddOpen(true)}
+              className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Cadastrar primeiro tema
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Topics Cards List */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {filteredTopics.map((topic) => (
@@ -152,18 +174,30 @@ export const MedRevisionView: React.FC = () => {
                 </h3>
               </div>
 
-              <button
-                id={`med-revision-toggle-${topic.id}`}
-                onClick={() => toggleMedRevisionComplete(topic.id)}
-                className={`p-1.5 rounded-xl border transition-all ${
-                  topic.isCompleted
-                    ? 'border-emerald-500 bg-emerald-500 text-white'
-                    : 'border-slate-300 dark:border-slate-700 text-slate-400 hover:border-emerald-500 hover:text-emerald-500'
-                }`}
-                title={topic.isCompleted ? 'Marcar como não concluído' : 'Marcar como dominado'}
-              >
-                <CheckCircle2 className="h-4 w-4" />
-              </button>
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (window.confirm(`Excluir o tema "${topic.title}"?`)) deleteMedRevision(topic.id);
+                  }}
+                  className="p-1.5 rounded-xl text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 transition-colors"
+                  title="Excluir tema"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+                <button
+                  id={`med-revision-toggle-${topic.id}`}
+                  onClick={() => toggleMedRevisionComplete(topic.id)}
+                  className={`p-1.5 rounded-xl border transition-all ${
+                    topic.isCompleted
+                      ? 'border-emerald-500 bg-emerald-500 text-white'
+                      : 'border-slate-300 dark:border-slate-700 text-slate-400 hover:border-emerald-500 hover:text-emerald-500'
+                  }`}
+                  title={topic.isCompleted ? 'Marcar como não concluído' : 'Marcar como dominado'}
+                >
+                  <CheckCircle2 className="h-4 w-4" />
+                </button>
+              </div>
             </div>
 
             {/* High Yield Badge & Frequency */}
@@ -177,6 +211,7 @@ export const MedRevisionView: React.FC = () => {
             </div>
 
             {/* Clinical Pearls (Pérolas Clínicas) */}
+            {topic.keyPearls.length > 0 && (
             <div className="space-y-1.5 mb-3 bg-slate-50 dark:bg-slate-950/40 p-3 rounded-xl border border-slate-100 dark:border-slate-800/80">
               <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                 💎 Pérolas de Prova & Conduta:
@@ -190,17 +225,21 @@ export const MedRevisionView: React.FC = () => {
                 ))}
               </ul>
             </div>
+            )}
 
             {/* Guideline Snippet */}
+            {topic.guidelineSnippet && (
             <div className="text-[11px] text-slate-600 dark:text-slate-400 italic bg-sky-50/40 dark:bg-sky-950/20 p-2.5 rounded-lg border border-sky-100 dark:border-sky-900/30 mb-3">
               <strong>Referência:</strong> {topic.guidelineSnippet}
             </div>
+            )}
 
             {/* Differential Diagnosis Chips */}
+            {topic.differentialDiagnosis.length > 0 && (
             <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800">
-              <div className="flex items-center gap-1 overflow-x-auto text-[10px] text-slate-500">
+              <div className="flex items-center gap-1 flex-wrap text-[10px] text-slate-500">
                 <span className="font-semibold text-slate-400">Ddx:</span>
-                {topic.differentialDiagnosis.slice(0, 2).map((d) => (
+                {topic.differentialDiagnosis.map((d) => (
                   <span
                     key={d}
                     className="px-1.5 py-0.5 rounded-sm bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
@@ -209,18 +248,13 @@ export const MedRevisionView: React.FC = () => {
                   </span>
                 ))}
               </div>
-
-              <button
-                onClick={() => setCurrentTab('gemini_tutor')}
-                className="text-xs font-bold text-sky-600 dark:text-sky-400 hover:underline flex items-center gap-1 shrink-0 ml-2"
-              >
-                <span>Perguntar ao Tutor</span>
-                <ArrowRight className="h-3 w-3" />
-              </button>
             </div>
+            )}
           </div>
         ))}
       </div>
+
+      <AddMedRevisionModal isOpen={isAddOpen} onClose={() => setIsAddOpen(false)} />
     </div>
   );
 };

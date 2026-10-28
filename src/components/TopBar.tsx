@@ -241,7 +241,7 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleMobileMenu, onOpenTour }
             cloudSyncStatus === 'synced'
               ? 'Sincronizado na Nuvem (Clique para forçar sincronização)'
               : cloudSyncStatus === 'syncing'
-              ? 'Sincronizando com Firestore...'
+              ? 'Sincronizando com a nuvem...'
               : 'Modo Offline - Dados salvos no dispositivo'
           }
         >

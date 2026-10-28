@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { LogOut, Stethoscope, CloudOff, RefreshCw, X, ChevronDown, Trash2 } from 'lucide-react';
-import { AuthProvider, useAuth } from './context/AuthContext';
+import { AuthProvider, useAuth, isLocalOnly } from './context/AuthContext';
 import { AppProvider, useApp } from './context/AppContext';
 import { Sidebar } from './components/Sidebar';
 import { TopBar } from './components/TopBar';
@@ -13,7 +13,6 @@ import { StudyStopwatchView } from './components/StudyStopwatchView';
 import { GradesManagementView } from './components/GradesManagementView';
 import { ScheduleView } from './components/ScheduleView';
 import { CalendarView } from './components/CalendarView';
-import { GeminiTutorView } from './components/GeminiTutorView';
 import { ProfileView } from './components/ProfileView';
 import { ProfileCreationPage } from './components/ProfileCreationPage';
 import { GuidedTour } from './components/GuidedTour';
@@ -28,7 +27,7 @@ import { OnboardingModal } from './components/modals/OnboardingModal';
 import { AuthModal } from './components/modals/AuthModal';
 
 const AppContent: React.FC = () => {
-  const { activeUserId, activeUser, logout, isDeleting } = useAuth();
+  const { activeUserId, activeUser, logout, isDeleting, isSigningUp } = useAuth();
   const {
     currentTab,
     setCurrentTab,
@@ -48,24 +47,31 @@ const AppContent: React.FC = () => {
   // Guided Tour State
   const [isTourOpen, setIsTourOpen] = useState(false);
 
-  // Auto-trigger tour for new users after initial load
+  const tourSeenKey = `medacademic_tour_seen_${activeUserId || 'guest'}`;
+  const setupDone =
+    Boolean(userProfile?.onboardingCompleted) || Boolean(activeUser?.onboardingCompleted) || subjects.length > 0;
+
+  // Auto-trigger tour once, only on the main panel (never behind the profile setup page)
+  // and never on top of the welcome guide (OnboardingModal).
   useEffect(() => {
-    if (isInitialLoadComplete && userProfile) {
-      try {
-        const tourSeen = localStorage.getItem(`medacademic_tour_seen_${activeUserId || 'guest'}`);
-        if (!tourSeen && !userProfile.onboardingCompleted) {
-          const timer = setTimeout(() => setIsTourOpen(true), 800);
-          return () => clearTimeout(timer);
-        }
-      } catch (e) {}
-    }
-  }, [isInitialLoadComplete, activeUserId, userProfile]);
+    if (!isInitialLoadComplete || !setupDone || isEditingProfileSetup || isOnboardingOpen) return;
+    try {
+      if (!localStorage.getItem(tourSeenKey)) {
+        const timer = setTimeout(() => setIsTourOpen(true), 800);
+        return () => clearTimeout(timer);
+      }
+    } catch (e) {}
+  }, [isInitialLoadComplete, setupDone, isEditingProfileSetup, isOnboardingOpen, tourSeenKey]);
+
+  const markTourSeen = () => {
+    try {
+      localStorage.setItem(tourSeenKey, 'true');
+    } catch (e) {}
+  };
 
   const handleCloseTour = () => {
     setIsTourOpen(false);
-    try {
-      localStorage.setItem(`medacademic_tour_seen_${activeUserId || 'guest'}`, 'true');
-    } catch (e) {}
+    markTourSeen();
   };
 
   // Modals state
@@ -160,7 +166,8 @@ const AppContent: React.FC = () => {
 
   // If user is not logged in / authenticated, show Login & Create Account as the mandatory entry screen
   if (!activeUserId) {
-    return <AuthModal isPage={true} />;
+    // "Criar novo usuário": profile wizard first, e-mail & password on its last step
+    return isSigningUp ? <ProfileCreationPage signupMode /> : <AuthModal isPage={true} />;
   }
 
   // Show loading indicator while fetching user profile and academic state from Firestore
@@ -249,8 +256,6 @@ const AppContent: React.FC = () => {
             onOpenAddTopic={handleOpenAddTopic}
           />
         );
-      case 'gemini_tutor':
-        return <GeminiTutorView />;
       case 'profile':
         return <ProfileView />;
       default:
@@ -322,7 +327,11 @@ const AppContent: React.FC = () => {
 
       <OnboardingModal
         isOpen={isOnboardingOpen}
-        onClose={() => setIsOnboardingOpen(false)}
+        onClose={() => {
+          // The welcome guide already covers the tour; don't chain a second tutorial after it
+          markTourSeen();
+          setIsOnboardingOpen(false);
+        }}
       />
 
       <AuthModal />
@@ -330,7 +339,7 @@ const AppContent: React.FC = () => {
       {/* Floating Bottom-Right Container with User Status Dock & Toast */}
       <div className="fixed bottom-4 right-4 z-40 flex flex-col items-end gap-2.5 max-w-[340px]">
         {/* Subtle Offline Toast above dock (shown when offline > 30s) */}
-        {showOfflineToast && !isOfflineToastDismissed && (
+        {showOfflineToast && !isOfflineToastDismissed && !isLocalOnly && (
           <div
             id="dock-offline-toast"
             className="flex items-start gap-2.5 bg-slate-900/95 dark:bg-slate-900/95 backdrop-blur-md border border-amber-500/40 text-slate-100 rounded-2xl p-3 shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-300 w-full"
@@ -351,7 +360,7 @@ const AppContent: React.FC = () => {
                 </button>
               </div>
               <p className="text-[11px] text-slate-300 mt-1 leading-relaxed">
-                Você está sem conexão há mais de 30s. Suas alterações continuam sendo salvas no dispositivo e serão sincronizadas com o Firestore ao reconectar.
+                Você está sem conexão há mais de 30s. Suas alterações continuam sendo salvas no dispositivo e serão sincronizadas com a nuvem ao reconectar.
               </p>
               <div className="mt-2.5 flex items-center gap-2">
                 <button
@@ -392,7 +401,7 @@ const AppContent: React.FC = () => {
           <button
             onClick={() => setCurrentTab('profile')}
             className="flex items-center gap-2 group cursor-pointer focus:outline-hidden"
-            title={`Perfil de ${userProfile.name} • Firestore: ${
+            title={`Perfil de ${userProfile.name} • Nuvem: ${
               cloudSyncStatus === 'synced'
                 ? 'Online e Sincronizado'
                 : cloudSyncStatus === 'syncing'
@@ -428,10 +437,10 @@ const AppContent: React.FC = () => {
                   }`}
                   title={
                     cloudSyncStatus === 'synced'
-                      ? 'Firestore Online: Conexão ativa e sincronizada'
+                      ? 'Nuvem online: conexão ativa e sincronizada'
                       : cloudSyncStatus === 'syncing'
-                      ? 'Firestore: Sincronizando dados...'
-                      : 'Firestore Offline: Operando em cache local'
+                      ? 'Nuvem: sincronizando dados...'
+                      : 'Nuvem offline: operando com os dados do dispositivo'
                   }
                 />
               </div>

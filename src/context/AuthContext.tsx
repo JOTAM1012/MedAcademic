@@ -1,28 +1,16 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import type { Session, User } from '@supabase/supabase-js';
 import { clearIDBForUser } from '../lib/indexedDB';
-import {
-  auth,
-  db,
-  doc,
-  setDoc,
-  getDoc,
-  collection,
-  getDocs,
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  signOut,
-  onAuthStateChanged,
-  FirebaseUser,
-  sanitizeForFirestore,
-  deleteDoc,
-} from '../lib/firebase';
+import { supabase, isLocalOnly, APP_STATE_TABLE } from '../lib/supabase';
 import { CARTOON_AVATARS } from '../data/avatars';
 
 export interface UserAccount {
   id: string;
   name: string;
   email: string;
-  password?: string;
+  /** Local-only mode: salted hash of the profile password (cloud mode delegates passwords to Supabase Auth). */
+  passwordHash?: string;
+  passwordSalt?: string;
   university: string;
   currentSemester: string;
   dreamSpecialty: string;
@@ -32,11 +20,14 @@ export interface UserAccount {
   lastLoginAt: string;
 }
 
+type AuthResult = { success: boolean; error?: string };
+
 interface AuthContextType {
   accounts: UserAccount[];
   activeUserId: string | null;
   activeUser: UserAccount | null;
-  firebaseUser: FirebaseUser | null;
+  /** Supabase user id (uuid) of the signed-in user; null in local-only mode or when signed out */
+  cloudUserId: string | null;
   isAuthModalOpen: boolean;
   authViewMode: 'select' | 'login' | 'register';
   selectedAccountForLogin: UserAccount | null;
@@ -44,9 +35,19 @@ interface AuthContextType {
   setSelectedAccountForLogin: (account: UserAccount | null) => void;
   openAuthModal: (mode?: 'select' | 'login' | 'register') => void;
   closeAuthModal: () => void;
-  loginWithEmail: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  selectAccount: (userId: string, password?: string) => { success: boolean; error?: string };
-  registerWithEmail: (data: Omit<UserAccount, 'id' | 'createdAt' | 'lastLoginAt'> & { password: string }) => Promise<{ success: boolean; account?: UserAccount; error?: string }>;
+  loginWithEmail: (email: string, password: string) => Promise<AuthResult>;
+  selectAccount: (userId: string, password?: string) => Promise<AuthResult>;
+  registerWithEmail: (
+    data: Omit<UserAccount, 'id' | 'createdAt' | 'lastLoginAt' | 'passwordHash' | 'passwordSalt'> & { password: string },
+    beforeActivate?: (email: string) => void
+  ) => Promise<{ success: boolean; account?: UserAccount; error?: string; needsEmailConfirmation?: boolean }>;
+  /** Informational message for the login screen (e.g. "confirm your e-mail") */
+  authNotice: string | null;
+  setAuthNotice: (notice: string | null) => void;
+  /** Sign-up wizard: profile creation happens before the account (e-mail/senha) exists */
+  isSigningUp: boolean;
+  startSignup: () => void;
+  cancelSignup: () => void;
   logout: () => Promise<void>;
   updateAccount: (userId: string, data: Partial<UserAccount>) => Promise<void>;
   deleteAccount: (userId: string) => Promise<void>;
@@ -56,22 +57,87 @@ const ACCOUNTS_STORAGE_KEY = 'medacademic_registered_accounts_v6';
 const ACTIVE_USER_STORAGE_KEY = 'medacademic_active_user_id_v6';
 const ACTIVE_USER_OBJECT_STORAGE_KEY = 'medacademic_active_user_profile_v6';
 
-const DEFAULT_ACCOUNTS: UserAccount[] = [];
+const normalizeEmail = (email: string) => email.trim().toLowerCase();
 
-// Helper functions for safe and instantaneous localStorage hydration on page reload
+// ---------- Local-only mode password hashing (PBKDF2-SHA256, per-account salt) ----------
+const PBKDF2_ITERATIONS = 150_000;
+
+const toHex = (bytes: ArrayBuffer | Uint8Array) =>
+  Array.from(bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+
+async function hashPassword(password: string, saltHex?: string): Promise<{ hash: string; salt: string }> {
+  const salt = saltHex || toHex(crypto.getRandomValues(new Uint8Array(16)));
+  const saltBytes = new Uint8Array(salt.match(/.{2}/g)!.map((h) => parseInt(h, 16)));
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']);
+  const bits = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', salt: saltBytes, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' },
+    key,
+    256
+  );
+  return { hash: toHex(bits), salt };
+}
+
+async function verifyLocalPassword(account: UserAccount, password: string | undefined): Promise<boolean> {
+  if (!account.passwordHash || !account.passwordSalt) return true; // profile without password
+  if (!password) return false;
+  const { hash } = await hashPassword(password.trim(), account.passwordSalt);
+  return hash === account.passwordHash;
+}
+
+// ---------- Supabase helpers ----------
+// Profile fields kept in the auth user's metadata (display only — never used for authorization).
+// Uploaded photos (data: URLs) stay out of it because the metadata travels inside the JWT.
+const toUserMetadata = (data: Partial<UserAccount>) => {
+  const meta: Record<string, unknown> = {};
+  if (data.name !== undefined) meta.name = data.name;
+  if (data.university !== undefined) meta.university = data.university;
+  if (data.currentSemester !== undefined) meta.currentSemester = data.currentSemester;
+  if (data.dreamSpecialty !== undefined) meta.dreamSpecialty = data.dreamSpecialty;
+  if (data.onboardingCompleted !== undefined) meta.onboardingCompleted = data.onboardingCompleted;
+  if (data.avatarUrl !== undefined && !data.avatarUrl.startsWith('data:')) meta.avatarUrl = data.avatarUrl;
+  return meta;
+};
+
+const accountFromUser = (user: User, fallback?: UserAccount | null): UserAccount => {
+  const meta = (user.user_metadata || {}) as Record<string, any>;
+  const email = normalizeEmail(user.email || '');
+  return {
+    id: email,
+    email,
+    name: meta.name || fallback?.name || email.split('@')[0] || 'Estudante de Medicina',
+    university: meta.university || fallback?.university || 'Faculdade de Medicina',
+    currentSemester: meta.currentSemester || fallback?.currentSemester || '1º Semestre',
+    dreamSpecialty: meta.dreamSpecialty || fallback?.dreamSpecialty || 'Clínica Médica',
+    avatarUrl: fallback?.avatarUrl || meta.avatarUrl || CARTOON_AVATARS[0].url,
+    onboardingCompleted: meta.onboardingCompleted ?? fallback?.onboardingCompleted ?? true,
+    createdAt: user.created_at || new Date().toISOString(),
+    lastLoginAt: user.last_sign_in_at || new Date().toISOString(),
+  };
+};
+
+const translateAuthError = (message: string): string => {
+  const m = message.toLowerCase();
+  if (m.includes('invalid login credentials')) return 'E-mail ou senha incorretos.';
+  if (m.includes('email not confirmed')) return 'Confirme seu e-mail pelo link que enviamos antes de entrar.';
+  if (m.includes('already registered') || m.includes('already been registered'))
+    return 'Este e-mail já possui uma conta. Vá para a aba "Login" para acessar seu perfil.';
+  if (m.includes('password should be') || m.includes('weak password'))
+    return 'Senha fraca: use pelo menos 6 caracteres (de preferência com letras e números).';
+  if (m.includes('rate limit') || m.includes('too many'))
+    return 'Muitas tentativas em pouco tempo. Aguarde alguns minutos e tente novamente.';
+  if (m.includes('failed to fetch') || m.includes('network')) return 'Sem conexão com o servidor. Verifique sua internet.';
+  return message;
+};
+
+// ---------- localStorage hydration ----------
 const loadInitialActiveUser = (): UserAccount | null => {
   try {
     const raw = localStorage.getItem(ACTIVE_USER_OBJECT_STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (parsed && (parsed.id || parsed.email)) {
-        return {
-          ...parsed,
-          id: (parsed.email || parsed.id).trim().toLowerCase(),
-          email: (parsed.email || parsed.id).trim().toLowerCase(),
-          onboardingCompleted: parsed.onboardingCompleted !== undefined ? parsed.onboardingCompleted : true,
-        };
-      }
+      if (parsed && parsed.email) return { ...parsed, id: normalizeEmail(parsed.email), email: normalizeEmail(parsed.email) };
     }
   } catch (e) {
     console.error('Error loading stored active user object:', e);
@@ -81,11 +147,8 @@ const loadInitialActiveUser = (): UserAccount | null => {
 
 const loadInitialActiveUserId = (): string | null => {
   try {
-    const saved = localStorage.getItem(ACTIVE_USER_STORAGE_KEY) || localStorage.getItem('medacademic_active_user_id_v5');
-    if (saved && saved.trim()) return saved.trim().toLowerCase();
-    const activeObj = loadInitialActiveUser();
-    if (activeObj?.email) return activeObj.email.trim().toLowerCase();
-    if (activeObj?.id) return activeObj.id.trim().toLowerCase();
+    const saved = localStorage.getItem(ACTIVE_USER_STORAGE_KEY);
+    if (saved && saved.trim()) return normalizeEmail(saved);
   } catch (e) {
     console.error('Error loading stored active user id:', e);
   }
@@ -93,163 +156,110 @@ const loadInitialActiveUserId = (): string | null => {
 };
 
 const loadInitialAccounts = (): UserAccount[] => {
-  let list: UserAccount[] = [];
   try {
-    const saved = localStorage.getItem(ACCOUNTS_STORAGE_KEY) || localStorage.getItem('medacademic_registered_accounts_v5');
+    const saved = localStorage.getItem(ACCOUNTS_STORAGE_KEY);
     if (saved) {
       const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        list = parsed.map((a: any) => ({
-          ...a,
-          id: (a.email || a.id || '').trim().toLowerCase(),
-          email: (a.email || a.id || '').trim().toLowerCase(),
-          onboardingCompleted: a.onboardingCompleted !== undefined ? a.onboardingCompleted : true,
-        }));
+      if (Array.isArray(parsed)) {
+        return parsed
+          .filter((a: any) => a && a.email)
+          // drop any legacy plaintext password left by older versions
+          .map(({ password: _legacy, ...a }: any) => ({ ...a, id: normalizeEmail(a.email), email: normalizeEmail(a.email) }));
       }
     }
   } catch (e) {
     console.error('Error parsing accounts from localStorage:', e);
   }
-
-  // Ensure stored active user object is included in accounts array if it was stored
-  const activeObj = loadInitialActiveUser();
-  if (activeObj && activeObj.email) {
-    const canonicalKey = activeObj.email.trim().toLowerCase();
-    const exists = list.some((a) => a.email.trim().toLowerCase() === canonicalKey || a.id === canonicalKey);
-    if (!exists) {
-      list.push({ ...activeObj, id: canonicalKey, email: canonicalKey });
-    }
-  }
-  return list.length > 0 ? list : DEFAULT_ACCOUNTS;
+  return [];
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
-
   const [accounts, setAccounts] = useState<UserAccount[]>(loadInitialAccounts);
   const [activeUserId, setActiveUserId] = useState<string | null>(loadInitialActiveUserId);
+  const [cloudUserId, setCloudUserId] = useState<string | null>(null);
 
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(() => {
-    const initialId = loadInitialActiveUserId();
-    return !initialId; // Open modal automatically ONLY if no active user session exists
-  });
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(() => !loadInitialActiveUserId());
   const [authViewMode, setAuthViewMode] = useState<'select' | 'login' | 'register'>('login');
   const [selectedAccountForLogin, setSelectedAccountForLogin] = useState<UserAccount | null>(null);
+  const [isSigningUp, setIsSigningUp] = useState<boolean>(false);
+  const [authNotice, setAuthNotice] = useState<string | null>(null);
+  const startSignup = () => setIsSigningUp(true);
+  const cancelSignup = () => {
+    setIsSigningUp(false);
+    setAuthViewMode('login');
+  };
 
-  // robust isDeleting flag to prevent auth re-triggers or sync loops during account purging
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
   const isDeletingRef = useRef<boolean>(false);
 
-  // Fetch cloud users from Firestore on mount to support cross-device login
-  useEffect(() => {
-    async function fetchCloudUsers() {
-      if (isDeletingRef.current) return;
-      try {
-        const querySnapshot = await getDocs(collection(db, 'users'));
-        const cloudUsers: UserAccount[] = [];
-        querySnapshot.forEach((docSnap) => {
-          const uData = docSnap.data() as UserAccount;
-          if (uData && uData.email) {
-            const canonicalId = uData.email.trim().toLowerCase();
-            cloudUsers.push({
-              ...uData,
-              id: canonicalId,
-              email: canonicalId,
-              onboardingCompleted: uData.onboardingCompleted !== undefined ? uData.onboardingCompleted : true,
-            });
-          }
-        });
-        if (cloudUsers.length > 0 && !isDeletingRef.current) {
-          setAccounts((prev) => {
-            const map = new Map<string, UserAccount>();
-            [...prev, ...cloudUsers].forEach((acc) => {
-              const key = acc.email.trim().toLowerCase();
-              map.set(key, { ...acc, id: key, email: key });
-            });
-            const merged = Array.from(map.values());
-            localStorage.setItem(ACCOUNTS_STORAGE_KEY, JSON.stringify(merged));
-            return merged;
-          });
-        }
-      } catch (e) {
-        console.warn("Could not fetch cloud users from Firestore:", e);
-      }
-    }
-    fetchCloudUsers();
-  }, []);
-
-  // Firebase Auth Observer with canonical email resolution
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setFirebaseUser(user);
-      if (isDeletingRef.current) return;
-      if (user && user.email) {
-        const cleanEmail = user.email.trim().toLowerCase();
-        const userRef = doc(db, 'users', cleanEmail);
-        try {
-          const snap = await getDoc(userRef);
-          if (snap.exists() && !isDeletingRef.current) {
-            const data = snap.data() as UserAccount;
-            const updatedAccount: UserAccount = {
-              ...data,
-              id: cleanEmail,
-              email: cleanEmail,
-              onboardingCompleted: data.onboardingCompleted !== undefined ? data.onboardingCompleted : true,
-              lastLoginAt: new Date().toISOString(),
-            };
-            setAccounts((prev) => {
-              const filtered = prev.filter((a) => a.email.trim().toLowerCase() !== cleanEmail);
-              const next = [...filtered, updatedAccount];
-              localStorage.setItem(ACCOUNTS_STORAGE_KEY, JSON.stringify(next));
-              return next;
-            });
-            setActiveUserId(cleanEmail);
-            localStorage.setItem(ACTIVE_USER_STORAGE_KEY, cleanEmail);
-            localStorage.setItem(ACTIVE_USER_OBJECT_STORAGE_KEY, JSON.stringify(updatedAccount));
-          }
-        } catch (err) {
-          console.error("Error syncing user with Firestore:", err);
-        }
-      }
+  // Stores the account locally (device cache used for instant hydration) and marks it active
+  const activateAccount = (account: UserAccount) => {
+    const email = normalizeEmail(account.email);
+    setAccounts((prev) => {
+      const next = [...prev.filter((a) => a.email !== email), { ...account, id: email, email }];
+      localStorage.setItem(ACCOUNTS_STORAGE_KEY, JSON.stringify(next));
+      return next;
     });
+    setActiveUserId(email);
+    localStorage.setItem(ACTIVE_USER_STORAGE_KEY, email);
+    localStorage.setItem(ACTIVE_USER_OBJECT_STORAGE_KEY, JSON.stringify(account));
+    setIsAuthModalOpen(false);
+    setSelectedAccountForLogin(null);
+  };
 
-    return () => unsubscribe();
+  const clearActiveSession = () => {
+    localStorage.removeItem(ACTIVE_USER_STORAGE_KEY);
+    localStorage.removeItem(ACTIVE_USER_OBJECT_STORAGE_KEY);
+    setSelectedAccountForLogin(null);
+    setActiveUserId(null);
+    setCloudUserId(null);
+  };
+
+  // Supabase session: restores it on load and follows sign-in / sign-out / token refresh
+  useEffect(() => {
+    if (!supabase) return;
+
+    const applySession = (session: Session | null) => {
+      if (isDeletingRef.current) return;
+      if (session?.user?.email) {
+        const email = normalizeEmail(session.user.email);
+        const cached = loadInitialAccounts().find((a) => a.email === email) || null;
+        setCloudUserId(session.user.id);
+        activateAccount(accountFromUser(session.user, cached));
+      } else {
+        // No valid session → whatever was cached locally is not signed in anymore
+        clearActiveSession();
+        setIsAuthModalOpen(true);
+      }
+    };
+
+    supabase.auth.getSession().then(({ data }) => applySession(data.session));
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'INITIAL_SESSION') return; // handled by getSession above
+      if (event === 'SIGNED_OUT') {
+        if (!isDeletingRef.current) {
+          clearActiveSession();
+          setIsAuthModalOpen(true);
+        }
+        return;
+      }
+      if (session) applySession(session);
+    });
+    return () => listener.subscription.unsubscribe();
   }, []);
 
-  // Sync accounts to localStorage whenever accounts state changes
+  // Keep the active account object cached for the next page load
   useEffect(() => {
-    if (isDeletingRef.current) return;
-    localStorage.setItem(ACCOUNTS_STORAGE_KEY, JSON.stringify(accounts));
-  }, [accounts]);
-
-  // Sync activeUserId and activeUser profile object to localStorage
-  useEffect(() => {
-    if (isDeletingRef.current) return;
-    if (activeUserId) {
-      const cleanId = activeUserId.trim().toLowerCase();
-      localStorage.setItem(ACTIVE_USER_STORAGE_KEY, cleanId);
-      const matchingAccount = accounts.find((a) => a.id === cleanId || a.email.trim().toLowerCase() === cleanId);
-      if (matchingAccount) {
-        localStorage.setItem(ACTIVE_USER_OBJECT_STORAGE_KEY, JSON.stringify(matchingAccount));
-      }
-    } else {
-      localStorage.removeItem(ACTIVE_USER_STORAGE_KEY);
-      localStorage.removeItem(ACTIVE_USER_OBJECT_STORAGE_KEY);
-    }
+    if (isDeletingRef.current || !activeUserId) return;
+    const match = accounts.find((a) => a.email === activeUserId);
+    if (match) localStorage.setItem(ACTIVE_USER_OBJECT_STORAGE_KEY, JSON.stringify(match));
   }, [activeUserId, accounts]);
 
   const activeUser = React.useMemo(() => {
     if (!activeUserId) return null;
-    const cleanId = activeUserId.trim().toLowerCase();
-    const found = accounts.find((a) => a.id === cleanId || a.email.trim().toLowerCase() === cleanId);
-    if (found) return found;
-    const cached = loadInitialActiveUser();
-    if (cached && (cached.id === cleanId || cached.email.trim().toLowerCase() === cleanId)) {
-      return cached;
-    }
-    return null;
+    return accounts.find((a) => a.email === activeUserId) || loadInitialActiveUser();
   }, [accounts, activeUserId]);
 
   const openAuthModal = (mode: 'select' | 'login' | 'register' = 'login') => {
@@ -264,356 +274,170 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const selectAccount = (userId: string, password?: string) => {
-    const target = accounts.find((a) => a.id === userId || a.email.trim().toLowerCase() === userId.trim().toLowerCase());
-    if (!target) return { success: false, error: 'Perfil não encontrado.' };
+  const loginWithEmail = async (email: string, password: string): Promise<AuthResult> => {
+    const cleanEmail = normalizeEmail(email);
+    if (!cleanEmail) return { success: false, error: 'Por favor, informe seu e-mail.' };
 
-    if (target.password && target.password.trim() !== '') {
-      if (!password || password !== target.password) {
+    if (!supabase) {
+      const target = accounts.find((a) => a.email === cleanEmail);
+      if (!target) {
+        return { success: false, error: 'Perfil não encontrado com este e-mail. Crie uma conta na aba "Criar Novo Usuário".' };
+      }
+      if (!(await verifyLocalPassword(target, password))) {
         return { success: false, error: 'Senha incorreta para este perfil.' };
       }
+      activateAccount({ ...target, lastLoginAt: new Date().toISOString() });
+      return { success: true };
     }
 
-    const canonicalId = target.email.trim().toLowerCase();
-    const now = new Date().toISOString();
-    const updatedTarget: UserAccount = {
-      ...target,
-      id: canonicalId,
-      email: canonicalId,
-      lastLoginAt: now,
-    };
-
-    const nextAccounts = accounts.map((a) => (a.email.trim().toLowerCase() === canonicalId ? updatedTarget : a));
-    setAccounts(nextAccounts);
-    setActiveUserId(canonicalId);
-
-    // Synchronous immediate persistence to localStorage
-    localStorage.setItem(ACTIVE_USER_STORAGE_KEY, canonicalId);
-    localStorage.setItem(ACTIVE_USER_OBJECT_STORAGE_KEY, JSON.stringify(updatedTarget));
-    localStorage.setItem(ACCOUNTS_STORAGE_KEY, JSON.stringify(nextAccounts));
-
-    setIsAuthModalOpen(false);
-    setSelectedAccountForLogin(null);
+    const { data, error } = await supabase.auth.signInWithPassword({ email: cleanEmail, password });
+    if (error || !data.user) return { success: false, error: translateAuthError(error?.message || 'Erro ao entrar.') };
+    setAuthNotice(null);
+    const cached = accounts.find((a) => a.email === cleanEmail) || null;
+    setCloudUserId(data.user.id);
+    activateAccount(accountFromUser(data.user, cached));
     return { success: true };
   };
 
-  const loginWithEmail = async (email: string, password: string) => {
-    const cleanEmail = email.trim().toLowerCase();
-    if (!cleanEmail) {
-      return { success: false, error: 'Por favor, informe seu e-mail.' };
-    }
-
-    // 1. Check local accounts state first
-    let target = accounts.find((a) => a.email.trim().toLowerCase() === cleanEmail);
-
-    // 2. Direct O(1) Firestore doc lookup by cleanEmail for instant cross-device access
-    if (!target) {
-      try {
-        const emailDocRef = doc(db, 'users', cleanEmail);
-        const emailSnap = await getDoc(emailDocRef);
-        if (emailSnap.exists()) {
-          const data = emailSnap.data() as UserAccount;
-          target = {
-            ...data,
-            id: cleanEmail,
-            email: cleanEmail,
-            onboardingCompleted: data.onboardingCompleted !== undefined ? data.onboardingCompleted : true,
-          };
-        }
-      } catch (e) {
-        console.warn("Direct email doc lookup warning:", e);
-      }
-    }
-
-    // 3. Fallback collection query if direct doc lookup didn't match
-    if (!target) {
-      try {
-        const querySnapshot = await getDocs(collection(db, 'users'));
-        querySnapshot.forEach((docSnap) => {
-          const uData = docSnap.data() as UserAccount;
-          if (uData && uData.email && uData.email.trim().toLowerCase() === cleanEmail) {
-            target = {
-              ...uData,
-              id: cleanEmail,
-              email: cleanEmail,
-              onboardingCompleted: uData.onboardingCompleted !== undefined ? uData.onboardingCompleted : true,
-            };
-          }
-        });
-      } catch (e) {
-        console.warn("Error querying Firestore for login email:", e);
-      }
-    }
-
-    // 4. Also check if state doc exists in users/{cleanEmail}/appData/state
-    if (!target) {
-      try {
-        const stateSnap = await getDoc(doc(db, 'users', cleanEmail, 'appData', 'state'));
-        if (stateSnap.exists()) {
-          const sData = stateSnap.data();
-          const p = sData.userProfile || {};
-          target = {
-            id: cleanEmail,
-            name: p.name || 'Estudante de Medicina',
-            email: cleanEmail,
-            password: '',
-            university: p.university || 'Faculdade de Medicina',
-            currentSemester: '1º Semestre',
-            dreamSpecialty: p.dreamSpecialty || 'Clínica Médica',
-            avatarUrl: p.avatarUrl || CARTOON_AVATARS[0].url,
-            onboardingCompleted: true,
-            createdAt: sData.updatedAt || new Date().toISOString(),
-            lastLoginAt: new Date().toISOString(),
-          };
-        }
-      } catch (e) {
-        console.warn("State doc fallback check error:", e);
-      }
-    }
-
-    if (target) {
-      // Validate password if user set a password
-      if (target.password && target.password.trim() !== '') {
-        if (!password || password.trim() !== target.password.trim()) {
-          return { success: false, error: 'Senha incorreta para este perfil.' };
-        }
-      }
-      const now = new Date().toISOString();
-      const updatedTarget: UserAccount = {
-        ...target,
-        id: cleanEmail,
-        email: cleanEmail,
-        onboardingCompleted: target.onboardingCompleted !== undefined ? target.onboardingCompleted : true,
-        lastLoginAt: now,
-      };
-
-      // Ensure local state includes the logged-in target user so activeUser is immediately populated
-      const filtered = accounts.filter((a) => a.email.trim().toLowerCase() !== cleanEmail);
-      const nextAccounts = [...filtered, updatedTarget];
-      setAccounts(nextAccounts);
-      setActiveUserId(cleanEmail);
-
-      // Synchronous immediate persistence to localStorage
-      localStorage.setItem(ACTIVE_USER_STORAGE_KEY, cleanEmail);
-      localStorage.setItem(ACTIVE_USER_OBJECT_STORAGE_KEY, JSON.stringify(updatedTarget));
-      localStorage.setItem(ACCOUNTS_STORAGE_KEY, JSON.stringify(nextAccounts));
-
-      // Also try Firebase Auth sign in silently to maintain session if configured
-      try {
-        await signInWithEmailAndPassword(auth, cleanEmail, password);
-      } catch (e) {
-        // Safe to ignore if email/pass provider is not configured
-      }
-
-      setIsAuthModalOpen(false);
-      return { success: true };
-    }
-
-    // 5. Try Firebase Auth sign in as last resort
-    try {
-      const cred = await signInWithEmailAndPassword(auth, cleanEmail, password);
-      const email = cred.user.email ? cred.user.email.trim().toLowerCase() : cleanEmail;
-      setActiveUserId(email);
-      localStorage.setItem(ACTIVE_USER_STORAGE_KEY, email);
-      setIsAuthModalOpen(false);
-      return { success: true };
-    } catch (err: any) {
-      return { success: false, error: 'Perfil não encontrado com este e-mail. Verifique o e-mail ou crie uma conta na aba "Criar Novo Usuário".' };
-    }
+  const selectAccount = async (userId: string, password?: string): Promise<AuthResult> => {
+    const target = accounts.find((a) => a.id === userId || a.email === normalizeEmail(userId));
+    if (!target) return { success: false, error: 'Perfil não encontrado.' };
+    return loginWithEmail(target.email, password || '');
   };
 
-  const registerWithEmail = async (data: Omit<UserAccount, 'id' | 'createdAt' | 'lastLoginAt'> & { password: string }) => {
-    const cleanEmail = data.email.trim().toLowerCase();
-    if (!cleanEmail) {
-      return { success: false, error: 'Por favor, informe um e-mail válido.' };
-    }
+  const registerWithEmail: AuthContextType['registerWithEmail'] = async (data, beforeActivate) => {
+    const cleanEmail = normalizeEmail(data.email);
+    if (!cleanEmail) return { success: false, error: 'Por favor, informe um e-mail válido.' };
+    const { password, ...profile } = data;
+    const now = new Date().toISOString();
 
-    // Check if user already exists locally or in cloud
-    let existingAccount = accounts.find((a) => a.email.trim().toLowerCase() === cleanEmail);
-    if (!existingAccount) {
-      try {
-        const emailSnap = await getDoc(doc(db, 'users', cleanEmail));
-        if (emailSnap.exists()) {
-          existingAccount = emailSnap.data() as UserAccount;
-        }
-      } catch (e) {
-        console.warn("Error checking email doc in Firestore:", e);
+    if (!supabase) {
+      if (accounts.some((a) => a.email === cleanEmail)) {
+        return { success: false, error: 'Este e-mail já possui uma conta. Vá para a aba "Login" para acessar seu perfil.' };
       }
-    }
-
-    if (existingAccount) {
-      return {
-        success: false,
-        error: 'Este e-mail já possui uma conta cadastrada. Vá para a aba "Login" para acessar seu perfil.',
+      const { hash, salt } = await hashPassword(password.trim());
+      const account: UserAccount = {
+        ...profile,
+        id: cleanEmail,
+        email: cleanEmail,
+        passwordHash: hash,
+        passwordSalt: salt,
+        onboardingCompleted: profile.onboardingCompleted ?? false,
+        createdAt: now,
+        lastLoginAt: now,
       };
+      beforeActivate?.(cleanEmail);
+      setIsSigningUp(false);
+      activateAccount(account);
+      return { success: true, account };
     }
 
-    const uid = cleanEmail; // Use cleanEmail as canonical document ID for O(1) cross-device resolution
-    const newAccount: UserAccount = {
-      ...data,
+    const { data: signUp, error } = await supabase.auth.signUp({
       email: cleanEmail,
-      id: uid,
-      onboardingCompleted: false, // User needs to complete onboarding
-      createdAt: new Date().toISOString(),
-      lastLoginAt: new Date().toISOString(),
-    };
-
-    // Save to Firestore cloud database root doc with cleanEmail as key
-    try {
-      await setDoc(doc(db, 'users', cleanEmail), sanitizeForFirestore(newAccount), { merge: true });
-    } catch (err: any) {
-      console.warn("Firestore save warning during registration:", err.message);
+      password,
+      options: { data: toUserMetadata(profile), emailRedirectTo: window.location.origin },
+    });
+    if (error) return { success: false, error: translateAuthError(error.message) };
+    // With e-mail confirmation on, an existing address returns a user without identities (no error)
+    if (signUp.user && signUp.user.identities && signUp.user.identities.length === 0) {
+      return { success: false, error: translateAuthError('already registered') };
     }
 
-    // Try Firebase Auth if enabled, but don't fail if operation-not-allowed
-    try {
-      await createUserWithEmailAndPassword(auth, cleanEmail, data.password);
-    } catch (e) {
-      // Ignore auth/operation-not-allowed
+    // Seed the local profile now so it's loaded as soon as the user signs in on this device
+    beforeActivate?.(cleanEmail);
+    const account: UserAccount = { ...profile, id: cleanEmail, email: cleanEmail, createdAt: now, lastLoginAt: now };
+    setAccounts((prev) => {
+      const next = [...prev.filter((a) => a.email !== cleanEmail), account];
+      localStorage.setItem(ACCOUNTS_STORAGE_KEY, JSON.stringify(next));
+      return next;
+    });
+
+    if (!signUp.session) {
+      // Project requires e-mail confirmation: the user signs in after clicking the link
+      setAuthNotice(
+        `Conta criada! Enviamos um link de confirmação para ${cleanEmail}. Abra o e-mail, confirme e depois entre aqui com seu e-mail e senha.`
+      );
+      setIsSigningUp(false);
+      setAuthViewMode('login');
+      return { success: true, account, needsEmailConfirmation: true };
     }
 
-    const nextAccounts = [...accounts.filter((a) => a.email.trim().toLowerCase() !== cleanEmail), newAccount];
-    setAccounts(nextAccounts);
-    setActiveUserId(uid);
-
-    // Synchronous immediate persistence to localStorage
-    localStorage.setItem(ACTIVE_USER_STORAGE_KEY, uid);
-    localStorage.setItem(ACTIVE_USER_OBJECT_STORAGE_KEY, JSON.stringify(newAccount));
-    localStorage.setItem(ACCOUNTS_STORAGE_KEY, JSON.stringify(nextAccounts));
-
-    setIsAuthModalOpen(false);
-    return { success: true, account: newAccount };
+    setIsSigningUp(false);
+    setCloudUserId(signUp.session.user.id);
+    activateAccount(account);
+    return { success: true, account };
   };
 
   const logout = async () => {
-    // 1. Finalize the Firebase session FIRST before clearing local state or triggering UI redirects
-    try {
-      await signOut(auth);
-    } catch (e) {
-      console.error("Error signing out from Firebase:", e);
+    if (supabase) {
+      try {
+        await supabase.auth.signOut();
+      } catch (e) {
+        console.error('Error signing out:', e);
+      }
     }
-
-    // 2. Clean up local storage authentication state AFTER finalizing session
-    localStorage.removeItem(ACTIVE_USER_STORAGE_KEY);
-    localStorage.removeItem(ACTIVE_USER_OBJECT_STORAGE_KEY);
-    localStorage.removeItem('medacademic_active_user_id_v5');
-
-    // 3. Reset active user state and set modal to login
-    setSelectedAccountForLogin(null);
-    setActiveUserId(null);
+    clearActiveSession();
     openAuthModal('login');
   };
 
   const updateAccount = async (userId: string, data: Partial<UserAccount>) => {
-    const cleanId = userId.trim().toLowerCase();
-    const nextAccounts = accounts.map((a) => (a.id === cleanId || a.email.trim().toLowerCase() === cleanId ? { ...a, ...data } : a));
-    setAccounts(nextAccounts);
+    const cleanId = normalizeEmail(userId);
+    setAccounts((prev) => {
+      const next = prev.map((a) => (a.email === cleanId ? { ...a, ...data } : a));
+      localStorage.setItem(ACCOUNTS_STORAGE_KEY, JSON.stringify(next));
+      return next;
+    });
 
-    // Sync to localStorage
-    localStorage.setItem(ACCOUNTS_STORAGE_KEY, JSON.stringify(nextAccounts));
-    if (activeUserId && (activeUserId.trim().toLowerCase() === cleanId)) {
-      const updatedActive = nextAccounts.find((a) => a.id === cleanId || a.email.trim().toLowerCase() === cleanId);
-      if (updatedActive) {
-        localStorage.setItem(ACTIVE_USER_OBJECT_STORAGE_KEY, JSON.stringify(updatedActive));
-      }
-    }
-
-    // Sync updates to Firestore
-    try {
-      await setDoc(doc(db, 'users', cleanId), sanitizeForFirestore(data), { merge: true });
-    } catch (err) {
-      console.error("Error updating user in Firestore:", err);
+    const meta = toUserMetadata(data);
+    if (supabase && cloudUserId && cleanId === activeUserId && Object.keys(meta).length > 0) {
+      supabase.auth.updateUser({ data: meta }).then(({ error }) => {
+        if (error) console.warn('Falha ao atualizar o perfil no Supabase:', error.message);
+      });
     }
   };
 
   const deleteAccount = async (userId: string) => {
-    const targetId = userId || activeUserId || activeUser?.email || activeUser?.id;
-    if (!targetId) {
-      console.warn('[deleteAccount] Nenhuma conta alvo especificada para exclusão.');
-      return;
-    }
+    const targetId = normalizeEmail(userId || activeUserId || '');
+    if (!targetId) return;
 
     setIsDeleting(true);
     isDeletingRef.current = true;
 
     try {
-      const cleanId = targetId.trim().toLowerCase();
-      const currentActiveCleanId = activeUserId?.trim().toLowerCase();
-      const activeUserEmailClean = activeUser?.email?.trim().toLowerCase();
-      const activeUserIdClean = activeUser?.id?.trim().toLowerCase();
-
-      // 1. Limpa os documentos de dados locais/remotos no Firestore
-      try {
-        await deleteDoc(doc(db, 'users', cleanId, 'appData', 'state'));
-        await deleteDoc(doc(db, 'users', cleanId));
-        if (currentActiveCleanId && currentActiveCleanId !== cleanId) {
-          await deleteDoc(doc(db, 'users', currentActiveCleanId, 'appData', 'state'));
-          await deleteDoc(doc(db, 'users', currentActiveCleanId));
-        }
-      } catch (err) {
-        console.warn("Erro ao excluir dados do usuário no Firestore:", err);
-      }
-
-      // 2. Finaliza a sessão do Firebase Auth (signOut) de forma síncrona/aguardada
-      const isDeletingActiveUser =
-        !activeUserId ||
-        currentActiveCleanId === cleanId ||
-        activeUserEmailClean === cleanId ||
-        activeUserIdClean === cleanId ||
-        Boolean(activeUserId);
-
-      if (isDeletingActiveUser || firebaseUser) {
+      // 1. Cloud data (RLS only lets the user delete their own row); max 5s so offline doesn't freeze
+      if (supabase && cloudUserId && targetId === activeUserId) {
+        await Promise.race([
+          supabase
+            .from(APP_STATE_TABLE)
+            .delete()
+            .eq('user_id', cloudUserId)
+            .then(({ error }) => {
+              if (error) console.warn('Erro ao excluir dados na nuvem:', error.message);
+            }),
+          new Promise((resolve) => setTimeout(resolve, 5000)),
+        ]);
         try {
-          await signOut(auth);
-        } catch (err) {
-          console.warn("Aviso ao encerrar sessão Firebase no deleteAccount:", err);
-        }
+          await supabase.auth.signOut();
+        } catch {}
       }
 
-      // 3. Apenas após a confirmação do encerramento da sessão e exclusão, limpa o localStorage
-      const updated = accounts.filter(
-        (a) =>
-          a.id.trim().toLowerCase() !== cleanId &&
-          a.email.trim().toLowerCase() !== cleanId &&
-          (currentActiveCleanId ? a.id.trim().toLowerCase() !== currentActiveCleanId && a.email.trim().toLowerCase() !== currentActiveCleanId : true)
-      );
+      // 2. Local caches
+      const updated = accounts.filter((a) => a.email !== targetId);
       setAccounts(updated);
       localStorage.setItem(ACCOUNTS_STORAGE_KEY, JSON.stringify(updated));
-
-      const idsToClean = Array.from(
-        new Set([cleanId, currentActiveCleanId, activeUserEmailClean, activeUserIdClean].filter(Boolean) as string[])
-      );
 
       const suffixes = [
         'user_profile', 'semesters', 'subjects', 'topics', 'exams',
         'schedule', 'achievements', 'med_revisions', 'study_sessions',
-        'pomodoro_settings', 'tutor_messages', 'current_tab'
+        'pomodoro_settings', 'tutor_messages', 'current_tab',
       ];
+      suffixes.forEach((suffix) => localStorage.removeItem(`medacademic_usr_${targetId}_${suffix}_v3`));
+      localStorage.removeItem(`medacademic_tour_seen_${targetId}`);
+      clearIDBForUser(targetId);
 
-      idsToClean.forEach((id) => {
-        suffixes.forEach((suffix) => {
-          localStorage.removeItem(`medacademic_${id}_${suffix}`);
-          localStorage.removeItem(`medacademic_usr_${id}_${suffix}_v3`);
-        });
-        clearIDBForUser(id);
-      });
-
-      suffixes.forEach((suffix) => {
-        localStorage.removeItem(`medacademic_usr_default_${suffix}_v3`);
-      });
-
-      localStorage.removeItem(ACTIVE_USER_STORAGE_KEY);
-      localStorage.removeItem(ACTIVE_USER_OBJECT_STORAGE_KEY);
-      localStorage.removeItem('medacademic_active_user_id_v5');
-      localStorage.removeItem('medacademic_registered_accounts_v5');
-      localStorage.removeItem('medacademic_active_user_id_v6');
-      localStorage.removeItem('medacademic_active_user_profile_v6');
-      localStorage.removeItem('medacademic_registered_accounts_v6');
-
-      // 4. Reseta os estados e força o redirecionamento imediato para o modal de autenticação (login/registro)
-      setSelectedAccountForLogin(null);
-      setActiveUserId(null);
-
+      if (targetId === activeUserId) {
+        clearActiveSession();
+      }
       openAuthModal(updated.length > 0 ? 'login' : 'register');
     } finally {
       setTimeout(() => {
@@ -629,7 +453,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         accounts,
         activeUserId,
         activeUser,
-        firebaseUser,
+        cloudUserId,
         isAuthModalOpen,
         authViewMode,
         selectedAccountForLogin,
@@ -640,6 +464,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         loginWithEmail,
         selectAccount,
         registerWithEmail,
+        authNotice,
+        setAuthNotice,
+        isSigningUp,
+        startSignup,
+        cancelSignup,
         logout,
         updateAccount,
         deleteAccount,
@@ -658,3 +487,4 @@ export const useAuth = () => {
   return context;
 };
 
+export { isLocalOnly };

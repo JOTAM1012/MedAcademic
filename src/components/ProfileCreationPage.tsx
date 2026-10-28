@@ -20,9 +20,10 @@ import {
   Cloud,
   CloudOff,
 } from 'lucide-react';
-import { useApp } from '../context/AppContext';
+import { useApp, seedNewUserData } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
-import { UserProfile } from '../types';
+import { UserProfile, Semester } from '../types';
+import { INITIAL_USER_PROFILE, INITIAL_SEMESTERS } from '../mockData';
 import { CARTOON_AVATARS } from '../data/avatars';
 
 const SPECIALTIES_R1 = [
@@ -92,12 +93,14 @@ const MEDICAL_CYCLES: MedicalCycleConfig[] = [
   },
 ];
 
-export const ProfileCreationPage: React.FC = () => {
-  const { activeUserId, updateAccount, isDeleting } = useAuth();
+interface ProfileCreationPageProps {
+  /** Sign-up flow: no account exists yet; e-mail & password are asked on the last step */
+  signupMode?: boolean;
+}
 
-  if (isDeleting) {
-    return null;
-  }
+export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signupMode = false }) => {
+  const { activeUserId, updateAccount, isDeleting, registerWithEmail, cancelSignup } = useAuth();
+
   const {
     userProfile,
     subjects,
@@ -118,9 +121,15 @@ export const ProfileCreationPage: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Form State
-  const [name, setName] = useState(userProfile.name || '');
-  const [email, setEmail] = useState(userProfile.email || '');
-  const [university, setUniversity] = useState(userProfile.university || '');
+  const [name, setName] = useState(signupMode ? '' : userProfile.name || '');
+  const [email, setEmail] = useState(signupMode ? '' : userProfile.email || '');
+  const [university, setUniversity] = useState(signupMode ? '' : userProfile.university || '');
+  // Sign-up access credentials (last step)
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [signupError, setSignupError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedCycle, setSelectedCycle] = useState<'ciclo_basico' | 'ciclo_clinico' | 'internato'>('ciclo_clinico');
   const [selectedSemesterNum, setSelectedSemesterNum] = useState<number>(5);
   const [semesterName, setSemesterName] = useState('5º Semestre - Ciclo Clínico');
@@ -175,6 +184,88 @@ export const ProfileCreationPage: React.FC = () => {
       }
     };
     reader.readAsDataURL(file);
+  };
+
+  // Sign-up: creates the account with the profile built in the wizard
+  const handleSignupFinish = async () => {
+    setSignupError(null);
+    if (!name.trim()) {
+      showNotification('Por favor, informe seu nome completo para continuar.', 'warning');
+      setCurrentStep(1);
+      return;
+    }
+    if (!university.trim()) {
+      showNotification('Por favor, informe sua Faculdade de Medicina.', 'warning');
+      setCurrentStep(2);
+      return;
+    }
+    const cleanEmail = email.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      setSignupError('Informe um e-mail válido para acessar seu perfil.');
+      return;
+    }
+    if (password.trim().length < 6) {
+      setSignupError('A senha deve ter pelo menos 6 caracteres.');
+      return;
+    }
+    if (password !== confirmPassword) {
+      setSignupError('As senhas não conferem.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    const chosenSemesterName = semesterName.trim() || `${selectedSemesterNum}º Semestre - ${activeCycleConfig.title}`;
+    const profile: UserProfile = {
+      ...INITIAL_USER_PROFILE,
+      name: name.trim(),
+      email: cleanEmail,
+      university: university.trim(),
+      dreamSpecialty: dreamSpecialty.trim(),
+      targetExam: targetExam.trim(),
+      googleSyncEnabled,
+      weeklyTargetHours: Number(weeklyTargetHours),
+      targetAverageGrade: Number(targetAverageGrade),
+      avatarUrl: selectedAvatarUrl,
+      currentSemesterId: 'sem-1',
+      totalXp: 150, // welcome reward
+      level: 1,
+      onboardingCompleted: true,
+    };
+    const semesters: Semester[] = [
+      {
+        ...INITIAL_SEMESTERS[0],
+        id: 'sem-1',
+        name: chosenSemesterName,
+        code: semesterCode.trim() || `SEM${selectedSemesterNum}`,
+        targetHoursWeekly: Number(weeklyTargetHours),
+        description: `${activeCycleConfig.title} • ${chosenSemesterName}`,
+        isCurrent: true,
+      },
+    ];
+
+    const res = await registerWithEmail(
+      {
+        name: name.trim(),
+        email: cleanEmail,
+        password: password.trim(),
+        university: university.trim(),
+        currentSemester: chosenSemesterName,
+        dreamSpecialty: dreamSpecialty.trim(),
+        avatarUrl: selectedAvatarUrl,
+        onboardingCompleted: true,
+      },
+      (uid) => seedNewUserData(uid, profile, semesters)
+    );
+    setIsSubmitting(false);
+
+    if (!res.success) {
+      setSignupError(res.error || 'Não foi possível criar sua conta.');
+      return;
+    }
+    if (res.needsEmailConfirmation) return; // back to the login screen with the confirmation notice
+    triggerConfetti();
+    showNotification(`Bem-vindo(a), ${name.trim()}! Sua conta foi criada. Use ${cleanEmail} e sua senha para entrar.`, 'success');
+    setTimeout(() => setIsOnboardingOpen(true), 800);
   };
 
   const handleFinish = () => {
@@ -237,7 +328,7 @@ export const ProfileCreationPage: React.FC = () => {
       triggerConfetti();
     }
     
-    // Force immediate sync to Firestore so logout won't lose this onboarding completion state
+    // Force immediate cloud sync so logout won't lose this onboarding completion state
     setTimeout(() => {
       forceCloudSync();
     }, 100);
@@ -256,6 +347,10 @@ export const ProfileCreationPage: React.FC = () => {
       showNotification(`Perfil atualizado com sucesso!`, 'success');
     }
   };
+
+  if (isDeleting) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen w-full bg-slate-950 text-slate-100 flex flex-col justify-between relative overflow-x-hidden font-sans">
@@ -282,7 +377,7 @@ export const ProfileCreationPage: React.FC = () => {
             <div className="flex items-center gap-2">
               <span className="text-base font-black tracking-tight text-white">MedAcademic</span>
               <span className="text-[10px] uppercase font-bold tracking-widest px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-400 border border-sky-500/30">
-                {isEditingProfileSetup ? 'Edição de Perfil' : 'Setup Inicial'}
+                {signupMode ? 'Novo Usuário' : isEditingProfileSetup ? 'Edição de Perfil' : 'Setup Inicial'}
               </span>
             </div>
             <p className="text-xs text-slate-400">Sistema de Estudos Médicos & Preparação R1</p>
@@ -291,6 +386,16 @@ export const ProfileCreationPage: React.FC = () => {
 
         {/* Action / Step Indicator */}
         <div className="flex items-center gap-4">
+          {signupMode && (
+            <button
+              id="signup-back-to-login-btn"
+              onClick={cancelSignup}
+              className="text-xs font-bold px-4 py-2 rounded-xl border border-slate-700 text-slate-300 hover:bg-slate-800 transition-colors flex items-center gap-1.5"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              Voltar ao Login
+            </button>
+          )}
           {isEditingProfileSetup && (
             <button
               onClick={() => setIsEditingProfileSetup(false)}
@@ -316,7 +421,7 @@ export const ProfileCreationPage: React.FC = () => {
                 {step === 1 && 'Identidade & Foto'}
                 {step === 2 && 'Faculdade & Ciclo'}
                 {step === 3 && 'Residência R1'}
-                {step === 4 && 'Iniciar Painel'}
+                {step === 4 && (signupMode ? 'E-mail & Senha' : 'Iniciar Painel')}
               </span>
             </div>
           ))}
@@ -362,6 +467,8 @@ export const ProfileCreationPage: React.FC = () => {
                     />
                   </div>
 
+                  {/* In sign-up mode the e-mail is asked on the last step, together with the password */}
+                  {!signupMode && (
                   <div>
                     <label className="block text-xs font-bold text-slate-300 mb-1.5 flex items-center justify-between">
                       <span>E-mail Acadêmico / Principal</span>
@@ -375,6 +482,7 @@ export const ProfileCreationPage: React.FC = () => {
                       className="w-full rounded-2xl bg-slate-950 border border-slate-800 px-4 py-3 text-sm text-white placeholder:text-slate-600 focus:outline-hidden focus:border-sky-500 transition-colors"
                     />
                   </div>
+                  )}
 
                   {/* Avatar Picker & Custom Upload */}
                   <div>
@@ -775,8 +883,92 @@ export const ProfileCreationPage: React.FC = () => {
               </div>
             )}
 
+            {/* Step 4 (sign-up): e-mail & password used to log in */}
+            {currentStep === 4 && signupMode && (
+              <div className="space-y-6 animate-in fade-in duration-300">
+                <div>
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-500/10 text-purple-400 text-xs font-bold border border-purple-500/20 mb-2">
+                    <ShieldCheck className="h-3.5 w-3.5" />
+                    <span>Passo 4 de 4: Acesso ao Perfil</span>
+                  </div>
+                  <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+                    Defina seu e-mail e senha
+                  </h2>
+                  <p className="text-xs sm:text-sm text-slate-400 mt-1">
+                    Você usará estes dados na tela de <strong className="text-slate-200">Login de Usuário</strong> para acessar seu perfil em qualquer dispositivo.
+                  </p>
+                </div>
+
+                {signupError && (
+                  <div id="signup-error" className="p-3 rounded-xl bg-rose-950/40 border border-rose-900/50 text-rose-300 text-xs">
+                    {signupError}
+                  </div>
+                )}
+
+                <form
+                  className="space-y-4"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    handleSignupFinish();
+                  }}
+                >
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                      E-mail <span className="text-rose-400">*</span>
+                    </label>
+                    <input
+                      id="signup-email"
+                      type="email"
+                      autoComplete="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="Ex: mariana.costa@medicina.edu.br"
+                      className="w-full rounded-2xl bg-slate-950 border border-slate-800 px-4 py-3 text-sm text-white placeholder:text-slate-600 focus:outline-hidden focus:border-sky-500 transition-colors"
+                      autoFocus
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                        Senha <span className="text-rose-400">*</span>
+                      </label>
+                      <input
+                        id="signup-password"
+                        type={showPassword ? 'text' : 'password'}
+                        autoComplete="new-password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="Mínimo 6 caracteres"
+                        className="w-full rounded-2xl bg-slate-950 border border-slate-800 px-4 py-3 text-sm text-white placeholder:text-slate-600 focus:outline-hidden focus:border-sky-500 transition-colors"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                        Confirmar senha <span className="text-rose-400">*</span>
+                      </label>
+                      <input
+                        id="signup-password-confirm"
+                        type={showPassword ? 'text' : 'password'}
+                        autoComplete="new-password"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        placeholder="Repita a senha"
+                        className="w-full rounded-2xl bg-slate-950 border border-slate-800 px-4 py-3 text-sm text-white placeholder:text-slate-600 focus:outline-hidden focus:border-sky-500 transition-colors"
+                      />
+                    </div>
+                  </div>
+                  <label className="flex items-center gap-2 text-xs text-slate-400 cursor-pointer select-none">
+                    <input type="checkbox" checked={showPassword} onChange={(e) => setShowPassword(e.target.checked)} />
+                    Mostrar senha
+                  </label>
+                  {/* hidden submit so Enter creates the account */}
+                  <button type="submit" className="hidden" aria-hidden="true" tabIndex={-1} />
+                </form>
+              </div>
+            )}
+
             {/* Step 4: Inicialização - Sempre Painel Zerado Limpo */}
-            {currentStep === 4 && (
+            {currentStep === 4 && !signupMode && (
               <div className="space-y-6 animate-in fade-in duration-300">
                 <div>
                   <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-500/10 text-purple-400 text-xs font-bold border border-purple-500/20 mb-2">
@@ -824,25 +1016,6 @@ export const ProfileCreationPage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Google Sync Card */}
-                <div className="p-6 rounded-3xl bg-slate-950 border border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
-                  <div>
-                    <h4 className="text-sm font-black text-white flex items-center gap-2">
-                      <Cloud className="h-4 w-4 text-sky-400" />
-                      Google Cloud Sync
-                      <span className="text-[10px] uppercase font-extrabold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                        Sempre Ativo
-                      </span>
-                    </h4>
-                    <p className="text-xs text-slate-400 mt-1">
-                      Sincronize seus estudos em tempo real na nuvem do Google de forma automática e nunca perca seu progresso.
-                    </p>
-                  </div>
-                  <div className="shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                    <Check className="h-4 w-4 text-emerald-400" />
-                    <span>Ativado Automaticamente</span>
-                  </div>
-                </div>
               </div>
             )}
 
@@ -870,7 +1043,7 @@ export const ProfileCreationPage: React.FC = () => {
                         showNotification('Por favor, informe seu Nome Completo (campo obrigatório).', 'warning');
                         return;
                       }
-                      if (!email.trim() || !email.includes('@')) {
+                      if (!signupMode && (!email.trim() || !email.includes('@'))) {
                         showNotification('Por favor, informe um E-mail Acadêmico válido (campo obrigatório).', 'warning');
                         return;
                       }
@@ -891,11 +1064,19 @@ export const ProfileCreationPage: React.FC = () => {
               ) : (
                 <button
                   type="button"
-                  onClick={handleFinish}
-                  className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 text-white text-xs sm:text-sm font-black shadow-xl shadow-sky-600/30 transition-all scale-100 hover:scale-102 cursor-pointer"
+                  id="profile-finish-btn"
+                  onClick={signupMode ? handleSignupFinish : handleFinish}
+                  disabled={isSubmitting}
+                  className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 text-white text-xs sm:text-sm font-black shadow-xl shadow-sky-600/30 transition-all scale-100 hover:scale-102 cursor-pointer disabled:opacity-60 disabled:cursor-wait"
                 >
                   <Sparkles className="h-4 w-4" />
-                  <span>Concluir Perfil e Iniciar Painel Zerado</span>
+                  <span>
+                    {signupMode
+                      ? isSubmitting
+                        ? 'Criando conta...'
+                        : 'Criar Conta e Acessar'
+                      : 'Concluir Perfil e Iniciar Painel Zerado'}
+                  </span>
                 </button>
               )}
             </div>

@@ -25,16 +25,7 @@ import {
 
 import { useAuth } from './AuthContext';
 import { getIDBData, setIDBData } from '../lib/indexedDB';
-import {
-  db,
-  doc,
-  setDoc,
-  getDoc,
-  onSnapshot,
-  handleFirestoreError,
-  OperationType,
-  sanitizeForFirestore,
-} from '../lib/firebase';
+import { supabase, APP_STATE_TABLE } from '../lib/supabase';
 
 interface TimerState {
   isRunning: boolean;
@@ -45,6 +36,21 @@ interface TimerState {
   selectedTopicId?: string;
   totalPomodorosCompleted: number;
   customDurationSeconds?: number;
+  /** Study cycle in progress: steps run in sequence (study → break → next step) */
+  cycle?: StudyCycleRun;
+}
+
+export interface StudyCycleStep {
+  title: string;
+  workMins: number;
+  breakMins: number;
+  phoneAllowed?: boolean;
+}
+
+export interface StudyCycleRun {
+  steps: StudyCycleStep[];
+  index: number;
+  phase: 'work' | 'break';
 }
 
 export type CloudSyncStatus = 'synced' | 'syncing' | 'offline' | 'error';
@@ -91,6 +97,7 @@ interface AppContextType {
   medRevisions: MedRevisionTopic[];
   toggleMedRevisionComplete: (id: string) => void;
   addMedRevision: (mr: Omit<MedRevisionTopic, 'id'>) => void;
+  deleteMedRevision: (id: string) => void;
 
   // Study Sessions & Gamification
   studySessions: StudySession[];
@@ -108,6 +115,8 @@ interface AppContextType {
   resetTimer: () => void;
   setTimerMode: (mode: TimerState['mode'], subjectId?: string, topicId?: string, customSeconds?: number) => void;
   setTimerSubject: (subjectId: string, topicId?: string) => void;
+  startStudyCycle: (steps: StudyCycleStep[], startIndex?: number, subjectId?: string) => void;
+  stopStudyCycle: () => void;
   pomodoroSettings: {
     workMinutes: number;
     shortBreakMinutes: number;
@@ -154,8 +163,17 @@ const getUserKey = (keyName: string, userId: string | null) => {
   return `medacademic_usr_${uid}_${keyName}_v3`;
 };
 
+// Pre-seeds the local cache of an account that is about to be created (sign-up flow), so the
+// profile filled in the wizard is the one loaded as soon as the new user becomes active.
+export const seedNewUserData = (userId: string, profile: UserProfile, semesters: Semester[]) => {
+  const uid = userId.trim().toLowerCase();
+  localStorage.setItem(getUserKey('user_profile', uid), JSON.stringify(profile));
+  localStorage.setItem(getUserKey('semesters', uid), JSON.stringify(semesters));
+  localStorage.setItem(getUserKey('current_tab', uid), 'dashboard');
+};
+
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { activeUserId, activeUser, updateAccount } = useAuth();
+  const { activeUserId, activeUser, cloudUserId, updateAccount } = useAuth();
 
   const [currentTab, setCurrentTab] = useState<string>('dashboard');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -173,12 +191,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [medRevisions, setMedRevisions] = useState<MedRevisionTopic[]>([]);
   const [userProfile, setUserProfile] = useState<UserProfile>(INITIAL_USER_PROFILE);
   const [studySessions, setStudySessions] = useState<StudySession[]>([]);
+  const userProfileRef = useRef(userProfile);
+  userProfileRef.current = userProfile;
 
   // Cloud sync states
   const [isInitialLoadComplete, setIsInitialLoadComplete] = useState<boolean>(false);
   const [cloudSyncStatus, setCloudSyncStatus] = useState<CloudSyncStatus>('synced');
   const [lastCloudSync, setLastCloudSync] = useState<Date | null>(null);
   const isSyncInProgressRef = useRef<boolean>(false);
+  const [syncNonce, setSyncNonce] = useState(0); // bumped on reconnect to force a sync
 
   const INITIAL_TUTOR_MESSAGES = [
     {
@@ -343,193 +364,144 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     };
 
-    // 1. Prioridade Máxima: Carrega a versão em cache do IndexedDB e exibe instantaneamente na interface
-    loadIDBCache(activeUserId);
-
-    // 2. Simultaneamente: Conecta os Listeners Reativos do Firestore em Tempo Real
-    const docRef = doc(db, 'users', activeUserId, 'appData', 'state');
-    const userDocRef = doc(db, 'users', activeUserId);
-
-    let isBootstrapping = false;
-
-    // Listener para o documento principal de estado da aplicação
-    const unsubscribeSnapshot = onSnapshot(
-      docRef,
-      async (snapshot) => {
-        if (snapshot.metadata?.hasPendingWrites) {
-          return;
-        }
-
-        if (snapshot.exists() && isSubscribed && !isSyncInProgressRef.current) {
-          const cloudData = snapshot.data();
-          if (Array.isArray(cloudData.semesters) && cloudData.semesters.length > 0) {
-            setSemesters(cloudData.semesters);
-            setIDBData(`semesters_${activeUserId}`, cloudData.semesters);
-          }
-          if (Array.isArray(cloudData.subjects)) {
-            setSubjects(cloudData.subjects);
-            setIDBData(`subjects_${activeUserId}`, cloudData.subjects);
-          }
-          if (Array.isArray(cloudData.topics)) {
-            setTopics(cloudData.topics);
-            setIDBData(`topics_${activeUserId}`, cloudData.topics);
-          }
-          if (Array.isArray(cloudData.exams)) {
-            setExams(cloudData.exams);
-            setIDBData(`exams_${activeUserId}`, cloudData.exams);
-          }
-          if (Array.isArray(cloudData.schedule)) {
-            setSchedule(cloudData.schedule);
-            setIDBData(`schedule_${activeUserId}`, cloudData.schedule);
-          }
-          if (Array.isArray(cloudData.achievements)) {
-            setAchievements(cloudData.achievements);
-            setIDBData(`achievements_${activeUserId}`, cloudData.achievements);
-          }
-          if (Array.isArray(cloudData.medRevisions)) {
-            setMedRevisions(cloudData.medRevisions);
-            setIDBData(`med_revisions_${activeUserId}`, cloudData.medRevisions);
-          }
-          if (Array.isArray(cloudData.studySessions)) {
-            setStudySessions(cloudData.studySessions);
-            setIDBData(`study_sessions_${activeUserId}`, cloudData.studySessions);
-          }
-          if (cloudData.userProfile) {
-            setUserProfile((prev) => {
-              const updated = { ...prev, ...cloudData.userProfile, onboardingCompleted: true };
-              setIDBData(`user_profile_${activeUserId}`, updated);
-              return updated;
-            });
-          }
-          if (cloudData.pomodoroSettings) {
-            setPomodoroSettings(cloudData.pomodoroSettings);
-            setIDBData(`pomodoro_settings_${activeUserId}`, cloudData.pomodoroSettings);
-          }
-          if (Array.isArray(cloudData.tutorMessages) && cloudData.tutorMessages.length > 0) {
-            setTutorMessages(cloudData.tutorMessages);
-            setIDBData(`tutor_messages_${activeUserId}`, cloudData.tutorMessages);
-          }
-          setCloudSyncStatus('synced');
-          setLastCloudSync(new Date());
-        } else if (!snapshot.exists() && isSubscribed && !isBootstrapping) {
-          // Documento não existe na nuvem (novo usuário): faz o bootstrap inicial no Firestore
-          isBootstrapping = true;
-          try {
-            let initialSem = INITIAL_SEMESTERS;
-            if (savedSem) { try { const p = JSON.parse(savedSem); if (Array.isArray(p) && p.length > 0) initialSem = p; } catch (e) {} }
-            let initialSub: any[] = [];
-            if (savedSub) { try { const p = JSON.parse(savedSub); if (Array.isArray(p)) initialSub = p; } catch (e) {} }
-            let initialTop: any[] = [];
-            if (savedTop) { try { const p = JSON.parse(savedTop); if (Array.isArray(p)) initialTop = p; } catch (e) {} }
-            let initialEx: any[] = [];
-            if (savedEx) { try { const p = JSON.parse(savedEx); if (Array.isArray(p)) initialEx = p; } catch (e) {} }
-            let initialSch: any[] = [];
-            if (savedSch) { try { const p = JSON.parse(savedSch); if (Array.isArray(p)) initialSch = p; } catch (e) {} }
-            let initialAch = INITIAL_ACHIEVEMENTS;
-            if (savedAch) { try { const p = JSON.parse(savedAch); if (Array.isArray(p) && p.length > 0) initialAch = p; } catch (e) {} }
-            let initialMed: any[] = [];
-            if (savedMed) { try { const p = JSON.parse(savedMed); if (Array.isArray(p)) initialMed = p; } catch (e) {} }
-            let initialSess: any[] = [];
-            if (savedSess) { try { const p = JSON.parse(savedSess); if (Array.isArray(p)) initialSess = p; } catch (e) {} }
-            let initialPomo = { workMinutes: 25, shortBreakMinutes: 5, mediumBreakMinutes: 10, longBreakMinutes: 15 };
-            if (savedPomo) { try { const p = JSON.parse(savedPomo); if (p) initialPomo = p; } catch (e) {} }
-            let initialTutor = INITIAL_TUTOR_MESSAGES;
-            if (savedTutor) { try { const p = JSON.parse(savedTutor); if (Array.isArray(p) && p.length > 0) initialTutor = p; } catch (e) {} }
-
-            try {
-              await setDoc(docRef, sanitizeForFirestore({
-                semesters: initialSem,
-                subjects: initialSub,
-                topics: initialTop,
-                exams: initialEx,
-                schedule: initialSch,
-                achievements: initialAch,
-                medRevisions: initialMed,
-                userProfile: activeUser ? {
-                  name: activeUser.name,
-                  email: activeUser.email,
-                  university: activeUser.university,
-                  currentSemesterId: 'sem-1',
-                  weeklyTargetHours: 30,
-                  targetAverageGrade: 8.5,
-                  dreamSpecialty: activeUser.dreamSpecialty,
-                  avatarUrl: activeUser.avatarUrl,
-                  totalXp: 0,
-                  level: 1,
-                  currentStreakDays: 0,
-                  bestStreakDays: 0,
-                  darkMode: false,
-                  soundEnabled: true,
-                  onboardingCompleted: initialSub.length > 0 || (activeUser as any).onboardingCompleted || false,
-                } : INITIAL_USER_PROFILE,
-                studySessions: initialSess,
-                pomodoroSettings: initialPomo,
-                tutorMessages: initialTutor,
-                updatedAt: new Date().toISOString(),
-              }));
-              setCloudSyncStatus('synced');
-              setLastCloudSync(new Date());
-            } catch (err) {
-              const res = handleFirestoreError(err, OperationType.WRITE, `users/${activeUserId}/appData/state`);
-              if ((res as any)?.quotaExceeded) {
-                setCloudSyncStatus('offline');
-              } else {
-                console.warn('[Firestore] Erro no bootstrap inicial:', err);
-              }
-            }
-          } finally {
-            isBootstrapping = false;
-          }
-        }
-      },
-      (error) => {
-        const res = handleFirestoreError(error, OperationType.GET, `users/${activeUserId}/appData/state`);
-        if ((res as any)?.quotaExceeded) {
-          setCloudSyncStatus('offline');
-        } else {
-          if (typeof navigator !== 'undefined' && !navigator.onLine) {
-            setCloudSyncStatus('offline');
-          }
-        }
+    // Applies the state saved in the cloud over the local cache
+    const applyCloudData = (cloudData: any) => {
+      if (Array.isArray(cloudData.semesters) && cloudData.semesters.length > 0) {
+        setSemesters(cloudData.semesters);
+        setIDBData(`semesters_${activeUserId}`, cloudData.semesters);
       }
-    );
-
-    // Listener para o documento de perfil do usuário
-    const unsubscribeUser = onSnapshot(
-      userDocRef,
-      (snapshot) => {
-        if (snapshot.exists() && isSubscribed) {
-          const uData = snapshot.data();
-          setUserProfile((prev) => {
-            const updated = {
-              ...prev,
-              name: uData.name || prev.name,
-              email: uData.email || prev.email,
-              university: uData.university || prev.university,
-              dreamSpecialty: uData.dreamSpecialty || prev.dreamSpecialty,
-              avatarUrl: uData.avatarUrl || prev.avatarUrl,
-              totalXp: uData.totalXp ?? prev.totalXp,
-              level: uData.level ?? prev.level,
-              currentStreakDays: uData.currentStreakDays ?? prev.currentStreakDays,
-              bestStreakDays: uData.bestStreakDays ?? prev.bestStreakDays,
-              weeklyTargetHours: uData.weeklyTargetHours ?? prev.weeklyTargetHours,
-              targetAverageGrade: uData.targetAverageGrade ?? prev.targetAverageGrade,
-              darkMode: uData.darkMode !== undefined ? uData.darkMode : prev.darkMode,
-              onboardingCompleted: uData.onboardingCompleted !== undefined ? Boolean(uData.onboardingCompleted) : prev.onboardingCompleted,
-            };
-            setIDBData(`user_profile_${activeUserId}`, updated);
-            return updated;
-          });
-        }
-      },
-      (error) => {
-        console.warn('[Firestore Listener] Erro no listener de usuário:', error);
+      if (Array.isArray(cloudData.subjects)) {
+        setSubjects(cloudData.subjects);
+        setIDBData(`subjects_${activeUserId}`, cloudData.subjects);
       }
-    );
+      if (Array.isArray(cloudData.topics)) {
+        setTopics(cloudData.topics);
+        setIDBData(`topics_${activeUserId}`, cloudData.topics);
+      }
+      if (Array.isArray(cloudData.exams)) {
+        setExams(cloudData.exams);
+        setIDBData(`exams_${activeUserId}`, cloudData.exams);
+      }
+      if (Array.isArray(cloudData.schedule)) {
+        setSchedule(cloudData.schedule);
+        setIDBData(`schedule_${activeUserId}`, cloudData.schedule);
+      }
+      if (Array.isArray(cloudData.achievements)) {
+        setAchievements(cloudData.achievements);
+        setIDBData(`achievements_${activeUserId}`, cloudData.achievements);
+      }
+      if (Array.isArray(cloudData.medRevisions)) {
+        setMedRevisions(cloudData.medRevisions);
+        setIDBData(`med_revisions_${activeUserId}`, cloudData.medRevisions);
+      }
+      if (Array.isArray(cloudData.studySessions)) {
+        setStudySessions(cloudData.studySessions);
+        setIDBData(`study_sessions_${activeUserId}`, cloudData.studySessions);
+      }
+      if (cloudData.userProfile) {
+        setUserProfile((prev) => {
+          // Docs without the flag count as completed; never revert a local completion
+          const cloudOnboarding = cloudData.userProfile.onboardingCompleted;
+          const updated = {
+            ...prev,
+            ...cloudData.userProfile,
+            onboardingCompleted: Boolean(prev.onboardingCompleted) || cloudOnboarding === undefined || Boolean(cloudOnboarding),
+          };
+          setIDBData(`user_profile_${activeUserId}`, updated);
+          return updated;
+        });
+      }
+      if (cloudData.pomodoroSettings) {
+        setPomodoroSettings(cloudData.pomodoroSettings);
+        setIDBData(`pomodoro_settings_${activeUserId}`, cloudData.pomodoroSettings);
+      }
+      if (Array.isArray(cloudData.tutorMessages) && cloudData.tutorMessages.length > 0) {
+        setTutorMessages(cloudData.tutorMessages);
+        setIDBData(`tutor_messages_${activeUserId}`, cloudData.tutorMessages);
+      }
+    };
 
-    // Online & Offline Network State Handlers
+    // First cloud save of a new account: built from what is cached on this device
+    const buildBootstrapState = () => {
+      const parse = <T,>(raw: string | null, fallback: T, requireItems = false): T => {
+        if (!raw) return fallback;
+        try {
+          const p = JSON.parse(raw);
+          if (Array.isArray(fallback) && (!Array.isArray(p) || (requireItems && p.length === 0))) return fallback;
+          return p ?? fallback;
+        } catch {
+          return fallback;
+        }
+      };
+      const subjectsList = parse<any[]>(savedSub, []);
+      const profile: UserProfile = parse<UserProfile | null>(savedProfile, null) || {
+        ...INITIAL_USER_PROFILE,
+        name: activeUser?.name || INITIAL_USER_PROFILE.name,
+        email: activeUser?.email || activeUserId,
+        university: activeUser?.university || INITIAL_USER_PROFILE.university,
+        dreamSpecialty: activeUser?.dreamSpecialty || INITIAL_USER_PROFILE.dreamSpecialty,
+        avatarUrl: activeUser?.avatarUrl || INITIAL_USER_PROFILE.avatarUrl,
+        onboardingCompleted: subjectsList.length > 0 || Boolean(activeUser?.onboardingCompleted),
+      };
+      return {
+        semesters: parse(savedSem, INITIAL_SEMESTERS, true),
+        subjects: subjectsList,
+        topics: parse<any[]>(savedTop, []),
+        exams: parse<any[]>(savedEx, []),
+        schedule: parse<any[]>(savedSch, []),
+        achievements: parse(savedAch, INITIAL_ACHIEVEMENTS, true),
+        medRevisions: parse<any[]>(savedMed, []),
+        userProfile: profile,
+        studySessions: parse<any[]>(savedSess, []),
+        pomodoroSettings: parse(savedPomo, { workMinutes: 25, shortBreakMinutes: 5, mediumBreakMinutes: 10, longBreakMinutes: 15 }),
+        tutorMessages: parse(savedTutor, INITIAL_TUTOR_MESSAGES, true),
+        updatedAt: new Date().toISOString(),
+      };
+    };
+
+    // Fetches this user's row; creates it on the first sign-in
+    const loadFromCloud = async () => {
+      if (!supabase || !cloudUserId || !isSubscribed) {
+        if (isSubscribed) setCloudSyncStatus('offline');
+        return;
+      }
+      const { data, error } = await supabase
+        .from(APP_STATE_TABLE)
+        .select('data')
+        .eq('user_id', cloudUserId)
+        .maybeSingle();
+      if (!isSubscribed) return;
+      if (error) {
+        console.warn('[Supabase] Falha ao carregar dados da nuvem:', error.message);
+        setCloudSyncStatus(typeof navigator !== 'undefined' && !navigator.onLine ? 'offline' : 'error');
+        return;
+      }
+      if (data?.data && Object.keys(data.data).length > 0) {
+        applyCloudData(data.data);
+        setCloudSyncStatus('synced');
+        setLastCloudSync(new Date());
+        return;
+      }
+      const { error: upsertError } = await supabase
+        .from(APP_STATE_TABLE)
+        .upsert({ user_id: cloudUserId, data: buildBootstrapState(), updated_at: new Date().toISOString() });
+      if (!isSubscribed) return;
+      if (upsertError) {
+        console.warn('[Supabase] Falha no primeiro salvamento na nuvem:', upsertError.message);
+        setCloudSyncStatus('error');
+      } else {
+        setCloudSyncStatus('synced');
+        setLastCloudSync(new Date());
+      }
+    };
+
+    // 1. Prioridade Máxima: cache do IndexedDB na interface; 2. depois, a versão da nuvem por cima
+    loadIDBCache(activeUserId).then(loadFromCloud);
+
+    // Online & Offline Network State Handlers (reconnecting triggers a sync)
     const handleOnline = () => {
       setCloudSyncStatus('syncing');
+      setSyncNonce((n) => n + 1);
     };
 
     const handleOffline = () => {
@@ -541,12 +513,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     return () => {
       isSubscribed = false;
-      unsubscribeSnapshot();
-      unsubscribeUser();
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  }, [activeUserId]);
+  }, [activeUserId, cloudUserId]);
 
   // Persist currentTab to LocalStorage
   useEffect(() => {
@@ -633,79 +603,69 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [tutorMessages, activeUserId, isInitialLoadComplete]);
 
-  // Debounced Sync to Firestore in Cloud on State Mutation
-  useEffect(() => {
-    if (!activeUserId || !isInitialLoadComplete) return;
+  // Full academic state saved as one JSON row per user (table app_state, see supabase/schema.sql)
+  const buildCloudState = () => ({
+    semesters,
+    subjects,
+    topics,
+    exams,
+    schedule,
+    achievements,
+    medRevisions,
+    userProfile,
+    studySessions,
+    pomodoroSettings,
+    tutorMessages,
+    updatedAt: new Date().toISOString(),
+  });
 
-    const syncToFirestore = async () => {
+  // Upserts the state; returns true on success. Status handling is left to the callers.
+  const pushStateToCloud = async (): Promise<boolean> => {
+    if (!supabase || !cloudUserId) return false;
+    isSyncInProgressRef.current = true;
+    try {
+      const { error } = await supabase
+        .from(APP_STATE_TABLE)
+        .upsert({ user_id: cloudUserId, data: buildCloudState(), updated_at: new Date().toISOString() });
+      if (error) {
+        console.warn('[Supabase] Falha ao sincronizar:', error.message);
+        return false;
+      }
+      return true;
+    } catch (err) {
+      console.warn('[Supabase] Falha ao sincronizar:', err);
+      return false;
+    } finally {
+      setTimeout(() => {
+        isSyncInProgressRef.current = false;
+      }, 300);
+    }
+  };
+
+  // Debounced Sync to Supabase on State Mutation
+  useEffect(() => {
+    if (!activeUserId || !cloudUserId || !isInitialLoadComplete) return;
+
+    const timer = setTimeout(async () => {
       if (typeof navigator !== 'undefined' && !navigator.onLine) {
         setCloudSyncStatus('offline');
         return;
       }
-
-      isSyncInProgressRef.current = true;
-      try {
-        const stateDocRef = doc(db, 'users', activeUserId, 'appData', 'state');
-        const userDocRef = doc(db, 'users', activeUserId);
-
-        // 1. Sync full academic state
-        await setDoc(stateDocRef, sanitizeForFirestore({
-          semesters,
-          subjects,
-          topics,
-          exams,
-          schedule,
-          achievements,
-          medRevisions,
-          userProfile,
-          studySessions,
-          pomodoroSettings,
-          tutorMessages,
-          updatedAt: new Date().toISOString(),
-        }), { merge: true });
-
-        // 2. Sync profile fields to user root doc for cross-device discovery
-        await setDoc(userDocRef, sanitizeForFirestore({
-          name: userProfile.name,
-          email: userProfile.email,
-          university: userProfile.university,
-          dreamSpecialty: userProfile.dreamSpecialty,
-          avatarUrl: userProfile.avatarUrl,
-          totalXp: userProfile.totalXp,
-          level: userProfile.level,
-          currentStreakDays: userProfile.currentStreakDays,
-          bestStreakDays: userProfile.bestStreakDays,
-          weeklyTargetHours: userProfile.weeklyTargetHours,
-          targetAverageGrade: userProfile.targetAverageGrade,
-          lastStudyDate: userProfile.lastStudyDate,
-          darkMode: userProfile.darkMode,
-          onboardingCompleted: userProfile.onboardingCompleted,
-          updatedAt: new Date().toISOString(),
-        }), { merge: true });
-
+      setCloudSyncStatus('syncing');
+      const ok = await pushStateToCloud();
+      if (ok) {
         setCloudSyncStatus('synced');
         setLastCloudSync(new Date());
-      } catch (err) {
-        const res = handleFirestoreError(err, OperationType.WRITE, `users/${activeUserId}/appData/state`);
-        if ((res as any)?.quotaExceeded) {
-          setCloudSyncStatus('offline');
-        } else if (typeof navigator !== 'undefined' && !navigator.onLine) {
-          setCloudSyncStatus('offline');
-        } else {
-          setCloudSyncStatus('error');
-        }
-      } finally {
-        setTimeout(() => {
-          isSyncInProgressRef.current = false;
-        }, 300);
+      } else {
+        setCloudSyncStatus(typeof navigator !== 'undefined' && !navigator.onLine ? 'offline' : 'error');
       }
-    };
-
-    const timer = setTimeout(syncToFirestore, 10000);
+    }, 5000);
     return () => clearTimeout(timer);
   }, [
     activeUserId,
+    cloudUserId,
     isInitialLoadComplete,
+    syncNonce,
     semesters,
     subjects,
     topics,
@@ -720,9 +680,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   ]);
 
   // Force Cloud Sync manually
-  const forceCloudSync = useCallback(async () => {
+  const forceCloudSync = async () => {
     if (!activeUserId) return;
-
+    if (!supabase || !cloudUserId) {
+      showNotification('Modo local: os dados ficam salvos apenas neste dispositivo.', 'info');
+      return;
+    }
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
       setCloudSyncStatus('offline');
       showNotification('Modo offline: dados salvos no dispositivo. Sincronização ocorrerá ao reconectar.', 'info');
@@ -730,73 +693,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     setCloudSyncStatus('syncing');
-    try {
-      const stateDocRef = doc(db, 'users', activeUserId, 'appData', 'state');
-      const userDocRef = doc(db, 'users', activeUserId);
-
-      await setDoc(stateDocRef, sanitizeForFirestore({
-        semesters,
-        subjects,
-        topics,
-        exams,
-        schedule,
-        achievements,
-        medRevisions,
-        userProfile,
-        studySessions,
-        pomodoroSettings,
-        tutorMessages,
-        updatedAt: new Date().toISOString(),
-      }), { merge: true });
-
-      await setDoc(userDocRef, sanitizeForFirestore({
-        name: userProfile.name,
-        email: userProfile.email,
-        university: userProfile.university,
-        dreamSpecialty: userProfile.dreamSpecialty,
-        avatarUrl: userProfile.avatarUrl,
-        totalXp: userProfile.totalXp,
-        level: userProfile.level,
-        currentStreakDays: userProfile.currentStreakDays,
-        bestStreakDays: userProfile.bestStreakDays,
-        weeklyTargetHours: userProfile.weeklyTargetHours,
-        targetAverageGrade: userProfile.targetAverageGrade,
-        lastStudyDate: userProfile.lastStudyDate,
-        darkMode: userProfile.darkMode,
-        onboardingCompleted: userProfile.onboardingCompleted,
-        updatedAt: new Date().toISOString(),
-      }), { merge: true });
-
+    if (await pushStateToCloud()) {
       setCloudSyncStatus('synced');
       setLastCloudSync(new Date());
-      showNotification('Sincronização com Firebase Firestore concluída!', 'success');
-    } catch (err) {
-      const res = handleFirestoreError(err, OperationType.WRITE, `users/${activeUserId}/appData/state`);
-      if ((res as any)?.quotaExceeded) {
-        setCloudSyncStatus('offline');
-        showNotification('Cota diária gratuita do Firestore atingida. Salvando localmente no dispositivo.', 'warning');
-      } else if (typeof navigator !== 'undefined' && !navigator.onLine) {
-        setCloudSyncStatus('offline');
-        showNotification('Conexão perdida. Dados preservados no dispositivo.', 'info');
-      } else {
-        setCloudSyncStatus('error');
-        showNotification('Erro ao sincronizar dados com o Firestore.', 'warning');
-      }
+      showNotification('Sincronização com a nuvem concluída!', 'success');
+    } else {
+      setCloudSyncStatus('error');
+      showNotification('Erro ao sincronizar com a nuvem. Seus dados continuam salvos no dispositivo.', 'warning');
     }
-  }, [
-    activeUserId,
-    semesters,
-    subjects,
-    topics,
-    exams,
-    schedule,
-    achievements,
-    medRevisions,
-    userProfile,
-    studySessions,
-    pomodoroSettings,
-    tutorMessages,
-  ]);
+  };
 
   const updatePomodoroSettings = (settings: { workMinutes: number; shortBreakMinutes: number; mediumBreakMinutes: number; longBreakMinutes: number }) => {
     setPomodoroSettings(settings);
@@ -833,34 +738,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           }
 
           if (prev.timeLeftSeconds <= 1) {
-            // Timer Finished
-            if (prev.mode === 'pomodoro') {
-              triggerConfetti();
-              showNotification('🎉 Ciclo Pomodoro concluído com sucesso! +100 XP', 'success');
-              addXp(100, 'Pomodoro Concluído');
-              logStudySession({
-                subjectId: prev.selectedSubjectId,
-                durationMinutes: 25,
-                type: 'pomodoro',
-                xpEarned: 100,
-                notes: 'Sessão Pomodoro de Foco Médico',
-              });
-              return {
-                ...prev,
-                isRunning: false,
-                mode: 'short_break',
-                timeLeftSeconds: 5 * 60,
-                totalPomodorosCompleted: prev.totalPomodorosCompleted + 1,
-              };
-            } else {
-              showNotification('⏰ Pausa finalizada! Hora de retomar o foco.', 'info');
-              return {
-                ...prev,
-                isRunning: false,
-                mode: 'pomodoro',
-                timeLeftSeconds: 25 * 60,
-              };
-            }
+            // Timer Finished — completion is handled by the effect below (updaters must stay pure)
+            return { ...prev, isRunning: false, timeLeftSeconds: 0 };
           }
 
           return { ...prev, timeLeftSeconds: prev.timeLeftSeconds - 1 };
@@ -871,6 +750,105 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (interval) clearInterval(interval);
     };
   }, [timer.isRunning]);
+
+  // Countdown completion: award XP, log the session and switch to the next phase
+  useEffect(() => {
+    if (timer.isRunning || timer.mode === 'stopwatch' || timer.timeLeftSeconds !== 0) return;
+
+    // Study cycle: study block → its own break (auto-started) → next step (waits for the user)
+    if (timer.cycle) {
+      const { steps, index, phase } = timer.cycle;
+      const step = steps[index];
+      const isLast = index === steps.length - 1;
+
+      if (phase === 'work') {
+        triggerConfetti();
+        addXp(100, 'Etapa do Ciclo Concluída');
+        logStudySession({
+          subjectId: timer.selectedSubjectId,
+          topicId: timer.selectedTopicId,
+          durationMinutes: step.workMins,
+          type: 'pomodoro',
+          xpEarned: 100,
+          notes: `Ciclo de Estudos • ${step.title}`,
+        });
+
+        if (isLast) {
+          showNotification('🏁 Ciclo de estudos concluído! Excelente trabalho. +100 XP', 'success');
+          setTimer((prev) => ({
+            ...prev,
+            mode: 'pomodoro',
+            timeLeftSeconds: pomodoroSettings.workMinutes * 60,
+            customDurationSeconds: undefined,
+            totalPomodorosCompleted: prev.totalPomodorosCompleted + 1,
+            cycle: undefined,
+          }));
+        } else if (step.breakMins > 0) {
+          showNotification(`🎉 Etapa concluída! Pausa de ${step.breakMins} min iniciada. +100 XP`, 'success');
+          setTimer((prev) => ({
+            ...prev,
+            mode: 'short_break',
+            isRunning: true,
+            timeLeftSeconds: step.breakMins * 60,
+            customDurationSeconds: step.breakMins * 60,
+            totalPomodorosCompleted: prev.totalPomodorosCompleted + 1,
+            cycle: { steps, index, phase: 'break' },
+          }));
+        } else {
+          const next = steps[index + 1];
+          showNotification(`🎉 Etapa concluída! Próxima: ${next.title}. +100 XP`, 'success');
+          setTimer((prev) => ({
+            ...prev,
+            mode: 'pomodoro',
+            timeLeftSeconds: next.workMins * 60,
+            customDurationSeconds: next.workMins * 60,
+            totalPomodorosCompleted: prev.totalPomodorosCompleted + 1,
+            cycle: { steps, index: index + 1, phase: 'work' },
+          }));
+        }
+      } else {
+        const next = steps[index + 1];
+        showNotification(`⏰ Pausa finalizada! Quando estiver pronto, inicie: ${next.title}.`, 'info');
+        setTimer((prev) => ({
+          ...prev,
+          mode: 'pomodoro',
+          timeLeftSeconds: next.workMins * 60,
+          customDurationSeconds: next.workMins * 60,
+          cycle: { steps, index: index + 1, phase: 'work' },
+        }));
+      }
+      return;
+    }
+
+    if (timer.mode === 'pomodoro') {
+      const focusMinutes = Math.round((timer.customDurationSeconds || pomodoroSettings.workMinutes * 60) / 60);
+      triggerConfetti();
+      showNotification('🎉 Ciclo Pomodoro concluído com sucesso! +100 XP', 'success');
+      addXp(100, 'Pomodoro Concluído');
+      logStudySession({
+        subjectId: timer.selectedSubjectId,
+        durationMinutes: focusMinutes,
+        type: 'pomodoro',
+        xpEarned: 100,
+        notes: 'Sessão Pomodoro de Foco Médico',
+      });
+      setTimer((prev) => ({
+        ...prev,
+        mode: 'short_break',
+        timeLeftSeconds: pomodoroSettings.shortBreakMinutes * 60,
+        customDurationSeconds: undefined,
+        totalPomodorosCompleted: prev.totalPomodorosCompleted + 1,
+      }));
+    } else {
+      showNotification('⏰ Pausa finalizada! Hora de retomar o foco.', 'info');
+      setTimer((prev) => ({
+        ...prev,
+        mode: 'pomodoro',
+        timeLeftSeconds: pomodoroSettings.workMinutes * 60,
+        customDurationSeconds: undefined,
+      }));
+    }
+  }, [timer.isRunning, timer.mode, timer.timeLeftSeconds]);
 
   const showNotification = (message: string, type: 'success' | 'info' | 'warning' = 'info') => {
     setNotification({ message, type });
@@ -892,19 +870,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  // State updaters must stay pure (React may run them twice), so the level-up side effects are
+  // decided from the ref instead of inside setUserProfile.
   const addXp = (amount: number, _reason?: string) => {
-    setUserProfile((prev) => {
-      const newXp = prev.totalXp + amount;
-      const newLevel = Math.floor(newXp / 800) + 1;
-      if (newLevel > prev.level) {
-        showNotification(`🏆 Parabéns! Você subiu para o Nível ${newLevel}!`, 'success');
-        triggerConfetti();
-      }
-      return {
-        ...prev,
-        totalXp: newXp,
-        level: newLevel,
-      };
+    const prev = userProfileRef.current;
+    const newXp = prev.totalXp + amount;
+    const newLevel = Math.floor(newXp / 800) + 1;
+    userProfileRef.current = { ...prev, totalXp: newXp, level: newLevel };
+    if (newLevel > prev.level) {
+      showNotification(`🏆 Parabéns! Você subiu para o Nível ${newLevel}!`, 'success');
+      triggerConfetti();
+    }
+    setUserProfile((p) => {
+      const xp = p.totalXp + amount;
+      return { ...p, totalXp: xp, level: Math.floor(xp / 800) + 1 };
     });
   };
 
@@ -976,7 +955,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const newSem: Semester = { ...sem, id: 'sem-' + Date.now() };
     setSemesters((prev) => [...prev, newSem]);
     showNotification(`Semestre "${sem.name}" adicionado!`, 'success');
-    addXp(100, 'Novo Semestre');
+    // XP is awarded by the calling modal
   };
 
   const updateSemester = (id: string, sem: Partial<Semester>) => {
@@ -993,7 +972,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const newSub: Subject = { ...sub, id: 'sub-' + Date.now() };
     setSubjects((prev) => [...prev, newSub]);
     showNotification(`Disciplina "${sub.name}" criada com sucesso!`, 'success');
-    addXp(80, 'Nova Disciplina');
+    // XP is awarded by the calling modal
   };
 
   const updateSubject = (id: string, sub: Partial<Subject>) => {
@@ -1010,23 +989,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const newTop: Topic = { ...top, id: 'top-' + Date.now() };
     setTopics((prev) => [...prev, newTop]);
     showNotification(`Tópico "${top.title}" cadastrado!`, 'success');
-    addXp(50, 'Novo Tópico de Estudo');
+    // XP is awarded by the caller
   };
 
   const updateTopic = (id: string, top: Partial<Topic>) => {
-    setTopics((prev) =>
-      prev.map((t) => {
-        if (t.id === id) {
-          const updated = { ...t, ...top };
-          if (top.status === 'dominado' && t.status !== 'dominado') {
-            addXp(120, 'Tópico Dominado');
-            triggerConfetti();
-          }
-          return updated;
-        }
-        return t;
-      })
-    );
+    const current = topics.find((t) => t.id === id);
+    if (current && top.status === 'dominado' && current.status !== 'dominado') {
+      addXp(120, 'Tópico Dominado');
+      triggerConfetti();
+    }
+    setTopics((prev) => prev.map((t) => (t.id === id ? { ...t, ...top } : t)));
     showNotification('Tópico atualizado!', 'success');
   };
 
@@ -1043,10 +1015,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const medIntervals = [3, 7, 15, 30];
     const easyIntervals = [7, 15, 30, 60];
 
-    setTopics((prev) =>
-      prev.map((t) => {
-        if (t.id !== id) return t;
+    // Computed outside the state updater so XP/notifications fire exactly once
+    const t = topics.find((x) => x.id === id);
+    if (!t) return;
 
+    {
         const isFirstContact = t.status === 'nao_iniciado';
         const currentStep = isFirstContact ? 1 : (t.cycleStep || 1);
         let newStep = currentStep;
@@ -1087,7 +1060,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         nextDate.setDate(nextDate.getDate() + intervalDays);
         const todayStr = new Date().toISOString().split('T')[0];
 
-        return {
+        const updated: Topic = {
           ...t,
           status: newStatus,
           difficulty: difficulty === 'dominado' ? 'facil' : difficulty,
@@ -1098,15 +1071,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           nextReviewDate: nextDate.toISOString().split('T')[0],
           inSpacedRepetition: true,
         };
-      })
-    );
+        setTopics((prev) => prev.map((x) => (x.id === id ? updated : x)));
+    }
   };
 
   const addExam = (ex: Omit<Exam, 'id'>) => {
     const newEx: Exam = { ...ex, id: 'exam-' + Date.now() };
     setExams((prev) => [...prev, newEx]);
     showNotification(`Prova "${ex.title}" agendada!`, 'success');
-    addXp(50, 'Prova Agendada');
+    // XP is awarded by the calling modal
   };
 
   const updateExam = (id: string, ex: Partial<Exam>) => {
@@ -1139,19 +1112,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const toggleMedRevisionComplete = (id: string) => {
-    setMedRevisions((prev) =>
-      prev.map((mr) => {
-        if (mr.id === id) {
-          const nextState = !mr.isCompleted;
-          if (nextState) {
-            addXp(150, 'Tópico de Residência Concluído');
-            triggerConfetti();
-          }
-          return { ...mr, isCompleted: nextState };
-        }
-        return mr;
-      })
-    );
+    const current = medRevisions.find((mr) => mr.id === id);
+    if (!current) return;
+    const nextState = !current.isCompleted;
+    if (nextState) {
+      addXp(150, 'Tópico de Residência Concluído');
+      triggerConfetti();
+    }
+    setMedRevisions((prev) => prev.map((mr) => (mr.id === id ? { ...mr, isCompleted: nextState } : mr)));
   };
 
   const addMedRevision = (mr: Omit<MedRevisionTopic, 'id'>) => {
@@ -1160,21 +1128,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showNotification('Tema de MedRevision adicionado!', 'success');
   };
 
+  const deleteMedRevision = (id: string) => {
+    setMedRevisions((prev) => prev.filter((mr) => mr.id !== id));
+    showNotification('Tema removido do MedRevision.', 'info');
+  };
+
   const updateUserProfile = (profile: Partial<UserProfile>) => {
-    setUserProfile((prev) => {
-      const updated = { ...prev, ...profile };
-      if (activeUserId) {
-        updateAccount(activeUserId, {
-          name: updated.name,
-          email: updated.email,
-          university: updated.university,
-          dreamSpecialty: updated.dreamSpecialty,
-          avatarUrl: updated.avatarUrl,
-          onboardingCompleted: updated.onboardingCompleted,
-        });
-      }
-      return updated;
-    });
+    setUserProfile((prev) => ({ ...prev, ...profile }));
+    // Kept out of the updater: updating AuthProvider state while AppProvider renders is not allowed
+    if (activeUserId) {
+      const updated = { ...userProfileRef.current, ...profile };
+      updateAccount(activeUserId, {
+        name: updated.name,
+        email: updated.email,
+        university: updated.university,
+        dreamSpecialty: updated.dreamSpecialty,
+        avatarUrl: updated.avatarUrl,
+        onboardingCompleted: updated.onboardingCompleted,
+      });
+    }
     showNotification('Perfil atualizado com sucesso!', 'success');
   };
 
@@ -1335,7 +1307,39 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       customDurationSeconds: customSeconds,
       selectedSubjectId: subjectId || prev.selectedSubjectId,
       selectedTopicId: topicId || prev.selectedTopicId,
+      cycle: undefined, // choosing a mode manually leaves any running study cycle
     }));
+  };
+
+  // Starts a study cycle at the given step: the study block begins immediately
+  const startStudyCycle = (steps: StudyCycleStep[], startIndex = 0, subjectId?: string) => {
+    if (steps.length === 0) return;
+    const index = Math.min(Math.max(startIndex, 0), steps.length - 1);
+    const seconds = steps[index].workMins * 60;
+    setTimer((prev) => ({
+      ...prev,
+      mode: 'pomodoro',
+      isRunning: true,
+      timeLeftSeconds: seconds,
+      customDurationSeconds: seconds,
+      elapsedSeconds: 0,
+      selectedSubjectId: subjectId ?? prev.selectedSubjectId,
+      cycle: { steps, index, phase: 'work' },
+    }));
+    showNotification(`Ciclo iniciado: ${steps[index].title} (${steps[index].workMins} min)`, 'info');
+  };
+
+  const stopStudyCycle = () => {
+    setTimer((prev) => ({
+      ...prev,
+      mode: 'pomodoro',
+      isRunning: false,
+      timeLeftSeconds: pomodoroSettings.workMinutes * 60,
+      customDurationSeconds: undefined,
+      elapsedSeconds: 0,
+      cycle: undefined,
+    }));
+    showNotification('Ciclo de estudos encerrado.', 'info');
   };
 
   const setTimerSubject = (subjectId: string, topicId?: string) => {
@@ -1377,6 +1381,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         medRevisions,
         toggleMedRevisionComplete,
         addMedRevision,
+        deleteMedRevision,
         studySessions,
         logStudySession,
         achievements,
@@ -1390,6 +1395,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         resetTimer,
         setTimerMode,
         setTimerSubject,
+        startStudyCycle,
+        stopStudyCycle,
         pomodoroSettings,
         updatePomodoroSettings,
         isDarkMode: userProfile.darkMode,

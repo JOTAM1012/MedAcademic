@@ -68,17 +68,6 @@ export const INITIAL_ACHIEVEMENTS: Achievement[] = [
     xpReward: 600,
   },
   {
-    id: 'ach-4',
-    title: 'Sombra de Galeno',
-    description: 'Realize 5 consultas ou simulações clínicas com o Tutor Gemini IA.',
-    icon: 'Sparkles',
-    category: 'special',
-    progress: 0,
-    target: 5,
-    current: 0,
-    xpReward: 400,
-  },
-  {
     id: 'ach-5',
     title: 'Média de Ouro',
     description: 'Atinja uma média superior a 8.5 em todas as disciplinas.',
