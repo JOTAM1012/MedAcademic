@@ -14,6 +14,7 @@ import { GradesManagementView } from './components/GradesManagementView';
 import { ScheduleView } from './components/ScheduleView';
 import { CalendarView } from './components/CalendarView';
 import { ProfileView } from './components/ProfileView';
+import { ChecklistView } from './components/ChecklistView';
 import { ProfileCreationPage } from './components/ProfileCreationPage';
 import { GuidedTour } from './components/GuidedTour';
 
@@ -258,6 +259,8 @@ const AppContent: React.FC = () => {
         );
       case 'profile':
         return <ProfileView />;
+      case 'checklist':
+        return <ChecklistView />;
       default:
         return <DashboardView />;
     }

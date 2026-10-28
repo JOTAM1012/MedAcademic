@@ -111,6 +111,14 @@ export interface Achievement {
   xpReward: number;
 }
 
+export interface ChecklistItem {
+  id: string;
+  text: string;
+  done: boolean;
+  createdAt: string;
+  doneAt?: string;
+}
+
 export interface MedRevisionTopic {
   id: string;
   category: 'Clínica Médica' | 'Cirurgia Geral' | 'Pediatria' | 'Ginecologia & Obstetrícia' | 'Medicina Preventiva & SUS';

@@ -13,6 +13,7 @@ import {
   User,
   PanelLeftClose,
   PanelLeftOpen,
+  ListChecks,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
@@ -29,7 +30,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
     topics,
     exams,
     studySessions,
+    checklist,
   } = useApp();
+  const pendingChecklistCount = checklist.filter((i) => !i.done).length;
 
   // Collapsed sidebar state with localStorage persistence
   const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
@@ -143,6 +146,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
       label: 'Perfil & metas',
       icon: User,
       badge: null,
+    },
+    {
+      id: 'checklist',
+      label: 'Checklist',
+      icon: ListChecks,
+      badge: pendingChecklistCount > 0 ? String(pendingChecklistCount) : null,
+      badgeColor: 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/30',
     },
   ];
 

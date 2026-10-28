@@ -11,6 +11,7 @@ import {
   UserProfile,
   StudySession,
   ChatMessage,
+  ChecklistItem,
 } from '../types';
 import {
   INITIAL_SEMESTERS,
@@ -154,6 +155,13 @@ interface AppContextType {
   // Tutor Chat Messages State
   tutorMessages: Array<{ role: 'user' | 'assistant'; text: string; time: string }>;
   setTutorMessages: React.Dispatch<React.SetStateAction<Array<{ role: 'user' | 'assistant'; text: string; time: string }>>>;
+
+  // Study checklist (simple to-do list of themes to study)
+  checklist: ChecklistItem[];
+  addChecklistItem: (text: string) => void;
+  toggleChecklistItem: (id: string) => void;
+  deleteChecklistItem: (id: string) => void;
+  clearCompletedChecklist: () => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -191,6 +199,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [medRevisions, setMedRevisions] = useState<MedRevisionTopic[]>([]);
   const [userProfile, setUserProfile] = useState<UserProfile>(INITIAL_USER_PROFILE);
   const [studySessions, setStudySessions] = useState<StudySession[]>([]);
+  const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
   const userProfileRef = useRef(userProfile);
   userProfileRef.current = userProfile;
 
@@ -241,6 +250,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setUserProfile(INITIAL_USER_PROFILE);
       setStudySessions([]);
       setTutorMessages(INITIAL_TUTOR_MESSAGES);
+      setChecklist([]);
       setIsInitialLoadComplete(false);
       setCloudSyncStatus('synced');
       setLastCloudSync(null);
@@ -320,6 +330,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const savedTutor = localStorage.getItem(getUserKey('tutor_messages', activeUserId));
     if (savedTutor) {
       try { setTutorMessages(JSON.parse(savedTutor)); } catch (e) {}
+    }
+    const savedChecklist = localStorage.getItem(getUserKey('checklist', activeUserId));
+    setChecklist([]);
+    if (savedChecklist) {
+      try { setChecklist(JSON.parse(savedChecklist)); } catch (e) {}
     }
 
     let isSubscribed = true;
@@ -419,6 +434,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setTutorMessages(cloudData.tutorMessages);
         setIDBData(`tutor_messages_${activeUserId}`, cloudData.tutorMessages);
       }
+      if (Array.isArray(cloudData.checklist)) {
+        setChecklist(cloudData.checklist);
+      }
     };
 
     // First cloud save of a new account: built from what is cached on this device
@@ -455,6 +473,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         studySessions: parse<any[]>(savedSess, []),
         pomodoroSettings: parse(savedPomo, { workMinutes: 25, shortBreakMinutes: 5, mediumBreakMinutes: 10, longBreakMinutes: 15 }),
         tutorMessages: parse(savedTutor, INITIAL_TUTOR_MESSAGES, true),
+        checklist: parse<ChecklistItem[]>(savedChecklist, []),
         updatedAt: new Date().toISOString(),
       };
     };
@@ -603,6 +622,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [tutorMessages, activeUserId, isInitialLoadComplete]);
 
+  useEffect(() => {
+    if (activeUserId && isInitialLoadComplete) {
+      localStorage.setItem(getUserKey('checklist', activeUserId), JSON.stringify(checklist));
+    }
+  }, [checklist, activeUserId, isInitialLoadComplete]);
+
   // Full academic state saved as one JSON row per user (table app_state, see supabase/schema.sql)
   const buildCloudState = () => ({
     semesters,
@@ -616,6 +641,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     studySessions,
     pomodoroSettings,
     tutorMessages,
+    checklist,
     updatedAt: new Date().toISOString(),
   });
 
@@ -677,6 +703,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     studySessions,
     pomodoroSettings,
     tutorMessages,
+    checklist,
   ]);
 
   // Force Cloud Sync manually
@@ -1128,6 +1155,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showNotification('Tema de MedRevision adicionado!', 'success');
   };
 
+  const addChecklistItem = (text: string) => {
+    const clean = text.trim();
+    if (!clean) return;
+    const item: ChecklistItem = {
+      id: 'chk-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+      text: clean,
+      done: false,
+      createdAt: new Date().toISOString(),
+    };
+    setChecklist((prev) => [item, ...prev]);
+  };
+
+  const toggleChecklistItem = (id: string) => {
+    setChecklist((prev) =>
+      prev.map((item) =>
+        item.id === id ? { ...item, done: !item.done, doneAt: !item.done ? new Date().toISOString() : undefined } : item
+      )
+    );
+  };
+
+  const deleteChecklistItem = (id: string) => {
+    setChecklist((prev) => prev.filter((item) => item.id !== id));
+  };
+
+  const clearCompletedChecklist = () => {
+    setChecklist((prev) => prev.filter((item) => !item.done));
+  };
+
   const deleteMedRevision = (id: string) => {
     setMedRevisions((prev) => prev.filter((mr) => mr.id !== id));
     showNotification('Tema removido do MedRevision.', 'info');
@@ -1417,6 +1472,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         showNotification,
         tutorMessages,
         setTutorMessages,
+        checklist,
+        addChecklistItem,
+        toggleChecklistItem,
+        deleteChecklistItem,
+        clearCompletedChecklist,
       }}
     >
       {children}
