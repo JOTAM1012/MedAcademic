@@ -1,28 +1,20 @@
 import React, { useState } from 'react';
-import { X, BookOpen, Check, Sparkles, GraduationCap } from 'lucide-react';
+import { X, BookOpen, GraduationCap } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { AreaPicker } from '../AreaPicker';
+import { getMedicalArea } from '../../data/areas';
 
 interface AddSubjectModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-const COLOR_PRESETS = [
-  { name: 'Azul Céu', value: '#0284c7' },
-  { name: 'Vermelho Clínico', value: '#e11d48' },
-  { name: 'Verde Cirúrgico', value: '#10b981' },
-  { name: 'Roxo Obstétrico', value: '#8b5cf6' },
-  { name: 'Âmbar Preventiva', value: '#f59e0b' },
-  { name: 'Índigo Noturno', value: '#4f46e5' },
-  { name: 'Teal Eletivo', value: '#0d9488' },
-  { name: 'Rosa Pediátrico', value: '#db2777' },
-];
 
 export const AddSubjectModal: React.FC<AddSubjectModalProps> = ({ isOpen, onClose }) => {
   const { currentSemester, addSubject, addXp, triggerConfetti } = useApp();
 
   const [name, setName] = useState('');
-  const [color, setColor] = useState(COLOR_PRESETS[0].value);
+  const [area, setArea] = useState<string | null>(null);
   const [targetGrade, setTargetGrade] = useState(7.0);
   const [workloadHours, setWorkloadHours] = useState<number | ''>('');
 
@@ -30,12 +22,14 @@ export const AddSubjectModal: React.FC<AddSubjectModalProps> = ({ isOpen, onClos
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    if (!name.trim() || !area) return;
+    const areaInfo = getMedicalArea(area);
 
     addSubject({
       name: name.trim(),
-      code: '',
-      color,
+      code: areaInfo.short,
+      color: areaInfo.color,
+      majorArea: area,
       targetGrade: Number(targetGrade) || 7.0,
       workloadHours: workloadHours ? Number(workloadHours) : undefined,
       semesterId: currentSemester?.id,
@@ -44,6 +38,9 @@ export const AddSubjectModal: React.FC<AddSubjectModalProps> = ({ isOpen, onClos
 
     addXp(50, 'Nova Disciplina Cadastrada');
     triggerConfetti();
+    setName('');
+    setArea(null);
+    setWorkloadHours('');
     onClose();
   };
 
@@ -97,7 +94,7 @@ export const AddSubjectModal: React.FC<AddSubjectModalProps> = ({ isOpen, onClos
             </label>
             <input
               type="text"
-              placeholder="Ex: Clínica Médica I, Saúde Pública, Habilidades Médicas IV..."
+              placeholder="Ex: Neonatologia, Cardiologia, Pré-natal..."
               value={name}
               onChange={(e) => setName(e.target.value)}
               className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2.5 text-xs text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-sky-500 font-medium"
@@ -106,30 +103,8 @@ export const AddSubjectModal: React.FC<AddSubjectModalProps> = ({ isOpen, onClos
             />
           </div>
 
-          {/* Color Selection */}
-          <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-              Cor de Identificação
-            </label>
-            <div className="flex items-center gap-2 flex-wrap">
-              {COLOR_PRESETS.map((preset) => (
-                <button
-                  key={preset.value}
-                  type="button"
-                  onClick={() => setColor(preset.value)}
-                  className={`w-7 h-7 rounded-xl flex items-center justify-center transition-all ${
-                    color === preset.value
-                      ? 'ring-2 ring-offset-2 ring-slate-900 dark:ring-white scale-110 shadow-xs'
-                      : 'hover:scale-105'
-                  }`}
-                  style={{ backgroundColor: preset.value }}
-                  title={preset.name}
-                >
-                  {color === preset.value && <Check className="h-3.5 w-3.5 text-white" />}
-                </button>
-              ))}
-            </div>
-          </div>
+          {/* Grande Área (define grupo e cor) */}
+          <AreaPicker value={area} onChange={setArea} />
 
           {/* Target Grade and Workload */}
           <div className="grid grid-cols-2 gap-3">
@@ -172,7 +147,9 @@ export const AddSubjectModal: React.FC<AddSubjectModalProps> = ({ isOpen, onClos
             </button>
             <button
               type="submit"
-              className="px-5 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs shadow-xs"
+              disabled={!name.trim() || !area}
+              title={!area ? 'Escolha a grande área' : undefined}
+              className="px-5 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold text-xs shadow-xs"
             >
               Criar Disciplina
             </button>

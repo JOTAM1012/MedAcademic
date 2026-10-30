@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { X, BookOpen, Check, Trash2, GraduationCap } from 'lucide-react';
+import { X, BookOpen, Trash2, GraduationCap } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { Subject } from '../../types';
+import { AreaPicker } from '../AreaPicker';
+import { getMedicalArea, OTHER_AREA } from '../../data/areas';
 
 interface EditSubjectModalProps {
   isOpen: boolean;
@@ -9,16 +11,6 @@ interface EditSubjectModalProps {
   subject: Subject | null;
 }
 
-const COLOR_PRESETS = [
-  { name: 'Azul Céu', value: '#0284c7' },
-  { name: 'Vermelho Clínico', value: '#e11d48' },
-  { name: 'Verde Cirúrgico', value: '#10b981' },
-  { name: 'Roxo Obstétrico', value: '#8b5cf6' },
-  { name: 'Âmbar Preventiva', value: '#f59e0b' },
-  { name: 'Índigo Noturno', value: '#4f46e5' },
-  { name: 'Teal Eletivo', value: '#0d9488' },
-  { name: 'Rosa Pediátrico', value: '#db2777' },
-];
 
 export const EditSubjectModal: React.FC<EditSubjectModalProps> = ({
   isOpen,
@@ -28,14 +20,15 @@ export const EditSubjectModal: React.FC<EditSubjectModalProps> = ({
   const { currentSemester, updateSubject, deleteSubject, showNotification } = useApp();
 
   const [name, setName] = useState('');
-  const [color, setColor] = useState(COLOR_PRESETS[0].value);
+  const [area, setArea] = useState<string | null>(null);
   const [targetGrade, setTargetGrade] = useState(7.0);
   const [workloadHours, setWorkloadHours] = useState<number | ''>('');
 
   useEffect(() => {
     if (subject) {
       setName(subject.universitySubject || subject.name || '');
-      setColor(subject.color || COLOR_PRESETS[0].value);
+      const current = getMedicalArea(subject.majorArea);
+      setArea(current.id === OTHER_AREA.id ? null : current.id);
       setTargetGrade(subject.targetGrade || 7.0);
       setWorkloadHours(subject.workloadHours || '');
     }
@@ -45,12 +38,15 @@ export const EditSubjectModal: React.FC<EditSubjectModalProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    if (!name.trim() || !area) return;
+    const areaInfo = getMedicalArea(area);
 
     updateSubject(subject.id, {
       name: name.trim(),
       universitySubject: name.trim(),
-      color,
+      majorArea: area,
+      code: areaInfo.short,
+      color: areaInfo.color,
       targetGrade: Number(targetGrade) || 7.0,
       workloadHours: workloadHours ? Number(workloadHours) : undefined,
     });
@@ -125,30 +121,8 @@ export const EditSubjectModal: React.FC<EditSubjectModalProps> = ({
             />
           </div>
 
-          {/* Color Selection */}
-          <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-              Cor de Identificação
-            </label>
-            <div className="flex items-center gap-2 flex-wrap">
-              {COLOR_PRESETS.map((preset) => (
-                <button
-                  key={preset.value}
-                  type="button"
-                  onClick={() => setColor(preset.value)}
-                  className={`w-7 h-7 rounded-xl flex items-center justify-center transition-all ${
-                    color === preset.value
-                      ? 'ring-2 ring-offset-2 ring-slate-900 dark:ring-white scale-110 shadow-xs'
-                      : 'hover:scale-105'
-                  }`}
-                  style={{ backgroundColor: preset.value }}
-                  title={preset.name}
-                >
-                  {color === preset.value && <Check className="h-3.5 w-3.5 text-white" />}
-                </button>
-              ))}
-            </div>
-          </div>
+          {/* Grande Área (define grupo e cor) */}
+          <AreaPicker value={area} onChange={setArea} />
 
           {/* Target Grade and Workload */}
           <div className="grid grid-cols-2 gap-3">
@@ -201,7 +175,9 @@ export const EditSubjectModal: React.FC<EditSubjectModalProps> = ({
               </button>
               <button
                 type="submit"
-                className="px-5 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs shadow-xs"
+                disabled={!name.trim() || !area}
+                title={!area ? 'Escolha a grande área' : undefined}
+                className="px-5 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold text-xs shadow-xs"
               >
                 Salvar Alterações
               </button>

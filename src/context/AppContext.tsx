@@ -71,7 +71,8 @@ interface AppContextType {
 
   // Subjects
   subjects: Subject[];
-  addSubject: (sub: Omit<Subject, 'id'>) => void;
+  /** Returns the id of the created subject */
+  addSubject: (sub: Omit<Subject, 'id'>) => string;
   updateSubject: (id: string, sub: Partial<Subject>) => void;
   deleteSubject: (id: string) => void;
 
@@ -996,10 +997,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const addSubject = (sub: Omit<Subject, 'id'>) => {
-    const newSub: Subject = { ...sub, id: 'sub-' + Date.now() };
+    const newSub: Subject = { ...sub, id: 'sub-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6) };
     setSubjects((prev) => [...prev, newSub]);
     showNotification(`Disciplina "${sub.name}" criada com sucesso!`, 'success');
     // XP is awarded by the calling modal
+    return newSub.id;
   };
 
   const updateSubject = (id: string, sub: Partial<Subject>) => {

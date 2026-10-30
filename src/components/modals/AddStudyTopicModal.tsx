@@ -22,6 +22,8 @@ import {
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { PreferredStudyMethod, TopicDifficulty, TopicPriority } from '../../types';
+import { AreaPicker } from '../AreaPicker';
+import { MEDICAL_AREAS, OTHER_AREA, getMedicalArea } from '../../data/areas';
 
 interface AddStudyTopicModalProps {
   isOpen: boolean;
@@ -43,7 +45,7 @@ export const AddStudyTopicModal: React.FC<AddStudyTopicModalProps> = ({
   );
   const [isCreatingNewSubject, setIsCreatingNewSubject] = useState(false);
   const [newSubjectName, setNewSubjectName] = useState('');
-  const [newSubjectColor, setNewSubjectColor] = useState('#e11d48');
+  const [newSubjectArea, setNewSubjectArea] = useState<string | null>(null);
 
   const [topicTitle, setTopicTitle] = useState('');
   const [notes, setNotes] = useState('');
@@ -96,18 +98,20 @@ export const AddStudyTopicModal: React.FC<AddStudyTopicModalProps> = ({
 
   const handleCreateNewSubject = (e: React.MouseEvent) => {
     e.preventDefault();
-    if (!newSubjectName.trim()) return;
-    const newId = 'sub-' + Date.now();
-    addSubject({
+    if (!newSubjectName.trim() || !newSubjectArea) return;
+    const area = getMedicalArea(newSubjectArea);
+    const newId = addSubject({
       name: newSubjectName.trim(),
-      code: 'MED-' + Math.floor(100 + Math.random() * 900),
-      color: newSubjectColor,
-      majorArea: 'Clínica Médica',
+      universitySubject: newSubjectName.trim(),
+      code: area.short,
+      color: area.color,
+      majorArea: newSubjectArea,
       targetGrade: 8.5,
     });
     setSelectedSubjectId(newId);
     setIsCreatingNewSubject(false);
     setNewSubjectName('');
+    setNewSubjectArea(null);
   };
 
 
@@ -210,29 +214,56 @@ export const AddStudyTopicModal: React.FC<AddStudyTopicModalProps> = ({
                     onChange={(e) => setNewSubjectName(e.target.value)}
                     className="w-full text-xs px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white font-medium focus:outline-hidden focus:border-sky-500"
                   />
+                  <AreaPicker value={newSubjectArea} onChange={setNewSubjectArea} />
                   <div className="mt-2">
                     <button
                       type="button"
                       onClick={handleCreateNewSubject}
-                      className="w-full text-xs font-bold px-3 py-2 rounded-lg bg-sky-600 text-white hover:bg-sky-700 shadow-xs"
+                      disabled={!newSubjectName.trim() || !newSubjectArea}
+                      className="w-full text-xs font-bold px-3 py-2 rounded-lg bg-sky-600 text-white hover:bg-sky-700 disabled:opacity-40 disabled:cursor-not-allowed shadow-xs"
                     >
                       Criar & Selecionar
                     </button>
                   </div>
                 </div>
               ) : (
-                <select
-                  value={selectedSubjectId}
-                  onChange={(e) => setSelectedSubjectId(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3.5 py-2.5 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-hidden focus:border-sky-500 shadow-2xs"
-                  required
-                >
-                  {subjects.map((sub) => (
-                    <option key={sub.id} value={sub.id}>
-                      {sub.universitySubject || sub.name}
-                    </option>
-                  ))}
-                </select>
+                <div className="space-y-1.5">
+                  <select
+                    value={selectedSubjectId}
+                    onChange={(e) => setSelectedSubjectId(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3.5 py-2.5 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-hidden focus:border-sky-500 shadow-2xs"
+                    required
+                  >
+                    {[...MEDICAL_AREAS, OTHER_AREA].map((area) => {
+                      const areaSubjects = subjects.filter((s) => getMedicalArea(s.majorArea).id === area.id);
+                      if (areaSubjects.length === 0) return null;
+                      return (
+                        <optgroup key={area.id} label={area.id}>
+                          {areaSubjects.map((sub) => (
+                            <option key={sub.id} value={sub.id}>
+                              {sub.universitySubject || sub.name}
+                            </option>
+                          ))}
+                        </optgroup>
+                      );
+                    })}
+                  </select>
+                  {currentSubject && (
+                    <span
+                      className="inline-flex items-center gap-1.5 text-[11px] font-bold px-2 py-0.5 rounded-md"
+                      style={{
+                        color: getMedicalArea(currentSubject.majorArea).color,
+                        backgroundColor: getMedicalArea(currentSubject.majorArea).color + '1f',
+                      }}
+                    >
+                      <span
+                        className="h-2 w-2 rounded-full"
+                        style={{ backgroundColor: getMedicalArea(currentSubject.majorArea).color }}
+                      />
+                      {getMedicalArea(currentSubject.majorArea).id}
+                    </span>
+                  )}
+                </div>
               )}
             </div>
 

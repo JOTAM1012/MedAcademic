@@ -18,6 +18,8 @@ import {
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { Subject, Topic, TopicStatus } from '../types';
+import { MEDICAL_AREAS, OTHER_AREA, getMedicalArea } from '../data/areas';
+import { EditSubjectModal } from './modals/EditSubjectModal';
 
 interface AcademicStructureViewProps {
   onOpenAddSubject: () => void;
@@ -43,21 +45,26 @@ export const AcademicStructureView: React.FC<AcademicStructureViewProps> = ({
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState<string>('');
+  const [areaFilter, setAreaFilter] = useState<string>('all');
+  const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
 
-  // Filter subjects by current semester
-  const semesterSubjects = subjects;
+  // Display color: the area's color (older subjects without an area keep their own)
+  const subjectColor = (sub: Subject) => {
+    const area = getMedicalArea(sub.majorArea);
+    return area.id === OTHER_AREA.id ? sub.color || OTHER_AREA.color : area.color;
+  };
 
-  const groupedSubjects = semesterSubjects.reduce((acc, sub) => {
-    const groupKey = sub.universitySubject || sub.majorArea || 'Sem Categoria';
-    if (!acc[groupKey]) acc[groupKey] = [];
-    acc[groupKey].push(sub);
-    return acc;
-  }, {} as Record<string, typeof subjects>);
+  // Subjects grouped by the 6 internship areas, always in the same order ("Outras" last)
+  const areaGroups = [...MEDICAL_AREAS, OTHER_AREA]
+    .map((area) => ({ area, items: subjects.filter((s) => getMedicalArea(s.majorArea).id === area.id) }))
+    .filter((g) => g.items.length > 0);
+  const visibleGroups = areaFilter === 'all' ? areaGroups : areaGroups.filter((g) => g.area.id === areaFilter);
+  const visibleSubjects = visibleGroups.flatMap((g) => g.items);
 
   // Active subject for topics view
   const activeSubject = selectedSubjectId
-    ? subjects.find((s) => s.id === selectedSubjectId) || semesterSubjects[0]
-    : semesterSubjects[0];
+    ? subjects.find((s) => s.id === selectedSubjectId) || visibleSubjects[0]
+    : visibleSubjects[0];
 
   // Filter topics for the active subject
   const currentSubjectTopics = activeSubject
@@ -128,17 +135,60 @@ export const AcademicStructureView: React.FC<AcademicStructureViewProps> = ({
         </div>
       </div>
 
+      {/* Area filter chips */}
+      {subjects.length > 0 && (
+        <div className="flex items-center gap-1.5 flex-wrap" role="tablist" aria-label="Filtrar por grande área">
+          <button
+            type="button"
+            onClick={() => setAreaFilter('all')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors ${
+              areaFilter === 'all'
+                ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            Todas ({subjects.length})
+          </button>
+          {[...MEDICAL_AREAS, ...(areaGroups.some((g) => g.area.id === OTHER_AREA.id) ? [OTHER_AREA] : [])].map((area) => {
+            const count = subjects.filter((s) => getMedicalArea(s.majorArea).id === area.id).length;
+            const active = areaFilter === area.id;
+            return (
+              <button
+                key={area.id}
+                type="button"
+                onClick={() => setAreaFilter(active ? 'all' : area.id)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-colors ${
+                  active ? 'text-white' : 'border-transparent bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                } ${count === 0 && !active ? 'opacity-50' : ''}`}
+                style={active ? { backgroundColor: area.color, borderColor: area.color } : undefined}
+              >
+                <span className="h-2 w-2 rounded-full" style={{ backgroundColor: active ? '#fff' : area.color }} />
+                {area.id}
+                <span className={active ? 'text-white/80' : 'text-slate-400'}>{count}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {/* Subjects & Topics Split View Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left Col: Subjects List (5 cols) */}
         <div className="lg:col-span-4 space-y-3">
           <div className="flex items-center justify-between px-1">
             <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400">
-              Disciplinas Ativas ({semesterSubjects.length})
+              Disciplinas Ativas ({visibleSubjects.length})
             </h2>
           </div>
 
-          {semesterSubjects.length === 0 ? (
+          {subjects.length > 0 && visibleSubjects.length === 0 ? (
+            <div className="text-center py-8 p-4 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800">
+              <p className="text-xs text-slate-500 font-medium">Nenhuma matéria nesta área ainda.</p>
+              <button onClick={onOpenAddSubject} className="mt-2 text-xs font-bold text-sky-600 hover:underline">
+                + Adicionar Matéria
+              </button>
+            </div>
+          ) : subjects.length === 0 ? (
             <div className="text-center py-10 p-4 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800">
               <BookOpen className="h-8 w-8 text-slate-300 dark:text-slate-700 mx-auto mb-2" />
               <p className="text-xs text-slate-500 font-medium">Nenhuma matéria cadastrada.</p>
@@ -150,12 +200,19 @@ export const AcademicStructureView: React.FC<AcademicStructureViewProps> = ({
               </button>
             </div>
           ) : (
-            <div className="space-y-4">
-              {Object.entries(groupedSubjects).map(([groupName, groupSubjects]: [string, any[]]) => (
-                <div key={groupName} className="space-y-2">
-                  <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-1">
-                    {groupName}
+            <div className="space-y-5">
+              {visibleGroups.map(({ area, items: groupSubjects }) => (
+                <div key={area.id} className="space-y-2">
+                  <h3 className="flex items-center gap-2 text-[11px] font-black uppercase tracking-wider px-1" style={{ color: area.color }}>
+                    <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: area.color }} />
+                    {area.id}
+                    <span className="text-slate-400 font-bold">({groupSubjects.length})</span>
                   </h3>
+                  {area.id === OTHER_AREA.id && (
+                    <p className="text-[10px] text-slate-500 px-1 -mt-1">
+                      Sem área definida — use o lápis para escolher a grande área.
+                    </p>
+                  )}
                   <div className="space-y-2.5">
                     {groupSubjects.map((sub) => {
                       const isSelected = activeSubject?.id === sub.id;
@@ -176,14 +233,14 @@ export const AcademicStructureView: React.FC<AcademicStructureViewProps> = ({
                         >
                           <div
                             className="absolute top-0 left-0 bottom-0 w-1.5"
-                            style={{ backgroundColor: sub.color }}
+                            style={{ backgroundColor: subjectColor(sub) }}
                           />
 
                           <div className="flex items-start justify-between">
                             <div className="min-w-0 pr-2">
                               <div className="flex items-center gap-1.5 mb-1">
-                                <span className="text-[11px] font-semibold text-slate-500">
-                                  {sub.majorArea || 'Outra área'}
+                                <span className="text-[11px] font-semibold" style={{ color: subjectColor(sub) }}>
+                                  {getMedicalArea(sub.majorArea).id === OTHER_AREA.id ? 'Sem área' : getMedicalArea(sub.majorArea).id}
                                 </span>
                               </div>
                               <h3 className="text-xs font-bold text-slate-900 dark:text-white line-clamp-1">
@@ -205,7 +262,7 @@ export const AcademicStructureView: React.FC<AcademicStructureViewProps> = ({
                           <div className="mt-3 w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
                             <div
                               className="h-full rounded-full transition-all duration-300"
-                              style={{ backgroundColor: sub.color, width: `${completionPercentage}%` }}
+                              style={{ backgroundColor: subjectColor(sub), width: `${completionPercentage}%` }}
                             />
                           </div>
                         </div>
@@ -226,22 +283,35 @@ export const AcademicStructureView: React.FC<AcademicStructureViewProps> = ({
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
                 <div className="flex items-center gap-3">
                   <div
-                    className="flex h-11 w-11 items-center justify-center rounded-xl text-white font-black text-sm shadow-xs"
-                    style={{ backgroundColor: activeSubject.color }}
+                    className="flex h-11 w-11 items-center justify-center rounded-xl text-white font-black text-[11px] shadow-xs"
+                    style={{ backgroundColor: subjectColor(activeSubject) }}
                   >
-                    {activeSubject.code.slice(0, 3)}
+                    {getMedicalArea(activeSubject.majorArea).id === OTHER_AREA.id
+                      ? (activeSubject.universitySubject || activeSubject.name).slice(0, 3).toUpperCase()
+                      : getMedicalArea(activeSubject.majorArea).short}
                   </div>
                   <div>
                     <h2 className="text-base font-bold text-slate-900 dark:text-white">
-                      {activeSubject.name}
+                      {activeSubject.universitySubject || activeSubject.name}
                     </h2>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                      {activeSubject.majorArea || 'Outra área'}
+                    <p className="text-xs font-semibold" style={{ color: subjectColor(activeSubject) }}>
+                      {getMedicalArea(activeSubject.majorArea).id === OTHER_AREA.id
+                        ? 'Sem área definida'
+                        : getMedicalArea(activeSubject.majorArea).id}
                     </p>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditingSubject(activeSubject)}
+                    className="p-1.5 rounded-xl text-slate-400 hover:text-sky-600 hover:bg-sky-50 dark:hover:bg-sky-950/30 transition-colors"
+                    title="Editar disciplina e área"
+                    aria-label="Editar disciplina e área"
+                  >
+                    <Edit2 className="h-4 w-4" />
+                  </button>
                   <button
                     id="academic-add-topic-btn"
                     onClick={() => onOpenAddTopic(activeSubject.id)}
@@ -406,6 +476,12 @@ export const AcademicStructureView: React.FC<AcademicStructureViewProps> = ({
           )}
         </div>
       </div>
+
+      <EditSubjectModal
+        isOpen={!!editingSubject}
+        subject={editingSubject}
+        onClose={() => setEditingSubject(null)}
+      />
     </div>
   );
 };
