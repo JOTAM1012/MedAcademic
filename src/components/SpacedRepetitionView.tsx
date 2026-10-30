@@ -29,6 +29,7 @@ import {
 import { useApp } from '../context/AppContext';
 import { Topic, PreferredStudyMethod, TopicDifficulty } from '../types';
 import { SpacedRepetitionRulesCard } from './SpacedRepetitionRulesCard';
+import { getReviewsDone, REVIEWS_TO_MASTER } from '../data/topicStatus';
 
 interface SpacedRepetitionViewProps {
   onOpenAddTopic?: () => void;
@@ -64,7 +65,8 @@ export const SpacedRepetitionView: React.FC<SpacedRepetitionViewProps> = ({
   const todayStr = new Date().toISOString().split('T')[0];
 
   // Topics in spaced repetition
-  const spacedTopics = topics.filter((t) => t.inSpacedRepetition !== false);
+  // Only topics already marked as "Visto" enter the review cycle
+  const spacedTopics = topics.filter((t) => t.inSpacedRepetition !== false && t.status !== 'nao_iniciado');
 
   // Filter due topics for today
   const dueTopics = spacedTopics.filter((t) => {
@@ -383,7 +385,7 @@ export const SpacedRepetitionView: React.FC<SpacedRepetitionViewProps> = ({
                   {getMethodLabel(activeSessionTopic)}
                 </span>
                 <span className="text-xs text-slate-400">
-                  Ciclo Atual: R{activeSessionTopic.cycleStep || 1} ({activeSessionTopic.intervalDays || 1}d)
+                  Revisão {Math.min(REVIEWS_TO_MASTER, getReviewsDone(activeSessionTopic) + 1)} de {REVIEWS_TO_MASTER}
                 </span>
               </div>
               <h2 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white">
@@ -471,14 +473,14 @@ export const SpacedRepetitionView: React.FC<SpacedRepetitionViewProps> = ({
             <p className="text-xs font-bold text-slate-800 dark:text-slate-200 mb-3 text-center">
               Como foi seu desempenho nesta revisão?
             </p>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+            <div className="grid grid-cols-3 gap-2.5">
               <button
                 onClick={() => handleSessionRating('dificil')}
                 className="flex flex-col items-center p-3 rounded-xl border border-rose-200 dark:border-rose-900/40 bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-300 font-bold hover:bg-rose-100 dark:hover:bg-rose-900/50 transition-all shadow-xs"
               >
                 <span className="text-xs">🔴 Difícil</span>
                 <span className="text-[10px] text-rose-500 dark:text-rose-400 font-normal">
-                  +1d (Ciclo Curto)
+                  Intervalo menor
                 </span>
               </button>
 
@@ -488,7 +490,7 @@ export const SpacedRepetitionView: React.FC<SpacedRepetitionViewProps> = ({
               >
                 <span className="text-xs">🟡 Médio</span>
                 <span className="text-[10px] text-amber-500 dark:text-amber-400 font-normal">
-                  +3d / +7d / +15d
+                  Intervalo padrão
                 </span>
               </button>
 
@@ -498,19 +500,10 @@ export const SpacedRepetitionView: React.FC<SpacedRepetitionViewProps> = ({
               >
                 <span className="text-xs">🟢 Fácil</span>
                 <span className="text-[10px] text-emerald-500 dark:text-emerald-400 font-normal">
-                  +7d / +15d / +30d
+                  Intervalo maior
                 </span>
               </button>
 
-              <button
-                onClick={() => handleSessionRating('dominado')}
-                className="flex flex-col items-center p-3 rounded-xl border border-indigo-200 dark:border-indigo-900/40 bg-indigo-50 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-300 font-bold hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-all shadow-xs"
-              >
-                <span className="text-xs">🏆 Dominado</span>
-                <span className="text-[10px] text-indigo-500 dark:text-indigo-400 font-normal">
-                  +90d / Graduado
-                </span>
-              </button>
             </div>
           </div>
         </div>
@@ -611,7 +604,7 @@ export const SpacedRepetitionView: React.FC<SpacedRepetitionViewProps> = ({
         ) : (
           filteredTopics.map((topic) => {
             const subject = subjects.find((s) => s.id === topic.subjectId);
-            const currentStep = topic.cycleStep || 1;
+            const currentStep = getReviewsDone(topic); // revisões concluídas (0–4)
 
             return (
               <div
@@ -686,7 +679,7 @@ export const SpacedRepetitionView: React.FC<SpacedRepetitionViewProps> = ({
                 {/* Hierarchy & Cycle Progress Bar */}
                 <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200/70 dark:border-slate-800/80 flex flex-col md:flex-row md:items-center justify-between gap-3">
                   <div className="flex items-center gap-2 text-xs text-slate-500">
-                    <span>Ciclo de Repetição:</span>
+                    <span>Revisões: <strong className="text-slate-700 dark:text-slate-200">{currentStep}/{REVIEWS_TO_MASTER}</strong></span>
                     <div className="flex items-center gap-1">
                       <span
                         className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
@@ -695,7 +688,7 @@ export const SpacedRepetitionView: React.FC<SpacedRepetitionViewProps> = ({
                             : 'bg-slate-200 dark:bg-slate-800 text-slate-500'
                         }`}
                       >
-                        R1 (1d)
+                        R1 · 1d
                       </span>
                       <ArrowRight className="h-2.5 w-2.5 text-slate-400" />
                       <span
@@ -705,7 +698,7 @@ export const SpacedRepetitionView: React.FC<SpacedRepetitionViewProps> = ({
                             : 'bg-slate-200 dark:bg-slate-800 text-slate-500'
                         }`}
                       >
-                        R2 (3d)
+                        R2 · 7d
                       </span>
                       <ArrowRight className="h-2.5 w-2.5 text-slate-400" />
                       <span
@@ -715,7 +708,7 @@ export const SpacedRepetitionView: React.FC<SpacedRepetitionViewProps> = ({
                             : 'bg-slate-200 dark:bg-slate-800 text-slate-500'
                         }`}
                       >
-                        R3 (7d)
+                        R3 · 15d
                       </span>
                       <ArrowRight className="h-2.5 w-2.5 text-slate-400" />
                       <span
@@ -725,7 +718,7 @@ export const SpacedRepetitionView: React.FC<SpacedRepetitionViewProps> = ({
                             : 'bg-slate-200 dark:bg-slate-800 text-slate-500'
                         }`}
                       >
-                        R4 (15d+)
+                        R4 · 30d
                       </span>
                     </div>
                   </div>
@@ -750,37 +743,32 @@ export const SpacedRepetitionView: React.FC<SpacedRepetitionViewProps> = ({
                 <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
                   <div className="flex items-center gap-1.5">
                     <span className="text-xs font-bold text-slate-400 mr-1">
-                      {topic.status === 'nao_iniciado' ? 'Avaliar Primeiro Contato:' : 'Avaliar Revisão:'}
+                      {topic.status === 'dominado' ? 'Dominado — 4 revisões concluídas' : `Concluir revisão ${Math.min(REVIEWS_TO_MASTER, currentStep + 1)}/${REVIEWS_TO_MASTER}:`}
                     </span>
+                    {topic.status !== 'dominado' && (
+                    <>
                     <button
                       onClick={() => reviewTopicSpacedRepetition(topic.id, 'dificil')}
                       className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 hover:bg-rose-100 transition-colors"
-                      title={topic.status === 'nao_iniciado' ? "Agendar 1ª revisão para amanhã" : "Reiniciar para intervalo curto (1 dia)"}
+                      title="Revisão feita com dificuldade: próxima vem mais cedo"
                     >
-                      🔴 Difícil (+1d)
+                      🔴 Difícil
                     </button>
                     <button
                       onClick={() => reviewTopicSpacedRepetition(topic.id, 'medio')}
                       className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 hover:bg-amber-100 transition-colors"
-                      title={topic.status === 'nao_iniciado' ? "Agendar 1ª revisão para 3 dias" : "Avançar ciclo moderado (3 a 15 dias)"}
+                      title="Revisão feita: intervalo padrão até a próxima"
                     >
-                      🟡 Médio (+3d)
+                      🟡 Médio
                     </button>
                     <button
                       onClick={() => reviewTopicSpacedRepetition(topic.id, 'facil')}
                       className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 transition-colors"
-                      title={topic.status === 'nao_iniciado' ? "Agendar 1ª revisão para 7 dias" : "Avançar ciclo longo (7 a 30 dias)"}
+                      title="Revisão fácil: próxima demora mais"
                     >
-                      🟢 Fácil (+7d)
+                      🟢 Fácil
                     </button>
-                    {topic.status !== 'dominado' && (
-                      <button
-                        onClick={() => reviewTopicSpacedRepetition(topic.id, 'dominado')}
-                        className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 transition-colors"
-                        title="Marcar como totalmente dominado"
-                      >
-                        🏆 Dominado
-                      </button>
+                    </>
                     )}
                   </div>
 

@@ -60,7 +60,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
   // Due topics count for spaced repetition
   const todayStr = new Date().toISOString().split('T')[0];
   const dueTopicsCount = topics.filter(
-    (t) => t.inSpacedRepetition !== false && t.status !== 'dominado' && (!t.nextReviewDate || t.nextReviewDate <= todayStr)
+    (t) => t.inSpacedRepetition !== false && t.status !== 'dominado' && t.status !== 'nao_iniciado' && (!t.nextReviewDate || t.nextReviewDate <= todayStr)
   ).length;
 
   // Upcoming exams in 14 days

@@ -63,7 +63,7 @@ export const DashboardView: React.FC = () => {
   // Topics due for spaced repetition review today
   const todayStr = new Date().toISOString().split('T')[0];
   const dueTopics = topics.filter(
-    (t) => t.inSpacedRepetition !== false && t.status !== 'dominado' && (!t.nextReviewDate || t.nextReviewDate <= todayStr)
+    (t) => t.inSpacedRepetition !== false && t.status !== 'dominado' && t.status !== 'nao_iniciado' && (!t.nextReviewDate || t.nextReviewDate <= todayStr)
   );
 
   // Next Exams with Live Countdown

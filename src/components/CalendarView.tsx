@@ -26,6 +26,7 @@ import {
   FolderPlus,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { getReviewsDone, REVIEWS_TO_MASTER } from '../data/topicStatus';
 import { Exam, ScheduleClass, Topic, Subject } from '../types';
 
 interface CalendarViewProps {
@@ -91,6 +92,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     deleteScheduleClass,
     updateTopic,
     reviewTopicSpacedRepetition,
+    markTopicSeen,
     deleteExam,
     setTimerMode,
     setCurrentTab,
@@ -322,18 +324,15 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           topic.nextReviewDate !== dayInfo.dateStr;
         
         let cycleBadge = 'D0';
-        if (topic.cycleStep === 1) cycleBadge = 'D1';
-        else if (topic.cycleStep === 2) cycleBadge = 'D7';
-        else if (topic.cycleStep === 3) cycleBadge = 'D15';
-        else if (topic.cycleStep === 4) cycleBadge = 'D30';
-        else if (topic.cycleStep && topic.cycleStep > 4) cycleBadge = 'D60';
+        const reviewsDone = getReviewsDone(topic);
+        cycleBadge = topic.status === 'dominado' ? 'DOM' : `R${Math.min(REVIEWS_TO_MASTER, reviewsDone + 1)}`;
 
         if (isFirst) {
           cycleBadge = 'D0';
         }
 
-        const isDone = topic.status === 'revisado' || topic.status === 'dominado';
-        const progress = topic.status === 'dominado' ? 100 : topic.status === 'revisado' ? 75 : topic.status === 'em_andamento' ? 40 : 0;
+        const isDone = topic.status === 'dominado';
+        const progress = Math.round((reviewsDone / REVIEWS_TO_MASTER) * 100);
 
         items.push({
           id: `topic-${topic.id}`,
@@ -399,9 +398,9 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       showNotification(!sc.isCompleted ? 'Atividade concluída com sucesso!' : 'Atividade marcada como pendente.', 'success');
     } else if (item.sourceType === 'topic') {
       const top = item.originalData as Topic;
-      const nextStatus = top.status === 'dominado' || top.status === 'revisado' ? 'em_andamento' : 'revisado';
-      updateTopic(top.id, { status: nextStatus });
-      showNotification(`Assunto "${top.title}" marcado como ${nextStatus}!`, 'success');
+      // 1º contato → Visto; revisão agendada → conclui a revisão (dominado após a 4ª)
+      if (top.status === 'nao_iniciado') markTopicSeen(top.id);
+      else if (top.status !== 'dominado') reviewTopicSpacedRepetition(top.id, 'medio');
     }
   };
 

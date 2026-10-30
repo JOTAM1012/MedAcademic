@@ -51,11 +51,11 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClos
       tag: 'Estrutura',
       description:
         'Na aba "Disciplinas", você cadastra as matérias do seu semestre (ex: Cardiologia, Fisiologia, Cirurgia) e adiciona os tópicos de aula com seus respectivos status de aprendizagem.',
-      actionTip: '💡 Dica: Ao marcar um tópico como "Dominado", você ganha +20 XP no seu perfil médico!',
+      actionTip: '💡 Dica: marque o assunto como "Visto" depois do 1º contato. Ele entra nas Revisões e vira "Dominado" após as 4 revisões espaçadas.',
       bulletPoints: [
         'Clique em "+ Nova Disciplina" para definir nome, código e cor da matéria.',
         'Adicione tópicos clínicos específicos (ex: Eletrocardiograma, Choque Séptico).',
-        'Alterne entre "Não Iniciado", "Em Estudo" e "Dominado" para acompanhar seu domínio real.',
+        'Fluxo: Não iniciado → Visto → Em revisão (1/4 a 3/4) → Dominado.',
       ],
     },
     {

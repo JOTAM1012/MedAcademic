@@ -26,6 +26,7 @@ import {
 
 import { useAuth } from './AuthContext';
 import { getIDBData, setIDBData } from '../lib/indexedDB';
+import { REVIEWS_TO_MASTER, getReviewsDone } from '../data/topicStatus';
 import { supabase, APP_STATE_TABLE } from '../lib/supabase';
 
 interface TimerState {
@@ -82,6 +83,10 @@ interface AppContextType {
   updateTopic: (id: string, top: Partial<Topic>) => void;
   deleteTopic: (id: string) => void;
   reviewTopicSpacedRepetition: (id: string, difficulty: 'dificil' | 'medio' | 'facil' | 'dominado') => void;
+  /** 1º contato: "Visto" — entra no ciclo de revisões (1ª revisão amanhã) */
+  markTopicSeen: (id: string) => void;
+  /** Volta o assunto para "Não iniciado" e zera as revisões */
+  resetTopicProgress: (id: string) => void;
 
   // Exams & Grades
   exams: Exam[];
@@ -1023,12 +1028,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const updateTopic = (id: string, top: Partial<Topic>) => {
     const current = topics.find((t) => t.id === id);
-    if (current && top.status === 'dominado' && current.status !== 'dominado') {
-      addXp(120, 'Tópico Dominado');
-      triggerConfetti();
+    if (!current) return;
+    // Status follows the study flow: "Visto" starts the review cycle, "Não iniciado" resets it,
+    // "Em revisão"/"Dominado" only come from completing the spaced reviews.
+    const { status, ...rest } = top;
+    if (status === 'em_andamento' && current.status === 'nao_iniciado') {
+      markTopicSeen(id);
+    } else if (status === 'nao_iniciado' && current.status !== 'nao_iniciado') {
+      resetTopicProgress(id);
     }
-    setTopics((prev) => prev.map((t) => (t.id === id ? { ...t, ...top } : t)));
-    showNotification('Tópico atualizado!', 'success');
+    if (Object.keys(rest).length > 0) {
+      setTopics((prev) => prev.map((t) => (t.id === id ? { ...t, ...rest } : t)));
+      if (!status) showNotification('Tópico atualizado!', 'success');
+    }
   };
 
   const deleteTopic = (id: string) => {
@@ -1036,72 +1048,106 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showNotification('Tópico removido.', 'info');
   };
 
+  // Ciclo: Visto (1º contato) → 4 revisões espaçadas → Dominado.
+  // Cada revisão concluída conta; a dificuldade só ajusta o intervalo até a próxima.
+  const REVIEW_BASE_INTERVALS = [1, 7, 15, 30]; // dias até a revisão nº (revisõesFeitas + 1)
+  const DIFFICULTY_FACTOR = { dificil: 0.5, medio: 1, facil: 1.5 } as const;
+
+  const addDays = (days: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() + days);
+    return d.toISOString().split('T')[0];
+  };
+
+  const markTopicSeen = (id: string) => {
+    const t = topics.find((x) => x.id === id);
+    if (!t) return;
+    const todayStr = new Date().toISOString().split('T')[0];
+    const firstTime = t.status === 'nao_iniciado';
+    setTopics((prev) =>
+      prev.map((x) =>
+        x.id === id
+          ? {
+              ...x,
+              status: 'em_andamento',
+              reviewsDone: 0,
+              cycleStep: 1,
+              intervalDays: REVIEW_BASE_INTERVALS[0],
+              firstContactDate: x.firstContactDate || todayStr,
+              lastStudiedDate: todayStr,
+              nextReviewDate: addDays(REVIEW_BASE_INTERVALS[0]),
+              inSpacedRepetition: true,
+            }
+          : x
+      )
+    );
+    if (firstTime) addXp(30, 'Primeiro Contato Registrado');
+    showNotification(`"${t.title}" marcado como visto. 1ª revisão amanhã na aba Revisões.`, 'success');
+  };
+
+  const resetTopicProgress = (id: string) => {
+    setTopics((prev) =>
+      prev.map((x) =>
+        x.id === id
+          ? { ...x, status: 'nao_iniciado', reviewsDone: 0, cycleStep: 0, nextReviewDate: undefined, lastStudiedDate: undefined }
+          : x
+      )
+    );
+    showNotification('Assunto voltou para "Não iniciado".', 'info');
+  };
+
   const reviewTopicSpacedRepetition = (
     id: string,
     difficulty: 'dificil' | 'medio' | 'facil' | 'dominado'
   ) => {
-    const hardIntervals = [1, 3, 7, 15];
-    const medIntervals = [3, 7, 15, 30];
-    const easyIntervals = [7, 15, 30, 60];
-
-    // Computed outside the state updater so XP/notifications fire exactly once
     const t = topics.find((x) => x.id === id);
     if (!t) return;
 
-    {
-        const isFirstContact = t.status === 'nao_iniciado';
-        const currentStep = isFirstContact ? 1 : (t.cycleStep || 1);
-        let newStep = currentStep;
-        let intervalDays = 1;
-        let newStatus = t.status;
-
-        if (difficulty === 'dominado') {
-          newStatus = 'dominado';
-          intervalDays = 90;
-          newStep = 4;
-          addXp(120, 'Tópico Dominado no Ciclo');
-          triggerConfetti();
-          showNotification(`🏆 Parabéns! Assunto "${t.title}" marcado como dominado!`, 'success');
-        } else if (difficulty === 'dificil') {
-          newStep = isFirstContact ? 1 : Math.max(1, currentStep);
-          const idx = Math.min(hardIntervals.length - 1, newStep - 1);
-          intervalDays = hardIntervals[idx];
-          newStatus = 'em_andamento';
-          addXp(25, isFirstContact ? 'Primeiro Contato Registrado' : 'Revisão Difícil Realizada');
-          showNotification(isFirstContact ? `Primeiro contato: próximo em ${intervalDays}d` : `Revisão registrada: intervalo de ${intervalDays}d (Difícil)`, 'info');
-        } else if (difficulty === 'medio') {
-          newStep = isFirstContact ? 1 : Math.min(4, currentStep + 1);
-          const idx = Math.min(medIntervals.length - 1, newStep - 1);
-          intervalDays = medIntervals[idx];
-          newStatus = newStep >= 3 ? 'revisado' : 'em_andamento';
-          addXp(40, isFirstContact ? 'Primeiro Contato Registrado' : 'Revisão Média Realizada');
-          showNotification(isFirstContact ? `Primeiro contato: próxima em ${intervalDays}d` : `Revisão registrada: próxima em ${intervalDays}d (Médio)`, 'success');
-        } else if (difficulty === 'facil') {
-          newStep = isFirstContact ? 1 : Math.min(4, currentStep + 1);
-          const idx = Math.min(easyIntervals.length - 1, newStep - 1);
-          intervalDays = easyIntervals[idx];
-          newStatus = newStep >= 3 ? 'revisado' : 'em_andamento';
-          addXp(60, isFirstContact ? 'Primeiro Contato Registrado' : 'Revisão Fácil Realizada');
-          showNotification(isFirstContact ? `Primeiro contato: próxima em ${intervalDays}d` : `Excelente retenção! Próxima revisão em ${intervalDays}d`, 'success');
-        }
-
-        const nextDate = new Date();
-        nextDate.setDate(nextDate.getDate() + intervalDays);
-        const todayStr = new Date().toISOString().split('T')[0];
-
-        const updated: Topic = {
-          ...t,
-          status: newStatus,
-          difficulty: difficulty === 'dominado' ? 'facil' : difficulty,
-          cycleStep: newStep,
-          intervalDays,
-          firstContactDate: t.firstContactDate || todayStr,
-          lastStudiedDate: todayStr,
-          nextReviewDate: nextDate.toISOString().split('T')[0],
-          inSpacedRepetition: true,
-        };
-        setTopics((prev) => prev.map((x) => (x.id === id ? updated : x)));
+    // Ainda não teve o 1º contato: avaliar = marcar como visto
+    if (t.status === 'nao_iniciado') {
+      markTopicSeen(id);
+      return;
     }
+    if (t.status === 'dominado') return;
+
+    const level = difficulty === 'dominado' ? 'facil' : difficulty;
+    const done = Math.min(REVIEWS_TO_MASTER, getReviewsDone(t) + 1);
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    if (done >= REVIEWS_TO_MASTER) {
+      setTopics((prev) =>
+        prev.map((x) =>
+          x.id === id
+            ? { ...x, status: 'dominado', reviewsDone: REVIEWS_TO_MASTER, cycleStep: REVIEWS_TO_MASTER, difficulty: level, lastStudiedDate: todayStr, nextReviewDate: undefined }
+            : x
+        )
+      );
+      addXp(120, 'Assunto Dominado (4 revisões)');
+      triggerConfetti();
+      showNotification(`🏆 4ª revisão concluída! "${t.title}" agora está dominado.`, 'success');
+      return;
+    }
+
+    const intervalDays = Math.max(1, Math.round(REVIEW_BASE_INTERVALS[done] * DIFFICULTY_FACTOR[level]));
+    setTopics((prev) =>
+      prev.map((x) =>
+        x.id === id
+          ? {
+              ...x,
+              status: 'revisado',
+              reviewsDone: done,
+              cycleStep: done + 1,
+              difficulty: level,
+              intervalDays,
+              lastStudiedDate: todayStr,
+              nextReviewDate: addDays(intervalDays),
+              inSpacedRepetition: true,
+            }
+          : x
+      )
+    );
+    addXp(level === 'facil' ? 60 : level === 'medio' ? 40 : 25, `Revisão ${done}/${REVIEWS_TO_MASTER}`);
+    showNotification(`Revisão ${done}/${REVIEWS_TO_MASTER} registrada. Próxima em ${intervalDays} dia${intervalDays > 1 ? 's' : ''}.`, 'success');
   };
 
   const addExam = (ex: Omit<Exam, 'id'>) => {
@@ -1427,6 +1473,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateTopic,
         deleteTopic,
         reviewTopicSpacedRepetition,
+        markTopicSeen,
+        resetTopicProgress,
         exams,
         addExam,
         updateExam,

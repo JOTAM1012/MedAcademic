@@ -20,6 +20,7 @@ export interface Topic {
   questionCount?: number;
   difficulty?: TopicDifficulty;
   cycleStep?: number; // 1, 2, 3, 4 (R1, R2, R3, R4...)
+  reviewsDone?: number; // revisões espaçadas concluídas (0–4); na 4ª o assunto vira "dominado"
   intervalDays?: number; // 1, 3, 7, 15, 30, 60
   lastStudiedDate?: string;
   nextReviewDate?: string;

@@ -49,20 +49,8 @@ const AppContent: React.FC = () => {
   const [isTourOpen, setIsTourOpen] = useState(false);
 
   const tourSeenKey = `medacademic_tour_seen_${activeUserId || 'guest'}`;
-  const setupDone =
-    Boolean(userProfile?.onboardingCompleted) || Boolean(activeUser?.onboardingCompleted) || subjects.length > 0;
-
-  // Auto-trigger tour once, only on the main panel (never behind the profile setup page)
-  // and never on top of the welcome guide (OnboardingModal).
-  useEffect(() => {
-    if (!isInitialLoadComplete || !setupDone || isEditingProfileSetup || isOnboardingOpen) return;
-    try {
-      if (!localStorage.getItem(tourSeenKey)) {
-        const timer = setTimeout(() => setIsTourOpen(true), 800);
-        return () => clearTimeout(timer);
-      }
-    } catch (e) {}
-  }, [isInitialLoadComplete, setupDone, isEditingProfileSetup, isOnboardingOpen, tourSeenKey]);
+  // The guided tour no longer opens by itself (returning users kept seeing it on every new
+  // login/device). New accounts get the welcome guide once; the tour stays under "Ajuda & Tour".
 
   const markTourSeen = () => {
     try {

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   X,
   Layers,
@@ -44,6 +44,16 @@ export const AddStudyTopicModal: React.FC<AddStudyTopicModalProps> = ({
     defaultSubjectId || subjects[0]?.id || ''
   );
   const [isCreatingNewSubject, setIsCreatingNewSubject] = useState(false);
+  // Opened from a discipline ("Adicionar Tópico"): the discipline is fixed, no need to choose
+  const [isSubjectLocked, setIsSubjectLocked] = useState(Boolean(defaultSubjectId));
+
+  // The modal stays mounted between openings: resync the discipline every time it opens
+  useEffect(() => {
+    if (!isOpen) return;
+    setSelectedSubjectId(defaultSubjectId || subjects[0]?.id || '');
+    setIsSubjectLocked(Boolean(defaultSubjectId && subjects.some((s) => s.id === defaultSubjectId)));
+    setIsCreatingNewSubject(false);
+  }, [isOpen, defaultSubjectId]);
   const [newSubjectName, setNewSubjectName] = useState('');
   const [newSubjectArea, setNewSubjectArea] = useState<string | null>(null);
 
@@ -189,6 +199,28 @@ export const AddStudyTopicModal: React.FC<AddStudyTopicModalProps> = ({
           
           {/* Step 1: Disciplina & Assunto */}
           <div className="space-y-3.5 bg-slate-50 dark:bg-slate-950/50 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800">
+            {isSubjectLocked && currentSubject ? (
+              <div
+                className="flex items-center justify-between gap-3 p-3 rounded-xl bg-white dark:bg-slate-900 border-l-4 border border-slate-200 dark:border-slate-800"
+                style={{ borderLeftColor: getMedicalArea(currentSubject.majorArea).color }}
+              >
+                <div className="min-w-0">
+                  <div className="text-[10px] font-bold uppercase tracking-wider" style={{ color: getMedicalArea(currentSubject.majorArea).color }}>
+                    {getMedicalArea(currentSubject.majorArea).id === OTHER_AREA.id ? 'Disciplina' : getMedicalArea(currentSubject.majorArea).id}
+                  </div>
+                  <div className="text-sm font-black text-slate-900 dark:text-white truncate">
+                    {currentSubject.universitySubject || currentSubject.name}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsSubjectLocked(false)}
+                  className="shrink-0 text-[11px] font-bold text-slate-500 hover:text-sky-600"
+                >
+                  Trocar
+                </button>
+              </div>
+            ) : (
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
@@ -267,10 +299,12 @@ export const AddStudyTopicModal: React.FC<AddStudyTopicModalProps> = ({
               )}
             </div>
 
+            )}
+
             <div>
               <label className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5 mb-1.5">
                 <span className="w-2 h-2 rounded-full bg-indigo-500"></span>
-                2. Título do Assunto
+                {isSubjectLocked ? 'Título do Assunto' : '2. Título do Assunto'}
               </label>
               <input
                 type="text"

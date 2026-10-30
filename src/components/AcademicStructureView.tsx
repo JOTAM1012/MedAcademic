@@ -15,11 +15,13 @@ import {
   GraduationCap,
   Tag,
   AlertTriangle,
+  RotateCcw,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { Subject, Topic, TopicStatus } from '../types';
 import { MEDICAL_AREAS, OTHER_AREA, getMedicalArea } from '../data/areas';
 import { EditSubjectModal } from './modals/EditSubjectModal';
+import { TOPIC_STATUS_INFO, REVIEWS_TO_MASTER, getReviewsDone, isTopicDone, topicStatusLabel } from '../data/topicStatus';
 
 interface AcademicStructureViewProps {
   onOpenAddSubject: () => void;
@@ -39,6 +41,8 @@ export const AcademicStructureView: React.FC<AcademicStructureViewProps> = ({
     topics,
     updateTopic,
     deleteTopic,
+    markTopicSeen,
+    resetTopicProgress,
     setCurrentTab,
   } = useApp();
 
@@ -80,29 +84,15 @@ export const AcademicStructureView: React.FC<AcademicStructureViewProps> = ({
       })
     : [];
 
-  const getStatusBadge = (status: TopicStatus) => {
-    switch (status) {
-      case 'dominado':
-        return {
-          label: 'Dominado',
-          class: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30',
-        };
-      case 'revisado':
-        return {
-          label: 'Revisado',
-          class: 'bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/30',
-        };
-      case 'em_andamento':
-        return {
-          label: 'Em Andamento',
-          class: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30',
-        };
-      default:
-        return {
-          label: 'Não Iniciado',
-          class: 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-300 dark:border-slate-700',
-        };
-    }
+  const getStatusBadge = (topic: Topic) => ({
+    label: topicStatusLabel(topic),
+    class: TOPIC_STATUS_INFO[topic.status].badgeClass,
+  });
+
+  const formatShortDate = (iso?: string) => {
+    if (!iso) return '';
+    const [, m, d] = iso.split('-');
+    return d && m ? `${d}/${m}` : iso;
   };
 
   return (
@@ -217,9 +207,9 @@ export const AcademicStructureView: React.FC<AcademicStructureViewProps> = ({
                     {groupSubjects.map((sub) => {
                       const isSelected = activeSubject?.id === sub.id;
                       const subTopics = topics.filter((t) => t.subjectId === sub.id);
-                      const masteredCount = subTopics.filter((t) => t.status === 'dominado').length;
+                      const doneCount = subTopics.filter(isTopicDone).length;
                       const completionPercentage =
-                        subTopics.length > 0 ? Math.round((masteredCount / subTopics.length) * 100) : 0;
+                        subTopics.length > 0 ? Math.round((doneCount / subTopics.length) * 100) : 0;
 
                       return (
                         <div
@@ -253,7 +243,7 @@ export const AcademicStructureView: React.FC<AcademicStructureViewProps> = ({
                                 {completionPercentage}%
                               </div>
                               <div className="text-[10px] text-slate-400">
-                                {masteredCount}/{subTopics.length} dom.
+                                {doneCount}/{subTopics.length} realizados
                               </div>
                             </div>
                           </div>
@@ -355,15 +345,7 @@ export const AcademicStructureView: React.FC<AcademicStructureViewProps> = ({
                           : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200'
                       }`}
                     >
-                      {st === 'all'
-                        ? 'Todos'
-                        : st === 'dominado'
-                        ? 'Dominados'
-                        : st === 'revisado'
-                        ? 'Revisados'
-                        : st === 'em_andamento'
-                        ? 'Em Andamento'
-                        : 'Não Iniciados'}
+                      {st === 'all' ? 'Todos' : TOPIC_STATUS_INFO[st as TopicStatus].filterLabel}
                     </button>
                   ))}
                 </div>
@@ -386,7 +368,8 @@ export const AcademicStructureView: React.FC<AcademicStructureViewProps> = ({
                   </div>
                 ) : (
                   currentSubjectTopics.map((topic) => {
-                    const badge = getStatusBadge(topic.status);
+                    const badge = getStatusBadge(topic);
+                    const reviewsDone = getReviewsDone(topic);
                     return (
                       <div
                         key={topic.id}
@@ -439,20 +422,50 @@ export const AcademicStructureView: React.FC<AcademicStructureViewProps> = ({
 
                           {/* Action Status Selector & Delete */}
                           <div className="flex items-center gap-2 shrink-0 pt-2 sm:pt-0">
-                            <select
-                              value={topic.status}
-                              onChange={(e) =>
-                                updateTopic(topic.id, {
-                                  status: e.target.value as TopicStatus,
-                                })
-                              }
-                              className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-2.5 py-1 text-xs font-semibold text-slate-700 dark:text-slate-300 focus:outline-hidden focus:border-sky-500"
-                            >
-                              <option value="nao_iniciado">Não Iniciado</option>
-                              <option value="em_andamento">Em Andamento</option>
-                              <option value="revisado">Revisado</option>
-                              <option value="dominado">Dominado ⭐</option>
-                            </select>
+                            {topic.status === 'nao_iniciado' ? (
+                              <button
+                                type="button"
+                                onClick={() => markTopicSeen(topic.id)}
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition-colors"
+                                title="Registrar o 1º contato: o assunto entra na aba Revisões"
+                              >
+                                <CheckCircle2 className="h-3.5 w-3.5" />
+                                Marcar como visto
+                              </button>
+                            ) : (
+                              <div className="flex items-center gap-2">
+                                <div className="text-right">
+                                  <div className="flex items-center justify-end gap-1" title={`${reviewsDone} de ${REVIEWS_TO_MASTER} revisões concluídas`}>
+                                    {Array.from({ length: REVIEWS_TO_MASTER }, (_, i) => (
+                                      <span
+                                        key={i}
+                                        className={`h-1.5 w-4 rounded-full ${i < reviewsDone ? 'bg-emerald-500' : 'bg-slate-200 dark:bg-slate-700'}`}
+                                      />
+                                    ))}
+                                  </div>
+                                  <div className="text-[10px] text-slate-500 mt-1">
+                                    {topic.status === 'dominado'
+                                      ? '4 revisões concluídas'
+                                      : topic.nextReviewDate
+                                      ? `Próxima revisão ${formatShortDate(topic.nextReviewDate)}`
+                                      : 'Na aba Revisões'}
+                                  </div>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (reviewsDone === 0 || window.confirm(`Recomeçar "${topic.title}"? As revisões feitas serão zeradas.`)) {
+                                      resetTopicProgress(topic.id);
+                                    }
+                                  }}
+                                  className="p-1 rounded-lg text-slate-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors"
+                                  title="Voltar para Não iniciado"
+                                  aria-label="Voltar para Não iniciado"
+                                >
+                                  <RotateCcw className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            )}
 
                             <button
                               onClick={() => deleteTopic(topic.id)}
