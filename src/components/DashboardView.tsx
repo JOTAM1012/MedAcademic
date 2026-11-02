@@ -23,6 +23,7 @@ import {
 import { useApp } from '../context/AppContext';
 import { getActivityCategory, getExamKind, getExamSubjectName, occursOn, toYMD } from '../data/planning';
 import { WeeklyStatsCard } from './WeeklyStatsCard';
+import { InstallAppBanner } from './InstallAppGuide';
 import { MonthlyPerformanceChart } from './MonthlyPerformanceChart';
 
 export const DashboardView: React.FC = () => {
@@ -108,6 +109,7 @@ export const DashboardView: React.FC = () => {
 
   return (
     <div id="tour-dashboard" className="space-y-6 pb-12">
+      <InstallAppBanner />
       {/* Clean Slate / First Steps Guide Banner */}
       {subjects.length === 0 && (
         <div className="rounded-2xl border border-sky-200 dark:border-sky-800/80 bg-gradient-to-r from-sky-50 via-blue-50 to-indigo-50 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800/80 p-5 sm:p-6 shadow-xs">

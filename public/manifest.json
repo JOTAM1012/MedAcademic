@@ -1,7 +1,9 @@
 {
+  "id": "/",
   "name": "MedAcademic - Gestão de Estudos Médicos",
   "short_name": "MedAcademic",
-  "description": "Sistema completo para estudantes de medicina: semestres, matérias, tópicos, repetição espaçada, cronômetro Pomodoro, gestão de notas, grade horária e calendário, com suporte offline.",
+  "description": "Planner, grade de semestre, grade de horários, revisões espaçadas, Pomodoro e checklist para estudantes de medicina, com suporte offline.",
+  "lang": "pt-BR",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
@@ -11,15 +13,27 @@
   "categories": ["education", "medical", "productivity"],
   "icons": [
     {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
       "src": "/icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/favicon.png",
-      "sizes": "2048x2048",
-      "type": "image/png",
       "purpose": "any"
     }
   ]

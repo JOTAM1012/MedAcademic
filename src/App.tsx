@@ -16,6 +16,8 @@ import { ProfileView } from './components/ProfileView';
 import { ChecklistView } from './components/ChecklistView';
 import { ProfileCreationPage } from './components/ProfileCreationPage';
 import { GuidedTour } from './components/GuidedTour';
+import { InstallAppModal } from './components/InstallAppGuide';
+import { OPEN_INSTALL_EVENT } from './lib/pwaInstall';
 
 // Modals
 import { AddSubjectModal } from './components/modals/AddSubjectModal';
@@ -46,6 +48,14 @@ const AppContent: React.FC = () => {
 
   // Guided Tour State
   const [isTourOpen, setIsTourOpen] = useState(false);
+
+  // Janela "Instalar app" (aberta por openInstallGuide() de qualquer tela)
+  const [isInstallOpen, setIsInstallOpen] = useState(false);
+  useEffect(() => {
+    const open = () => setIsInstallOpen(true);
+    window.addEventListener(OPEN_INSTALL_EVENT, open);
+    return () => window.removeEventListener(OPEN_INSTALL_EVENT, open);
+  }, []);
 
   const tourSeenKey = `medacademic_tour_seen_${activeUserId || 'guest'}`;
   // The guided tour no longer opens by itself (returning users kept seeing it on every new
@@ -492,6 +502,8 @@ const AppContent: React.FC = () => {
           </div>
         </div>
       </div>
+
+      <InstallAppModal isOpen={isInstallOpen} onClose={() => setIsInstallOpen(false)} />
 
       {/* Guided Overlay Tour for New Users */}
       <GuidedTour

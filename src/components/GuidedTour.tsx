@@ -11,6 +11,7 @@ import {
   Brain,
   Timer,
   GraduationCap,
+  Smartphone,
   Compass,
   Zap,
 } from 'lucide-react';
@@ -79,6 +80,16 @@ const TOUR_STEPS: TourStep[] = [
     description: 'Seus dados são salvos offline no dispositivo e sincronizados na nuvem em tempo real. Veja seu nível, XP acumulado e relance este tour a qualquer momento.',
     badgeText: 'Sincronização & XP 🎓',
     icon: <GraduationCap className="w-5 h-5 text-blue-400" />,
+    position: 'bottom',
+  },
+  {
+    id: 'install',
+    targetSelector: '#topbar-install-btn',
+    title: 'Instale no celular 📱',
+    description:
+      'Toque em "Instalar app" para usar o MedAcademic como aplicativo: ícone na tela inicial, tela cheia e funcionamento offline. No Android use o Chrome (menu ⋮ → Instalar app); no iPhone use o Safari (Compartilhar → Adicionar à Tela de Início).',
+    badgeText: 'Aplicativo 📲',
+    icon: <Smartphone className="w-5 h-5 text-sky-400" />,
     position: 'bottom',
   },
 ];

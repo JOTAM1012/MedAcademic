@@ -10,8 +10,10 @@ import {
   CloudOff,
   RefreshCw,
   HelpCircle,
+  Smartphone,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { openInstallGuide, usePwaInstall } from '../lib/pwaInstall';
 
 interface TopBarProps {
   onToggleMobileMenu: () => void;
@@ -19,6 +21,7 @@ interface TopBarProps {
 }
 
 export const TopBar: React.FC<TopBarProps> = ({ onToggleMobileMenu, onOpenTour }) => {
+  const { isInstalled: isAppInstalled } = usePwaInstall();
   const {
     setCurrentTab,
     isDarkMode,
@@ -329,6 +332,20 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleMobileMenu, onOpenTour }
             </div>
           )}
         </div>
+
+        {/* Instalar como aplicativo (some quando já está instalado) */}
+        {!isAppInstalled && (
+          <button
+            id="topbar-install-btn"
+            onClick={openInstallGuide}
+            className="rounded-xl p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center gap-1.5 text-xs font-semibold"
+            aria-label="Instalar o MedAcademic como aplicativo"
+            title="Instalar como aplicativo"
+          >
+            <Smartphone className="h-4 w-4 text-sky-500" />
+            <span className="hidden md:inline text-slate-700 dark:text-slate-300">Instalar app</span>
+          </button>
+        )}
 
         {/* Guided Tour Launcher Button */}
         {onOpenTour && (

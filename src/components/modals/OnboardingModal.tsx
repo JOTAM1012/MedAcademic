@@ -13,8 +13,10 @@ import {
   CalendarDays,
   PlusCircle,
   HelpCircle,
+  Smartphone,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { InstallAppGuide } from '../InstallAppGuide';
 
 interface OnboardingModalProps {
   isOpen: boolean;
@@ -87,6 +89,18 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClos
         'Histórico completo de sessões com data, horário e tempo líquido registrado.',
       ],
     },
+    {
+      title: '5. Instale no celular 📱',
+      subtitle: 'Use o MedAcademic como aplicativo no Android, iPhone ou computador.',
+      icon: Smartphone,
+      color: 'bg-sky-600 text-white',
+      tag: 'Aplicativo',
+      description:
+        'O MedAcademic pode ser instalado direto pelo navegador, sem loja: ganha ícone na tela inicial, abre em tela cheia, funciona offline e continua sincronizando com a nuvem.',
+      actionTip: '💡 Dica: o botão "Instalar app" fica sempre no topo da tela, ao lado de "Ajuda & Tour".',
+      bulletPoints: [],
+      custom: <InstallAppGuide compact />,
+    },
   ];
 
   const active = steps[currentStep];
@@ -104,7 +118,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClos
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in">
-      <div className="relative w-full max-w-xl rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 sm:p-8 shadow-2xl overflow-hidden">
+      <div className="relative w-full max-w-xl max-h-[92vh] overflow-y-auto rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 sm:p-8 shadow-2xl overflow-hidden">
         {/* Close Button */}
         <button
           onClick={onClose}
@@ -162,15 +176,19 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClos
           {active.description}
         </p>
 
-        {/* Bullet Points */}
-        <div className="space-y-2 mb-4 bg-slate-50 dark:bg-slate-950/60 p-4 rounded-2xl border border-slate-100 dark:border-slate-800/80">
-          {active.bulletPoints.map((bp, i) => (
-            <div key={i} className="flex items-start gap-2 text-xs text-slate-700 dark:text-slate-300">
-              <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" />
-              <span>{bp}</span>
-            </div>
-          ))}
-        </div>
+        {/* Bullet Points (ou conteúdo próprio do passo, ex.: guia de instalação) */}
+        {'custom' in active && active.custom ? (
+          <div className="mb-4">{active.custom}</div>
+        ) : (
+          <div className="space-y-2 mb-4 bg-slate-50 dark:bg-slate-950/60 p-4 rounded-2xl border border-slate-100 dark:border-slate-800/80">
+            {active.bulletPoints.map((bp, i) => (
+              <div key={i} className="flex items-start gap-2 text-xs text-slate-700 dark:text-slate-300">
+                <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" />
+                <span>{bp}</span>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Action Tip */}
         <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-700 dark:text-amber-300 font-medium mb-6">
