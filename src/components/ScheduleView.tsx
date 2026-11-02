@@ -1,590 +1,306 @@
-import React, { useState } from 'react';
-import {
-  CalendarDays,
-  Plus,
-  Clock,
-  MapPin,
-  Trash2,
-  BookOpen,
-  Filter,
-  CheckCircle2,
-  Sparkles,
-  Search,
-  Building2,
-  Copy,
-  LayoutGrid,
-  ListOrdered,
-  Calendar,
-  AlertCircle,
-  Tag,
-  ChevronRight,
-  MoreVertical,
-  Check
-} from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { Plus, Clock, MapPin, Trash2, Edit2, CalendarDays, CalendarCheck, Timer } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { ScheduleClass } from '../types';
+import { AddScheduleModal } from './modals/AddScheduleModal';
+import {
+  ACTIVITY_CATEGORIES,
+  WEEK_DAYS,
+  durationHours,
+  formatDateBR,
+  getActivityCategory,
+  toYMD,
+} from '../data/planning';
 
 interface ScheduleViewProps {
-  onOpenAddSchedule: (dayNum?: number) => void;
+  onOpenAddSchedule?: (dayNum?: number) => void;
 }
 
-const DAYS = [
-  { num: 1, name: 'Segunda-feira', short: 'Seg' },
-  { num: 2, name: 'Terça-feira', short: 'Ter' },
-  { num: 3, name: 'Quarta-feira', short: 'Qua' },
-  { num: 4, name: 'Quinta-feira', short: 'Qui' },
-  { num: 5, name: 'Sexta-feira', short: 'Sex' },
-  { num: 6, name: 'Sábado', short: 'Sáb' },
-  { num: 7, name: 'Domingo', short: 'Dom' },
-];
+type ModalState = { open: boolean; item?: ScheduleClass | null; day?: number; category?: string };
 
-export const ScheduleView: React.FC<ScheduleViewProps> = ({ onOpenAddSchedule }) => {
-  const { schedule, deleteScheduleClass, updateScheduleClass, addScheduleClass, subjects, showNotification } = useApp();
+const QUICK_ADD = ['aula', 'academia', 'simposio', 'liga', 'congresso'];
 
-  const [selectedDayTab, setSelectedDayTab] = useState<number>(0); // 0 = all days, 1-7 = Mon-Sun
-  const [viewMode, setViewMode] = useState<'grid' | 'timeline'>('grid');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filterType, setFilterType] = useState<string>('all');
-  const [duplicateModalItem, setDuplicateModalItem] = useState<ScheduleClass | null>(null);
+export const ScheduleView: React.FC<ScheduleViewProps> = () => {
+  const { schedule, subjects, deleteScheduleClass } = useApp();
+  const [modal, setModal] = useState<ModalState>({ open: false });
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
 
-  const getSubject = (subjectId?: string) => {
-    if (!subjectId) return null;
-    return subjects.find((s) => s.id === subjectId);
+  const todayStr = toYMD(new Date());
+  const todayNum = ((new Date().getDay() + 6) % 7) + 1;
+
+  const titleOf = (sc: ScheduleClass) => {
+    if (sc.title) return sc.title;
+    const sub = sc.subjectId ? subjects.find((s) => s.id === sc.subjectId) : undefined;
+    return sub?.universitySubject || sub?.name || 'Atividade';
   };
 
-  // Helper to calculate duration in hours between HH:mm and HH:mm
-  const calculateHours = (start: string, end: string) => {
-    const [h1, m1] = start.split(':').map(Number);
-    const [h2, m2] = end.split(':').map(Number);
-    const mins = (h2 * 60 + m2) - (h1 * 60 + m1);
-    return Math.max(0, mins / 60);
-  };
+  const matchesFilter = (sc: ScheduleClass) => categoryFilter === 'all' || getActivityCategory(sc).id === categoryFilter;
 
-  // Weekly Stats Calculation
-  const totalItems = schedule.length;
-  const totalWeeklyHours = schedule
-    .reduce((acc, item) => acc + calculateHours(item.startTime, item.endTime), 0)
-    .toFixed(1);
+  const weekly = useMemo(() => schedule.filter((s) => !s.date), [schedule]);
+  const events = useMemo(
+    () =>
+      schedule
+        .filter((s) => s.date && s.date >= todayStr)
+        .sort((a, b) => (a.date! + a.startTime).localeCompare(b.date! + b.startTime)),
+    [schedule, todayStr]
+  );
 
-  // Find busiest day
-  const itemsPerDay = DAYS.map((d) => ({
-    day: d,
-    count: schedule.filter((s) => s.dayOfWeek === d.num).length,
-    hours: schedule.filter((s) => s.dayOfWeek === d.num).reduce((acc, item) => acc + calculateHours(item.startTime, item.endTime), 0)
-  }));
-  const busiestDay = [...itemsPerDay].sort((a, b) => b.count - a.count)[0];
-
-  // Filter schedule items
-  const filteredSchedule = schedule.filter((item) => {
-    const sub = getSubject(item.subjectId);
-    const titleText = item.title || sub?.name || '';
-    const roomText = item.room || '';
-    const locText = item.location || '';
-    const typeText = item.type || '';
-
-    const matchesSearch =
-      titleText.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      roomText.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      locText.toLowerCase().includes(searchQuery.toLowerCase());
-
-    const matchesFilter =
-      filterType === 'all' ||
-      (filterType === 'aulas' && item.subjectId) ||
-      (filterType === 'compromissos' && !item.subjectId) ||
-      (filterType === 'plantao' && (typeText.toLowerCase().includes('plantão') || typeText.toLowerCase().includes('internato'))) ||
-      (filterType === 'pratica' && (typeText.toLowerCase().includes('prática') || typeText.toLowerCase().includes('ambulatório')));
-
-    return matchesSearch && matchesFilter;
+  const weeklyHours = weekly.reduce((acc, s) => acc + durationHours(s.startTime, s.endTime), 0);
+  // Datas desta semana (segunda a domingo), para encaixar os eventos de data única
+  const weekDates = WEEK_DAYS.map((d) => {
+    const date = new Date();
+    date.setDate(date.getDate() + (d.num - todayNum));
+    return toYMD(date);
   });
+  const perDay = WEEK_DAYS.map((d, idx) => {
+    const items = schedule
+      .filter((s) => (s.date ? s.date === weekDates[idx] : s.dayOfWeek === d.num) && matchesFilter(s))
+      .sort((a, b) => a.startTime.localeCompare(b.startTime));
+    return { ...d, items, hours: items.reduce((acc, s) => acc + durationHours(s.startTime, s.endTime), 0) };
+  });
+  const busiest = [...perDay].sort((a, b) => b.hours - a.hours)[0];
 
-  const handleToggleComplete = (id: string, currentStatus?: boolean) => {
-    updateScheduleClass(id, { isCompleted: !currentStatus });
-    if (!currentStatus) {
-      showNotification('Atividade marcada como concluída hoje! 👏', 'success');
-    }
+  const categoryCounts = useMemo(() => {
+    const map = new Map<string, number>();
+    schedule.forEach((s) => {
+      const id = getActivityCategory(s).id;
+      map.set(id, (map.get(id) || 0) + 1);
+    });
+    return map;
+  }, [schedule]);
+
+  const handleDelete = (sc: ScheduleClass) => {
+    if (window.confirm(`Remover "${titleOf(sc)}"?`)) deleteScheduleClass(sc.id);
   };
 
-  const handleDuplicateToDay = (item: ScheduleClass, targetDayNum: number) => {
-    addScheduleClass({
-      subjectId: item.subjectId,
-      title: item.title,
-      dayOfWeek: targetDayNum as any,
-      startTime: item.startTime,
-      endTime: item.endTime,
-      room: item.room,
-      type: item.type,
-      location: item.location,
-      color: item.color,
-      notes: item.notes,
-    });
-    setDuplicateModalItem(null);
-    showNotification(`Atividade duplicada para ${DAYS.find((d) => d.num === targetDayNum)?.name}!`, 'success');
+  const renderCard = (sc: ScheduleClass, showDate = false) => {
+    const cat = getActivityCategory(sc);
+    const color = sc.color || cat.color;
+    const place = sc.location || sc.room;
+    return (
+      <div
+        key={sc.id}
+        onClick={() => setModal({ open: true, item: sc })}
+        className="group relative rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-2.5 pl-3 cursor-pointer hover:shadow-sm hover:border-slate-300 dark:hover:border-slate-700 transition-all overflow-hidden"
+      >
+        <span className="absolute left-0 top-0 bottom-0 w-1" style={{ backgroundColor: color }} />
+        <div className="flex items-start justify-between gap-1">
+          <span
+            className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-md"
+            style={{ backgroundColor: `${color}1f`, color }}
+          >
+            {cat.emoji} {cat.label}
+          </span>
+          <div className="flex gap-0.5 opacity-100 xl:opacity-0 xl:group-hover:opacity-100 transition-opacity">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setModal({ open: true, item: sc });
+              }}
+              className="p-1 rounded-md text-slate-400 hover:text-sky-600 hover:bg-slate-100 dark:hover:bg-slate-800"
+              aria-label="Editar atividade"
+            >
+              <Edit2 className="h-3 w-3" />
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDelete(sc);
+              }}
+              className="p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-slate-100 dark:hover:bg-slate-800"
+              aria-label="Remover atividade"
+            >
+              <Trash2 className="h-3 w-3" />
+            </button>
+          </div>
+        </div>
+        <h4 className="text-xs font-bold text-slate-900 dark:text-white mt-1 leading-snug break-words">{titleOf(sc)}</h4>
+        <div className="mt-1 space-y-0.5 text-[10px] text-slate-500 dark:text-slate-400">
+          <div className="flex items-center gap-1 font-mono font-semibold">
+            <Clock className="h-3 w-3 shrink-0" />
+            {showDate && <span className="font-sans">{formatDateBR(sc.date)} ·</span>}
+            {sc.startTime}–{sc.endTime}
+          </div>
+          {place && (
+            <div className="flex items-center gap-1 min-w-0">
+              <MapPin className="h-3 w-3 shrink-0" />
+              <span className="truncate">{place}</span>
+            </div>
+          )}
+        </div>
+      </div>
+    );
   };
 
   return (
-    <div className="space-y-6 pb-12 max-w-7xl mx-auto">
-      {/* Top Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="space-y-5 pb-12 max-w-7xl mx-auto">
+      {/* Cabeçalho */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white">
-              Grade Horária & Aulas
-            </h1>
-            <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-sky-100 dark:bg-sky-950/80 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800">
-              Grade Semanal
-            </span>
-          </div>
+          <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white">Grade de Horários</h1>
           <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Organize horários de anfiteatros, enfermarias, ambulatórios, plantões e compromissos de estudo.
+            Monte sua semana: aulas, academia, ligas, simpósios, congressos e o que mais fizer parte da rotina.
           </p>
         </div>
-
-        {/* Global Action Button */}
-        <div className="flex items-center gap-2">
-          <button
-            id="schedule-add-class-btn"
-            onClick={() => onOpenAddSchedule()}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold shadow-md shadow-sky-600/20 transition-all cursor-pointer"
-          >
-            <Plus className="h-4 w-4" />
-            <span>Adicionar à Grade</span>
-          </button>
-        </div>
+        <button
+          id="schedule-add-btn"
+          onClick={() => setModal({ open: true, item: null })}
+          className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold shadow-xs"
+        >
+          <Plus className="h-4 w-4" /> Adicionar
+        </button>
       </div>
 
-      {/* Stats Banner */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400">
-            <CalendarDays className="h-5 w-5" />
-          </div>
-          <div>
-            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Carga Semanal</div>
-            <div className="text-lg font-black text-slate-900 dark:text-white mt-0.5">{totalWeeklyHours} horas</div>
-          </div>
-        </div>
+      {/* Atalhos de categoria */}
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+        {QUICK_ADD.map((id) => {
+          const c = ACTIVITY_CATEGORIES.find((x) => x.id === id)!;
+          return (
+            <button
+              key={id}
+              onClick={() => setModal({ open: true, item: null, category: id })}
+              className="flex items-center gap-2 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2.5 text-left hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-xs transition-all"
+            >
+              <span className="w-8 h-8 shrink-0 rounded-xl flex items-center justify-center text-base" style={{ backgroundColor: `${c.color}1f` }}>
+                {c.emoji}
+              </span>
+              <span className="min-w-0">
+                <span className="block text-xs font-bold text-slate-800 dark:text-slate-100 truncate">{c.label}</span>
+                <span className="block text-[10px] text-slate-500">+ adicionar</span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
 
-        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400">
-            <BookOpen className="h-5 w-5" />
+      {/* Resumo */}
+      <div className="grid grid-cols-3 gap-3">
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 sm:p-4">
+          <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-bold uppercase tracking-wide text-slate-500">
+            <Timer className="h-4 w-4 text-sky-500" /> Horas/semana
           </div>
-          <div>
-            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total de Aulas</div>
-            <div className="text-lg font-black text-slate-900 dark:text-white mt-0.5">{totalItems} cadastradas</div>
-          </div>
+          <div className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white mt-1">{weeklyHours.toFixed(1).replace('.', ',')}h</div>
         </div>
-
-        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400">
-            <Clock className="h-5 w-5" />
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 sm:p-4">
+          <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-bold uppercase tracking-wide text-slate-500">
+            <CalendarDays className="h-4 w-4 text-emerald-500" /> Fixas
           </div>
-          <div>
-            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Dia mais Atarefado</div>
-            <div className="text-sm font-black text-slate-900 dark:text-white mt-0.5 truncate max-w-[120px]">
-              {busiestDay?.count > 0 ? `${busiestDay.day.short} (${busiestDay.count}x)` : 'Livre'}
-            </div>
-          </div>
+          <div className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white mt-1">{weekly.length}</div>
         </div>
-
-        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400">
-            <Sparkles className="h-5 w-5" />
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 sm:p-4 min-w-0">
+          <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-bold uppercase tracking-wide text-slate-500">
+            <CalendarCheck className="h-4 w-4 text-violet-500" /> Dia mais cheio
           </div>
-          <div>
-            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Compromissos</div>
-            <div className="text-lg font-black text-slate-900 dark:text-white mt-0.5">
-              {schedule.filter((s) => !s.subjectId).length} pessoais
-            </div>
+          <div className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white mt-1 truncate">
+            {busiest && busiest.hours > 0 ? busiest.short : '—'}
           </div>
         </div>
       </div>
 
-      {/* Toolbar: View Switcher, Search, Type Filters */}
-      <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 p-2.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
-        {/* Days Tabs */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 lg:pb-0 scrollbar-none">
+      {/* Filtro por categoria */}
+      {schedule.length > 0 && (
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
           <button
-            onClick={() => setSelectedDayTab(0)}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
-              selectedDayTab === 0
-                ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-xs'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200'
+            onClick={() => setCategoryFilter('all')}
+            className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold ${
+              categoryFilter === 'all'
+                ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900'
+                : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300'
             }`}
           >
-            Semana Completa
+            Tudo
           </button>
-          {DAYS.map((d) => {
-            const count = schedule.filter((s) => s.dayOfWeek === d.num).length;
+          {ACTIVITY_CATEGORIES.filter((c) => categoryCounts.get(c.id)).map((c) => {
+            const active = categoryFilter === c.id;
             return (
               <button
-                key={d.num}
-                onClick={() => setSelectedDayTab(d.num)}
-                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
-                  selectedDayTab === d.num
-                    ? 'bg-sky-600 text-white shadow-xs'
-                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200'
+                key={c.id}
+                onClick={() => setCategoryFilter(active ? 'all' : c.id)}
+                className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border ${
+                  active ? 'text-white' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300'
                 }`}
+                style={active ? { backgroundColor: c.color, borderColor: c.color } : undefined}
               >
-                <span>{d.short}</span>
-                <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
-                  selectedDayTab === d.num ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-500'
-                }`}>
-                  {count}
-                </span>
+                {c.emoji} {c.label}
+                <span className="opacity-70">{categoryCounts.get(c.id)}</span>
               </button>
             );
           })}
         </div>
-
-        {/* Search & Filter & View Toggle */}
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Search Box */}
-          <div className="relative flex-1 sm:w-48">
-            <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Buscar matéria/sala..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-8 pr-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-sky-500"
-            />
-          </div>
-
-          {/* Filter Dropdown */}
-          <select
-            value={filterType}
-            onChange={(e) => setFilterType(e.target.value)}
-            className="px-2.5 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-300 focus:outline-hidden"
-          >
-            <option value="all">Todas Atividades</option>
-            <option value="aulas">Apenas Aulas</option>
-            <option value="compromissos">Apenas Compromissos</option>
-            <option value="plantao">Plantões / Internato</option>
-            <option value="pratica">Prática / Ambulatório</option>
-          </select>
-
-          {/* Mode toggle */}
-          <div className="flex items-center p-0.5 rounded-xl bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
-            <button
-              onClick={() => setViewMode('grid')}
-              className={`p-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                viewMode === 'grid' ? 'bg-white dark:bg-slate-800 text-sky-600 dark:text-sky-400 shadow-xs' : 'text-slate-400 hover:text-slate-600'
-              }`}
-              title="Visão em Grade"
-            >
-              <LayoutGrid className="h-4 w-4" />
-            </button>
-            <button
-              onClick={() => setViewMode('timeline')}
-              className={`p-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                viewMode === 'timeline' ? 'bg-white dark:bg-slate-800 text-sky-600 dark:text-sky-400 shadow-xs' : 'text-slate-400 hover:text-slate-600'
-              }`}
-              title="Visão Linha do Tempo"
-            >
-              <ListOrdered className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Content Area */}
-      {viewMode === 'grid' ? (
-        /* GRID VIEW: Cards per Day */
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {DAYS
-            .filter((d) => selectedDayTab === 0 || selectedDayTab === d.num)
-            .map((day) => {
-              const dayClasses = filteredSchedule
-                .filter((sc) => sc.dayOfWeek === day.num)
-                .sort((a, b) => a.startTime.localeCompare(b.startTime));
-
-              return (
-                <div
-                  key={day.num}
-                  className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-xs flex flex-col justify-between transition-all"
-                >
-                  <div>
-                    {/* Day Header with EXPLICIT "Adicionar à Grade" Button */}
-                    <div className="flex items-center justify-between pb-3.5 mb-3.5 border-b border-slate-100 dark:border-slate-800">
-                      <div className="flex items-center gap-2">
-                        <div className="h-2.5 w-2.5 rounded-full bg-sky-500" />
-                        <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">
-                          {day.name}
-                        </h3>
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500">
-                          {dayClasses.length}
-                        </span>
-                      </div>
-
-                      {/* Direct "+ Adicionar à grade" button in this specific day card */}
-                      <button
-                        type="button"
-                        onClick={() => onOpenAddSchedule(day.num)}
-                        className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-sky-50 dark:bg-sky-950/60 hover:bg-sky-100 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800/80 text-[11px] font-bold transition-all cursor-pointer"
-                        title={`Adicionar aula ou compromisso na ${day.name}`}
-                      >
-                        <Plus className="h-3.5 w-3.5" />
-                        <span>Adicionar</span>
-                      </button>
-                    </div>
-
-                    {/* Day Content */}
-                    {dayClasses.length === 0 ? (
-                      <div className="py-10 px-4 text-center border-2 border-dashed border-slate-100 dark:border-slate-800/80 rounded-2xl my-2 flex flex-col items-center justify-center">
-                        <CalendarDays className="h-8 w-8 text-slate-300 dark:text-slate-700 mb-2" />
-                        <p className="text-xs text-slate-400 font-medium">Nenhuma aula ou compromisso cadastrado.</p>
-                        <button
-                          type="button"
-                          onClick={() => onOpenAddSchedule(day.num)}
-                          className="mt-3 flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-sky-600 hover:text-white text-slate-600 dark:text-slate-300 text-xs font-bold transition-all cursor-pointer"
-                        >
-                          <Plus className="h-3.5 w-3.5" />
-                          <span>+ Adicionar para {day.short}</span>
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        {dayClasses.map((item) => {
-                          const sub = getSubject(item.subjectId);
-                          const isCommitment = !item.subjectId;
-                          const accentColor = item.color || sub?.color || '#0284c7';
-
-                          return (
-                            <div
-                              key={item.id}
-                              className={`relative overflow-hidden rounded-2xl border transition-all p-3.5 ${
-                                item.isCompleted
-                                  ? 'bg-slate-50/50 dark:bg-slate-950/20 border-slate-200 dark:border-slate-800 opacity-60'
-                                  : 'bg-slate-50 dark:bg-slate-950/40 border-slate-200/80 dark:border-slate-800 hover:border-slate-300'
-                              }`}
-                            >
-                              {/* Left Accent Stripe */}
-                              <div
-                                className="absolute top-0 left-0 bottom-0 w-1.5"
-                                style={{ backgroundColor: accentColor }}
-                              />
-
-                              <div className="pl-1">
-                                <div className="flex items-start justify-between gap-2">
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-1.5 flex-wrap">
-                                      <span className="text-xs font-black text-slate-900 dark:text-white truncate">
-                                        {isCommitment ? item.title || 'Compromisso Pessoal' : sub?.name || 'Disciplina'}
-                                      </span>
-
-                                      {/* Type Tag */}
-                                      <span
-                                        className="text-[9px] font-extrabold px-2 py-0.5 rounded-md border"
-                                        style={{
-                                          color: accentColor,
-                                          borderColor: `${accentColor}40`,
-                                          backgroundColor: `${accentColor}15`,
-                                        }}
-                                      >
-                                        {item.type || 'Aula'}
-                                      </span>
-                                    </div>
-
-                                    {/* Subtitle / Details */}
-                                    <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-2 flex-wrap">
-                                      {item.room && <span>Sala: {item.room}</span>}
-                                      {sub?.majorArea && <span>• {sub.majorArea}</span>}
-                                    </div>
-                                  </div>
-
-                                  {/* Actions */}
-                                  <div className="flex items-center gap-1 shrink-0">
-                                    {/* Complete Toggle */}
-                                    <button
-                                      type="button"
-                                      onClick={() => handleToggleComplete(item.id, item.isCompleted)}
-                                      className={`p-1 rounded-lg transition-colors cursor-pointer ${
-                                        item.isCompleted
-                                          ? 'text-emerald-500 bg-emerald-50 dark:bg-emerald-950/50'
-                                          : 'text-slate-300 hover:text-emerald-500'
-                                      }`}
-                                      title={item.isCompleted ? 'Concluída' : 'Marcar como concluída hoje'}
-                                    >
-                                      <CheckCircle2 className="h-4 w-4" />
-                                    </button>
-
-                                    {/* Duplicate */}
-                                    <button
-                                      type="button"
-                                      onClick={() => setDuplicateModalItem(item)}
-                                      className="p-1 text-slate-300 hover:text-sky-500 rounded-lg transition-colors cursor-pointer"
-                                      title="Duplicar para outro dia"
-                                    >
-                                      <Copy className="h-3.5 w-3.5" />
-                                    </button>
-
-                                    {/* Delete */}
-                                    <button
-                                      type="button"
-                                      onClick={() => deleteScheduleClass(item.id)}
-                                      className="p-1 text-slate-300 hover:text-rose-500 rounded-lg transition-colors cursor-pointer"
-                                      title="Remover da grade"
-                                    >
-                                      <Trash2 className="h-3.5 w-3.5" />
-                                    </button>
-                                  </div>
-                                </div>
-
-                                {/* Footer Time & Location */}
-                                <div className="mt-2.5 pt-2 border-t border-slate-200/60 dark:border-slate-800/80 flex items-center justify-between text-[11px] font-mono font-bold text-slate-700 dark:text-slate-300">
-                                  <span className="flex items-center gap-1 text-sky-600 dark:text-sky-400">
-                                    <Clock className="h-3 w-3" />
-                                    {item.startTime} - {item.endTime}
-                                  </span>
-                                  {item.location && (
-                                    <span className="text-slate-400 font-sans flex items-center gap-1 text-[10px]">
-                                      <Building2 className="h-3 w-3" />
-                                      {item.location}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Card Bottom Add Button */}
-                  {dayClasses.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => onOpenAddSchedule(day.num)}
-                      className="mt-3 w-full py-2 rounded-xl bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-bold border border-slate-200/60 dark:border-slate-800 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-                    >
-                      <Plus className="h-3.5 w-3.5 text-sky-500" />
-                      <span>Adicionar nesta {day.short}</span>
-                    </button>
-                  )}
-                </div>
-              );
-            })}
-        </div>
-      ) : (
-        /* TIMELINE VIEW */
-        <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-xs space-y-6">
-          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <ListOrdered className="h-4 w-4 text-sky-500" />
-              Visão Cronológica Semanal
-            </h3>
-            <span className="text-xs text-slate-500">{filteredSchedule.length} atividades encontradas</span>
-          </div>
-
-          {filteredSchedule.length === 0 ? (
-            <div className="py-12 text-center text-slate-400 text-xs">
-              Nenhuma atividade encontrada na busca.
-            </div>
-          ) : (
-            <div className="space-y-6">
-              {DAYS.map((day) => {
-                const dayClasses = filteredSchedule
-                  .filter((sc) => sc.dayOfWeek === day.num)
-                  .sort((a, b) => a.startTime.localeCompare(b.startTime));
-
-                if (dayClasses.length === 0) return null;
-
-                return (
-                  <div key={day.num} className="space-y-3">
-                    <div className="flex items-center justify-between text-xs font-black text-slate-800 dark:text-slate-200 bg-slate-50 dark:bg-slate-950 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800">
-                      <span>{day.name}</span>
-                      <button
-                        type="button"
-                        onClick={() => onOpenAddSchedule(day.num)}
-                        className="text-sky-600 dark:text-sky-400 hover:underline text-[11px] font-bold flex items-center gap-1 cursor-pointer"
-                      >
-                        <Plus className="h-3 w-3" /> Adicionar
-                      </button>
-                    </div>
-
-                    <div className="space-y-2 pl-2">
-                      {dayClasses.map((item) => {
-                        const sub = getSubject(item.subjectId);
-                        const isCommitment = !item.subjectId;
-                        const accentColor = item.color || sub?.color || '#0284c7';
-
-                        return (
-                          <div
-                            key={item.id}
-                            className="flex items-center justify-between p-3 rounded-2xl bg-slate-50/50 dark:bg-slate-950/30 border border-slate-200 dark:border-slate-800"
-                          >
-                            <div className="flex items-center gap-3">
-                              <div
-                                className="w-2 h-10 rounded-full"
-                                style={{ backgroundColor: accentColor }}
-                              />
-                              <div>
-                                <div className="text-xs font-bold text-slate-900 dark:text-white">
-                                  {isCommitment ? item.title || 'Compromisso' : sub?.name}
-                                </div>
-                                <div className="text-[11px] text-slate-500">
-                                  {item.startTime} - {item.endTime} • {item.room || 'Sem sala'} • {item.type}
-                                </div>
-                              </div>
-                            </div>
-
-                            <button
-                              type="button"
-                              onClick={() => deleteScheduleClass(item.id)}
-                              className="p-1.5 text-slate-400 hover:text-rose-500 cursor-pointer"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
       )}
 
-      {/* Duplicate Modal */}
-      {duplicateModalItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
-          <div className="w-full max-w-sm rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 shadow-2xl space-y-4">
-            <h4 className="text-sm font-black text-slate-900 dark:text-white">
-              Duplicar Atividade para outro Dia
-            </h4>
-            <p className="text-xs text-slate-500">
-              Escolha qual dia da semana deseja copiar essa atividade:
-            </p>
-
-            <div className="grid grid-cols-2 gap-2">
-              {DAYS.map((d) => (
-                <button
-                  key={d.num}
-                  type="button"
-                  onClick={() => handleDuplicateToDay(duplicateModalItem, d.num)}
-                  className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 hover:bg-sky-50 dark:hover:bg-sky-950 text-xs font-bold text-slate-800 dark:text-slate-200 hover:text-sky-600 transition-all cursor-pointer text-left flex items-center justify-between"
-                >
-                  <span>{d.name}</span>
-                  <ChevronRight className="h-3.5 w-3.5 text-slate-400" />
-                </button>
-              ))}
-            </div>
-
-            <div className="flex justify-end pt-2">
+      {/* Semana */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-2.5">
+        {perDay.map((d) => (
+          <section
+            key={d.num}
+            className={`rounded-2xl border p-2 min-w-0 flex flex-col ${
+              d.num === todayNum
+                ? 'border-sky-300 dark:border-sky-700 bg-sky-50/60 dark:bg-sky-950/20'
+                : 'border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-950/40'
+            }`}
+          >
+            <div className="flex items-center justify-between px-1 pb-2">
+              <div>
+                <h3 className="text-xs font-black text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
+                  {d.short}
+                  {d.num === todayNum && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-sky-600 text-white">HOJE</span>}
+                </h3>
+                <p className="text-[10px] text-slate-500">{d.hours > 0 ? `${d.hours.toFixed(1).replace('.', ',')}h` : 'livre'}</p>
+              </div>
               <button
-                type="button"
-                onClick={() => setDuplicateModalItem(null)}
-                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                onClick={() => setModal({ open: true, item: null, day: d.num })}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-sky-600 hover:bg-white dark:hover:bg-slate-800"
+                title={`Adicionar na ${d.name}`}
+                aria-label={`Adicionar na ${d.name}`}
               >
-                Cancelar
+                <Plus className="h-3.5 w-3.5" />
               </button>
             </div>
+            <div className="space-y-1.5 flex-1">
+              {d.items.length === 0 ? (
+                <button
+                  onClick={() => setModal({ open: true, item: null, day: d.num })}
+                  className="w-full h-full min-h-14 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 text-[10px] font-semibold text-slate-400 hover:text-sky-600 hover:border-sky-400"
+                >
+                  + adicionar
+                </button>
+              ) : (
+                d.items.map((sc) => renderCard(sc, Boolean(sc.date)))
+              )}
+            </div>
+          </section>
+        ))}
+      </div>
+
+      {/* Eventos de data única */}
+      <section className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
+        <div className="flex items-center justify-between gap-2 mb-3">
+          <div>
+            <h2 className="text-sm font-black text-slate-900 dark:text-white">Próximos eventos</h2>
+            <p className="text-[11px] text-slate-500">Simpósios, congressos e atividades com data única. Também aparecem no Planner.</p>
           </div>
+          <button
+            onClick={() => setModal({ open: true, item: null, category: 'congresso' })}
+            className="shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-bold text-sky-700 dark:text-sky-300 bg-sky-100/70 dark:bg-sky-950/60"
+          >
+            <Plus className="h-3 w-3" /> Evento
+          </button>
         </div>
-      )}
+        {events.filter(matchesFilter).length === 0 ? (
+          <p className="text-xs text-slate-400 py-3 text-center">Nenhum evento futuro.</p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">{events.filter(matchesFilter).map((sc) => renderCard(sc, true))}</div>
+        )}
+      </section>
+
+      <AddScheduleModal
+        isOpen={modal.open}
+        onClose={() => setModal({ open: false })}
+        editingItem={modal.item}
+        defaultDay={modal.day}
+        defaultCategory={modal.category}
+      />
     </div>
   );
 };

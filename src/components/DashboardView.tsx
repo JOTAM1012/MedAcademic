@@ -21,6 +21,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { getActivityCategory, getExamKind, getExamSubjectName, occursOn, toYMD } from '../data/planning';
 import { WeeklyStatsCard } from './WeeklyStatsCard';
 import { MonthlyPerformanceChart } from './MonthlyPerformanceChart';
 
@@ -76,7 +77,7 @@ export const DashboardView: React.FC = () => {
   // Today's classes from schedule (1 = Mon, ..., 6 = Sat)
   const currentDayOfWeek = currentTime.getDay() === 0 ? 7 : (currentTime.getDay() as 1 | 2 | 3 | 4 | 5 | 6);
   const todaysClasses = schedule
-    .filter((sc) => sc.dayOfWeek === currentDayOfWeek)
+    .filter((sc) => occursOn(sc, toYMD(currentTime), currentDayOfWeek))
     .sort((a, b) => a.startTime.localeCompare(b.startTime));
 
   // Countdown Calculator helper
@@ -302,7 +303,7 @@ export const DashboardView: React.FC = () => {
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className="font-bold text-slate-900 dark:text-white text-base">
-                  Grade de Hoje & Rodízios Clínicos
+                  Hoje na sua grade
                 </h3>
                 <p className="text-xs text-slate-400">
                   Grade sincronizada para o dia letivo ({currentSemester?.name})
@@ -312,7 +313,7 @@ export const DashboardView: React.FC = () => {
                 onClick={() => setCurrentTab('schedule')}
                 className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
               >
-                <span>Grade Completa</span>
+                <span>Grade de horários</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
@@ -321,50 +322,47 @@ export const DashboardView: React.FC = () => {
               <div className="text-center py-8 rounded-xl bg-slate-50 dark:bg-slate-950/40 border border-slate-100 dark:border-slate-800/80">
                 <Calendar className="w-8 h-8 text-slate-300 dark:text-slate-700 mx-auto mb-2" />
                 <p className="text-xs text-slate-500 font-medium">
-                  Sem aulas presenciais hoje. Dia excelente para reforçar o Spaced Repetition e MedRevision!
+                  Sem aulas hoje. Dia excelente para adiantar as revisões e os estudos do Planner!
                 </p>
               </div>
             ) : (
               <div className="space-y-3">
                 {todaysClasses.map((item) => {
                   const subject = getSubject(item.subjectId);
+                  const cat = getActivityCategory(item);
+                  const color = item.color || subject?.color || cat.color;
+                  const place = item.location || item.room;
                   return (
                     <div
                       key={item.id}
-                      className="group flex items-center justify-between p-3.5 rounded-xl border border-slate-100 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-950/40 hover:border-slate-200 dark:hover:border-slate-700 transition-all"
+                      className="group flex items-center justify-between gap-3 p-3.5 rounded-xl border border-slate-100 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-950/40 hover:border-slate-200 dark:hover:border-slate-700 transition-all"
                     >
                       <div className="flex items-center gap-3.5 min-w-0">
                         <div
-                          className="w-10 h-10 rounded-lg flex items-center justify-center font-bold text-xs shrink-0"
-                          style={{
-                            backgroundColor: `${subject?.color || '#2563eb'}18`,
-                            color: subject?.color || '#2563eb',
-                          }}
+                          className="w-10 h-10 rounded-lg flex items-center justify-center text-base shrink-0"
+                          style={{ backgroundColor: `${color}18`, color }}
                         >
-                          {subject?.code || 'MED'}
+                          {cat.emoji}
                         </div>
                         <div className="min-w-0">
                           <h4 className="text-xs font-bold text-slate-900 dark:text-white truncate">
-                            {subject?.name}
+                            {item.title || subject?.name || cat.label}
                           </h4>
-                          <p className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-2 mt-0.5">
-                            <span>Sala: {item.room}</span>
-                            <span>•</span>
-                            <span className="font-semibold text-blue-600 dark:text-blue-400">{item.type}</span>
-                            <span>•</span>
-                            <span>{item.location || 'Campus Saúde'}</span>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-2 mt-0.5 min-w-0">
+                            <span className="font-semibold shrink-0" style={{ color }}>{cat.label}</span>
+                            {place && (
+                              <>
+                                <span>•</span>
+                                <span className="truncate">{place}</span>
+                              </>
+                            )}
                           </p>
                         </div>
                       </div>
 
-                      <div className="text-right shrink-0">
-                        <span className="font-mono text-xs font-bold text-slate-800 dark:text-slate-200">
-                          {item.startTime} - {item.endTime}
-                        </span>
-                        <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium mt-0.5">
-                          Confirmado
-                        </div>
-                      </div>
+                      <span className="font-mono text-xs font-bold text-slate-800 dark:text-slate-200 shrink-0">
+                        {item.startTime} - {item.endTime}
+                      </span>
                     </div>
                   );
                 })}
@@ -443,7 +441,7 @@ export const DashboardView: React.FC = () => {
                     {primaryNextExam.title}
                   </h2>
                   <p className="text-blue-100 text-xs mt-0.5">
-                    {primarySubject?.name || 'Medicina'} • Peso {primaryNextExam.weight}
+                    {getExamSubjectName(primaryNextExam, subjects)} • {getExamKind(primaryNextExam.type).id}
                   </p>
 
                   <div className="mt-5 flex gap-2">

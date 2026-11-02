@@ -47,7 +47,7 @@ const TOUR_STEPS: TourStep[] = [
     id: 'sidebar',
     targetSelector: '#tour-sidebar',
     title: 'Navegação Principal (Sidebar)',
-    description: 'Navegue facilmente entre o Dashboard, Estrutura Acadêmica (Matérias/Tópicos), Revisões Espaçadas MED, Cronômetro Pomodoro, Horários e Calendário.',
+    description: 'Navegue entre Dashboard, Planner, Grade de Semestre (provas e notas), Grade de Horários, Disciplinas & Assuntos, Revisões, Pomodoro, Checklist e Perfil.',
     badgeText: 'Menu Lateral 📍',
     icon: <Compass className="w-5 h-5 text-cyan-400" />,
     position: 'right',

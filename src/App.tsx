@@ -8,9 +8,8 @@ import { TopBar } from './components/TopBar';
 import { DashboardView } from './components/DashboardView';
 import { AcademicStructureView } from './components/AcademicStructureView';
 import { SpacedRepetitionView } from './components/SpacedRepetitionView';
-import { MedRevisionView } from './components/MedRevisionView';
 import { StudyStopwatchView } from './components/StudyStopwatchView';
-import { GradesManagementView } from './components/GradesManagementView';
+import { SemesterGridView } from './components/SemesterGridView';
 import { ScheduleView } from './components/ScheduleView';
 import { CalendarView } from './components/CalendarView';
 import { ProfileView } from './components/ProfileView';
@@ -71,6 +70,7 @@ const AppContent: React.FC = () => {
   const [isAddScheduleOpen, setIsAddScheduleOpen] = useState(false);
   const [selectedDayForScheduleModal, setSelectedDayForScheduleModal] = useState<number | undefined>();
   const [activeSubjectIdForModal, setActiveSubjectIdForModal] = useState<string | undefined>();
+  const [dateForModal, setDateForModal] = useState<string | undefined>();
 
   // Offline status tracking for toast notification after 30 seconds & reconnection pop effect
   const [showOfflineToast, setShowOfflineToast] = useState(false);
@@ -194,13 +194,14 @@ const AppContent: React.FC = () => {
     setIsAddTopicOpen(true);
   };
 
-  const handleOpenAddExam = (subjectId?: string) => {
-    setActiveSubjectIdForModal(subjectId);
+  const handleOpenAddExam = (date?: string) => {
+    setDateForModal(date);
     setIsAddExamOpen(true);
   };
 
-  const handleOpenAddSchedule = (dayNum?: number) => {
+  const handleOpenAddSchedule = (dayNum?: number, date?: string) => {
     setSelectedDayForScheduleModal(dayNum);
+    setDateForModal(date);
     setIsAddScheduleOpen(true);
   };
 
@@ -222,26 +223,17 @@ const AppContent: React.FC = () => {
             onOpenAddTopic={() => handleOpenAddTopic()}
           />
         );
-      case 'med_revision':
-        return <MedRevisionView />;
       case 'stopwatch':
         return <StudyStopwatchView />;
       case 'grades':
-        return (
-          <GradesManagementView
-            onOpenAddExam={handleOpenAddExam}
-            onOpenAddSubject={() => setIsAddSubjectOpen(true)}
-          />
-        );
+        return <SemesterGridView />;
       case 'schedule':
-        return (
-          <ScheduleView onOpenAddSchedule={(dayNum) => handleOpenAddSchedule(dayNum)} />
-        );
+        return <ScheduleView />;
       case 'calendar':
         return (
           <CalendarView
             onOpenAddExam={handleOpenAddExam}
-            onOpenAddSchedule={(dayNum) => handleOpenAddSchedule(dayNum)}
+            onOpenAddSchedule={handleOpenAddSchedule}
             onOpenAddTopic={handleOpenAddTopic}
           />
         );
@@ -302,7 +294,7 @@ const AppContent: React.FC = () => {
       <AddExamModal
         isOpen={isAddExamOpen}
         onClose={() => setIsAddExamOpen(false)}
-        defaultSubjectId={activeSubjectIdForModal}
+        defaultDate={dateForModal}
       />
 
       <AddSemesterModal
@@ -314,6 +306,7 @@ const AppContent: React.FC = () => {
         isOpen={isAddScheduleOpen}
         onClose={() => setIsAddScheduleOpen(false)}
         defaultDay={selectedDayForScheduleModal}
+        defaultDate={dateForModal}
       />
 
       <OnboardingModal

@@ -86,8 +86,30 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
       badge: null,
     },
     {
+      id: 'calendar',
+      label: 'Planner',
+      icon: Calendar,
+      badge: null,
+    },
+    {
+      id: 'grades',
+      label: 'Grade de semestre',
+      icon: GraduationCap,
+      badge: upcomingExamsCount > 0 ? `${upcomingExamsCount} próx.` : null,
+      badgeColor: 'bg-rose-500/20 text-rose-300 border border-rose-400/30',
+    },
+    {
+      id: 'schedule',
+      label: 'Grade de horários',
+      icon: CalendarDays,
+      badge: null,
+    },
+  ];
+
+  const toolsItems = [
+    {
       id: 'structure',
-      label: 'Grade de disciplinas',
+      label: 'Disciplinas & assuntos',
       icon: Layers,
       badge: null,
     },
@@ -99,38 +121,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
       badgeColor: 'bg-blue-500/20 text-blue-300 border border-blue-400/30',
     },
     {
-      id: 'med_revision',
-      label: 'MedRevision',
-      icon: Stethoscope,
-      badge: null,
-    },
-  ];
-
-  const toolsItems = [
-    {
       id: 'stopwatch',
       label: 'Pomodoro',
       icon: Timer,
       badge: null,
     },
     {
-      id: 'grades',
-      label: 'Gestão de atividades',
-      icon: GraduationCap,
-      badge: null,
-    },
-    {
-      id: 'schedule',
-      label: 'Grade de horarios',
-      icon: CalendarDays,
-      badge: null,
-    },
-    {
-      id: 'calendar',
-      label: 'Calendario',
-      icon: Calendar,
-      badge: upcomingExamsCount > 0 ? `${upcomingExamsCount} próx.` : null,
-      badgeColor: 'bg-rose-500/20 text-rose-300 border border-rose-400/30',
+      id: 'checklist',
+      label: 'Checklist',
+      icon: ListChecks,
+      badge: pendingChecklistCount > 0 ? String(pendingChecklistCount) : null,
+      badgeColor: 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/30',
     },
   ];
 
@@ -146,13 +147,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
       label: 'Perfil & metas',
       icon: User,
       badge: null,
-    },
-    {
-      id: 'checklist',
-      label: 'Checklist',
-      icon: ListChecks,
-      badge: pendingChecklistCount > 0 ? String(pendingChecklistCount) : null,
-      badgeColor: 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/30',
     },
   ];
 
@@ -291,7 +285,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
           <div>
             {isExpanded ? (
               <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider px-2 mb-1.5 animate-in fade-in duration-150">
-                Ferramentas
+                Estudos &amp; rotina
               </div>
             ) : (
               <div className="w-8 mx-auto border-t border-slate-800/80 my-2" />

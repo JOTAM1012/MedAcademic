@@ -12,6 +12,7 @@ import {
   StudySession,
   ChatMessage,
   ChecklistItem,
+  ChecklistBlock,
 } from '../types';
 import {
   INITIAL_SEMESTERS,
@@ -162,12 +163,17 @@ interface AppContextType {
   tutorMessages: Array<{ role: 'user' | 'assistant'; text: string; time: string }>;
   setTutorMessages: React.Dispatch<React.SetStateAction<Array<{ role: 'user' | 'assistant'; text: string; time: string }>>>;
 
-  // Study checklist (simple to-do list of themes to study)
+  // Checklist: blocos nomeados/coloridos com itens
   checklist: ChecklistItem[];
-  addChecklistItem: (text: string) => void;
+  checklistBlocks: ChecklistBlock[];
+  addChecklistItem: (text: string, blockId?: string, extra?: Partial<Pick<ChecklistItem, 'important' | 'dueDate'>>) => void;
+  updateChecklistItem: (id: string, changes: Partial<ChecklistItem>) => void;
+  addChecklistBlock: (block: Pick<ChecklistBlock, 'name' | 'color' | 'emoji'>, items?: string[]) => string;
+  updateChecklistBlock: (id: string, changes: Partial<ChecklistBlock>) => void;
+  deleteChecklistBlock: (id: string) => void;
   toggleChecklistItem: (id: string) => void;
   deleteChecklistItem: (id: string) => void;
-  clearCompletedChecklist: () => void;
+  clearCompletedChecklist: (blockId?: string) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -206,6 +212,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [userProfile, setUserProfile] = useState<UserProfile>(INITIAL_USER_PROFILE);
   const [studySessions, setStudySessions] = useState<StudySession[]>([]);
   const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
+  const [checklistBlocks, setChecklistBlocks] = useState<ChecklistBlock[]>([]);
   const userProfileRef = useRef(userProfile);
   userProfileRef.current = userProfile;
 
@@ -257,6 +264,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setStudySessions([]);
       setTutorMessages(INITIAL_TUTOR_MESSAGES);
       setChecklist([]);
+      setChecklistBlocks([]);
       setIsInitialLoadComplete(false);
       setCloudSyncStatus('synced');
       setLastCloudSync(null);
@@ -341,6 +349,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setChecklist([]);
     if (savedChecklist) {
       try { setChecklist(JSON.parse(savedChecklist)); } catch (e) {}
+    }
+    const savedChecklistBlocks = localStorage.getItem(getUserKey('checklist_blocks', activeUserId));
+    setChecklistBlocks([]);
+    if (savedChecklistBlocks) {
+      try { setChecklistBlocks(JSON.parse(savedChecklistBlocks)); } catch (e) {}
     }
 
     let isSubscribed = true;
@@ -443,6 +456,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (Array.isArray(cloudData.checklist)) {
         setChecklist(cloudData.checklist);
       }
+      if (Array.isArray(cloudData.checklistBlocks)) {
+        setChecklistBlocks(cloudData.checklistBlocks);
+      }
     };
 
     // First cloud save of a new account: built from what is cached on this device
@@ -480,6 +496,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         pomodoroSettings: parse(savedPomo, { workMinutes: 25, shortBreakMinutes: 5, mediumBreakMinutes: 10, longBreakMinutes: 15 }),
         tutorMessages: parse(savedTutor, INITIAL_TUTOR_MESSAGES, true),
         checklist: parse<ChecklistItem[]>(savedChecklist, []),
+        checklistBlocks: parse<ChecklistBlock[]>(savedChecklistBlocks, []),
         updatedAt: new Date().toISOString(),
       };
     };
@@ -634,6 +651,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [checklist, activeUserId, isInitialLoadComplete]);
 
+  useEffect(() => {
+    if (activeUserId && isInitialLoadComplete) {
+      localStorage.setItem(getUserKey('checklist_blocks', activeUserId), JSON.stringify(checklistBlocks));
+    }
+  }, [checklistBlocks, activeUserId, isInitialLoadComplete]);
+
   // Full academic state saved as one JSON row per user (table app_state, see supabase/schema.sql)
   const buildCloudState = () => ({
     semesters,
@@ -648,6 +671,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     pomodoroSettings,
     tutorMessages,
     checklist,
+    checklistBlocks,
     updatedAt: new Date().toISOString(),
   });
 
@@ -710,6 +734,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     pomodoroSettings,
     tutorMessages,
     checklist,
+    checklistBlocks,
   ]);
 
   // Force Cloud Sync manually
@@ -1151,39 +1176,40 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const addExam = (ex: Omit<Exam, 'id'>) => {
-    const newEx: Exam = { ...ex, id: 'exam-' + Date.now() };
+    const newEx: Exam = { ...ex, id: 'exam-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6) };
     setExams((prev) => [...prev, newEx]);
-    showNotification(`Prova "${ex.title}" agendada!`, 'success');
+    showNotification(`Prova "${ex.title}" adicionada à grade de semestre!`, 'success');
     // XP is awarded by the calling modal
   };
 
   const updateExam = (id: string, ex: Partial<Exam>) => {
+    const before = exams.find((e) => e.id === id);
     setExams((prev) => prev.map((e) => (e.id === id ? { ...e, ...ex } : e)));
-    if (ex.grade !== undefined) {
-      showNotification('Nota da avaliação registrada!', 'success');
+    if (ex.grade !== undefined && before?.grade === undefined) {
+      showNotification('Nota lançada!', 'success');
       addXp(150, 'Nota Registrada');
     }
   };
 
   const deleteExam = (id: string) => {
     setExams((prev) => prev.filter((e) => e.id !== id));
-    showNotification('Prova removida do calendário.', 'info');
+    showNotification('Prova removida da grade de semestre.', 'info');
   };
 
   const addScheduleClass = (sc: Omit<ScheduleClass, 'id'>) => {
-    const newSc: ScheduleClass = { ...sc, id: 'sch-' + Date.now() };
+    const newSc: ScheduleClass = { ...sc, id: 'sch-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6) };
     setSchedule((prev) => [...prev, newSc]);
-    showNotification('Aula adicionada à grade horária!', 'success');
+    showNotification(sc.date ? 'Atividade adicionada ao Planner!' : 'Atividade adicionada à grade de horários!', 'success');
   };
 
   const updateScheduleClass = (id: string, sc: Partial<ScheduleClass>) => {
     setSchedule((prev) => prev.map((s) => (s.id === id ? { ...s, ...sc } : s)));
-    showNotification('Grade de aula atualizada!', 'success');
+    if (Object.keys(sc).some((k) => k !== 'isCompleted')) showNotification('Atividade atualizada!', 'success');
   };
 
   const deleteScheduleClass = (id: string) => {
     setSchedule((prev) => prev.filter((s) => s.id !== id));
-    showNotification('Aula removida da grade.', 'info');
+    showNotification('Atividade removida.', 'info');
   };
 
   const toggleMedRevisionComplete = (id: string) => {
@@ -1203,16 +1229,40 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showNotification('Tema de MedRevision adicionado!', 'success');
   };
 
-  const addChecklistItem = (text: string) => {
-    const clean = text.trim();
-    if (!clean) return;
-    const item: ChecklistItem = {
-      id: 'chk-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
-      text: clean,
-      done: false,
-      createdAt: new Date().toISOString(),
-    };
-    setChecklist((prev) => [item, ...prev]);
+  const newChecklistItem = (text: string, blockId?: string, extra?: Partial<ChecklistItem>): ChecklistItem => ({
+    id: 'chk-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+    text: text.trim(),
+    done: false,
+    createdAt: new Date().toISOString(),
+    ...(blockId ? { blockId } : {}),
+    ...extra,
+  });
+
+  const addChecklistItem = (text: string, blockId?: string, extra?: Partial<Pick<ChecklistItem, 'important' | 'dueDate'>>) => {
+    if (!text.trim()) return;
+    setChecklist((prev) => [newChecklistItem(text, blockId, extra), ...prev]);
+  };
+
+  const updateChecklistItem = (id: string, changes: Partial<ChecklistItem>) => {
+    setChecklist((prev) => prev.map((item) => (item.id === id ? { ...item, ...changes } : item)));
+  };
+
+  const addChecklistBlock = (block: Pick<ChecklistBlock, 'name' | 'color' | 'emoji'>, items: string[] = []) => {
+    const id = 'blk-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
+    setChecklistBlocks((prev) => [...prev, { ...block, name: block.name.trim(), id, createdAt: new Date().toISOString() }]);
+    const seeded = items.filter((t) => t.trim()).map((t) => newChecklistItem(t, id));
+    if (seeded.length > 0) setChecklist((prev) => [...seeded, ...prev]);
+    return id;
+  };
+
+  const updateChecklistBlock = (id: string, changes: Partial<ChecklistBlock>) => {
+    setChecklistBlocks((prev) => prev.map((b) => (b.id === id ? { ...b, ...changes } : b)));
+  };
+
+  const deleteChecklistBlock = (id: string) => {
+    setChecklistBlocks((prev) => prev.filter((b) => b.id !== id));
+    setChecklist((prev) => prev.filter((item) => item.blockId !== id));
+    showNotification('Bloco removido do checklist.', 'info');
   };
 
   const toggleChecklistItem = (id: string) => {
@@ -1227,8 +1277,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setChecklist((prev) => prev.filter((item) => item.id !== id));
   };
 
-  const clearCompletedChecklist = () => {
-    setChecklist((prev) => prev.filter((item) => !item.done));
+  // Sem blockId limpa tudo; "geral" = itens sem bloco existente
+  const clearCompletedChecklist = (blockId?: string) => {
+    setChecklist((prev) =>
+      prev.filter((item) => {
+        if (!item.done) return true;
+        if (!blockId) return false;
+        const owner = item.blockId && checklistBlocks.some((b) => b.id === item.blockId) ? item.blockId : 'geral';
+        return owner !== blockId;
+      })
+    );
   };
 
   const deleteMedRevision = (id: string) => {
@@ -1523,7 +1581,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         tutorMessages,
         setTutorMessages,
         checklist,
+        checklistBlocks,
         addChecklistItem,
+        updateChecklistItem,
+        addChecklistBlock,
+        updateChecklistBlock,
+        deleteChecklistBlock,
         toggleChecklistItem,
         deleteChecklistItem,
         clearCompletedChecklist,

@@ -59,18 +59,25 @@ export interface Semester {
   description?: string;
 }
 
+export type ExamShift = 'manha' | 'tarde' | 'noite';
+
 export interface Exam {
   id: string;
-  subjectId: string;
-  title: string; // e.g. "P1 - Cardiologia e ECG"
-  date: string; // ISO format or YYYY-MM-DD
+  subjectId?: string; // legado: provas antigas vinculadas a uma disciplina cadastrada
+  subjectName?: string; // nome livre da disciplina (Grade de Semestre)
+  semesterId?: string;
+  title: string; // e.g. "P1 - Cardiologia"
+  date: string; // YYYY-MM-DD
   time?: string;
-  weight: number; // e.g. 1.0, 2.0
-  grade?: number; // e.g. 8.5 (null if not taken yet)
+  shift?: ExamShift;
+  weight: number;
+  grade?: number; // nota lançada (undefined enquanto não sai)
+  expectedGrade?: number; // nota esperada
   maxGrade: number; // usually 10
   location?: string;
   topicsCovered: string[];
-  type: 'P1' | 'P2' | 'P3' | 'Sub' | 'Pratica' | 'OSCE' | 'Seminario';
+  type: string; // OSCE, Anatomia, Simulado, Prova Escrita, Prova Objetiva, Multimídia, Formativa (ou legado)
+  notes?: string;
 }
 
 export interface ScheduleClass {
@@ -86,6 +93,8 @@ export interface ScheduleClass {
   color?: string;
   isCompleted?: boolean;
   notes?: string;
+  category?: string; // id de ACTIVITY_CATEGORIES (aula, academia, simposio, liga, congresso...)
+  date?: string; // YYYY-MM-DD: evento de data única (sem repetição semanal)
 }
 
 export interface StudySession {
@@ -118,6 +127,17 @@ export interface ChecklistItem {
   done: boolean;
   createdAt: string;
   doneAt?: string;
+  blockId?: string; // bloco ao qual pertence (itens antigos caem em "Geral")
+  important?: boolean; // essencial: sobe para o topo e entra no foco
+  dueDate?: string; // YYYY-MM-DD: aparece no Planner
+}
+
+export interface ChecklistBlock {
+  id: string;
+  name: string;
+  color: string;
+  emoji?: string;
+  createdAt: string;
 }
 
 export interface MedRevisionTopic {
