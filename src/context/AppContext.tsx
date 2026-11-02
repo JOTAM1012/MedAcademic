@@ -29,6 +29,15 @@ import { useAuth } from './AuthContext';
 import { getIDBData, setIDBData } from '../lib/indexedDB';
 import { REVIEWS_TO_MASTER, getReviewsDone } from '../data/topicStatus';
 import { supabase, APP_STATE_TABLE } from '../lib/supabase';
+import {
+  cancelScheduledBeeps,
+  isTimerAudioRunning,
+  notifyTimer,
+  playTimerBeep,
+  requestTimerNotifications,
+  scheduleTimerBeepAt,
+  unlockTimerAudio,
+} from '../lib/timerSound';
 
 interface TimerState {
   isRunning: boolean;
@@ -41,7 +50,37 @@ interface TimerState {
   customDurationSeconds?: number;
   /** Study cycle in progress: steps run in sequence (study → break → next step) */
   cycle?: StudyCycleRun;
+  // O tempo é calculado pelo relógio (não por "ticks"): continua certo com a aba em segundo plano
+  endsAt?: number; // epoch ms em que a contagem regressiva termina (enquanto roda)
+  startedAt?: number; // cronômetro livre: epoch ms do último "iniciar"
+  elapsedBase?: number; // cronômetro livre: segundos acumulados antes do último "iniciar"
 }
+
+const TIMER_STORAGE_KEY = 'medacademic_timer_v1';
+
+// Restaura um timer em andamento (ex.: o celular descartou a aba em segundo plano)
+const loadSavedTimer = (): TimerState | null => {
+  try {
+    const raw = localStorage.getItem(TIMER_STORAGE_KEY);
+    if (!raw) return null;
+    const saved = JSON.parse(raw) as TimerState;
+    if (!saved.isRunning) return null;
+    if (saved.mode !== 'stopwatch' && (!saved.endsAt || saved.endsAt <= Date.now())) return null;
+    return saved;
+  } catch {
+    return null;
+  }
+};
+
+const remainingSeconds = (endsAt: number) => Math.max(0, Math.ceil((endsAt - Date.now()) / 1000));
+const formatClock = (secs: number) => {
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  const r = secs % 60;
+  const mm = String(m).padStart(2, '0');
+  const ss = String(r).padStart(2, '0');
+  return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
+};
 
 export interface StudyCycleStep {
   title: string;
@@ -233,14 +272,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [tutorMessages, setTutorMessages] = useState<Array<{ role: 'user' | 'assistant'; text: string; time: string }>>(INITIAL_TUTOR_MESSAGES);
 
-  const [timer, setTimer] = useState<TimerState>({
-    isRunning: false,
-    mode: 'pomodoro',
-    timeLeftSeconds: 25 * 60,
-    elapsedSeconds: 0,
-    selectedSubjectId: '',
-    totalPomodorosCompleted: 0,
-  });
+  const [timer, setTimer] = useState<TimerState>(
+    () =>
+      loadSavedTimer() || {
+        isRunning: false,
+        mode: 'pomodoro',
+        timeLeftSeconds: 25 * 60,
+        elapsedSeconds: 0,
+        selectedSubjectId: '',
+        totalPomodorosCompleted: 0,
+      }
+  );
+  // Bipes já agendados no relógio de áudio ("end@1730000000000"), para não reagendar à toa
+  const scheduledBeepsRef = useRef<Set<string>>(new Set());
 
   const [pomodoroSettings, setPomodoroSettings] = useState({
     workMinutes: 25,
@@ -785,33 +829,92 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [userProfile.darkMode]);
 
-  // Global Timer Tick
+  // Global Timer Tick: recalcula pelo relógio, então o tempo fica certo mesmo que o navegador
+  // atrase o JavaScript em segundo plano (outra aba, outro app, tela bloqueada)
   useEffect(() => {
-    let interval: NodeJS.Timeout | null = null;
-    if (timer.isRunning) {
-      interval = setInterval(() => {
-        setTimer((prev) => {
-          if (prev.mode === 'stopwatch') {
-            return { ...prev, elapsedSeconds: prev.elapsedSeconds + 1 };
-          }
-
-          if (prev.timeLeftSeconds <= 1) {
-            // Timer Finished — completion is handled by the effect below (updaters must stay pure)
-            return { ...prev, isRunning: false, timeLeftSeconds: 0 };
-          }
-
-          return { ...prev, timeLeftSeconds: prev.timeLeftSeconds - 1 };
-        });
-      }, 1000);
-    }
+    if (!timer.isRunning) return;
+    const sync = () =>
+      setTimer((prev) => {
+        if (!prev.isRunning) return prev;
+        const now = Date.now();
+        if (prev.mode === 'stopwatch') {
+          const startedAt = prev.startedAt ?? now;
+          const base = prev.elapsedBase ?? prev.elapsedSeconds;
+          const elapsed = base + Math.floor((now - startedAt) / 1000);
+          if (elapsed === prev.elapsedSeconds && prev.startedAt) return prev;
+          return { ...prev, startedAt, elapsedBase: base, elapsedSeconds: elapsed };
+        }
+        const endsAt = prev.endsAt ?? now + prev.timeLeftSeconds * 1000;
+        const left = remainingSeconds(endsAt);
+        // Fim da contagem: a conclusão é tratada no efeito abaixo (updaters precisam ser puros)
+        if (left <= 0) return { ...prev, endsAt, isRunning: false, timeLeftSeconds: 0 };
+        if (left === prev.timeLeftSeconds && prev.endsAt) return prev;
+        return { ...prev, endsAt, timeLeftSeconds: left };
+      });
+    sync();
+    const interval = setInterval(sync, 500);
+    document.addEventListener('visibilitychange', sync);
+    window.addEventListener('focus', sync);
     return () => {
-      if (interval) clearInterval(interval);
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', sync);
+      window.removeEventListener('focus', sync);
     };
   }, [timer.isRunning]);
+
+  // Bipe de fim agendado no relógio de áudio: toca na hora certa mesmo em segundo plano.
+  // No ciclo de estudos a pausa começa sozinha: já deixa agendados o bipe de início e o de fim dela.
+  useEffect(() => {
+    if (!timer.isRunning || timer.mode === 'stopwatch' || !timer.endsAt) {
+      cancelScheduledBeeps();
+      scheduledBeepsRef.current = new Set();
+      return;
+    }
+    const plan: Array<{ kind: 'start' | 'end'; at: number }> = [{ kind: 'end', at: timer.endsAt }];
+    const c = timer.cycle;
+    if (c && c.phase === 'work') {
+      const step = c.steps[c.index];
+      if (c.index < c.steps.length - 1 && step.breakMins > 0) {
+        plan.push({ kind: 'start', at: timer.endsAt + 1200 });
+        plan.push({ kind: 'end', at: timer.endsAt + step.breakMins * 60 * 1000 });
+      }
+    }
+    const keys = plan.map((p) => `${p.kind}@${p.at}`);
+    if (keys.every((k) => scheduledBeepsRef.current.has(k))) return; // já está tudo agendado
+    cancelScheduledBeeps();
+    plan.forEach((p) => scheduleTimerBeepAt(p.kind, p.at));
+    scheduledBeepsRef.current = new Set(keys);
+  }, [timer.isRunning, timer.endsAt, timer.mode]);
+
+  // Mostra o tempo no título da aba enquanto o timer roda
+  useEffect(() => {
+    const base = 'MedAcademic - Gestão de Estudos Médicos';
+    if (!timer.isRunning) {
+      document.title = base;
+      return;
+    }
+    const label = timer.mode === 'stopwatch' ? 'Cronômetro' : timer.mode === 'pomodoro' ? 'Foco' : 'Pausa';
+    const secs = timer.mode === 'stopwatch' ? timer.elapsedSeconds : timer.timeLeftSeconds;
+    document.title = `⏱ ${formatClock(secs)} · ${label} — MedAcademic`;
+  }, [timer.isRunning, timer.mode, timer.timeLeftSeconds, timer.elapsedSeconds]);
+
+  // Guarda o timer em andamento: se o navegador do celular descartar a aba, ele volta de onde estava
+  useEffect(() => {
+    try {
+      if (timer.isRunning) localStorage.setItem(TIMER_STORAGE_KEY, JSON.stringify(timer));
+      else localStorage.removeItem(TIMER_STORAGE_KEY);
+    } catch {
+      /* armazenamento indisponível */
+    }
+  }, [timer.isRunning, timer.endsAt, timer.startedAt, timer.mode, timer.cycle]);
 
   // Countdown completion: award XP, log the session and switch to the next phase
   useEffect(() => {
     if (timer.isRunning || timer.mode === 'stopwatch' || timer.timeLeftSeconds !== 0) return;
+
+    // O bipe de fim normalmente já tocou pelo agendamento; se o áudio estava bloqueado, toca agora
+    const finishedAt = timer.endsAt ?? Date.now();
+    if (!isTimerAudioRunning() || !scheduledBeepsRef.current.has(`end@${finishedAt}`)) playTimerBeep('end');
 
     // Study cycle: study block → its own break (auto-started) → next step (waits for the user)
     if (timer.cycle) {
@@ -832,6 +935,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         });
 
         if (isLast) {
+          notifyTimer('🏁 Ciclo de estudos concluído!', 'Excelente trabalho. Hora de descansar.');
           showNotification('🏁 Ciclo de estudos concluído! Excelente trabalho. +100 XP', 'success');
           setTimer((prev) => ({
             ...prev,
@@ -842,18 +946,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             cycle: undefined,
           }));
         } else if (step.breakMins > 0) {
+          notifyTimer('⏰ Etapa concluída!', `Pausa de ${step.breakMins} min iniciada.`);
           showNotification(`🎉 Etapa concluída! Pausa de ${step.breakMins} min iniciada. +100 XP`, 'success');
+          // A pausa conta a partir do fim real do estudo (mesmo se o app estava em segundo plano)
+          const breakEndsAt = finishedAt + step.breakMins * 60 * 1000;
           setTimer((prev) => ({
             ...prev,
             mode: 'short_break',
             isRunning: true,
-            timeLeftSeconds: step.breakMins * 60,
+            endsAt: breakEndsAt,
+            timeLeftSeconds: remainingSeconds(breakEndsAt),
             customDurationSeconds: step.breakMins * 60,
             totalPomodorosCompleted: prev.totalPomodorosCompleted + 1,
             cycle: { steps, index, phase: 'break' },
           }));
         } else {
           const next = steps[index + 1];
+          notifyTimer('⏰ Etapa concluída!', `Próxima: ${next.title}.`);
           showNotification(`🎉 Etapa concluída! Próxima: ${next.title}. +100 XP`, 'success');
           setTimer((prev) => ({
             ...prev,
@@ -866,6 +975,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       } else {
         const next = steps[index + 1];
+        notifyTimer('⏰ Pausa finalizada!', `Quando estiver pronto, inicie: ${next.title}.`);
         showNotification(`⏰ Pausa finalizada! Quando estiver pronto, inicie: ${next.title}.`, 'info');
         setTimer((prev) => ({
           ...prev,
@@ -881,6 +991,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (timer.mode === 'pomodoro') {
       const focusMinutes = Math.round((timer.customDurationSeconds || pomodoroSettings.workMinutes * 60) / 60);
       triggerConfetti();
+      notifyTimer('🎉 Pomodoro concluído!', 'Hora da pausa.');
       showNotification('🎉 Ciclo Pomodoro concluído com sucesso! +100 XP', 'success');
       addXp(100, 'Pomodoro Concluído');
       logStudySession({
@@ -898,6 +1009,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         totalPomodorosCompleted: prev.totalPomodorosCompleted + 1,
       }));
     } else {
+      notifyTimer('⏰ Pausa finalizada!', 'Hora de retomar o foco.');
       showNotification('⏰ Pausa finalizada! Hora de retomar o foco.', 'info');
       setTimer((prev) => ({
         ...prev,
@@ -1423,12 +1535,35 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Timer controls
+  // Chamado no clique "Iniciar": libera o áudio, bipa e pede permissão de notificação
+  const announceStart = () => {
+    unlockTimerAudio();
+    playTimerBeep('start');
+    requestTimerNotifications();
+  };
+
   const startTimer = () => {
-    setTimer((prev) => ({ ...prev, running: true, isRunning: true }));
+    const now = Date.now();
+    setTimer((prev) =>
+      prev.mode === 'stopwatch'
+        ? { ...prev, isRunning: true, startedAt: now, elapsedBase: prev.elapsedSeconds }
+        : { ...prev, isRunning: true, endsAt: now + prev.timeLeftSeconds * 1000 }
+    );
+    announceStart();
   };
 
   const pauseTimer = () => {
-    setTimer((prev) => ({ ...prev, running: false, isRunning: false }));
+    const now = Date.now();
+    setTimer((prev) => {
+      if (prev.mode === 'stopwatch') {
+        const elapsed = prev.startedAt
+          ? (prev.elapsedBase ?? prev.elapsedSeconds) + Math.floor((now - prev.startedAt) / 1000)
+          : prev.elapsedSeconds;
+        return { ...prev, isRunning: false, elapsedSeconds: elapsed, startedAt: undefined, elapsedBase: undefined };
+      }
+      const left = prev.endsAt ? Math.max(1, remainingSeconds(prev.endsAt)) : prev.timeLeftSeconds;
+      return { ...prev, isRunning: false, timeLeftSeconds: left, endsAt: undefined };
+    });
   };
 
   const resetTimer = () => {
@@ -1445,6 +1580,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isRunning: false,
         timeLeftSeconds: defaultSeconds,
         elapsedSeconds: 0,
+        endsAt: undefined,
+        startedAt: undefined,
+        elapsedBase: undefined,
       };
     });
   };
@@ -1469,6 +1607,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       selectedSubjectId: subjectId || prev.selectedSubjectId,
       selectedTopicId: topicId || prev.selectedTopicId,
       cycle: undefined, // choosing a mode manually leaves any running study cycle
+      endsAt: undefined,
+      startedAt: undefined,
+      elapsedBase: undefined,
     }));
   };
 
@@ -1482,11 +1623,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       mode: 'pomodoro',
       isRunning: true,
       timeLeftSeconds: seconds,
+      endsAt: Date.now() + seconds * 1000,
       customDurationSeconds: seconds,
       elapsedSeconds: 0,
       selectedSubjectId: subjectId ?? prev.selectedSubjectId,
       cycle: { steps, index, phase: 'work' },
     }));
+    announceStart();
     showNotification(`Ciclo iniciado: ${steps[index].title} (${steps[index].workMins} min)`, 'info');
   };
 
@@ -1499,6 +1642,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       customDurationSeconds: undefined,
       elapsedSeconds: 0,
       cycle: undefined,
+      endsAt: undefined,
     }));
     showNotification('Ciclo de estudos encerrado.', 'info');
   };

@@ -30,7 +30,6 @@ export const StudyStopwatchView: React.FC = () => {
     pauseTimer,
     resetTimer,
     setTimerMode,
-    setTimerSubject,
     subjects,
     topics,
     studySessions,
@@ -163,8 +162,6 @@ export const StudyStopwatchView: React.FC = () => {
     setSessionNotes('');
   };
 
-  const selectedSubject = subjects.find((s) => s.id === timer.selectedSubjectId);
-  const subjectTopics = topics.filter((t) => t.subjectId === timer.selectedSubjectId);
 
   const cycle = timer.cycle;
   const cycleStep = cycle ? cycle.steps[cycle.index] : undefined;
@@ -272,48 +269,6 @@ export const StudyStopwatchView: React.FC = () => {
           >
             Cronômetro Livre
           </button>
-        </div>
-
-        {/* Subject & Topic Selectors */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-8 text-left max-w-lg mx-auto">
-          <div>
-            <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-              Matéria em Foco
-            </label>
-            <select
-              value={timer.selectedSubjectId || ''}
-              onChange={(e) => setTimerSubject(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-2 text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-sky-500"
-            >
-              {subjects.length === 0 ? (
-                <option value="">Geral / Nenhuma Matéria Cadastrada</option>
-              ) : (
-                subjects.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))
-              )}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-              Tópico / Caso (Opcional)
-            </label>
-            <select
-              value={timer.selectedTopicId || ''}
-              onChange={(e) => setTimerSubject(timer.selectedSubjectId || '', e.target.value)}
-              className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-2 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-sky-500"
-            >
-              <option value="">Geral da Matéria</option>
-              {subjectTopics.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.title}
-                </option>
-              ))}
-            </select>
-          </div>
         </div>
 
         {/* Study Cycle Progress */}
