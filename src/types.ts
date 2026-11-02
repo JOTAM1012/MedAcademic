@@ -40,6 +40,7 @@ export interface Subject {
   color: string;
   iconName?: string;
   majorArea?: string;
+  specialty?: string; // especialidade dentro da Clínica Médica (Cardiologia, Neurologia...)
   universitySubject?: string;
   room?: string;
   workloadHours?: number;

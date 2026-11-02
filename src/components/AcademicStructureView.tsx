@@ -19,13 +19,13 @@ import {
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { Subject, Topic, TopicStatus } from '../types';
-import { CLINICA_MEDICA_SPECIALTIES, MEDICAL_AREAS, OTHER_AREA, getMedicalArea, getSpecialty, isClinicaMedica } from '../data/areas';
+import { CLINICA_MEDICA_SPECIALTIES, MEDICAL_AREAS, OTHER_AREA, getMedicalArea, getSpecialty } from '../data/areas';
 import { EditSubjectModal } from './modals/EditSubjectModal';
 import { TOPIC_STATUS_INFO, REVIEWS_TO_MASTER, getReviewsDone, isTopicDone, topicStatusLabel } from '../data/topicStatus';
 
 interface AcademicStructureViewProps {
   onOpenAddSubject: () => void;
-  onOpenAddTopic: (subjectId?: string, specialty?: string) => void;
+  onOpenAddTopic: (subjectId?: string) => void;
 }
 
 export const AcademicStructureView: React.FC<AcademicStructureViewProps> = ({
@@ -50,7 +50,6 @@ export const AcademicStructureView: React.FC<AcademicStructureViewProps> = ({
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [areaFilter, setAreaFilter] = useState<string>('all');
-  const [specialtyFilter, setSpecialtyFilter] = useState<string>('all'); // Clínica Médica
   const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
 
   // Display color: the area's color (older subjects without an area keep their own)
@@ -59,9 +58,28 @@ export const AcademicStructureView: React.FC<AcademicStructureViewProps> = ({
     return area.id === OTHER_AREA.id ? sub.color || OTHER_AREA.color : area.color;
   };
 
+  const specialtyOrder = (sub: Subject) => {
+    const i = CLINICA_MEDICA_SPECIALTIES.findIndex((sp) => sp.id === sub.specialty);
+    return i < 0 ? CLINICA_MEDICA_SPECIALTIES.length : i;
+  };
+
+  // "Clínica Médica · ❤️ Cardiologia"
+  const areaLabel = (sub: Subject) => {
+    const area = getMedicalArea(sub.majorArea);
+    if (area.id === OTHER_AREA.id) return null;
+    const sp = getSpecialty(sub.specialty);
+    return sp ? `${area.id} · ${sp.emoji} ${sp.id}` : area.id;
+  };
+
   // Subjects grouped by the 6 internship areas, always in the same order ("Outras" last)
   const areaGroups = [...MEDICAL_AREAS, OTHER_AREA]
-    .map((area) => ({ area, items: subjects.filter((s) => getMedicalArea(s.majorArea).id === area.id) }))
+    .map((area) => ({
+      area,
+      // Clínica Médica: disciplinas ordenadas pela especialidade (as sem especialidade no fim)
+      items: subjects
+        .filter((s) => getMedicalArea(s.majorArea).id === area.id)
+        .sort((a, b) => specialtyOrder(a) - specialtyOrder(b)),
+    }))
     .filter((g) => g.items.length > 0);
   const visibleGroups = areaFilter === 'all' ? areaGroups : areaGroups.filter((g) => g.area.id === areaFilter);
   const visibleSubjects = visibleGroups.flatMap((g) => g.items);
@@ -71,22 +89,10 @@ export const AcademicStructureView: React.FC<AcademicStructureViewProps> = ({
     ? subjects.find((s) => s.id === selectedSubjectId) || visibleSubjects[0]
     : visibleSubjects[0];
 
-  const activeIsCM = isClinicaMedica(activeSubject?.majorArea);
-  const activeSpecialty = activeIsCM && specialtyFilter !== 'all' ? specialtyFilter : undefined;
-  const specialtyCounts = new Map<string, number>();
-  if (activeIsCM && activeSubject) {
-    topics
-      .filter((t) => t.subjectId === activeSubject.id)
-      .forEach((t) => specialtyCounts.set(t.specialty || '', (specialtyCounts.get(t.specialty || '') || 0) + 1));
-  }
-
   // Filter topics for the active subject
   const currentSubjectTopics = activeSubject
     ? topics.filter((t) => {
         const matchesSubject = t.subjectId === activeSubject.id;
-        const matchesSpecialty =
-          !activeSpecialty || (activeSpecialty === 'sem' ? !t.specialty : t.specialty === activeSpecialty);
-        if (!matchesSpecialty) return false;
         const matchesStatus = filterStatus === 'all' || t.status === filterStatus;
         const matchesSearch =
           !searchTerm ||
@@ -243,7 +249,7 @@ export const AcademicStructureView: React.FC<AcademicStructureViewProps> = ({
                             <div className="min-w-0 pr-2">
                               <div className="flex items-center gap-1.5 mb-1">
                                 <span className="text-[11px] font-semibold" style={{ color: subjectColor(sub) }}>
-                                  {getMedicalArea(sub.majorArea).id === OTHER_AREA.id ? 'Sem área' : getMedicalArea(sub.majorArea).id}
+                                  {areaLabel(sub) || 'Sem área'}
                                 </span>
                               </div>
                               <h3 className="text-xs font-bold text-slate-900 dark:text-white line-clamp-1">
@@ -298,9 +304,7 @@ export const AcademicStructureView: React.FC<AcademicStructureViewProps> = ({
                       {activeSubject.universitySubject || activeSubject.name}
                     </h2>
                     <p className="text-xs font-semibold" style={{ color: subjectColor(activeSubject) }}>
-                      {getMedicalArea(activeSubject.majorArea).id === OTHER_AREA.id
-                        ? 'Sem área definida'
-                        : getMedicalArea(activeSubject.majorArea).id}
+                      {areaLabel(activeSubject) || 'Sem área definida'}
                     </p>
                   </div>
                 </div>
@@ -317,7 +321,7 @@ export const AcademicStructureView: React.FC<AcademicStructureViewProps> = ({
                   </button>
                   <button
                     id="academic-add-topic-btn"
-                    onClick={() => onOpenAddTopic(activeSubject.id, activeSpecialty !== 'sem' ? activeSpecialty : undefined)}
+                    onClick={() => onOpenAddTopic(activeSubject.id)}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold transition-colors"
                   >
                     <Plus className="h-3.5 w-3.5" />
@@ -333,55 +337,6 @@ export const AcademicStructureView: React.FC<AcademicStructureViewProps> = ({
                   </button>
                 </div>
               </div>
-
-              {/* Clínica Médica: assuntos por especialidade */}
-              {activeIsCM && (
-                <div className="mt-4">
-                  <div className="text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-1.5">Especialidades</div>
-                  <div id="cm-specialty-filter" className="flex flex-wrap gap-1.5">
-                    <button
-                      onClick={() => setSpecialtyFilter('all')}
-                      className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-colors ${
-                        specialtyFilter === 'all'
-                          ? 'bg-blue-600 border-blue-600 text-white'
-                          : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-slate-300'
-                      }`}
-                    >
-                      Todas
-                    </button>
-                    {CLINICA_MEDICA_SPECIALTIES.map((sp) => {
-                      const active = specialtyFilter === sp.id;
-                      const count = specialtyCounts.get(sp.id) || 0;
-                      return (
-                        <button
-                          key={sp.id}
-                          onClick={() => setSpecialtyFilter(active ? 'all' : sp.id)}
-                          className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-colors ${
-                            active ? 'text-white' : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-slate-300'
-                          }`}
-                          style={active ? { backgroundColor: sp.color, borderColor: sp.color } : undefined}
-                        >
-                          <span>{sp.emoji}</span>
-                          {sp.id}
-                          {count > 0 && <span className={active ? 'opacity-80' : 'text-slate-400'}>{count}</span>}
-                        </button>
-                      );
-                    })}
-                    {(specialtyCounts.get('') || 0) > 0 && (
-                      <button
-                        onClick={() => setSpecialtyFilter(specialtyFilter === 'sem' ? 'all' : 'sem')}
-                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-colors ${
-                          specialtyFilter === 'sem'
-                            ? 'bg-slate-600 border-slate-600 text-white'
-                            : 'border-dashed border-slate-300 dark:border-slate-700 text-slate-500'
-                        }`}
-                      >
-                        Sem especialidade {specialtyCounts.get('')}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )}
 
               {/* Filters & Search Row */}
               <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-3">
@@ -448,35 +403,7 @@ export const AcademicStructureView: React.FC<AcademicStructureViewProps> = ({
                               >
                                 {badge.label}
                               </span>
-                              {activeIsCM && (
-                                <select
-                                  value={topic.specialty || ''}
-                                  onChange={(e) =>
-                                    updateTopic(topic.id, {
-                                      specialty: e.target.value || undefined,
-                                      moduleName: e.target.value || activeSubject.name,
-                                    })
-                                  }
-                                  aria-label={`Especialidade de ${topic.title}`}
-                                  className="text-[10px] font-bold px-1.5 py-0.5 rounded-md border-0 cursor-pointer focus:outline-hidden"
-                                  style={
-                                    getSpecialty(topic.specialty)
-                                      ? {
-                                          color: getSpecialty(topic.specialty)!.color,
-                                          backgroundColor: getSpecialty(topic.specialty)!.color + '1f',
-                                        }
-                                      : { color: '#64748b', backgroundColor: '#64748b1f' }
-                                  }
-                                >
-                                  <option value="">+ Especialidade</option>
-                                  {CLINICA_MEDICA_SPECIALTIES.map((sp) => (
-                                    <option key={sp.id} value={sp.id}>
-                                      {sp.emoji} {sp.id}
-                                    </option>
-                                  ))}
-                                </select>
-                              )}
-                            </div>
+                                                          </div>
 
                             {topic.description && (
                               <p className="text-xs text-slate-600 dark:text-slate-400">

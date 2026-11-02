@@ -3,7 +3,8 @@ import { X, BookOpen, Trash2, GraduationCap } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { Subject } from '../../types';
 import { AreaPicker } from '../AreaPicker';
-import { getMedicalArea, OTHER_AREA } from '../../data/areas';
+import { getMedicalArea, getSpecialty, isClinicaMedica, OTHER_AREA } from '../../data/areas';
+import { SpecialtyPicker } from '../SpecialtyPicker';
 
 interface EditSubjectModalProps {
   isOpen: boolean;
@@ -21,6 +22,7 @@ export const EditSubjectModal: React.FC<EditSubjectModalProps> = ({
 
   const [name, setName] = useState('');
   const [area, setArea] = useState<string | null>(null);
+  const [specialty, setSpecialty] = useState('');
   const [targetGrade, setTargetGrade] = useState(7.0);
   const [workloadHours, setWorkloadHours] = useState<number | ''>('');
 
@@ -29,6 +31,7 @@ export const EditSubjectModal: React.FC<EditSubjectModalProps> = ({
       setName(subject.universitySubject || subject.name || '');
       const current = getMedicalArea(subject.majorArea);
       setArea(current.id === OTHER_AREA.id ? null : current.id);
+      setSpecialty(subject.specialty || '');
       setTargetGrade(subject.targetGrade || 7.0);
       setWorkloadHours(subject.workloadHours || '');
     }
@@ -45,6 +48,7 @@ export const EditSubjectModal: React.FC<EditSubjectModalProps> = ({
       name: name.trim(),
       universitySubject: name.trim(),
       majorArea: area,
+      specialty: isClinicaMedica(area) ? getSpecialty(specialty)?.id : undefined,
       code: areaInfo.short,
       color: areaInfo.color,
       targetGrade: Number(targetGrade) || 7.0,
@@ -64,7 +68,7 @@ export const EditSubjectModal: React.FC<EditSubjectModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
-      <div className="relative w-full max-w-md rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-2xl">
+      <div className="relative w-full max-w-lg max-h-[92vh] overflow-y-auto rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 sm:p-6 shadow-2xl">
         <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
           <div className="flex items-center gap-2.5">
             <div className="p-2 rounded-xl bg-sky-500/10 text-sky-600 dark:text-sky-400">
@@ -123,6 +127,7 @@ export const EditSubjectModal: React.FC<EditSubjectModalProps> = ({
 
           {/* Grande Área (define grupo e cor) */}
           <AreaPicker value={area} onChange={setArea} />
+          {isClinicaMedica(area || undefined) && <SpecialtyPicker value={specialty} onChange={setSpecialty} />}
 
           {/* Target Grade and Workload */}
           <div className="grid grid-cols-2 gap-3">
