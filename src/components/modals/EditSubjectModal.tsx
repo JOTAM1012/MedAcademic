@@ -23,8 +23,6 @@ export const EditSubjectModal: React.FC<EditSubjectModalProps> = ({
   const [name, setName] = useState('');
   const [area, setArea] = useState<string | null>(null);
   const [specialty, setSpecialty] = useState('');
-  const [targetGrade, setTargetGrade] = useState(7.0);
-  const [workloadHours, setWorkloadHours] = useState<number | ''>('');
 
   useEffect(() => {
     if (subject) {
@@ -32,8 +30,6 @@ export const EditSubjectModal: React.FC<EditSubjectModalProps> = ({
       const current = getMedicalArea(subject.majorArea);
       setArea(current.id === OTHER_AREA.id ? null : current.id);
       setSpecialty(subject.specialty || '');
-      setTargetGrade(subject.targetGrade || 7.0);
-      setWorkloadHours(subject.workloadHours || '');
     }
   }, [subject]);
 
@@ -51,8 +47,6 @@ export const EditSubjectModal: React.FC<EditSubjectModalProps> = ({
       specialty: isClinicaMedica(area) ? getSpecialty(specialty)?.id : undefined,
       code: areaInfo.short,
       color: areaInfo.color,
-      targetGrade: Number(targetGrade) || 7.0,
-      workloadHours: workloadHours ? Number(workloadHours) : undefined,
     });
 
     showNotification('Disciplina atualizada com sucesso!', 'success');
@@ -128,37 +122,6 @@ export const EditSubjectModal: React.FC<EditSubjectModalProps> = ({
           {/* Grande Área (define grupo e cor) */}
           <AreaPicker value={area} onChange={setArea} />
           {isClinicaMedica(area || undefined) && <SpecialtyPicker value={specialty} onChange={setSpecialty} />}
-
-          {/* Target Grade and Workload */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                Meta de Média
-              </label>
-              <input
-                type="number"
-                step="0.1"
-                min="0"
-                max="10"
-                value={targetGrade}
-                onChange={(e) => setTargetGrade(parseFloat(e.target.value) || 7.0)}
-                className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-sky-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                Carga Horária (h)
-              </label>
-              <input
-                type="number"
-                placeholder="Ex: 80"
-                value={workloadHours}
-                onChange={(e) => setWorkloadHours(parseInt(e.target.value) || '')}
-                className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-xs text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-sky-500"
-              />
-            </div>
-          </div>
 
           <div className="pt-3 flex items-center justify-between gap-2 border-t border-slate-100 dark:border-slate-800">
             <button

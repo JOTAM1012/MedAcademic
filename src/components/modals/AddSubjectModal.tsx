@@ -20,8 +20,6 @@ export const AddSubjectModal: React.FC<AddSubjectModalProps> = ({ isOpen, onClos
   const [name, setName] = useState('');
   const [area, setArea] = useState<string | null>(null);
   const [specialty, setSpecialty] = useState('');
-  const [targetGrade, setTargetGrade] = useState(7.0);
-  const [workloadHours, setWorkloadHours] = useState<number | ''>('');
 
   if (!isOpen) return null;
 
@@ -32,7 +30,6 @@ export const AddSubjectModal: React.FC<AddSubjectModalProps> = ({ isOpen, onClos
     setName('');
     setArea(null);
     setSpecialty('');
-    setWorkloadHours('');
   };
 
   const handleClose = () => {
@@ -66,8 +63,7 @@ export const AddSubjectModal: React.FC<AddSubjectModalProps> = ({ isOpen, onClos
       color: areaInfo.color,
       majorArea: area,
       specialty: sp?.id,
-      targetGrade: Number(targetGrade) || 7.0,
-      workloadHours: workloadHours ? Number(workloadHours) : undefined,
+      targetGrade: 7.0,
       semesterId: currentSemester?.id,
       universitySubject: name.trim(),
     });
@@ -133,34 +129,6 @@ export const AddSubjectModal: React.FC<AddSubjectModalProps> = ({ isOpen, onClos
                 onChange={(e) => setName(e.target.value)}
                 className={`${inputCls} ${areaInfo ? 'pl-8' : ''}`}
                 required
-              />
-            </div>
-          </div>
-
-          {/* Meta e carga horária */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={labelCls} htmlFor="subject-target">Meta de Média</label>
-              <input
-                id="subject-target"
-                type="number"
-                step="0.1"
-                min="0"
-                max="10"
-                value={targetGrade}
-                onChange={(e) => setTargetGrade(parseFloat(e.target.value) || 7.0)}
-                className={`${inputCls} font-bold`}
-              />
-            </div>
-            <div>
-              <label className={labelCls} htmlFor="subject-hours">Carga Horária (h)</label>
-              <input
-                id="subject-hours"
-                type="number"
-                placeholder="Ex: 80"
-                value={workloadHours}
-                onChange={(e) => setWorkloadHours(parseInt(e.target.value) || '')}
-                className={inputCls}
               />
             </div>
           </div>
