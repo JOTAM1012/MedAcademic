@@ -37,3 +37,30 @@ export const getMedicalArea = (majorArea?: string): MedicalArea => {
   if (value.includes('clinica')) return MEDICAL_AREAS[0];
   return OTHER_AREA;
 };
+
+// Especialidades da Clínica Médica: usadas para classificar os assuntos dessas disciplinas
+export interface Specialty {
+  id: string;
+  emoji: string;
+  color: string;
+}
+
+export const CLINICA_MEDICA_SPECIALTIES: Specialty[] = [
+  { id: 'Cardiologia', emoji: '❤️', color: '#e11d48' },
+  { id: 'Dermatologia', emoji: '🧴', color: '#d97706' },
+  { id: 'Endocrinologia', emoji: '🦋', color: '#7c3aed' },
+  { id: 'Gastroenterologia', emoji: '🍽️', color: '#ca8a04' },
+  { id: 'Hematologia', emoji: '🩸', color: '#b91c1c' },
+  { id: 'Hepatologia', emoji: '🧪', color: '#a16207' },
+  { id: 'Infectologia', emoji: '🦠', color: '#16a34a' },
+  { id: 'Nefrologia', emoji: '💧', color: '#0284c7' },
+  { id: 'Neurologia', emoji: '🧠', color: '#9333ea' },
+  { id: 'Pneumologia', emoji: '🫁', color: '#0891b2' },
+  { id: 'Psiquiatria', emoji: '💭', color: '#db2777' },
+  { id: 'Reumatologia', emoji: '🦴', color: '#64748b' },
+  { id: 'Oftalmologia', emoji: '👁️', color: '#0d9488' },
+];
+
+export const getSpecialty = (id?: string) => CLINICA_MEDICA_SPECIALTIES.find((s) => s.id === id);
+
+export const isClinicaMedica = (majorArea?: string) => getMedicalArea(majorArea).id === MEDICAL_AREAS[0].id;

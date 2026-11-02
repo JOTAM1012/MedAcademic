@@ -23,18 +23,20 @@ import {
 import { useApp } from '../../context/AppContext';
 import { PreferredStudyMethod, TopicDifficulty, TopicPriority } from '../../types';
 import { AreaPicker } from '../AreaPicker';
-import { MEDICAL_AREAS, OTHER_AREA, getMedicalArea } from '../../data/areas';
+import { CLINICA_MEDICA_SPECIALTIES, MEDICAL_AREAS, OTHER_AREA, getMedicalArea, isClinicaMedica } from '../../data/areas';
 
 interface AddStudyTopicModalProps {
   isOpen: boolean;
   onClose: () => void;
   defaultSubjectId?: string;
+  defaultSpecialty?: string;
 }
 
 export const AddStudyTopicModal: React.FC<AddStudyTopicModalProps> = ({
   isOpen,
   onClose,
   defaultSubjectId,
+  defaultSpecialty,
 }) => {
   const { subjects, addSubject, addTopic, addXp, triggerConfetti, showNotification } = useApp();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -53,7 +55,8 @@ export const AddStudyTopicModal: React.FC<AddStudyTopicModalProps> = ({
     setSelectedSubjectId(defaultSubjectId || subjects[0]?.id || '');
     setIsSubjectLocked(Boolean(defaultSubjectId && subjects.some((s) => s.id === defaultSubjectId)));
     setIsCreatingNewSubject(false);
-  }, [isOpen, defaultSubjectId]);
+    setSpecialty(defaultSpecialty || '');
+  }, [isOpen, defaultSubjectId, defaultSpecialty]);
   const [newSubjectName, setNewSubjectName] = useState('');
   const [newSubjectArea, setNewSubjectArea] = useState<string | null>(null);
 
@@ -74,11 +77,13 @@ export const AddStudyTopicModal: React.FC<AddStudyTopicModalProps> = ({
   const [inSpacedRepetition, setInSpacedRepetition] = useState(true);
   const [preferredMethods, setPreferredMethods] = useState<PreferredStudyMethod[]>(['questoes']);
   const [questionCount, setQuestionCount] = useState<number>(15);
-  const [priority, setPriority] = useState<TopicPriority>('alta');
+  const [priority] = useState<TopicPriority>('media');
+  const [specialty, setSpecialty] = useState('');
 
   if (!isOpen) return null;
 
   const currentSubject = subjects.find((s) => s.id === selectedSubjectId);
+  const isCM = isClinicaMedica(currentSubject?.majorArea);
 
   // Quick date helper
   const setQuickDate = (offsetDays: number) => {
@@ -139,9 +144,11 @@ export const AddStudyTopicModal: React.FC<AddStudyTopicModalProps> = ({
       return;
     }
 
+    const chosenSpecialty = isCM && specialty ? specialty : undefined;
     addTopic({
       subjectId: targetSubId,
-      moduleName: currentSubject?.name || 'Geral',
+      moduleName: chosenSpecialty || currentSubject?.name || 'Geral',
+      specialty: chosenSpecialty,
       title: topicTitle.trim(),
       description: notes.trim() || undefined,
       status: 'nao_iniciado',
@@ -158,7 +165,7 @@ export const AddStudyTopicModal: React.FC<AddStudyTopicModalProps> = ({
       nextReviewDate: undefined,
       lastStudiedDate: undefined,
       notes: notes.trim() || undefined,
-      tags: [currentSubject?.name || 'Geral', ...preferredMethods],
+      tags: [chosenSpecialty || currentSubject?.name || 'Geral', ...preferredMethods],
     });
 
     addXp(60, 'Novo Assunto Cadastrado');
@@ -299,6 +306,37 @@ export const AddStudyTopicModal: React.FC<AddStudyTopicModalProps> = ({
               )}
             </div>
 
+            )}
+
+            {/* Clínica Médica: escolher a especialidade do assunto */}
+            {isCM && (
+              <div>
+                <label className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5 mb-1.5">
+                  <span className="w-2 h-2 rounded-full bg-blue-600"></span>
+                  Especialidade da Clínica Médica
+                </label>
+                <div id="topic-specialty-picker" className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                  {CLINICA_MEDICA_SPECIALTIES.map((sp) => {
+                    const active = specialty === sp.id;
+                    return (
+                      <button
+                        key={sp.id}
+                        type="button"
+                        onClick={() => setSpecialty(active ? '' : sp.id)}
+                        className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg border text-[11px] font-bold transition-all text-left ${
+                          active
+                            ? 'text-white shadow-xs'
+                            : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:border-slate-300'
+                        }`}
+                        style={active ? { backgroundColor: sp.color, borderColor: sp.color } : undefined}
+                      >
+                        <span className="text-sm leading-none">{sp.emoji}</span>
+                        <span className="truncate">{sp.id}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             )}
 
             <div>

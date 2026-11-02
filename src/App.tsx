@@ -81,6 +81,7 @@ const AppContent: React.FC = () => {
   const [selectedDayForScheduleModal, setSelectedDayForScheduleModal] = useState<number | undefined>();
   const [activeSubjectIdForModal, setActiveSubjectIdForModal] = useState<string | undefined>();
   const [dateForModal, setDateForModal] = useState<string | undefined>();
+  const [specialtyForModal, setSpecialtyForModal] = useState<string | undefined>();
 
   // Offline status tracking for toast notification after 30 seconds & reconnection pop effect
   const [showOfflineToast, setShowOfflineToast] = useState(false);
@@ -199,7 +200,8 @@ const AppContent: React.FC = () => {
     return <ProfileCreationPage />;
   }
 
-  const handleOpenAddTopic = (subjectId?: string) => {
+  const handleOpenAddTopic = (subjectId?: string, specialty?: string) => {
+    setSpecialtyForModal(specialty);
     setActiveSubjectIdForModal(subjectId);
     setIsAddTopicOpen(true);
   };
@@ -299,6 +301,7 @@ const AppContent: React.FC = () => {
         isOpen={isAddTopicOpen}
         onClose={() => setIsAddTopicOpen(false)}
         defaultSubjectId={activeSubjectIdForModal}
+        defaultSpecialty={specialtyForModal}
       />
 
       <AddExamModal

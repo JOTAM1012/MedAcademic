@@ -98,6 +98,17 @@ export const ChecklistView: React.FC = () => {
     setCreator({ open: false, name: '', color: CHECKLIST_COLORS[(checklistBlocks.length + 1) % CHECKLIST_COLORS.length], emoji: EMOJIS[0] });
   };
 
+  // "Geral" não é um bloco salvo: excluir apaga os itens antigos que estão nele
+  const removeBlock = (block: BlockView, count: number) => {
+    const msg = count > 0 ? `Excluir o bloco "${block.name}" e seus ${count} ${count === 1 ? 'item' : 'itens'}?` : `Excluir o bloco "${block.name}"?`;
+    if (!window.confirm(msg)) return;
+    if (block.virtual) {
+      checklist.filter((i) => ownerOf(i) === GENERAL_ID).forEach((i) => deleteChecklistItem(i.id));
+    } else {
+      deleteChecklistBlock(block.id);
+    }
+  };
+
   const saveItemText = () => {
     if (!editingItem) return;
     const text = editingItem.text.trim();
@@ -244,6 +255,15 @@ export const ChecklistView: React.FC = () => {
                   <MoreHorizontal className="h-4 w-4" />
                 </button>
               )}
+              <button
+                id={`checklist-delete-block-${block.id}`}
+                onClick={() => removeBlock(block, items.length)}
+                className="p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                aria-label={`Excluir bloco ${block.name}`}
+                title="Excluir bloco"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
               {menuFor === block.id && (
                 <div
                   onClick={(e) => e.stopPropagation()}
@@ -297,7 +317,7 @@ export const ChecklistView: React.FC = () => {
                   <button
                     onClick={() => {
                       setMenuFor(null);
-                      if (window.confirm(`Excluir o bloco "${block.name}" e seus ${items.length} itens?`)) deleteChecklistBlock(block.id);
+                      removeBlock(block, items.length);
                     }}
                     className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs font-semibold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40"
                   >

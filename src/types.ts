@@ -7,6 +7,7 @@ export interface Topic {
   id: string;
   subjectId: string;
   moduleName?: string; // Matéria / Módulo dentro da disciplina
+  specialty?: string; // especialidade (Clínica Médica): Cardiologia, Neurologia...
   title: string; // Nome do Assunto
   description?: string;
   status: TopicStatus;
