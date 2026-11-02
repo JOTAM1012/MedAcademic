@@ -20,9 +20,12 @@ import {
   UserCheck,
   UserPlus,
   LogIn,
+  Smartphone,
 } from 'lucide-react';
 import { useAuth, UserAccount, isLocalOnly } from '../../context/AuthContext';
 import { CARTOON_AVATARS } from '../../data/avatars';
+import { usePwaInstall } from '../../lib/pwaInstall';
+import { InstallAppModal } from '../InstallAppGuide';
 
 const SPECIALTIES_LIST = [
   'Clínica Médica',
@@ -48,6 +51,8 @@ interface AuthModalProps {
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({ isPage = false }) => {
+  const { isInstalled: isAppInstalled } = usePwaInstall();
+  const [isInstallOpen, setIsInstallOpen] = useState(false);
   const {
     accounts,
     activeUserId,
@@ -443,7 +448,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isPage = false }) => {
             </div>
           )}
         </div>
+
+        {/* Instalar como aplicativo (na tela de login o App ainda não montou a janela global) */}
+        {(isPage || !activeUserId) && !isAppInstalled && (
+          <button
+            id="auth-install-btn"
+            type="button"
+            onClick={() => setIsInstallOpen(true)}
+            className="mx-auto mt-4 flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-800 bg-slate-900/70 text-xs font-bold text-slate-300 hover:text-white hover:border-sky-600 transition-colors"
+          >
+            <Smartphone className="h-4 w-4 text-sky-400" />
+            Instalar o MedAcademic no celular
+          </button>
+        )}
       </div>
+      <InstallAppModal isOpen={isInstallOpen} onClose={() => setIsInstallOpen(false)} />
     </div>
   );
 };
