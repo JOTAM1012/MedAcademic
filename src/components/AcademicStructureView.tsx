@@ -21,11 +21,12 @@ import { useApp } from '../context/AppContext';
 import { Subject, Topic, TopicStatus } from '../types';
 import { CLINICA_MEDICA_SPECIALTIES, MEDICAL_AREAS, OTHER_AREA, getMedicalArea, getSpecialty } from '../data/areas';
 import { EditSubjectModal } from './modals/EditSubjectModal';
+import { SubjectBlocksPanel } from './SubjectBlocksPanel';
 import { TOPIC_STATUS_INFO, REVIEWS_TO_MASTER, getReviewsDone, isTopicDone, topicStatusLabel } from '../data/topicStatus';
 
 interface AcademicStructureViewProps {
   onOpenAddSubject: () => void;
-  onOpenAddTopic: (subjectId?: string) => void;
+  onOpenAddTopic?: (subjectId?: string) => void;
 }
 
 export const AcademicStructureView: React.FC<AcademicStructureViewProps> = ({
@@ -47,8 +48,6 @@ export const AcademicStructureView: React.FC<AcademicStructureViewProps> = ({
   } = useApp();
 
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
-  const [filterStatus, setFilterStatus] = useState<string>('all');
-  const [searchTerm, setSearchTerm] = useState<string>('');
   const [areaFilter, setAreaFilter] = useState<string>('all');
   const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
 
@@ -88,31 +87,6 @@ export const AcademicStructureView: React.FC<AcademicStructureViewProps> = ({
   const activeSubject = selectedSubjectId
     ? subjects.find((s) => s.id === selectedSubjectId) || visibleSubjects[0]
     : visibleSubjects[0];
-
-  // Filter topics for the active subject
-  const currentSubjectTopics = activeSubject
-    ? topics.filter((t) => {
-        const matchesSubject = t.subjectId === activeSubject.id;
-        const matchesStatus = filterStatus === 'all' || t.status === filterStatus;
-        const matchesSearch =
-          !searchTerm ||
-          t.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          t.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          t.tags?.some((tag) => tag.toLowerCase().includes(searchTerm.toLowerCase()));
-        return matchesSubject && matchesStatus && matchesSearch;
-      })
-    : [];
-
-  const getStatusBadge = (topic: Topic) => ({
-    label: topicStatusLabel(topic),
-    class: TOPIC_STATUS_INFO[topic.status].badgeClass,
-  });
-
-  const formatShortDate = (iso?: string) => {
-    if (!iso) return '';
-    const [, m, d] = iso.split('-');
-    return d && m ? `${d}/${m}` : iso;
-  };
 
   return (
     <div className="space-y-6 pb-12">
@@ -319,14 +293,6 @@ export const AcademicStructureView: React.FC<AcademicStructureViewProps> = ({
                   >
                     <Edit2 className="h-4 w-4" />
                   </button>
-                  <button
-                    id="academic-add-topic-btn"
-                    onClick={() => onOpenAddTopic(activeSubject.id)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold transition-colors"
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                    <span>Adicionar Tópico</span>
-                  </button>
 
                   <button
                     onClick={() => deleteSubject(activeSubject.id)}
@@ -338,161 +304,7 @@ export const AcademicStructureView: React.FC<AcademicStructureViewProps> = ({
                 </div>
               </div>
 
-              {/* Filters & Search Row */}
-              <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-                <div className="relative w-full sm:w-64">
-                  <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
-                  <input
-                    type="text"
-                    placeholder="Filtrar tópicos..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 py-1.5 pl-8 pr-3 text-xs text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-sky-500"
-                  />
-                </div>
-
-                <div className="flex items-center gap-1.5 w-full sm:w-auto overflow-x-auto">
-                  {['all', 'nao_iniciado', 'em_andamento', 'revisado', 'dominado'].map((st) => (
-                    <button
-                      key={st}
-                      onClick={() => setFilterStatus(st)}
-                      className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-colors ${
-                        filterStatus === st
-                          ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900'
-                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200'
-                      }`}
-                    >
-                      {st === 'all' ? 'Todos' : TOPIC_STATUS_INFO[st as TopicStatus].filterLabel}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Topics List Table / Cards */}
-              <div className="mt-4 space-y-3">
-                {currentSubjectTopics.length === 0 ? (
-                  <div className="text-center py-12 rounded-xl bg-slate-50 dark:bg-slate-950/40 border border-slate-100 dark:border-slate-800">
-                    <BookOpen className="h-8 w-8 text-slate-300 dark:text-slate-700 mx-auto mb-2" />
-                    <p className="text-xs text-slate-500 font-medium">
-                      Nenhum tópico encontrado com esses filtros.
-                    </p>
-                    <button
-                      onClick={() => onOpenAddTopic(activeSubject.id)}
-                      className="mt-2 text-xs font-bold text-sky-600 dark:text-sky-400 hover:underline"
-                    >
-                      + Adicionar Novo Assunto Clínico
-                    </button>
-                  </div>
-                ) : (
-                  currentSubjectTopics.map((topic) => {
-                    const badge = getStatusBadge(topic);
-                    const reviewsDone = getReviewsDone(topic);
-                    return (
-                      <div
-                        key={topic.id}
-                        className="rounded-xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/30 p-4 transition-all hover:bg-white dark:hover:bg-slate-900 hover:shadow-xs"
-                      >
-                        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
-                          <div className="space-y-1 flex-1">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
-                                {topic.title}
-                              </h4>
-                              <span
-                                className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${badge.class}`}
-                              >
-                                {badge.label}
-                              </span>
-                                                          </div>
-
-                            {topic.description && (
-                              <p className="text-xs text-slate-600 dark:text-slate-400">
-                                {topic.description}
-                              </p>
-                            )}
-
-                            {topic.notes && (
-                              <div className="text-[11px] text-amber-700 dark:text-amber-300/90 bg-amber-50/60 dark:bg-amber-950/20 p-2 rounded-lg border border-amber-200/50 dark:border-amber-900/30 mt-2">
-                                <strong>Nota do Estudante:</strong> {topic.notes}
-                              </div>
-                            )}
-
-                            {topic.tags && topic.tags.length > 0 && (
-                              <div className="flex items-center gap-1.5 pt-1.5 flex-wrap">
-                                {topic.tags.map((tag) => (
-                                  <span
-                                    key={tag}
-                                    className="text-[10px] text-slate-500 bg-slate-200/60 dark:bg-slate-800 px-2 py-0.5 rounded-md flex items-center gap-1"
-                                  >
-                                    <Tag className="h-2.5 w-2.5" />
-                                    {tag}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Action Status Selector & Delete */}
-                          <div className="flex items-center gap-2 shrink-0 pt-2 sm:pt-0">
-                            {topic.status === 'nao_iniciado' ? (
-                              <button
-                                type="button"
-                                onClick={() => markTopicSeen(topic.id)}
-                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition-colors"
-                                title="Registrar o 1º contato: o assunto entra na aba Revisões"
-                              >
-                                <CheckCircle2 className="h-3.5 w-3.5" />
-                                Marcar como visto
-                              </button>
-                            ) : (
-                              <div className="flex items-center gap-2">
-                                <div className="text-right">
-                                  <div className="flex items-center justify-end gap-1" title={`${reviewsDone} de ${REVIEWS_TO_MASTER} revisões concluídas`}>
-                                    {Array.from({ length: REVIEWS_TO_MASTER }, (_, i) => (
-                                      <span
-                                        key={i}
-                                        className={`h-1.5 w-4 rounded-full ${i < reviewsDone ? 'bg-emerald-500' : 'bg-slate-200 dark:bg-slate-700'}`}
-                                      />
-                                    ))}
-                                  </div>
-                                  <div className="text-[10px] text-slate-500 mt-1">
-                                    {topic.status === 'dominado'
-                                      ? '4 revisões concluídas'
-                                      : topic.nextReviewDate
-                                      ? `Próxima revisão ${formatShortDate(topic.nextReviewDate)}`
-                                      : 'Na aba Revisões'}
-                                  </div>
-                                </div>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    if (reviewsDone === 0 || window.confirm(`Recomeçar "${topic.title}"? As revisões feitas serão zeradas.`)) {
-                                      resetTopicProgress(topic.id);
-                                    }
-                                  }}
-                                  className="p-1 rounded-lg text-slate-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors"
-                                  title="Voltar para Não iniciado"
-                                  aria-label="Voltar para Não iniciado"
-                                >
-                                  <RotateCcw className="h-3.5 w-3.5" />
-                                </button>
-                              </div>
-                            )}
-
-                            <button
-                              onClick={() => deleteTopic(topic.id)}
-                              className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
-                              title="Excluir tópico"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
+              <SubjectBlocksPanel subject={activeSubject} />
             </div>
           ) : (
             <div className="text-center py-16 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800">

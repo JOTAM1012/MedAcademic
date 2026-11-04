@@ -13,7 +13,17 @@ import {
   ChatMessage,
   ChecklistItem,
   ChecklistBlock,
+  TopicBlock,
+  TopicDifficulty,
 } from '../types';
+import {
+  BLOCK_REVIEWS_TO_MASTER,
+  BLOCK_REVIEW_BASE_INTERVALS,
+  DIFFICULTY_FACTOR,
+  addDaysYMD,
+  isTopicSeen,
+  ymd,
+} from '../data/blockReview';
 import {
   INITIAL_SEMESTERS,
   INITIAL_SUBJECTS,
@@ -127,6 +137,15 @@ interface AppContextType {
   markTopicSeen: (id: string) => void;
   /** Volta o assunto para "Não iniciado" e zera as revisões */
   resetTopicProgress: (id: string) => void;
+
+  // Blocos de tópicos (a revisão espaçada é feita por bloco)
+  topicBlocks: TopicBlock[];
+  addTopicBlock: (subjectId: string, name: string) => string;
+  renameTopicBlock: (id: string, name: string) => void;
+  deleteTopicBlock: (id: string) => void;
+  reviewTopicBlock: (id: string, difficulty: TopicDifficulty, result?: { questions?: number; correct?: number }) => void;
+  /** Recomeça as revisões do bloco (volta para "Em estudo" se algum tópico não estiver visto) */
+  restartBlockReviews: (id: string) => void;
 
   // Exams & Grades
   exams: Exam[];
@@ -252,6 +271,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [studySessions, setStudySessions] = useState<StudySession[]>([]);
   const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
   const [checklistBlocks, setChecklistBlocks] = useState<ChecklistBlock[]>([]);
+  const [topicBlocks, setTopicBlocks] = useState<TopicBlock[]>([]);
   const userProfileRef = useRef(userProfile);
   userProfileRef.current = userProfile;
 
@@ -309,6 +329,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setTutorMessages(INITIAL_TUTOR_MESSAGES);
       setChecklist([]);
       setChecklistBlocks([]);
+      setTopicBlocks([]);
       setIsInitialLoadComplete(false);
       setCloudSyncStatus('synced');
       setLastCloudSync(null);
@@ -398,6 +419,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setChecklistBlocks([]);
     if (savedChecklistBlocks) {
       try { setChecklistBlocks(JSON.parse(savedChecklistBlocks)); } catch (e) {}
+    }
+    const savedTopicBlocks = localStorage.getItem(getUserKey('topic_blocks', activeUserId));
+    setTopicBlocks([]);
+    if (savedTopicBlocks) {
+      try { setTopicBlocks(JSON.parse(savedTopicBlocks)); } catch (e) {}
     }
 
     let isSubscribed = true;
@@ -500,6 +526,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (Array.isArray(cloudData.checklist)) {
         setChecklist(cloudData.checklist);
       }
+      if (Array.isArray(cloudData.topicBlocks)) {
+        setTopicBlocks(cloudData.topicBlocks);
+      }
       if (Array.isArray(cloudData.checklistBlocks)) {
         setChecklistBlocks(cloudData.checklistBlocks);
       }
@@ -541,6 +570,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         tutorMessages: parse(savedTutor, INITIAL_TUTOR_MESSAGES, true),
         checklist: parse<ChecklistItem[]>(savedChecklist, []),
         checklistBlocks: parse<ChecklistBlock[]>(savedChecklistBlocks, []),
+        topicBlocks: parse<TopicBlock[]>(savedTopicBlocks, []),
         updatedAt: new Date().toISOString(),
       };
     };
@@ -701,6 +731,54 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [checklistBlocks, activeUserId, isInitialLoadComplete]);
 
+  useEffect(() => {
+    if (activeUserId && isInitialLoadComplete) {
+      localStorage.setItem(getUserKey('topic_blocks', activeUserId), JSON.stringify(topicBlocks));
+    }
+  }, [topicBlocks, activeUserId, isInitialLoadComplete]);
+
+  // Migração: tópicos sem bloco viram um bloco com o nome da disciplina (ex.: "NEONATOLOGIA 1").
+  // O id é fixo por disciplina, então dois aparelhos migrando ao mesmo tempo geram o mesmo bloco.
+  useEffect(() => {
+    if (!activeUserId || !isInitialLoadComplete) return;
+    const validIds = new Set(topicBlocks.map((b) => b.id));
+    const orphans = topics.filter((t) => !t.blockId || !validIds.has(t.blockId));
+    if (orphans.length === 0) return;
+
+    const today = ymd(new Date());
+    const newBlocks: TopicBlock[] = [];
+    const bySubject = new Map<string, Topic[]>();
+    orphans.forEach((t) => bySubject.set(t.subjectId, [...(bySubject.get(t.subjectId) || []), t]));
+    bySubject.forEach((list, subjectId) => {
+      const id = 'blk-auto-' + subjectId;
+      if (validIds.has(id)) return;
+      const sub = subjects.find((s) => s.id === subjectId);
+      const allSeen = list.every(isTopicSeen);
+      const reviewsDone = allSeen ? Math.min(...list.map((t) => getReviewsDone(t))) : 0;
+      const dates = list.map((t) => t.nextReviewDate).filter(Boolean).sort() as string[];
+      const status: TopicBlock['reviewStatus'] = !allSeen
+        ? 'estudando'
+        : reviewsDone >= BLOCK_REVIEWS_TO_MASTER
+        ? 'dominado'
+        : 'revisao';
+      newBlocks.push({
+        id,
+        subjectId,
+        name: sub?.universitySubject || sub?.name || 'Geral',
+        createdAt: new Date().toISOString(),
+        reviewStatus: status,
+        reviewsDone: Math.min(reviewsDone, BLOCK_REVIEWS_TO_MASTER),
+        nextReviewDate: status === 'revisao' ? dates[0] || addDaysYMD(1) : undefined,
+        difficulty: 'medio',
+        lastReviewDate: status !== 'estudando' ? today : undefined,
+      });
+    });
+    if (newBlocks.length > 0) setTopicBlocks((prev) => [...prev, ...newBlocks.filter((b) => !prev.some((p) => p.id === b.id))]);
+    setTopics((prev) =>
+      prev.map((t) => (t.blockId && validIds.has(t.blockId) ? t : { ...t, blockId: 'blk-auto-' + t.subjectId }))
+    );
+  }, [topics, topicBlocks, subjects, activeUserId, isInitialLoadComplete]);
+
   // Full academic state saved as one JSON row per user (table app_state, see supabase/schema.sql)
   const buildCloudState = () => ({
     semesters,
@@ -716,6 +794,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     tutorMessages,
     checklist,
     checklistBlocks,
+    topicBlocks,
     updatedAt: new Date().toISOString(),
   });
 
@@ -779,6 +858,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     tutorMessages,
     checklist,
     checklistBlocks,
+    topicBlocks,
   ]);
 
   // Force Cloud Sync manually
@@ -1153,11 +1233,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const deleteSubject = (id: string) => {
     setSubjects((prev) => prev.filter((s) => s.id !== id));
+    setTopicBlocks((prev) => prev.filter((b) => b.subjectId !== id));
     showNotification('Disciplina removida.', 'info');
   };
 
   const addTopic = (top: Omit<Topic, 'id'>) => {
-    const newTop: Topic = { ...top, id: 'top-' + Date.now() };
+    const newTop: Topic = { ...top, id: 'top-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6) };
     setTopics((prev) => [...prev, newTop]);
     showNotification(`Tópico "${top.title}" cadastrado!`, 'success');
     // XP is awarded by the caller
@@ -1181,8 +1262,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const deleteTopic = (id: string) => {
-    setTopics((prev) => prev.filter((t) => t.id !== id));
+    const t = topics.find((x) => x.id === id);
+    const next = topics.filter((x) => x.id !== id);
+    setTopics(next);
     showNotification('Tópico removido.', 'info');
+    if (t) syncBlockStatus(t.blockId, next);
   };
 
   // Ciclo: Visto (1º contato) → 4 revisões espaçadas → Dominado.
@@ -1196,41 +1280,121 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return d.toISOString().split('T')[0];
   };
 
+  // Recalcula o bloco depois que os tópicos mudam: todos vistos → entra nas revisões (1ª amanhã);
+  // se um tópico volta a "não iniciado" antes da 1ª revisão, o bloco volta para "Em estudo".
+  const syncBlockStatus = (blockId: string | undefined, nextTopics: Topic[]) => {
+    if (!blockId) return;
+    const block = topicBlocks.find((bk) => bk.id === blockId);
+    if (!block) return;
+    const list = nextTopics.filter((t) => t.blockId === blockId);
+    const allSeen = list.length > 0 && list.every(isTopicSeen);
+    if (block.reviewStatus === 'estudando' && allSeen) {
+      setTopicBlocks((prev) =>
+        prev.map((bk) =>
+          bk.id === blockId
+            ? { ...bk, reviewStatus: 'revisao', reviewsDone: 0, nextReviewDate: addDaysYMD(BLOCK_REVIEW_BASE_INTERVALS[0]), difficulty: bk.difficulty || 'medio' }
+            : bk
+        )
+      );
+      addXp(50, 'Bloco concluído');
+      triggerConfetti();
+      showNotification(`✅ Bloco "${block.name}" completo! A 1ª revisão fica para amanhã na aba Revisões.`, 'success');
+    } else if (block.reviewStatus === 'revisao' && block.reviewsDone === 0 && !allSeen) {
+      setTopicBlocks((prev) =>
+        prev.map((bk) => (bk.id === blockId ? { ...bk, reviewStatus: 'estudando', nextReviewDate: undefined } : bk))
+      );
+    }
+  };
+
   const markTopicSeen = (id: string) => {
     const t = topics.find((x) => x.id === id);
-    if (!t) return;
-    const todayStr = new Date().toISOString().split('T')[0];
-    const firstTime = t.status === 'nao_iniciado';
-    setTopics((prev) =>
-      prev.map((x) =>
-        x.id === id
-          ? {
-              ...x,
-              status: 'em_andamento',
-              reviewsDone: 0,
-              cycleStep: 1,
-              intervalDays: REVIEW_BASE_INTERVALS[0],
-              firstContactDate: x.firstContactDate || todayStr,
-              lastStudiedDate: todayStr,
-              nextReviewDate: addDays(REVIEW_BASE_INTERVALS[0]),
-              inSpacedRepetition: true,
-            }
-          : x
-      )
+    if (!t || t.status !== 'nao_iniciado') return;
+    const todayStr = ymd(new Date());
+    const next = topics.map((x) =>
+      x.id === id
+        ? { ...x, status: 'em_andamento' as const, firstContactDate: x.firstContactDate || todayStr, lastStudiedDate: todayStr, inSpacedRepetition: false, nextReviewDate: undefined }
+        : x
     );
-    if (firstTime) addXp(30, 'Primeiro Contato Registrado');
-    showNotification(`"${t.title}" marcado como visto. 1ª revisão amanhã na aba Revisões.`, 'success');
+    setTopics(next);
+    addXp(30, 'Primeiro Contato Registrado');
+    syncBlockStatus(t.blockId, next);
   };
 
   const resetTopicProgress = (id: string) => {
-    setTopics((prev) =>
-      prev.map((x) =>
-        x.id === id
-          ? { ...x, status: 'nao_iniciado', reviewsDone: 0, cycleStep: 0, nextReviewDate: undefined, lastStudiedDate: undefined }
-          : x
+    const t = topics.find((x) => x.id === id);
+    if (!t) return;
+    const next = topics.map((x) =>
+      x.id === id
+        ? { ...x, status: 'nao_iniciado' as const, reviewsDone: 0, cycleStep: 0, nextReviewDate: undefined, lastStudiedDate: undefined }
+        : x
+    );
+    setTopics(next);
+    syncBlockStatus(t.blockId, next);
+  };
+
+  const addTopicBlock = (subjectId: string, name: string) => {
+    const id = 'blk-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
+    setTopicBlocks((prev) => [
+      ...prev,
+      { id, subjectId, name: name.trim(), createdAt: new Date().toISOString(), reviewStatus: 'estudando', reviewsDone: 0, difficulty: 'medio' },
+    ]);
+    showNotification(`Bloco "${name.trim()}" criado.`, 'success');
+    return id;
+  };
+
+  const renameTopicBlock = (id: string, name: string) => {
+    if (!name.trim()) return;
+    setTopicBlocks((prev) => prev.map((bk) => (bk.id === id ? { ...bk, name: name.trim() } : bk)));
+  };
+
+  const deleteTopicBlock = (id: string) => {
+    setTopicBlocks((prev) => prev.filter((bk) => bk.id !== id));
+    setTopics((prev) => prev.filter((t) => t.blockId !== id));
+    showNotification('Bloco removido.', 'info');
+  };
+
+  const reviewTopicBlock = (id: string, difficulty: TopicDifficulty, result?: { questions?: number; correct?: number }) => {
+    const block = topicBlocks.find((bk) => bk.id === id);
+    if (!block || block.reviewStatus !== 'revisao') return;
+    const done = Math.min(BLOCK_REVIEWS_TO_MASTER, block.reviewsDone + 1);
+    const todayStr = ymd(new Date());
+    const log = [...(block.reviewLog || []), { date: todayStr, difficulty, ...result }];
+
+    if (done >= BLOCK_REVIEWS_TO_MASTER) {
+      setTopicBlocks((prev) =>
+        prev.map((bk) =>
+          bk.id === id ? { ...bk, reviewStatus: 'dominado', reviewsDone: done, difficulty, lastReviewDate: todayStr, nextReviewDate: undefined, reviewLog: log } : bk
+        )
+      );
+      addXp(150, 'Bloco Dominado (4 revisões)');
+      triggerConfetti();
+      showNotification(`🏆 4ª revisão concluída! O bloco "${block.name}" agora está dominado.`, 'success');
+      return;
+    }
+    const intervalDays = Math.max(1, Math.round(BLOCK_REVIEW_BASE_INTERVALS[done] * DIFFICULTY_FACTOR[difficulty]));
+    setTopicBlocks((prev) =>
+      prev.map((bk) =>
+        bk.id === id
+          ? { ...bk, reviewsDone: done, difficulty, lastReviewDate: todayStr, nextReviewDate: addDaysYMD(intervalDays), reviewLog: log }
+          : bk
       )
     );
-    showNotification('Assunto voltou para "Não iniciado".', 'info');
+    addXp(difficulty === 'facil' ? 60 : difficulty === 'medio' ? 45 : 30, `Revisão ${done}/${BLOCK_REVIEWS_TO_MASTER} do bloco`);
+    showNotification(`Revisão ${done}/${BLOCK_REVIEWS_TO_MASTER} de "${block.name}" registrada. Próxima em ${intervalDays} dia${intervalDays > 1 ? 's' : ''}.`, 'success');
+  };
+
+  const restartBlockReviews = (id: string) => {
+    const block = topicBlocks.find((bk) => bk.id === id);
+    if (!block) return;
+    const allSeen = topics.filter((t) => t.blockId === id).every(isTopicSeen) && topics.some((t) => t.blockId === id);
+    setTopicBlocks((prev) =>
+      prev.map((bk) =>
+        bk.id === id
+          ? { ...bk, reviewStatus: allSeen ? 'revisao' : 'estudando', reviewsDone: 0, nextReviewDate: allSeen ? addDaysYMD(1) : undefined }
+          : bk
+      )
+    );
+    showNotification(`Revisões de "${block.name}" recomeçadas.`, 'info');
   };
 
   const reviewTopicSpacedRepetition = (
@@ -1726,6 +1890,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setTutorMessages,
         checklist,
         checklistBlocks,
+        topicBlocks,
+        addTopicBlock,
+        renameTopicBlock,
+        deleteTopicBlock,
+        reviewTopicBlock,
+        restartBlockReviews,
         addChecklistItem,
         updateChecklistItem,
         addChecklistBlock,

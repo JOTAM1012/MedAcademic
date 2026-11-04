@@ -289,6 +289,35 @@ export const StudyStopwatchView: React.FC = () => {
                       }`
                     : `Pausa de ${cycleStep.breakMins} min · ${cycleStep.phoneAllowed ? 'celular permitido' : 'sem celular'}`}
                 </p>
+                {/* Emblema de celular da etapa (vale para a pausa; no estudo é sempre sem celular) */}
+                <div id="cycle-phone-badge" className="mt-2 flex items-center gap-1.5 flex-wrap">
+                  {cycle.phase === 'work' ? (
+                    <>
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-black uppercase tracking-wide bg-rose-600 text-white shadow-sm">
+                        📵 Sem celular agora
+                      </span>
+                      {cycleStep.breakMins > 0 && cycle.index < cycle.steps.length - 1 && (
+                        <span
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                            cycleStep.phoneAllowed
+                              ? 'border-emerald-500/40 text-emerald-600 dark:text-emerald-400'
+                              : 'border-rose-500/40 text-rose-600 dark:text-rose-400'
+                          }`}
+                        >
+                          Na pausa: {cycleStep.phoneAllowed ? '📱 com celular' : '📵 sem celular'}
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    <span
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-wide text-white shadow-sm ${
+                        cycleStep.phoneAllowed ? 'bg-emerald-600' : 'bg-rose-600'
+                      }`}
+                    >
+                      {cycleStep.phoneAllowed ? '📱 Pausa com celular' : '📵 Pausa sem celular'}
+                    </span>
+                  )}
+                </div>
               </div>
               <button
                 type="button"

@@ -53,11 +53,11 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClos
       tag: 'Estrutura',
       description:
         'Na aba "Disciplinas", você cadastra as matérias do seu semestre (ex: Cardiologia, Fisiologia, Cirurgia) e adiciona os tópicos de aula com seus respectivos status de aprendizagem.',
-      actionTip: '💡 Dica: marque o assunto como "Visto" depois do 1º contato. Ele entra nas Revisões e vira "Dominado" após as 4 revisões espaçadas.',
+      actionTip: '💡 Dica: organize a disciplina em blocos (ex.: Endocrinologia → Diabetes, Tireoide). Quando todos os tópicos do bloco forem vistos, o bloco entra nas Revisões.',
       bulletPoints: [
         'Clique em "+ Nova Disciplina" para definir nome, código e cor da matéria.',
         'Adicione tópicos clínicos específicos (ex: Eletrocardiograma, Choque Séptico).',
-        'Fluxo: Não iniciado → Visto → Em revisão (1/4 a 3/4) → Dominado.',
+        'Fluxo: tópicos vistos → bloco completo → 4 revisões do bloco → Dominado.',
       ],
     },
     {
@@ -67,10 +67,10 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClos
       color: 'bg-amber-500 text-white',
       tag: 'Fixação',
       description:
-        'Crie ciclos de repetição espaçada para os tópicos de estudo. O algoritmo SM-2 agenda a próxima revisão conforme sua facilidade em relembrar a matéria.',
+        'A revisão é feita por bloco, com plano sugerido: Fácil (15 questões), Médio (resumo + 20 questões) ou Difícil (resumo + videoaula + 30 questões).',
       actionTip: '💡 Dica: Estude os tópicos e anexe imagens/esquemas.',
       bulletPoints: [
-        'Avalie cada tópico revisado.',
+        'Ao terminar, avalie como foi: isso define quando o bloco volta e o plano da próxima vez.',
         'Filtre tópicos por disciplina ou estude tudo o que está agendado para hoje.',
       ],
     },

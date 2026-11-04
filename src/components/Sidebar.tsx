@@ -16,6 +16,7 @@ import {
   ListChecks,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { isBlockDue } from '../data/blockReview';
 
 interface SidebarProps {
   isMobileOpen: boolean;
@@ -27,7 +28,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
     currentTab,
     setCurrentTab,
     userProfile,
-    topics,
+    topicBlocks,
     exams,
     studySessions,
     checklist,
@@ -59,9 +60,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
 
   // Due topics count for spaced repetition
   const todayStr = new Date().toISOString().split('T')[0];
-  const dueTopicsCount = topics.filter(
-    (t) => t.inSpacedRepetition !== false && t.status !== 'dominado' && t.status !== 'nao_iniciado' && (!t.nextReviewDate || t.nextReviewDate <= todayStr)
-  ).length;
+  const dueTopicsCount = topicBlocks.filter((b) => isBlockDue(b, todayStr)).length;
 
   // Upcoming exams in 14 days
   const upcomingExamsCount = exams.filter((e) => {

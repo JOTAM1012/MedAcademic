@@ -28,7 +28,8 @@ import {
 import { useApp } from '../context/AppContext';
 import { getReviewsDone, REVIEWS_TO_MASTER } from '../data/topicStatus';
 import { getActivityCategory, getExamKind, getExamSubjectName, getExamShift, occursOn } from '../data/planning';
-import { Exam, ScheduleClass, Topic, Subject, ChecklistItem } from '../types';
+import { Exam, ScheduleClass, Topic, Subject, ChecklistItem, TopicBlock } from '../types';
+import { BLOCK_REVIEWS_TO_MASTER, REVIEW_PLANS } from '../data/blockReview';
 
 interface CalendarViewProps {
   onOpenAddExam?: (date?: string) => void;
@@ -62,7 +63,7 @@ const VIEW_LABELS: Record<ViewMode, { title: string; live: string; prev: string;
 
 interface UnifiedCalendarItem {
   id: string;
-  sourceType: 'schedule' | 'exam' | 'topic' | 'task';
+  sourceType: 'schedule' | 'exam' | 'topic' | 'task' | 'block';
   time: string;
   badge: string;
   badgeColor: 'amber' | 'blue' | 'rose' | 'emerald' | 'purple';
@@ -77,7 +78,7 @@ interface UnifiedCalendarItem {
   progressPercent?: number;
   subject?: Subject;
   accentColor?: string;
-  originalData: ScheduleClass | Exam | Topic | ChecklistItem;
+  originalData: ScheduleClass | Exam | Topic | ChecklistItem | TopicBlock;
 }
 
 export const CalendarView: React.FC<CalendarViewProps> = ({
@@ -93,7 +94,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     updateScheduleClass,
     deleteScheduleClass,
     updateTopic,
-    reviewTopicSpacedRepetition,
+    topicBlocks,
     markTopicSeen,
     deleteExam,
     checklist,
@@ -319,56 +320,58 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         });
       });
 
-    // 3. Spaced Repetition Study Topics (due on this date or first contact scheduled on this date)
+    // 3. 1º contato agendado para este dia (tópicos ainda não vistos)
     topics
-      .filter((t) => {
-        // Revisões atrasadas também entram no dia de hoje
-        const todayYMD = formatToYMD(new Date());
-        const isOverdueToday =
-          dayInfo.dateStr === todayYMD &&
-          !!t.nextReviewDate &&
-          t.nextReviewDate < todayYMD &&
-          t.status !== 'dominado' &&
-          t.status !== 'nao_iniciado';
-        const isNextReview = t.inSpacedRepetition !== false && (t.nextReviewDate === dayInfo.dateStr || isOverdueToday);
-        const isFirstContact = t.scheduleFirstContact && t.firstContactDate === dayInfo.dateStr;
-        return isNextReview || isFirstContact;
-      })
+      .filter((t) => t.scheduleFirstContact && t.firstContactDate === dayInfo.dateStr && t.status === 'nao_iniciado')
       .forEach((topic) => {
         const sub = getSubject(topic.subjectId);
-        // First contact = the day the topic is scheduled to be studied for the first time
-        const isFirst =
-          !!topic.scheduleFirstContact &&
-          topic.firstContactDate === dayInfo.dateStr &&
-          topic.nextReviewDate !== dayInfo.dateStr;
-        
-        let cycleBadge = 'D0';
-        const reviewsDone = getReviewsDone(topic);
-        cycleBadge = topic.status === 'dominado' ? 'DOM' : `R${Math.min(REVIEWS_TO_MASTER, reviewsDone + 1)}`;
-
-        if (isFirst) {
-          cycleBadge = 'D0';
-        }
-
-        const isDone = topic.status === 'dominado';
-        const progress = Math.round((reviewsDone / REVIEWS_TO_MASTER) * 100);
-
+        const block = topicBlocks.find((bk) => bk.id === topic.blockId);
         items.push({
           id: `topic-${topic.id}`,
           sourceType: 'topic',
           time: topic.studyTime || '--:--',
-          badge: cycleBadge,
+          badge: '1º CONTATO',
           badgeColor: 'blue',
           title: topic.title,
-          subtitle: sub?.universitySubject || sub?.name || topic.moduleName,
-          bottomLeftLabel: isFirst ? '1º Contato' : 'Revisão Espaçada',
+          subtitle: block?.name || sub?.universitySubject || sub?.name,
+          bottomLeftLabel: '1º Contato',
           bottomLeftIcon: 'brain',
-          statusLabel: `${progress}%`,
-          progressPercent: progress,
-          isCompleted: isDone,
-          isFirstContact: isFirst,
+          statusLabel: 'A estudar',
+          isCompleted: false,
+          isFirstContact: true,
           subject: sub,
           originalData: topic,
+        });
+      });
+
+    // 4. Revisões de bloco (as atrasadas aparecem no dia de hoje)
+    const todayYMD = formatToYMD(new Date());
+    topicBlocks
+      .filter(
+        (bk) =>
+          bk.reviewStatus === 'revisao' &&
+          !!bk.nextReviewDate &&
+          (bk.nextReviewDate === dayInfo.dateStr || (dayInfo.dateStr === todayYMD && bk.nextReviewDate < todayYMD))
+      )
+      .forEach((bk) => {
+        const sub = getSubject(bk.subjectId);
+        const plan = REVIEW_PLANS[bk.difficulty || 'medio'];
+        items.push({
+          id: `block-${bk.id}`,
+          sourceType: 'block',
+          time: '--:--',
+          badge: `R${Math.min(BLOCK_REVIEWS_TO_MASTER, bk.reviewsDone + 1)}`,
+          badgeColor: 'blue',
+          title: bk.name,
+          subtitle: `${sub?.universitySubject || sub?.name || 'Bloco'} · ${plan.label} ${plan.questions}Q`,
+          bottomLeftLabel: 'Revisão do bloco',
+          bottomLeftIcon: 'brain',
+          statusLabel: `${bk.reviewsDone}/${BLOCK_REVIEWS_TO_MASTER}`,
+          progressPercent: Math.round((bk.reviewsDone / BLOCK_REVIEWS_TO_MASTER) * 100),
+          isCompleted: false,
+          subject: sub,
+          accentColor: plan.color,
+          originalData: bk,
         });
       });
 
@@ -386,7 +389,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         if (filterType === 'exams' && item.sourceType !== 'exam') {
           return false;
         }
-        if (filterType === 'reviews' && item.sourceType !== 'topic') {
+        if (filterType === 'reviews' && item.sourceType !== 'topic' && item.sourceType !== 'block') {
           return false;
         }
 
@@ -418,11 +421,13 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       showNotification(!sc.isCompleted ? 'Atividade concluída com sucesso!' : 'Atividade marcada como pendente.', 'success');
     } else if (item.sourceType === 'task') {
       toggleChecklistItem((item.originalData as ChecklistItem).id);
+    } else if (item.sourceType === 'block') {
+      // A revisão do bloco é feita na aba Revisões (plano sugerido + avaliação)
+      setCurrentTab('spaced_repetition');
     } else if (item.sourceType === 'topic') {
       const top = item.originalData as Topic;
       // 1º contato → Visto; revisão agendada → conclui a revisão (dominado após a 4ª)
       if (top.status === 'nao_iniciado') markTopicSeen(top.id);
-      else if (top.status !== 'dominado') reviewTopicSpacedRepetition(top.id, 'medio');
     }
   };
 
@@ -489,7 +494,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       totalItems += items.length;
       completedItems += items.filter((i) => i.isCompleted).length;
       examsCount += items.filter((i) => i.sourceType === 'exam').length;
-      reviewsCount += items.filter((i) => i.sourceType === 'topic').length;
+      reviewsCount += items.filter((i) => i.sourceType === 'topic' || i.sourceType === 'block').length;
     });
 
     return { totalItems, completedItems, examsCount, reviewsCount };
@@ -1027,7 +1032,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                   }`}
                 >
                   {selectedItem.sourceType === 'schedule' && <Clock className="h-5 w-5" />}
-                  {selectedItem.sourceType === 'topic' && <Brain className="h-5 w-5" />}
+                  {(selectedItem.sourceType === 'topic' || selectedItem.sourceType === 'block') && <Brain className="h-5 w-5" />}
                   {selectedItem.sourceType === 'exam' && <GraduationCap className="h-5 w-5" />}
                   {selectedItem.sourceType === 'task' && <Check className="h-5 w-5" />}
                 </div>
@@ -1146,7 +1151,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                   className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold transition-colors"
                 >
                   <Check className="h-3.5 w-3.5" />
-                  <span>{selectedItem.isCompleted ? 'Marcar Pendente' : 'Marcar Concluído'}</span>
+                  <span>{selectedItem.sourceType === 'block' ? 'Revisar agora' : selectedItem.isCompleted ? 'Marcar Pendente' : 'Marcar Concluído'}</span>
                 </button>
                 )}
               </div>

@@ -23,6 +23,7 @@ import {
 import { useApp } from '../context/AppContext';
 import { getActivityCategory, getExamKind, getExamSubjectName, occursOn, toYMD } from '../data/planning';
 import { WeeklyStatsCard } from './WeeklyStatsCard';
+import { isBlockDue } from '../data/blockReview';
 import { InstallAppBanner } from './InstallAppGuide';
 import { MonthlyPerformanceChart } from './MonthlyPerformanceChart';
 
@@ -31,6 +32,7 @@ export const DashboardView: React.FC = () => {
     currentSemester,
     subjects,
     topics,
+    topicBlocks,
     exams,
     schedule,
     achievements,
@@ -58,15 +60,14 @@ export const DashboardView: React.FC = () => {
   const weeklyGoalPercentage = Math.min(100, Math.round((Number(totalHoursStudiedWeek) / weeklyTarget) * 100));
 
   // Compute Topics Mastery
-  const masteredTopics = topics.filter((t) => t.status === 'dominado').length;
-  const totalTopics = topics.length;
+  // Domínio = blocos com as 4 revisões concluídas
+  const masteredTopics = topicBlocks.filter((b) => b.reviewStatus === 'dominado').length;
+  const totalTopics = topicBlocks.length;
   const masteryPercentage = totalTopics > 0 ? Math.round((masteredTopics / totalTopics) * 100) : 0;
 
   // Topics due for spaced repetition review today
   const todayStr = new Date().toISOString().split('T')[0];
-  const dueTopics = topics.filter(
-    (t) => t.inSpacedRepetition !== false && t.status !== 'dominado' && t.status !== 'nao_iniciado' && (!t.nextReviewDate || t.nextReviewDate <= todayStr)
-  );
+  const dueTopics = topicBlocks.filter((b) => isBlockDue(b, todayStr));
 
   // Next Exams with Live Countdown
   const upcomingExams = exams
@@ -252,7 +253,7 @@ export const DashboardView: React.FC = () => {
           </span>
           <div className="flex items-baseline justify-between">
             <h3 className="text-2xl font-bold text-slate-900 dark:text-white">
-              {dueTopics.length} Assuntos
+              {dueTopics.length} {dueTopics.length === 1 ? 'Bloco' : 'Blocos'}
             </h3>
             <span className="text-xs font-bold text-amber-600 dark:text-amber-400">
               Ciclo Adaptativo
@@ -278,7 +279,7 @@ export const DashboardView: React.FC = () => {
               {masteryPercentage}%
             </h3>
             <span className="text-xs font-bold text-blue-600 dark:text-blue-400">
-              {masteredTopics}/{totalTopics} Tópicos
+              {masteredTopics}/{totalTopics} Blocos
             </span>
           </div>
           <div className="mt-2 w-full h-1 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">

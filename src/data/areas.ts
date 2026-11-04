@@ -64,3 +64,20 @@ export const CLINICA_MEDICA_SPECIALTIES: Specialty[] = [
 export const getSpecialty = (id?: string) => CLINICA_MEDICA_SPECIALTIES.find((s) => s.id === id);
 
 export const isClinicaMedica = (majorArea?: string) => getMedicalArea(majorArea).id === MEDICAL_AREAS[0].id;
+
+// Sugestões de blocos ao criar a estrutura de uma especialidade
+export const SPECIALTY_BLOCK_SUGGESTIONS: Record<string, string[]> = {
+  Cardiologia: ['Insuficiência cardíaca', 'Síndrome coronariana', 'Arritmias', 'Hipertensão', 'Valvopatias', 'ECG'],
+  Dermatologia: ['Lesões elementares', 'Infecções de pele', 'Câncer de pele', 'Dermatoses inflamatórias'],
+  Endocrinologia: ['Diabetes', 'Tireoide', 'Adrenal', 'Hipófise', 'Obesidade', 'Dislipidemia'],
+  Gastroenterologia: ['Esôfago e estômago', 'Intestino', 'Pâncreas', 'Hemorragia digestiva'],
+  Hematologia: ['Anemias', 'Leucemias', 'Linfomas', 'Coagulação'],
+  Hepatologia: ['Hepatites', 'Cirrose', 'Doenças biliares', 'Insuficiência hepática'],
+  Infectologia: ['HIV', 'Tuberculose', 'Arboviroses', 'Antibioticoterapia', 'Sepse'],
+  Nefrologia: ['Lesão renal aguda', 'Doença renal crônica', 'Distúrbios hidroeletrolíticos', 'Glomerulopatias'],
+  Neurologia: ['AVC', 'Cefaleias', 'Epilepsia', 'Demências', 'Doenças desmielinizantes'],
+  Pneumologia: ['Asma', 'DPOC', 'Pneumonias', 'TEP', 'Doenças intersticiais'],
+  Psiquiatria: ['Depressão', 'Ansiedade', 'Psicoses', 'Transtorno bipolar', 'Dependência química'],
+  Reumatologia: ['Artrite reumatoide', 'Lúpus', 'Espondiloartrites', 'Vasculites', 'Gota'],
+  Oftalmologia: ['Olho vermelho', 'Glaucoma', 'Retinopatias', 'Catarata'],
+};

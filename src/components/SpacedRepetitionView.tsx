@@ -1,800 +1,488 @@
-import React, { useState } from 'react';
-import {
-  Sparkles,
-  Plus,
-  RotateCw,
-  CheckCircle2,
-  AlertCircle,
-  Clock,
-  Layers,
-  ChevronRight,
-  BookOpen,
-  Award,
-  Zap,
-  Tag,
-  Search,
-  CheckSquare,
-  HelpCircle,
-  Video,
-  FileText,
-  User,
-  Calendar,
-  Timer,
-  ArrowRight,
-  TrendingUp,
-  BookmarkCheck,
-  ChevronDown,
-  Trash2,
-} from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { Repeat, CalendarClock, Layers, Trophy, Play, X, Check, ChevronDown, AlertTriangle, Sparkles, Timer } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { Topic, PreferredStudyMethod, TopicDifficulty } from '../types';
-import { SpacedRepetitionRulesCard } from './SpacedRepetitionRulesCard';
-import { getReviewsDone, REVIEWS_TO_MASTER } from '../data/topicStatus';
+import { Subject, TopicBlock, TopicDifficulty } from '../types';
+import { getMedicalArea, getSpecialty } from '../data/areas';
+import {
+  BLOCK_REVIEWS_TO_MASTER,
+  PLAN_ORDER,
+  REVIEW_PLANS,
+  difficultyFromScore,
+  isBlockDue,
+  isTopicSeen,
+  ymd,
+} from '../data/blockReview';
 
 interface SpacedRepetitionViewProps {
   onOpenAddTopic?: () => void;
 }
 
-export const SpacedRepetitionView: React.FC<SpacedRepetitionViewProps> = ({
-  onOpenAddTopic,
-}) => {
-  const {
-    topics,
-    subjects,
-    reviewTopicSpacedRepetition,
-    deleteTopic,
-    setCurrentTab,
-    setTimerSubject,
-    addXp,
-    updateTopic,
-    triggerConfetti,
-  } = useApp();
+const WEEKDAYS = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
 
-  const [selectedSubjectFilter, setSelectedSubjectFilter] = useState<string>('all');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'due' | 'upcoming' | 'mastered'>('all');
-  const [searchQuery, setSearchQuery] = useState<string>('');
+const parseYMD = (s: string) => {
+  const [y, m, d] = s.split('-').map(Number);
+  return new Date(y, m - 1, d);
+};
+const daysBetween = (from: string, to: string) => Math.round((parseYMD(to).getTime() - parseYMD(from).getTime()) / 86400000);
+const dateLabel = (s: string, today: string) => {
+  const diff = daysBetween(today, s);
+  if (diff === 0) return 'Hoje';
+  if (diff === 1) return 'Amanhã';
+  const d = parseYMD(s);
+  return `${WEEKDAYS[d.getDay()]}, ${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+};
 
-  // Study Session Mode
-  const [isStudySessionActive, setIsStudySessionActive] = useState<boolean>(false);
-  const [sessionCurrentIndex, setSessionCurrentIndex] = useState<number>(0);
-  const [sessionCompletedCount, setSessionCompletedCount] = useState<number>(0);
-  const [reviewMethod, setReviewMethod] = useState<string>("questoes");
-  const [reviewQuestions, setReviewQuestions] = useState<number | "">("");
-  const [reviewTimeMinutes, setReviewTimeMinutes] = useState<number | "">("");
+// Revisões espaçadas por BLOCO, com plano sugerido conforme a dificuldade (Fácil 15Q · Médio 20Q · Difícil 30Q)
+export const SpacedRepetitionView: React.FC<SpacedRepetitionViewProps> = () => {
+  const { topicBlocks, topics, subjects, reviewTopicBlock, setTimerMode, setCurrentTab, showNotification } = useApp();
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  const [session, setSession] = useState<TopicBlock | null>(null);
+  const [plan, setPlan] = useState<TopicDifficulty>('medio');
+  const [stepsDone, setStepsDone] = useState<Record<number, boolean>>({});
+  const [questions, setQuestions] = useState('');
+  const [correct, setCorrect] = useState('');
+  const [showTopics, setShowTopics] = useState(false);
+  const [showMastered, setShowMastered] = useState(false);
 
-  // Topics in spaced repetition
-  // Only topics already marked as "Visto" enter the review cycle
-  const spacedTopics = topics.filter((t) => t.inSpacedRepetition !== false && t.status !== 'nao_iniciado');
-
-  // Filter due topics for today
-  const dueTopics = spacedTopics.filter((t) => {
-    if (t.status === 'dominado') return false;
-    if (t.status === 'nao_iniciado') {
-      if (t.scheduleFirstContact && t.firstContactDate) {
-        return t.firstContactDate <= todayStr;
-      }
-      return true;
-    }
-    if (!t.nextReviewDate) return true;
-    return t.nextReviewDate <= todayStr;
-  });
-
-  // Filter mastered topics
-  const masteredTopics = spacedTopics.filter((t) => t.status === 'dominado');
-
-  // Filter upcoming topics
-  const upcomingTopics = spacedTopics.filter((t) => {
-    if (t.status === 'dominado') return false;
-    if (t.status === 'nao_iniciado') {
-      if (t.scheduleFirstContact && t.firstContactDate) {
-        return t.firstContactDate > todayStr;
-      }
-      return false;
-    }
-    return t.nextReviewDate && t.nextReviewDate > todayStr;
-  });
-
-  // Filtered list for display
-  const filteredTopics = spacedTopics.filter((topic) => {
-    // Subject filter
-    if (selectedSubjectFilter !== 'all' && topic.subjectId !== selectedSubjectFilter) {
-      return false;
-    }
-
-    // Status filter
-    if (statusFilter === 'due') {
-      const isDue = (!topic.nextReviewDate || topic.nextReviewDate <= todayStr) && topic.status !== 'dominado';
-      if (!isDue) return false;
-    } else if (statusFilter === 'upcoming') {
-      const isUpcoming = topic.nextReviewDate && topic.nextReviewDate > todayStr && topic.status !== 'dominado';
-      if (!isUpcoming) return false;
-    } else if (statusFilter === 'mastered') {
-      if (topic.status !== 'dominado') return false;
-    }
-
-    // Search filter
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      const subject = subjects.find((s) => s.id === topic.subjectId);
-      const matchesTitle = topic.title.toLowerCase().includes(query);
-      const matchesModule = (topic.moduleName || '').toLowerCase().includes(query);
-      const matchesSubject = (subject?.name || '').toLowerCase().includes(query);
-      const matchesNotes = (topic.notes || '').toLowerCase().includes(query);
-      return matchesTitle || matchesModule || matchesSubject || matchesNotes;
-    }
-
-    return true;
-  });
-
-  // Sort: Due today first, then closest upcoming date, then mastered
-  filteredTopics.sort((a, b) => {
-    if (a.status === 'dominado' && b.status !== 'dominado') return 1;
-    if (a.status !== 'dominado' && b.status === 'dominado') return -1;
-    const dateA = a.nextReviewDate || '9999';
-    const dateB = b.nextReviewDate || '9999';
-    return dateA.localeCompare(dateB);
-  });
-
-  const getMethodIcon = (method?: PreferredStudyMethod) => {
-    switch (method) {
-      case 'questoes':
-        return <HelpCircle className="h-3.5 w-3.5" />;
-      case 'videoaula':
-        return <Video className="h-3.5 w-3.5" />;
-      case 'resumo':
-        return <FileText className="h-3.5 w-3.5" />;
-      case 'livros':
-        return <BookOpen className="h-3.5 w-3.5" />;
-      case 'pessoal':
-        return <User className="h-3.5 w-3.5" />;
-      default:
-        return <HelpCircle className="h-3.5 w-3.5" />;
-    }
+  const today = ymd(new Date());
+  const subjectOf = (b: TopicBlock) => subjects.find((s) => s.id === b.subjectId);
+  const colorOf = (sub?: Subject) => (sub ? getSpecialty(sub.specialty)?.color || getMedicalArea(sub.majorArea).color : '#64748b');
+  const subtitleOf = (sub?: Subject) => {
+    if (!sub) return 'Sem disciplina';
+    const area = getMedicalArea(sub.majorArea);
+    const name = sub.universitySubject || sub.name;
+    return name === area.id ? name : `${name} · ${area.id}`;
   };
 
-  const getMethodLabel = (topic: Topic) => {
-    if (topic.preferredStudyMethods?.[0] === 'questoes') {
-      return topic.questionCount ? `${topic.questionCount} Questões` : 'Questões';
-    }
-    switch (topic.preferredStudyMethods?.[0]) {
-      case 'videoaula':
-        return 'Videoaula';
-      case 'resumo':
-        return 'Resumo Clínico';
-      case 'livros':
-        return 'Leitura / Livros';
-      case 'pessoal':
-        return 'Estudo Pessoal';
-      default:
-        return 'Questões';
-    }
+  const blocks = topicBlocks.filter((b) => subjects.some((s) => s.id === b.subjectId));
+  const due = useMemo(
+    () => blocks.filter((b) => isBlockDue(b, today)).sort((a, b) => (a.nextReviewDate || '').localeCompare(b.nextReviewDate || '')),
+    [blocks, today]
+  );
+  const upcoming = blocks
+    .filter((b) => b.reviewStatus === 'revisao' && b.nextReviewDate && b.nextReviewDate > today)
+    .sort((a, b) => a.nextReviewDate!.localeCompare(b.nextReviewDate!));
+  const studying = blocks.filter((b) => b.reviewStatus === 'estudando');
+  const mastered = blocks.filter((b) => b.reviewStatus === 'dominado');
+  const overdueCount = due.filter((b) => b.nextReviewDate! < today).length;
+  const next7 = upcoming.filter((b) => daysBetween(today, b.nextReviewDate!) <= 7).length;
+
+  const upcomingByDate = useMemo(() => {
+    const map = new Map<string, TopicBlock[]>();
+    upcoming.slice(0, 40).forEach((b) => map.set(b.nextReviewDate!, [...(map.get(b.nextReviewDate!) || []), b]));
+    return Array.from(map.entries());
+  }, [upcoming]);
+
+  const openSession = (b: TopicBlock) => {
+    const level = b.difficulty || 'medio';
+    setSession(b);
+    setPlan(level);
+    setStepsDone({});
+    setQuestions(String(REVIEW_PLANS[level].questions));
+    setCorrect('');
+    setShowTopics(false);
   };
 
-  const getReviewStatusBadge = (topic: Topic) => {
-    if (topic.status === 'dominado') {
-      return (
-        <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-          <Award className="h-3 w-3" /> Dominado
-        </span>
-      );
-    }
+  const choosePlan = (level: TopicDifficulty) => {
+    setPlan(level);
+    setStepsDone({});
+    setQuestions(String(REVIEW_PLANS[level].questions));
+  };
 
-    if (!topic.nextReviewDate || topic.nextReviewDate <= todayStr) {
-      const isToday = topic.nextReviewDate === todayStr;
-      return (
-        <span className="inline-flex items-center gap-1 text-[11px] font-black px-2.5 py-1 rounded-full bg-rose-100 dark:bg-rose-950/80 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-800 animate-pulse">
-          <AlertCircle className="h-3 w-3" /> {isToday ? 'Revisar Hoje' : 'Revisão Atrasada'}
-        </span>
-      );
-    }
+  const qNum = Number(questions) || 0;
+  const cNum = correct.trim() === '' ? undefined : Math.min(Number(correct) || 0, qNum);
+  const pct = cNum !== undefined && qNum > 0 ? Math.round((cNum / qNum) * 100) : undefined;
+  const suggested = cNum !== undefined ? difficultyFromScore(cNum, qNum) : undefined;
 
-    // Upcoming
-    const parts = topic.nextReviewDate.split('-');
-    const formatted = parts.length === 3 ? `${parts[2]}/${parts[1]}` : topic.nextReviewDate;
+  const finish = (level: TopicDifficulty) => {
+    if (!session) return;
+    reviewTopicBlock(session.id, level, { questions: qNum || undefined, correct: cNum });
+    setSession(null);
+  };
+
+  const startPomodoro = () => {
+    if (!session) return;
+    setTimerMode('pomodoro', session.subjectId);
+    setCurrentTab('stopwatch');
+    showNotification(`Pomodoro pronto para revisar "${session.name}". Aperte Iniciar.`, 'info');
+  };
+
+  const renderChips = (b: TopicBlock) => (
+    <div className="flex items-center gap-1">
+      {Array.from({ length: BLOCK_REVIEWS_TO_MASTER }, (_, i) => (
+        <span
+          key={i}
+          className={`text-[9px] font-black px-1.5 py-0.5 rounded ${
+            i < b.reviewsDone
+              ? 'bg-emerald-500 text-white'
+              : i === b.reviewsDone && b.reviewStatus === 'revisao'
+              ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400 ring-1 ring-amber-500/40'
+              : 'bg-slate-100 dark:bg-slate-800 text-slate-400'
+          }`}
+        >
+          R{i + 1}
+        </span>
+      ))}
+    </div>
+  );
+
+  const renderPlanLine = (level: TopicDifficulty) => {
+    const p = REVIEW_PLANS[level];
     return (
-      <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800">
-        <Calendar className="h-3 w-3" /> {formatted}
+      <span className="text-[11px] font-semibold" style={{ color: p.color }}>
+        {p.emoji} {p.label}: {p.steps.join(' + ')}
       </span>
     );
   };
 
-  // Study Session Active Topic
-  const activeSessionTopic = dueTopics[sessionCurrentIndex];
-  const activeSessionSubject = activeSessionTopic
-    ? subjects.find((s) => s.id === activeSessionTopic.subjectId)
-    : undefined;
-
-  const handleSessionRating = (rating: 'dificil' | 'medio' | 'facil' | 'dominado') => {
-    if (!activeSessionTopic) return;
-    reviewTopicSpacedRepetition(activeSessionTopic.id, rating);
-    setSessionCompletedCount((prev) => prev + 1);
-
-    // Save metrics
-    if (reviewTimeMinutes || reviewQuestions) {
-      updateTopic(activeSessionTopic.id, {
-        questionCount: (activeSessionTopic.questionCount || 0) + (Number(reviewQuestions) || 0),
-        estimatedHours: (activeSessionTopic.estimatedHours || 0) + (Number(reviewTimeMinutes) || 0) / 60
-      });
-      // Optionally we could add studySession here, but `updateTopic` might be enough.
-    }
-
-    setReviewMethod('questoes');
-    setReviewQuestions('');
-    setReviewTimeMinutes('');
-
-    if (sessionCurrentIndex >= dueTopics.length - 1) {
-      setIsStudySessionActive(false);
-      triggerConfetti();
-      addXp(150, 'Sessão de Revisões Finalizada');
-    } else {
-      setSessionCurrentIndex((prev) => prev + 1);
-    }
-  };
-
-  const handleStartTimerForTopic = (topic: Topic) => {
-    setTimerSubject(topic.subjectId, topic.id);
-    setCurrentTab('stopwatch');
-  };
-
   return (
-    <div id="tour-spaced-repetition" className="space-y-6 pb-16">
-      {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white">
-              Repetição Espaçada de Assuntos
-            </h1>
-            <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-sky-100 dark:bg-sky-950 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800">
-              Curva do Esquecimento de Ebbinghaus
-            </span>
-          </div>
-          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Hierarquia: <strong className="text-slate-700 dark:text-slate-300">Disciplina → Matéria → Detalhe do Assunto</strong> com intervalos adaptativos.
-          </p>
-        </div>
+    <div className="space-y-5 pb-12 max-w-6xl mx-auto">
+      {/* Cabeçalho */}
+      <div>
+        <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white">Revisões</h1>
+        <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
+          A revisão é feita por bloco. Um bloco entra aqui quando todos os seus tópicos forem vistos; depois de 4 revisões ele fica dominado.
+        </p>
+      </div>
 
-        <div className="flex items-center gap-2.5">
-          <button
-            onClick={onOpenAddTopic}
-            className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-black shadow-md hover:shadow-lg transition-all"
-          >
-            <Plus className="h-4 w-4" />
-            <span>Novo Assunto de Estudo</span>
-          </button>
+      {/* Resumo */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="rounded-2xl border border-amber-200 dark:border-amber-500/30 bg-amber-50/60 dark:bg-amber-950/20 p-4">
+          <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-amber-700 dark:text-amber-300">
+            <Repeat className="h-4 w-4" /> Para hoje
+          </div>
+          <div className="text-2xl font-black text-slate-900 dark:text-white mt-1">{due.length}</div>
+          <div className="text-[11px] text-slate-500">{overdueCount > 0 ? `${overdueCount} atrasada${overdueCount > 1 ? 's' : ''}` : 'em dia'}</div>
+        </div>
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
+          <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-slate-500">
+            <CalendarClock className="h-4 w-4 text-sky-500" /> Próximos 7 dias
+          </div>
+          <div className="text-2xl font-black text-slate-900 dark:text-white mt-1">{next7}</div>
+          <div className="text-[11px] text-slate-500">{upcoming.length} agendadas no total</div>
+        </div>
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
+          <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-slate-500">
+            <Layers className="h-4 w-4 text-violet-500" /> Em estudo
+          </div>
+          <div className="text-2xl font-black text-slate-900 dark:text-white mt-1">{studying.length}</div>
+          <div className="text-[11px] text-slate-500">blocos com tópicos a ver</div>
+        </div>
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
+          <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-slate-500">
+            <Trophy className="h-4 w-4 text-emerald-500" /> Dominados
+          </div>
+          <div className="text-2xl font-black text-slate-900 dark:text-white mt-1">{mastered.length}</div>
+          <div className="text-[11px] text-slate-500">4 revisões concluídas</div>
         </div>
       </div>
 
-      {/* Spaced Repetition Rules Card */}
-      <SpacedRepetitionRulesCard />
-
-      {/* Metrics Dashboard */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="p-4 rounded-2xl border border-rose-200 dark:border-rose-900/40 bg-rose-50/50 dark:bg-rose-950/20">
-          <div className="text-[11px] font-bold text-rose-900 dark:text-rose-300 uppercase tracking-wider">
-            Para Revisar Hoje
-          </div>
-          <div className="text-2xl font-black text-rose-700 dark:text-rose-400 mt-1">
-            {dueTopics.length}
-          </div>
-          <div className="text-[10px] text-rose-700/70 dark:text-rose-400/70">
-            Assuntos pendentes
-          </div>
-        </div>
-
-        <div className="p-4 rounded-2xl border border-sky-200 dark:border-sky-900/40 bg-sky-50/50 dark:bg-sky-950/20">
-          <div className="text-[11px] font-bold text-sky-900 dark:text-sky-300 uppercase tracking-wider">
-            Total no Ciclo
-          </div>
-          <div className="text-2xl font-black text-sky-700 dark:text-sky-400 mt-1">
-            {spacedTopics.length}
-          </div>
-          <div className="text-[10px] text-sky-700/70 dark:text-sky-400/70">
-            Assuntos cadastrados
-          </div>
-        </div>
-
-        <div className="p-4 rounded-2xl border border-amber-200 dark:border-amber-900/40 bg-amber-50/50 dark:bg-amber-950/20">
-          <div className="text-[11px] font-bold text-amber-900 dark:text-amber-300 uppercase tracking-wider">
-            Próximos 7 Dias
-          </div>
-          <div className="text-2xl font-black text-amber-700 dark:text-amber-400 mt-1">
-            {upcomingTopics.length}
-          </div>
-          <div className="text-[10px] text-amber-700/70 dark:text-amber-400/70">
-            Revisões agendadas
-          </div>
-        </div>
-
-        <div className="p-4 rounded-2xl border border-emerald-200 dark:border-emerald-900/40 bg-emerald-50/50 dark:bg-emerald-950/20">
-          <div className="text-[11px] font-bold text-emerald-900 dark:text-emerald-300 uppercase tracking-wider">
-            Assuntos Dominados
-          </div>
-          <div className="text-2xl font-black text-emerald-700 dark:text-emerald-400 mt-1">
-            {masteredTopics.length}
-          </div>
-          <div className="text-[10px] text-emerald-700/70 dark:text-emerald-400/70">
-            Retenção consolidada
-          </div>
-        </div>
+      {/* Planos sugeridos */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+        {PLAN_ORDER.map((level) => {
+          const p = REVIEW_PLANS[level];
+          return (
+            <div key={level} className="rounded-2xl border bg-white dark:bg-slate-900 p-3" style={{ borderColor: p.color + '55' }}>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black" style={{ color: p.color }}>
+                  {p.emoji} {p.label}
+                </span>
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md text-white" style={{ backgroundColor: p.color }}>
+                  {p.questions}Q
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-600 dark:text-slate-300 mt-1">{p.steps.join(' · ')}</p>
+            </div>
+          );
+        })}
       </div>
 
-      {/* Interactive Guided Review Session Launcher */}
-      {dueTopics.length > 0 && !isStudySessionActive && (
-        <div className="rounded-3xl border border-amber-200 dark:border-amber-900/50 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="p-1.5 rounded-xl bg-amber-500 text-white">
-                <Zap className="h-4 w-4" />
-              </span>
-              <h2 className="text-base font-bold text-slate-900 dark:text-white">
-                Sessão Guiada de Revisão ({dueTopics.length} assuntos para hoje)
-              </h2>
-            </div>
-            <p className="text-xs text-slate-600 dark:text-slate-400">
-              Percorra os assuntos do dia com cronômetro integrado, resolva as questões e avance nos ciclos de memorização.
+      {/* Para hoje */}
+      <section className="space-y-2">
+        <h2 className="text-xs font-black uppercase tracking-widest text-slate-500">Para revisar hoje</h2>
+        {due.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 bg-white/60 dark:bg-slate-900/40 p-6 text-center">
+            <Sparkles className="h-6 w-6 mx-auto text-emerald-500 mb-1" />
+            <p className="text-sm font-bold text-slate-800 dark:text-slate-100">Nenhuma revisão para hoje 🎉</p>
+            <p className="text-xs text-slate-500 mt-0.5">
+              {upcoming[0] ? `Próxima: "${upcoming[0].name}" ${dateLabel(upcoming[0].nextReviewDate!, today).toLowerCase()}.` : 'Marque os tópicos como vistos nas disciplinas para os blocos entrarem aqui.'}
             </p>
-          </div>
-
-          <button
-            onClick={() => {
-              setSessionCurrentIndex(0);
-              setIsStudySessionActive(true);
-            }}
-            className="shrink-0 px-5 py-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
-          >
-            <Zap className="h-4 w-4" />
-            <span>Iniciar Revisão do Dia</span>
-          </button>
-        </div>
-      )}
-
-      {/* Active Guided Study Session */}
-      {isStudySessionActive && activeSessionTopic && (
-        <div className="rounded-3xl border border-sky-300 dark:border-sky-800 bg-white dark:bg-slate-900 p-6 shadow-xl space-y-6 animate-in fade-in">
-          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
-            <div className="flex items-center gap-2">
-              <span
-                className="w-3 h-3 rounded-full"
-                style={{ backgroundColor: activeSessionSubject?.color || '#0284c7' }}
-              />
-              <span className="text-xs font-bold text-slate-600 dark:text-slate-300">
-                {activeSessionSubject?.name} • {activeSessionTopic.moduleName}
-              </span>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="text-xs font-bold text-sky-600 dark:text-sky-400">
-                Assunto {sessionCurrentIndex + 1} de {dueTopics.length}
-              </span>
-              <button
-                onClick={() => setIsStudySessionActive(false)}
-                className="text-xs font-semibold text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-              >
-                Pausar Sessão
-              </button>
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <div>
-              <div className="flex items-center gap-2 mb-1.5">
-                <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-0.5 rounded-md bg-sky-100 dark:bg-sky-950 text-sky-700 dark:text-sky-300">
-                  {getMethodIcon(activeSessionTopic.preferredStudyMethods?.[0])}
-                  {getMethodLabel(activeSessionTopic)}
-                </span>
-                <span className="text-xs text-slate-400">
-                  Revisão {Math.min(REVIEWS_TO_MASTER, getReviewsDone(activeSessionTopic) + 1)} de {REVIEWS_TO_MASTER}
-                </span>
-              </div>
-              <h2 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white">
-                {activeSessionTopic.title}
-              </h2>
-            </div>
-
-            {activeSessionTopic.description && (
-              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
-                <p className="font-bold text-slate-900 dark:text-white mb-1">
-                  Diretrizes & Foco de Estudo:
-                </p>
-                {activeSessionTopic.description}
-              </div>
-            )}
-
-            {activeSessionTopic.imageUrl && (
-              <div className="rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-950/80 p-2 flex flex-col items-center">
-                <img
-                  src={activeSessionTopic.imageUrl}
-                  alt={activeSessionTopic.imageCaption || activeSessionTopic.title}
-                  referrerPolicy="no-referrer"
-                  className="max-h-64 w-auto object-contain rounded-xl"
-                />
-                {activeSessionTopic.imageCaption && (
-                  <p className="text-[11px] font-semibold text-slate-300 mt-2 text-center">
-                    📸 {activeSessionTopic.imageCaption}
-                  </p>
-                )}
-              </div>
-            )}
-
-            {activeSessionTopic.notes && (
-              <div className="p-3.5 rounded-xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40 text-xs text-amber-900 dark:text-amber-200">
-                <strong>Anotação Clínica:</strong> {activeSessionTopic.notes}
-              </div>
-            )}
-          </div>
-
-          {/* User Review Inputs */}
-          <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
-            <p className="text-xs font-bold text-slate-800 dark:text-slate-200 mb-3">
-              Métricas da Revisão
-            </p>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div>
-                <label className="block text-[10px] font-bold text-slate-500 mb-1">Método Utilizado</label>
-                <select
-                  value={reviewMethod}
-                  onChange={(e) => setReviewMethod(e.target.value)}
-                  className="w-full text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-slate-700 dark:text-slate-300 focus:outline-hidden focus:border-sky-500"
-                >
-                  <option value="questoes">Questões</option>
-                  <option value="videoaula">Videoaula</option>
-                  <option value="resumo">Resumo</option>
-                  <option value="livros">Livros / Texto</option>
-                  <option value="pessoal">Pessoal / Outro</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-[10px] font-bold text-slate-500 mb-1">Qtd. Questões</label>
-                <input
-                  type="number"
-                  placeholder="Ex: 15"
-                  value={reviewQuestions}
-                  onChange={(e) => setReviewQuestions(parseInt(e.target.value) || '')}
-                  className="w-full text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-slate-700 dark:text-slate-300 focus:outline-hidden focus:border-sky-500"
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] font-bold text-slate-500 mb-1">Tempo (minutos)</label>
-                <input
-                  type="number"
-                  placeholder="Ex: 45"
-                  value={reviewTimeMinutes}
-                  onChange={(e) => setReviewTimeMinutes(parseInt(e.target.value) || '')}
-                  className="w-full text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-slate-700 dark:text-slate-300 focus:outline-hidden focus:border-sky-500"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Review Evaluation Rating */}
-          <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
-            <p className="text-xs font-bold text-slate-800 dark:text-slate-200 mb-3 text-center">
-              Como foi seu desempenho nesta revisão?
-            </p>
-            <div className="grid grid-cols-3 gap-2.5">
-              <button
-                onClick={() => handleSessionRating('dificil')}
-                className="flex flex-col items-center p-3 rounded-xl border border-rose-200 dark:border-rose-900/40 bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-300 font-bold hover:bg-rose-100 dark:hover:bg-rose-900/50 transition-all shadow-xs"
-              >
-                <span className="text-xs">🔴 Difícil</span>
-                <span className="text-[10px] text-rose-500 dark:text-rose-400 font-normal">
-                  Intervalo menor
-                </span>
-              </button>
-
-              <button
-                onClick={() => handleSessionRating('medio')}
-                className="flex flex-col items-center p-3 rounded-xl border border-amber-200 dark:border-amber-900/40 bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 font-bold hover:bg-amber-100 dark:hover:bg-amber-900/50 transition-all shadow-xs"
-              >
-                <span className="text-xs">🟡 Médio</span>
-                <span className="text-[10px] text-amber-500 dark:text-amber-400 font-normal">
-                  Intervalo padrão
-                </span>
-              </button>
-
-              <button
-                onClick={() => handleSessionRating('facil')}
-                className="flex flex-col items-center p-3 rounded-xl border border-emerald-200 dark:border-emerald-900/40 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 font-bold hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-all shadow-xs"
-              >
-                <span className="text-xs">🟢 Fácil</span>
-                <span className="text-[10px] text-emerald-500 dark:text-emerald-400 font-normal">
-                  Intervalo maior
-                </span>
-              </button>
-
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Filter and Search Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
-        {/* Status Filter Buttons */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
-          <button
-            onClick={() => setStatusFilter('all')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors ${
-              statusFilter === 'all'
-                ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
-            }`}
-          >
-            Todos ({spacedTopics.length})
-          </button>
-          <button
-            onClick={() => setStatusFilter('due')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors ${
-              statusFilter === 'due'
-                ? 'bg-rose-600 text-white'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
-            }`}
-          >
-            🚨 Hoje ({dueTopics.length})
-          </button>
-          <button
-            onClick={() => setStatusFilter('upcoming')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors ${
-              statusFilter === 'upcoming'
-                ? 'bg-sky-600 text-white'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
-            }`}
-          >
-            ⏳ Próximos ({upcomingTopics.length})
-          </button>
-          <button
-            onClick={() => setStatusFilter('mastered')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors ${
-              statusFilter === 'mastered'
-                ? 'bg-emerald-600 text-white'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
-            }`}
-          >
-            🏆 Dominados ({masteredTopics.length})
-          </button>
-        </div>
-
-        {/* Subject Filter & Search Input */}
-        <div className="flex items-center gap-2">
-          <select
-            value={selectedSubjectFilter}
-            onChange={(e) => setSelectedSubjectFilter(e.target.value)}
-            className="text-xs font-semibold px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-sky-500"
-          >
-            <option value="all">Todas as Disciplinas</option>
-            {subjects.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name} ({s.code})
-              </option>
-            ))}
-          </select>
-
-          <div className="relative w-full sm:w-48">
-            <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Buscar assunto..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full text-xs pl-8 pr-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-hidden focus:border-sky-500"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Main List of Study Topics in Spaced Repetition */}
-      <div className="space-y-3.5">
-        {filteredTopics.length === 0 ? (
-          <div className="p-12 text-center rounded-3xl border border-dashed border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-900">
-            <BookmarkCheck className="h-10 w-10 text-slate-300 dark:text-slate-700 mx-auto mb-3" />
-            <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300">
-              Nenhum assunto encontrado para este filtro
-            </h3>
-            <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto mb-4">
-              Adicione um novo assunto de estudo seguindo a hierarquia Disciplina → Matéria → Detalhe.
-            </p>
-            <button
-              onClick={onOpenAddTopic}
-              className="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold transition-colors"
-            >
-              + Adicionar Novo Assunto
-            </button>
           </div>
         ) : (
-          filteredTopics.map((topic) => {
-            const subject = subjects.find((s) => s.id === topic.subjectId);
-            const currentStep = getReviewsDone(topic); // revisões concluídas (0–4)
-
-            return (
-              <div
-                key={topic.id}
-                className="group rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-xs hover:border-sky-300 dark:hover:border-sky-700 transition-all space-y-4"
-              >
-                {/* Topic Top Meta Row */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                  <div className="flex flex-wrap items-center gap-2">
-                    {/* Subject badge */}
-                    <span
-                      className="text-[11px] font-bold px-2.5 py-1 rounded-lg text-white shadow-2xs"
-                      style={{ backgroundColor: subject?.color || '#0284c7' }}
-                    >
-                      {subject?.code || 'DISC'} • {subject?.name}
-                    </span>
-
-                    {/* Module / Matéria badge */}
-                    {topic.moduleName && (
-                      <span className="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200/60 dark:border-slate-700">
-                        {topic.moduleName}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+            {due.map((b) => {
+              const sub = subjectOf(b);
+              const color = colorOf(sub);
+              const late = daysBetween(b.nextReviewDate!, today);
+              const count = topics.filter((t) => t.blockId === b.id).length;
+              return (
+                <div key={b.id} className="relative rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 pl-5 overflow-hidden">
+                  <span className="absolute left-0 top-0 bottom-0 w-1.5" style={{ backgroundColor: color }} />
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <h3 className="text-sm font-black text-slate-900 dark:text-white truncate">{b.name}</h3>
+                      <p className="text-[11px] font-semibold truncate" style={{ color }}>
+                        {subtitleOf(sub)} · {count} tópico{count === 1 ? '' : 's'}
+                      </p>
+                    </div>
+                    {late > 0 && (
+                      <span className="shrink-0 flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-rose-500/10 text-rose-600 dark:text-rose-400">
+                        <AlertTriangle className="h-3 w-3" /> {late}d atrasada
                       </span>
                     )}
-
-                    {/* Method badge */}
-                    <span className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border border-sky-100 dark:border-sky-900/40 flex items-center gap-1">
-                      {getMethodIcon(topic.preferredStudyMethods?.[0])}
-                      {getMethodLabel(topic)}
-                    </span>
                   </div>
-
-                  <div className="flex items-center gap-2">
-                    {getReviewStatusBadge(topic)}
+                  <div className="mt-2 flex items-center justify-between gap-2 flex-wrap">
+                    {renderChips(b)}
+                    {renderPlanLine(b.difficulty || 'medio')}
                   </div>
+                  <button
+                    onClick={() => openSession(b)}
+                    className="mt-3 w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-white text-xs font-bold"
+                    style={{ backgroundColor: color }}
+                  >
+                    <Play className="h-3.5 w-3.5" /> Revisar {b.name} · R{b.reviewsDone + 1}
+                  </button>
                 </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
 
-                {/* Title & Notes */}
-                <div>
-                  <h3 className="text-base font-black text-slate-900 dark:text-white leading-snug">
-                    {topic.title}
-                  </h3>
-                  {topic.description && (
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                      {topic.description}
-                    </p>
-                  )}
-                  {topic.imageUrl && (
-                    <div className="mt-2.5 p-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200/80 dark:border-slate-800 flex items-center gap-3">
-                      <img
-                        src={topic.imageUrl}
-                        alt={topic.imageCaption || topic.title}
-                        referrerPolicy="no-referrer"
-                        className="h-16 w-24 object-cover rounded-lg shrink-0 border border-slate-200 dark:border-slate-700"
-                      />
-                      <div className="min-w-0">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-sky-600 dark:text-sky-400">
-                          Imagem Anexada
-                        </span>
-                        <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 truncate">
-                          {topic.imageCaption || 'Esquema / Imagem de Apoio'}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                  {topic.notes && (
-                    <p className="text-xs text-amber-700 dark:text-amber-400 font-medium mt-1">
-                      💡 {topic.notes}
-                    </p>
-                  )}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Próximas revisões */}
+        <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
+          <h2 className="text-xs font-black uppercase tracking-widest text-slate-500 mb-2">Próximas revisões</h2>
+          {upcomingByDate.length === 0 ? (
+            <p className="text-xs text-slate-400 py-2">Nenhuma revisão agendada.</p>
+          ) : (
+            <div className="space-y-3">
+              {upcomingByDate.map(([date, list]) => (
+                <div key={date}>
+                  <div className="text-[11px] font-bold text-slate-500 mb-1">{dateLabel(date, today)}</div>
+                  <ul className="space-y-1">
+                    {list.map((b) => {
+                      const sub = subjectOf(b);
+                      return (
+                        <li key={b.id} className="flex items-center gap-2 text-xs">
+                          <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: colorOf(sub) }} />
+                          <span className="font-semibold text-slate-800 dark:text-slate-100 truncate flex-1">{b.name}</span>
+                          <span className="text-[10px] font-bold text-slate-400 shrink-0">R{b.reviewsDone + 1}</span>
+                          <span className="text-[10px] font-bold shrink-0" style={{ color: REVIEW_PLANS[b.difficulty || 'medio'].color }}>
+                            {REVIEW_PLANS[b.difficulty || 'medio'].questions}Q
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ul>
                 </div>
+              ))}
+            </div>
+          )}
+        </section>
 
-                {/* Hierarchy & Cycle Progress Bar */}
-                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200/70 dark:border-slate-800/80 flex flex-col md:flex-row md:items-center justify-between gap-3">
-                  <div className="flex items-center gap-2 text-xs text-slate-500">
-                    <span>Revisões: <strong className="text-slate-700 dark:text-slate-200">{currentStep}/{REVIEWS_TO_MASTER}</strong></span>
-                    <div className="flex items-center gap-1">
-                      <span
-                        className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
-                          currentStep >= 1
-                            ? 'bg-sky-600 text-white'
-                            : 'bg-slate-200 dark:bg-slate-800 text-slate-500'
-                        }`}
-                      >
-                        R1 · 1d
-                      </span>
-                      <ArrowRight className="h-2.5 w-2.5 text-slate-400" />
-                      <span
-                        className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
-                          currentStep >= 2
-                            ? 'bg-sky-600 text-white'
-                            : 'bg-slate-200 dark:bg-slate-800 text-slate-500'
-                        }`}
-                      >
-                        R2 · 7d
-                      </span>
-                      <ArrowRight className="h-2.5 w-2.5 text-slate-400" />
-                      <span
-                        className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
-                          currentStep >= 3
-                            ? 'bg-sky-600 text-white'
-                            : 'bg-slate-200 dark:bg-slate-800 text-slate-500'
-                        }`}
-                      >
-                        R3 · 15d
-                      </span>
-                      <ArrowRight className="h-2.5 w-2.5 text-slate-400" />
-                      <span
-                        className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
-                          currentStep >= 4
-                            ? 'bg-sky-600 text-white'
-                            : 'bg-slate-200 dark:bg-slate-800 text-slate-500'
-                        }`}
-                      >
-                        R4 · 30d
+        {/* Em estudo */}
+        <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-xs font-black uppercase tracking-widest text-slate-500">Em estudo</h2>
+            <button onClick={() => setCurrentTab('structure')} className="text-[11px] font-bold text-sky-600 dark:text-sky-400 hover:underline">
+              Abrir disciplinas
+            </button>
+          </div>
+          {studying.length === 0 ? (
+            <p className="text-xs text-slate-400 py-2">Nenhum bloco em estudo.</p>
+          ) : (
+            <ul className="space-y-2">
+              {studying.map((b) => {
+                const list = topics.filter((t) => t.blockId === b.id);
+                const seen = list.filter(isTopicSeen).length;
+                const sub = subjectOf(b);
+                const color = colorOf(sub);
+                return (
+                  <li key={b.id}>
+                    <div className="flex items-center justify-between gap-2 text-xs">
+                      <span className="font-semibold text-slate-800 dark:text-slate-100 truncate">{b.name}</span>
+                      <span className="text-[10px] font-bold text-slate-500 shrink-0">
+                        {seen}/{list.length} vistos
                       </span>
                     </div>
-                  </div>
+                    <div className="mt-1 h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                      <div className="h-full rounded-full" style={{ width: `${list.length ? (seen / list.length) * 100 : 0}%`, backgroundColor: color }} />
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
+      </div>
 
-                  {/* 1st Contact & Last Review dates */}
-                  <div className="flex items-center gap-3 text-[11px] text-slate-500 dark:text-slate-400">
-                    {topic.firstContactDate && (
-                      <span>
-                        1º Contato: <strong className="text-slate-700 dark:text-slate-300">{topic.firstContactDate}</strong>
-                        {topic.studyTime && ` às ${topic.studyTime}`}
+      {/* Dominados */}
+      {mastered.length > 0 && (
+        <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
+          <button onClick={() => setShowMastered((v) => !v)} className="w-full flex items-center justify-between text-xs font-black uppercase tracking-widest text-slate-500">
+            <span className="flex items-center gap-2">
+              <Trophy className="h-4 w-4 text-emerald-500" /> Dominados ({mastered.length})
+            </span>
+            <ChevronDown className={`h-4 w-4 transition-transform ${showMastered ? '' : '-rotate-90'}`} />
+          </button>
+          {showMastered && (
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {mastered.map((b) => (
+                <span key={b.id} className="text-[11px] font-semibold px-2 py-1 rounded-lg bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
+                  🏆 {b.name}
+                </span>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* Sessão de revisão */}
+      {session && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in" onClick={() => setSession(null)}>
+          <div
+            id="block-review-session"
+            className="relative w-full max-w-lg max-h-[92vh] overflow-y-auto rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-2xl space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[10px] font-black uppercase tracking-wider" style={{ color: colorOf(subjectOf(session)) }}>
+                  Revisão {session.reviewsDone + 1} de {BLOCK_REVIEWS_TO_MASTER} · {subtitleOf(subjectOf(session))}
+                </p>
+                <h2 className="text-lg font-black text-slate-900 dark:text-white truncate">{session.name}</h2>
+              </div>
+              <button onClick={() => setSession(null)} className="p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200" aria-label="Fechar">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Tópicos do bloco */}
+            <div className="rounded-xl border border-slate-200 dark:border-slate-800">
+              <button onClick={() => setShowTopics((v) => !v)} className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-200">
+                Tópicos do bloco ({topics.filter((t) => t.blockId === session.id).length})
+                <ChevronDown className={`h-4 w-4 transition-transform ${showTopics ? '' : '-rotate-90'}`} />
+              </button>
+              {showTopics && (
+                <ul className="px-3 pb-2 space-y-0.5">
+                  {topics
+                    .filter((t) => t.blockId === session.id)
+                    .map((t) => (
+                      <li key={t.id} className="text-xs text-slate-600 dark:text-slate-300">
+                        • {t.title}
+                      </li>
+                    ))}
+                </ul>
+              )}
+            </div>
+
+            {/* Plano */}
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-1.5">Plano de revisão</p>
+              <div className="grid grid-cols-3 gap-1.5">
+                {PLAN_ORDER.map((level) => {
+                  const p = REVIEW_PLANS[level];
+                  const active = plan === level;
+                  return (
+                    <button
+                      key={level}
+                      onClick={() => choosePlan(level)}
+                      className={`px-2 py-2 rounded-xl border text-xs font-bold transition-all ${active ? 'text-white shadow-sm' : 'text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700'}`}
+                      style={active ? { backgroundColor: p.color, borderColor: p.color } : undefined}
+                    >
+                      {p.label} · {p.questions}Q
+                    </button>
+                  );
+                })}
+              </div>
+              <ul className="mt-2 space-y-1">
+                {REVIEW_PLANS[plan].steps.map((step, i) => (
+                  <li key={step}>
+                    <button
+                      onClick={() => setStepsDone((d) => ({ ...d, [i]: !d[i] }))}
+                      className="w-full flex items-center gap-2.5 rounded-lg px-2.5 py-2 bg-slate-50 dark:bg-slate-950/60 text-left"
+                    >
+                      <span
+                        className="h-5 w-5 shrink-0 rounded-md border-2 flex items-center justify-center"
+                        style={{ borderColor: REVIEW_PLANS[plan].color, backgroundColor: stepsDone[i] ? REVIEW_PLANS[plan].color : 'transparent' }}
+                      >
+                        {stepsDone[i] && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
                       </span>
-                    )}
-                    {topic.lastStudiedDate && (
-                      <span>
-                        Última: <strong className="text-slate-700 dark:text-slate-300">{topic.lastStudiedDate}</strong>
-                      </span>
-                    )}
-                  </div>
-                </div>
+                      <span className={`text-xs font-semibold ${stepsDone[i] ? 'line-through text-slate-400' : 'text-slate-800 dark:text-slate-100'}`}>{step}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              <button onClick={startPomodoro} className="mt-2 flex items-center gap-1.5 text-[11px] font-bold text-sky-600 dark:text-sky-400 hover:underline">
+                <Timer className="h-3.5 w-3.5" /> Revisar com Pomodoro
+              </button>
+            </div>
 
-                {/* Action Buttons for this Topic */}
-                <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs font-bold text-slate-400 mr-1">
-                      {topic.status === 'dominado' ? 'Dominado — 4 revisões concluídas' : `Concluir revisão ${Math.min(REVIEWS_TO_MASTER, currentStep + 1)}/${REVIEWS_TO_MASTER}:`}
-                    </span>
-                    {topic.status !== 'dominado' && (
-                    <>
-                    <button
-                      onClick={() => reviewTopicSpacedRepetition(topic.id, 'dificil')}
-                      className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 hover:bg-rose-100 transition-colors"
-                      title="Revisão feita com dificuldade: próxima vem mais cedo"
-                    >
-                      🔴 Difícil
-                    </button>
-                    <button
-                      onClick={() => reviewTopicSpacedRepetition(topic.id, 'medio')}
-                      className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 hover:bg-amber-100 transition-colors"
-                      title="Revisão feita: intervalo padrão até a próxima"
-                    >
-                      🟡 Médio
-                    </button>
-                    <button
-                      onClick={() => reviewTopicSpacedRepetition(topic.id, 'facil')}
-                      className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 transition-colors"
-                      title="Revisão fácil: próxima demora mais"
-                    >
-                      🟢 Fácil
-                    </button>
-                    </>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => handleStartTimerForTopic(topic)}
-                      className="flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-sky-100 hover:text-sky-700 dark:hover:bg-sky-950 transition-colors"
-                    >
-                      <Timer className="h-3.5 w-3.5" />
-                      <span>Cronômetro</span>
-                    </button>
-
-                    <button
-                      onClick={() => deleteTopic(topic.id)}
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
-                      title="Remover do ciclo"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
+            {/* Desempenho nas questões */}
+            <div className="rounded-xl border border-slate-200 dark:border-slate-800 p-3">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-2">Questões (opcional)</p>
+              <div className="flex items-end gap-2">
+                <label className="flex-1">
+                  <span className="block text-[10px] font-semibold text-slate-500 mb-0.5">Feitas</span>
+                  <input
+                    type="number"
+                    min="0"
+                    value={questions}
+                    onChange={(e) => setQuestions(e.target.value)}
+                    className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-2.5 py-1.5 text-sm font-bold text-slate-900 dark:text-white focus:outline-hidden focus:border-sky-500"
+                  />
+                </label>
+                <label className="flex-1">
+                  <span className="block text-[10px] font-semibold text-slate-500 mb-0.5">Acertos</span>
+                  <input
+                    id="block-review-correct"
+                    type="number"
+                    min="0"
+                    value={correct}
+                    onChange={(e) => setCorrect(e.target.value)}
+                    placeholder="—"
+                    className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-2.5 py-1.5 text-sm font-bold text-slate-900 dark:text-white focus:outline-hidden focus:border-sky-500"
+                  />
+                </label>
+                <div className="flex-1 text-center pb-1">
+                  <div className="text-lg font-black text-slate-900 dark:text-white">{pct !== undefined ? `${pct}%` : '—'}</div>
+                  <div className="text-[10px] text-slate-500">aproveitamento</div>
                 </div>
               </div>
-            );
-          })
-        )}
-      </div>
+              {suggested && (
+                <p className="text-[11px] mt-2 font-semibold" style={{ color: REVIEW_PLANS[suggested].color }}>
+                  Sugestão pelo desempenho: {REVIEW_PLANS[suggested].label}
+                </p>
+              )}
+            </div>
+
+            {/* Avaliação */}
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-1.5">Como foi a revisão?</p>
+              <div className="grid grid-cols-3 gap-1.5">
+                {PLAN_ORDER.map((level) => {
+                  const p = REVIEW_PLANS[level];
+                  const isSuggested = suggested === level;
+                  return (
+                    <button
+                      key={level}
+                      onClick={() => finish(level)}
+                      className={`px-2 py-2.5 rounded-xl text-xs font-black text-white transition-transform hover:scale-[1.02] ${isSuggested ? 'ring-2 ring-offset-2 ring-offset-white dark:ring-offset-slate-900' : ''}`}
+                      style={{ backgroundColor: p.color, ['--tw-ring-color' as string]: p.color }}
+                    >
+                      {p.emoji} {p.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-[10px] text-slate-500 mt-1.5">
+                Fácil espaça mais a próxima revisão; Difícil traz o bloco de volta antes. A escolha também define o plano sugerido da próxima vez.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -6,6 +6,7 @@ export type TopicDifficulty = 'dificil' | 'medio' | 'facil';
 export interface Topic {
   id: string;
   subjectId: string;
+  blockId?: string; // bloco da disciplina (ex.: "Diabetes"); a revisão é feita por bloco
   moduleName?: string; // Matéria / Módulo dentro da disciplina
   specialty?: string; // especialidade (Clínica Médica): Cardiologia, Neurologia...
   title: string; // Nome do Assunto
@@ -30,6 +31,23 @@ export interface Topic {
   imageCaption?: string;
   tags?: string[];
   estimatedHours?: number;
+}
+
+export type BlockReviewStatus = 'estudando' | 'revisao' | 'dominado';
+
+// Bloco de tópicos dentro de uma disciplina (ex.: Endocrinologia → Diabetes, Tireoide).
+// Entra nas revisões quando todos os tópicos forem vistos; 4 revisões espaçadas → dominado.
+export interface TopicBlock {
+  id: string;
+  subjectId: string;
+  name: string;
+  createdAt: string;
+  reviewStatus: BlockReviewStatus;
+  reviewsDone: number;
+  nextReviewDate?: string; // YYYY-MM-DD
+  lastReviewDate?: string;
+  difficulty?: TopicDifficulty; // última avaliação: define o plano sugerido da próxima revisão
+  reviewLog?: Array<{ date: string; difficulty: TopicDifficulty; questions?: number; correct?: number }>;
 }
 
 export interface Subject {

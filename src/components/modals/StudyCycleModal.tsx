@@ -233,13 +233,14 @@ export const StudyCycleModal: React.FC<StudyCycleModalProps> = ({
                         className={`px-2 py-1 rounded-lg text-[11px] font-bold border flex items-center gap-1 ${
                           step.phoneAllowed
                             ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30'
-                            : 'bg-slate-800 text-slate-300 border-slate-700'
+                            : 'bg-rose-500/10 text-rose-300 border-rose-500/30'
                         }`}
                         title={step.phoneNote}
                       >
                         <Coffee className="h-3 w-3" />
                         {step.breakMins}'
                         {step.phoneAllowed ? <Smartphone className="h-3 w-3" /> : <PhoneOff className="h-3 w-3" />}
+                        {step.phoneAllowed ? 'com cel.' : 'sem cel.'}
                       </span>
                     </>
                   )}
@@ -388,6 +389,16 @@ export const StudyCycleModal: React.FC<StudyCycleModalProps> = ({
                     <div className="min-w-0">
                       <p className="text-xs font-bold text-white truncate">{step.title}</p>
                       <p className="text-[11px] text-slate-400 truncate">{step.description}</p>
+                      {step.breakMins > 0 && (
+                        <span
+                          className={`mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
+                            step.phoneAllowed ? 'bg-emerald-500/15 text-emerald-300' : 'bg-rose-500/15 text-rose-300'
+                          }`}
+                        >
+                          {step.phoneAllowed ? <Smartphone className="h-3 w-3" /> : <PhoneOff className="h-3 w-3" />}
+                          {step.phoneAllowed ? 'Pausa com celular' : 'Pausa sem celular'}
+                        </span>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
