@@ -15,13 +15,14 @@ import {
   ChecklistBlock,
   TopicBlock,
   TopicDifficulty,
+  QuestionLog,
 } from '../types';
 import {
   BLOCK_REVIEWS_TO_MASTER,
-  BLOCK_REVIEW_BASE_INTERVALS,
-  DIFFICULTY_FACTOR,
+  FIRST_REVIEW_DAY,
   addDaysYMD,
   isTopicSeen,
+  nextIntervalDays,
   ymd,
 } from '../data/blockReview';
 import {
@@ -137,6 +138,11 @@ interface AppContextType {
   markTopicSeen: (id: string) => void;
   /** Volta o assunto para "Não iniciado" e zera as revisões */
   resetTopicProgress: (id: string) => void;
+
+  // Questões registradas (por bloco ou tópico)
+  questionLogs: QuestionLog[];
+  addQuestionLog: (log: Omit<QuestionLog, 'id' | 'date' | 'semesterId'>) => void;
+  deleteQuestionLog: (id: string) => void;
 
   // Blocos de tópicos (a revisão espaçada é feita por bloco)
   topicBlocks: TopicBlock[];
@@ -272,6 +278,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
   const [checklistBlocks, setChecklistBlocks] = useState<ChecklistBlock[]>([]);
   const [topicBlocks, setTopicBlocks] = useState<TopicBlock[]>([]);
+  const [questionLogs, setQuestionLogs] = useState<QuestionLog[]>([]);
   const userProfileRef = useRef(userProfile);
   userProfileRef.current = userProfile;
 
@@ -330,6 +337,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setChecklist([]);
       setChecklistBlocks([]);
       setTopicBlocks([]);
+      setQuestionLogs([]);
       setIsInitialLoadComplete(false);
       setCloudSyncStatus('synced');
       setLastCloudSync(null);
@@ -419,6 +427,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setChecklistBlocks([]);
     if (savedChecklistBlocks) {
       try { setChecklistBlocks(JSON.parse(savedChecklistBlocks)); } catch (e) {}
+    }
+    const savedQuestionLogs = localStorage.getItem(getUserKey('question_logs', activeUserId));
+    setQuestionLogs([]);
+    if (savedQuestionLogs) {
+      try { setQuestionLogs(JSON.parse(savedQuestionLogs)); } catch (e) {}
     }
     const savedTopicBlocks = localStorage.getItem(getUserKey('topic_blocks', activeUserId));
     setTopicBlocks([]);
@@ -526,6 +539,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (Array.isArray(cloudData.checklist)) {
         setChecklist(cloudData.checklist);
       }
+      if (Array.isArray(cloudData.questionLogs)) {
+        setQuestionLogs(cloudData.questionLogs);
+      }
       if (Array.isArray(cloudData.topicBlocks)) {
         setTopicBlocks(cloudData.topicBlocks);
       }
@@ -571,6 +587,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         checklist: parse<ChecklistItem[]>(savedChecklist, []),
         checklistBlocks: parse<ChecklistBlock[]>(savedChecklistBlocks, []),
         topicBlocks: parse<TopicBlock[]>(savedTopicBlocks, []),
+        questionLogs: parse<QuestionLog[]>(savedQuestionLogs, []),
         updatedAt: new Date().toISOString(),
       };
     };
@@ -737,6 +754,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [topicBlocks, activeUserId, isInitialLoadComplete]);
 
+  useEffect(() => {
+    if (activeUserId && isInitialLoadComplete) {
+      localStorage.setItem(getUserKey('question_logs', activeUserId), JSON.stringify(questionLogs));
+    }
+  }, [questionLogs, activeUserId, isInitialLoadComplete]);
+
   // Migração: tópicos sem bloco viram um bloco com o nome da disciplina (ex.: "NEONATOLOGIA 1").
   // O id é fixo por disciplina, então dois aparelhos migrando ao mesmo tempo geram o mesmo bloco.
   useEffect(() => {
@@ -768,9 +791,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         createdAt: new Date().toISOString(),
         reviewStatus: status,
         reviewsDone: Math.min(reviewsDone, BLOCK_REVIEWS_TO_MASTER),
-        nextReviewDate: status === 'revisao' ? dates[0] || addDaysYMD(1) : undefined,
-        difficulty: 'medio',
-        lastReviewDate: status !== 'estudando' ? today : undefined,
+        completedDate: status !== 'estudando' ? today : undefined,
+        nextReviewDate:
+          status === 'revisao' ? (reviewsDone === 0 ? addDaysYMD(FIRST_REVIEW_DAY, today) : dates[0] || addDaysYMD(FIRST_REVIEW_DAY, today)) : undefined,
+        difficulty: reviewsDone > 0 ? 'medio' : undefined,
       });
     });
     if (newBlocks.length > 0) setTopicBlocks((prev) => [...prev, ...newBlocks.filter((b) => !prev.some((p) => p.id === b.id))]);
@@ -778,6 +802,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       prev.map((t) => (t.blockId && validIds.has(t.blockId) ? t : { ...t, blockId: 'blk-auto-' + t.subjectId }))
     );
   }, [topics, topicBlocks, subjects, activeUserId, isInitialLoadComplete]);
+
+  // Blocos que entraram nas revisões antes do "Dia 0" existir: Dia 0 = data registrada e 1ª revisão no Dia 7
+  useEffect(() => {
+    if (!activeUserId || !isInitialLoadComplete) return;
+    const pending = topicBlocks.filter((b) => b.reviewStatus !== 'estudando' && !b.completedDate);
+    if (pending.length === 0) return;
+    setTopicBlocks((prev) =>
+      prev.map((b) => {
+        if (b.reviewStatus === 'estudando' || b.completedDate) return b;
+        const day0 = b.lastReviewDate && !(b.reviewLog && b.reviewLog.length) ? b.lastReviewDate : b.createdAt.slice(0, 10);
+        const fresh = b.reviewStatus === 'revisao' && b.reviewsDone === 0 && !(b.reviewLog && b.reviewLog.length);
+        return {
+          ...b,
+          completedDate: day0,
+          nextReviewDate: fresh ? addDaysYMD(FIRST_REVIEW_DAY, day0) : b.nextReviewDate,
+          difficulty: fresh ? undefined : b.difficulty,
+        };
+      })
+    );
+  }, [topicBlocks, activeUserId, isInitialLoadComplete]);
 
   // Full academic state saved as one JSON row per user (table app_state, see supabase/schema.sql)
   const buildCloudState = () => ({
@@ -795,6 +839,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     checklist,
     checklistBlocks,
     topicBlocks,
+    questionLogs,
     updatedAt: new Date().toISOString(),
   });
 
@@ -859,6 +904,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     checklist,
     checklistBlocks,
     topicBlocks,
+    questionLogs,
   ]);
 
   // Force Cloud Sync manually
@@ -1292,16 +1338,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setTopicBlocks((prev) =>
         prev.map((bk) =>
           bk.id === blockId
-            ? { ...bk, reviewStatus: 'revisao', reviewsDone: 0, nextReviewDate: addDaysYMD(BLOCK_REVIEW_BASE_INTERVALS[0]), difficulty: bk.difficulty || 'medio' }
+            ? {
+                ...bk,
+                reviewStatus: 'revisao',
+                reviewsDone: 0,
+                completedDate: ymd(new Date()),
+                nextReviewDate: addDaysYMD(FIRST_REVIEW_DAY),
+                difficulty: undefined,
+              }
             : bk
         )
       );
       addXp(50, 'Bloco concluído');
       triggerConfetti();
-      showNotification(`✅ Bloco "${block.name}" completo! A 1ª revisão fica para amanhã na aba Revisões.`, 'success');
+      showNotification(`✅ Bloco "${block.name}" concluído hoje (Dia 0)! 1ª revisão no Dia 7, em ${addDaysYMD(FIRST_REVIEW_DAY).split('-').reverse().slice(0, 2).join('/')}.`, 'success');
     } else if (block.reviewStatus === 'revisao' && block.reviewsDone === 0 && !allSeen) {
       setTopicBlocks((prev) =>
-        prev.map((bk) => (bk.id === blockId ? { ...bk, reviewStatus: 'estudando', nextReviewDate: undefined } : bk))
+        prev.map((bk) => (bk.id === blockId ? { ...bk, reviewStatus: 'estudando', nextReviewDate: undefined, completedDate: undefined } : bk))
       );
     }
   };
@@ -1332,11 +1385,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     syncBlockStatus(t.blockId, next);
   };
 
+  const addQuestionLog = (log: Omit<QuestionLog, 'id' | 'date' | 'semesterId'>) => {
+    if (!log.total || log.total <= 0) return;
+    const entry: QuestionLog = {
+      ...log,
+      correct: Math.max(0, Math.min(log.correct, log.total)),
+      id: 'qlog-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+      date: ymd(new Date()),
+      semesterId: currentSemester?.id,
+    };
+    setQuestionLogs((prev) => [entry, ...prev]);
+    addXp(Math.min(60, Math.round(log.total / 2)), 'Questões registradas');
+    showNotification(`${entry.total} questões registradas (${Math.round((entry.correct / entry.total) * 100)}% de acertos).`, 'success');
+  };
+
+  const deleteQuestionLog = (id: string) => {
+    setQuestionLogs((prev) => prev.filter((q) => q.id !== id));
+  };
+
   const addTopicBlock = (subjectId: string, name: string) => {
     const id = 'blk-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
     setTopicBlocks((prev) => [
       ...prev,
-      { id, subjectId, name: name.trim(), createdAt: new Date().toISOString(), reviewStatus: 'estudando', reviewsDone: 0, difficulty: 'medio' },
+      { id, subjectId, name: name.trim(), createdAt: new Date().toISOString(), reviewStatus: 'estudando', reviewsDone: 0 },
     ]);
     showNotification(`Bloco "${name.trim()}" criado.`, 'success');
     return id;
@@ -1371,7 +1442,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       showNotification(`🏆 4ª revisão concluída! O bloco "${block.name}" agora está dominado.`, 'success');
       return;
     }
-    const intervalDays = Math.max(1, Math.round(BLOCK_REVIEW_BASE_INTERVALS[done] * DIFFICULTY_FACTOR[difficulty]));
+    const intervalDays = nextIntervalDays(difficulty, done);
     setTopicBlocks((prev) =>
       prev.map((bk) =>
         bk.id === id
@@ -1390,7 +1461,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setTopicBlocks((prev) =>
       prev.map((bk) =>
         bk.id === id
-          ? { ...bk, reviewStatus: allSeen ? 'revisao' : 'estudando', reviewsDone: 0, nextReviewDate: allSeen ? addDaysYMD(1) : undefined }
+          ? {
+              ...bk,
+              reviewStatus: allSeen ? 'revisao' : 'estudando',
+              reviewsDone: 0,
+              difficulty: undefined,
+              reviewLog: [],
+              completedDate: allSeen ? ymd(new Date()) : undefined,
+              nextReviewDate: allSeen ? addDaysYMD(FIRST_REVIEW_DAY) : undefined,
+            }
           : bk
       )
     );
@@ -1891,6 +1970,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         checklist,
         checklistBlocks,
         topicBlocks,
+        questionLogs,
+        addQuestionLog,
+        deleteQuestionLog,
         addTopicBlock,
         renameTopicBlock,
         deleteTopicBlock,

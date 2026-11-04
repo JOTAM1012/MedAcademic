@@ -44,10 +44,24 @@ export interface TopicBlock {
   createdAt: string;
   reviewStatus: BlockReviewStatus;
   reviewsDone: number;
+  completedDate?: string; // YYYY-MM-DD: dia em que todos os tópicos foram vistos (Dia 0)
   nextReviewDate?: string; // YYYY-MM-DD
   lastReviewDate?: string;
   difficulty?: TopicDifficulty; // última avaliação: define o plano sugerido da próxima revisão
   reviewLog?: Array<{ date: string; difficulty: TopicDifficulty; questions?: number; correct?: number }>;
+}
+
+// Questões registradas (por bloco ou por tópico), somadas no semestre
+export interface QuestionLog {
+  id: string;
+  date: string; // YYYY-MM-DD
+  semesterId?: string;
+  kind: 'block' | 'topic';
+  subjectId?: string;
+  blockId?: string;
+  topicId?: string;
+  total: number;
+  correct: number;
 }
 
 export interface Subject {

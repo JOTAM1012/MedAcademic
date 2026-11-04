@@ -3,7 +3,7 @@
 // - Hashed build assets (/assets/*): cache-first (file names change on every build)
 // - Other same-origin static files: stale-while-revalidate
 // - Cross-origin requests (Firestore, Google APIs, fonts...) and non-GET requests are never intercepted
-const CACHE_VERSION = 'medacademic-v4';
+const CACHE_VERSION = 'medacademic-v5';
 const STATIC_CACHE_NAME = `medacademic-static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE_NAME = `medacademic-dynamic-${CACHE_VERSION}`;
 

@@ -29,7 +29,7 @@ import { useApp } from '../context/AppContext';
 import { getReviewsDone, REVIEWS_TO_MASTER } from '../data/topicStatus';
 import { getActivityCategory, getExamKind, getExamSubjectName, getExamShift, occursOn } from '../data/planning';
 import { Exam, ScheduleClass, Topic, Subject, ChecklistItem, TopicBlock } from '../types';
-import { BLOCK_REVIEWS_TO_MASTER, REVIEW_PLANS } from '../data/blockReview';
+import { BLOCK_REVIEWS_TO_MASTER, cycleDay, suggestedPlan } from '../data/blockReview';
 
 interface CalendarViewProps {
   onOpenAddExam?: (date?: string) => void;
@@ -355,7 +355,8 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       )
       .forEach((bk) => {
         const sub = getSubject(bk.subjectId);
-        const plan = REVIEW_PLANS[bk.difficulty || 'medio'];
+        const plan = suggestedPlan(bk);
+        const day = cycleDay(bk, bk.nextReviewDate);
         items.push({
           id: `block-${bk.id}`,
           sourceType: 'block',
@@ -363,14 +364,14 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           badge: `R${Math.min(BLOCK_REVIEWS_TO_MASTER, bk.reviewsDone + 1)}`,
           badgeColor: 'blue',
           title: bk.name,
-          subtitle: `${sub?.universitySubject || sub?.name || 'Bloco'} · ${plan.label} ${plan.questions}Q`,
-          bottomLeftLabel: 'Revisão do bloco',
+          subtitle: plan ? `${sub?.universitySubject || sub?.name || 'Bloco'} · ${plan.steps.join(' + ')}` : `${sub?.universitySubject || sub?.name || 'Bloco'} · 1ª revisão, avalie a dificuldade`,
+          bottomLeftLabel: `Revisão R${Math.min(BLOCK_REVIEWS_TO_MASTER, bk.reviewsDone + 1)}${day !== undefined ? ` · Dia ${day}` : ''}`,
           bottomLeftIcon: 'brain',
           statusLabel: `${bk.reviewsDone}/${BLOCK_REVIEWS_TO_MASTER}`,
           progressPercent: Math.round((bk.reviewsDone / BLOCK_REVIEWS_TO_MASTER) * 100),
           isCompleted: false,
           subject: sub,
-          accentColor: plan.color,
+          accentColor: plan?.color || '#0284c7',
           originalData: bk,
         });
       });

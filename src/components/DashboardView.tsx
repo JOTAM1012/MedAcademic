@@ -25,6 +25,7 @@ import { getActivityCategory, getExamKind, getExamSubjectName, occursOn, toYMD }
 import { WeeklyStatsCard } from './WeeklyStatsCard';
 import { isBlockDue } from '../data/blockReview';
 import { InstallAppBanner } from './InstallAppGuide';
+import { QuestionStatsCard } from './QuestionStatsCard';
 import { MonthlyPerformanceChart } from './MonthlyPerformanceChart';
 
 export const DashboardView: React.FC = () => {
@@ -290,6 +291,9 @@ export const DashboardView: React.FC = () => {
           </div>
         </motion.div>
       </motion.div>
+
+      {/* Questões do semestre */}
+      <QuestionStatsCard />
 
       {/* Main Grid: Left Column & Right Column */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

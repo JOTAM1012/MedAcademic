@@ -3,7 +3,7 @@ import { Plus, Search, ChevronDown, Check, Trash2, MoreHorizontal, Pencil, Rotat
 import { useApp } from '../context/AppContext';
 import { Subject, Topic, TopicBlock } from '../types';
 import { SPECIALTY_BLOCK_SUGGESTIONS, getMedicalArea, getSpecialty } from '../data/areas';
-import { BLOCK_REVIEWS_TO_MASTER, REVIEW_PLANS, isBlockDue, isTopicSeen, ymd } from '../data/blockReview';
+import { BLOCK_REVIEWS_TO_MASTER, cycleDay, formatDM, isBlockDue, isTopicSeen, suggestedPlan, ymd } from '../data/blockReview';
 
 interface SubjectBlocksPanelProps {
   subject: Subject;
@@ -91,13 +91,13 @@ export const SubjectBlocksPanel: React.FC<SubjectBlocksPanelProps> = ({ subject 
     }
     if (block.reviewStatus === 'revisao') {
       const due = isBlockDue(block, todayStr);
-      const plan = REVIEW_PLANS[block.difficulty || 'medio'];
+      const plan = suggestedPlan(block);
       return (
         <span
           className={`flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${
             due ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400' : 'bg-sky-500/15 text-sky-600 dark:text-sky-400'
           }`}
-          title={`Plano sugerido: ${plan.steps.join(' + ')}`}
+          title={plan ? `Sugestão: ${plan.steps.join(' + ')}` : 'Revisão do Dia 7: avalie a dificuldade ao terminar'}
         >
           <Repeat className="h-3 w-3" />
           R{Math.min(BLOCK_REVIEWS_TO_MASTER, block.reviewsDone + 1)}/{BLOCK_REVIEWS_TO_MASTER} ·{' '}
@@ -242,6 +242,17 @@ export const SubjectBlocksPanel: React.FC<SubjectBlocksPanelProps> = ({ subject 
                 <div className="mt-1 h-1 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
                   <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: accent }} />
                 </div>
+                {block.completedDate && (
+                  <p className="text-[10px] text-slate-500 mt-1">
+                    Concluído em <strong className="text-slate-700 dark:text-slate-300">{formatDM(block.completedDate)}</strong> (Dia 0)
+                    {block.reviewStatus === 'revisao' && block.nextReviewDate && (
+                      <>
+                        {' '}· próxima: <strong className="text-slate-700 dark:text-slate-300">R{block.reviewsDone + 1} em {formatDM(block.nextReviewDate)}</strong> (Dia{' '}
+                        {cycleDay(block, block.nextReviewDate)})
+                      </>
+                    )}
+                  </p>
+                )}
               </div>
               {renderStatus(block, seen, list.length)}
               {due && (

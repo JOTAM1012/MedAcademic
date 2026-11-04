@@ -1,10 +1,22 @@
-// Revisões por BLOCO: o bloco (ex.: "Diabetes", "Neonatologia 1") entra nas revisões quando todos os
-// seus tópicos forem marcados como vistos. São 4 revisões espaçadas; na 4ª o bloco fica dominado.
+// Revisões por BLOCO. Quando todos os tópicos de um bloco são vistos, aquele dia é o Dia 0 e a
+// 1ª revisão fica para o Dia 7. Depois de cada revisão o usuário avalia (Difícil/Médio/Fácil):
+// a avaliação define a data da próxima revisão e o plano sugerido para esse dia.
+// São 4 revisões; na 4ª o bloco fica dominado.
 import { Topic, TopicBlock, TopicDifficulty } from '../types';
 
 export const BLOCK_REVIEWS_TO_MASTER = 4;
-export const BLOCK_REVIEW_BASE_INTERVALS = [1, 7, 15, 30]; // dias até a revisão nº (feitas + 1)
-export const DIFFICULTY_FACTOR: Record<TopicDifficulty, number> = { dificil: 0.5, medio: 1, facil: 1.5 };
+export const FIRST_REVIEW_DAY = 7;
+
+// Dias até a revisão nº (feitas + 1). A 1ª é sempre no Dia 7; as seguintes dependem da avaliação.
+export const REVIEW_INTERVALS: Record<TopicDifficulty, number[]> = {
+  dificil: [FIRST_REVIEW_DAY, 3, 7, 15],
+  medio: [FIRST_REVIEW_DAY, 7, 15, 30],
+  facil: [FIRST_REVIEW_DAY, 15, 30, 60],
+};
+
+/** Dias até a próxima revisão depois de concluir `done` revisões com esta avaliação */
+export const nextIntervalDays = (difficulty: TopicDifficulty, done: number) =>
+  REVIEW_INTERVALS[difficulty][Math.min(done, BLOCK_REVIEWS_TO_MASTER - 1)];
 
 export interface ReviewPlan {
   id: TopicDifficulty;
@@ -15,35 +27,25 @@ export interface ReviewPlan {
   steps: string[];
 }
 
-// Plano sugerido para a revisão, conforme a dificuldade do bloco
+// Plano sugerido para a revisão agendada, conforme a avaliação da revisão anterior
 export const REVIEW_PLANS: Record<TopicDifficulty, ReviewPlan> = {
-  facil: {
-    id: 'facil',
-    label: 'Fácil',
-    emoji: '🟢',
-    color: '#16a34a',
-    questions: 15,
-    steps: ['Fazer 15 questões'],
-  },
-  medio: {
-    id: 'medio',
-    label: 'Médio',
-    emoji: '🟡',
-    color: '#d97706',
-    questions: 20,
-    steps: ['Ler o resumo', 'Fazer 20 questões'],
-  },
+  facil: { id: 'facil', label: 'Fácil', emoji: '🟢', color: '#16a34a', questions: 15, steps: ['15 questões'] },
+  medio: { id: 'medio', label: 'Médio', emoji: '🟡', color: '#d97706', questions: 20, steps: ['Ler o resumo', '20 questões'] },
   dificil: {
     id: 'dificil',
     label: 'Difícil',
     emoji: '🔴',
     color: '#e11d48',
     questions: 30,
-    steps: ['Revisar o resumo', 'Videoaula rápida', 'Fazer 30 questões'],
+    steps: ['Revisar o resumo', 'Videoaula rápida', '30 questões'],
   },
 };
 
-export const PLAN_ORDER: TopicDifficulty[] = ['facil', 'medio', 'dificil'];
+export const PLAN_ORDER: TopicDifficulty[] = ['dificil', 'medio', 'facil'];
+
+/** Plano da próxima revisão: só existe depois da 1ª avaliação (a revisão do Dia 7 é livre) */
+export const suggestedPlan = (block: TopicBlock): ReviewPlan | undefined =>
+  block.reviewsDone > 0 && block.difficulty ? REVIEW_PLANS[block.difficulty] : undefined;
 
 /** Sugestão de dificuldade pelo desempenho nas questões */
 export const difficultyFromScore = (correct: number, total: number): TopicDifficulty | undefined => {
@@ -57,21 +59,28 @@ export const difficultyFromScore = (correct: number, total: number): TopicDiffic
 export const ymd = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
-export const addDaysYMD = (days: number, from = new Date()) => {
-  const d = new Date(from);
+export const addDaysYMD = (days: number, from: Date | string = new Date()) => {
+  const d = typeof from === 'string' ? parseYMD(from) : new Date(from);
   d.setDate(d.getDate() + days);
   return ymd(d);
 };
 
-export const isTopicSeen = (t: Topic) => t.status !== 'nao_iniciado';
+export const parseYMD = (s: string) => {
+  const [y, m, d] = s.split('-').map(Number);
+  return new Date(y, (m || 1) - 1, d || 1);
+};
 
-export const blockTopics = (block: TopicBlock, topics: Topic[]) => topics.filter((t) => t.blockId === block.id);
+export const formatDM = (s?: string) => {
+  if (!s) return '';
+  const [, m, d] = s.split('-');
+  return `${d}/${m}`;
+};
+
+/** Dia do ciclo (Dia 0 = conclusão do bloco) em que cai uma data */
+export const cycleDay = (block: TopicBlock, date?: string) =>
+  block.completedDate && date ? Math.round((parseYMD(date).getTime() - parseYMD(block.completedDate).getTime()) / 86400000) : undefined;
+
+export const isTopicSeen = (t: Topic) => t.status !== 'nao_iniciado';
 
 export const isBlockDue = (block: TopicBlock, todayStr = ymd(new Date())) =>
   block.reviewStatus === 'revisao' && !!block.nextReviewDate && block.nextReviewDate <= todayStr;
-
-export const blockStatusLabel = (block: TopicBlock) => {
-  if (block.reviewStatus === 'dominado') return 'Dominado';
-  if (block.reviewStatus === 'revisao') return `Revisão ${Math.min(BLOCK_REVIEWS_TO_MASTER, block.reviewsDone + 1)}/${BLOCK_REVIEWS_TO_MASTER}`;
-  return 'Em estudo';
-};
