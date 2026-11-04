@@ -26,6 +26,7 @@ import { WeeklyStatsCard } from './WeeklyStatsCard';
 import { isBlockDue } from '../data/blockReview';
 import { InstallAppBanner } from './InstallAppGuide';
 import { QuestionStatsCard } from './QuestionStatsCard';
+import { SemesterStatusCard } from './SemesterStatusCard';
 import { MonthlyPerformanceChart } from './MonthlyPerformanceChart';
 
 export const DashboardView: React.FC = () => {
@@ -292,7 +293,8 @@ export const DashboardView: React.FC = () => {
         </motion.div>
       </motion.div>
 
-      {/* Questões do semestre */}
+      {/* Semestre atual e questões do semestre */}
+      <SemesterStatusCard />
       <QuestionStatsCard />
 
       {/* Main Grid: Left Column & Right Column */}
@@ -398,7 +400,7 @@ export const DashboardView: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {subjects.map((sub) => {
+              {subjects.filter((s) => !s.semesterId || s.semesterId === currentSemester?.id).map((sub) => {
                 const subTopics = topics.filter((t) => t.subjectId === sub.id);
                 const subMastered = subTopics.filter((t) => t.status === 'dominado').length;
                 const subPercentage = subTopics.length > 0 ? Math.round((subMastered / subTopics.length) * 100) : 0;

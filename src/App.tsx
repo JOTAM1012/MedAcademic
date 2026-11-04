@@ -10,6 +10,7 @@ import { AcademicStructureView } from './components/AcademicStructureView';
 import { SpacedRepetitionView } from './components/SpacedRepetitionView';
 import { StudyStopwatchView } from './components/StudyStopwatchView';
 import { SemesterGridView } from './components/SemesterGridView';
+import { SemesterHistoryView } from './components/SemesterHistoryView';
 import { ScheduleView } from './components/ScheduleView';
 import { CalendarView } from './components/CalendarView';
 import { ProfileView } from './components/ProfileView';
@@ -247,6 +248,8 @@ const AppContent: React.FC = () => {
             onOpenAddTopic={handleOpenAddTopic}
           />
         );
+      case 'history':
+        return <SemesterHistoryView />;
       case 'profile':
         return <ProfileView />;
       case 'checklist':

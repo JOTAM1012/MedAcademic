@@ -40,6 +40,7 @@ import { useAuth } from './AuthContext';
 import { getIDBData, setIDBData } from '../lib/indexedDB';
 import { REVIEWS_TO_MASTER, getReviewsDone } from '../data/topicStatus';
 import { supabase, APP_STATE_TABLE } from '../lib/supabase';
+import { inPeriod, nextPeriod, nextSemesterName, periodByCode, periodForDate } from '../data/academicCalendar';
 import {
   cancelScheduledBeeps,
   isTimerAudioRunning,
@@ -117,7 +118,9 @@ interface AppContextType {
   semesters: Semester[];
   currentSemester: Semester | undefined;
   setCurrentSemesterId: (id: string) => void;
-  addSemester: (sem: Omit<Semester, 'id'>) => void;
+  addSemester: (sem: Omit<Semester, 'id'>) => string;
+  /** Vira o semestre: cria o próximo (ex.: 10º Semestre, 2027.1) e o torna atual; o anterior vai para o histórico */
+  startNextSemester: () => void;
   updateSemester: (id: string, sem: Partial<Semester>) => void;
   deleteSemester: (id: string) => void;
 
@@ -1237,6 +1240,39 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Current Semester
   const currentSemester = semesters.find((s) => s.id === userProfile.currentSemesterId) || semesters[0];
 
+  // Grade de horários do semestre atual (as de semestres anteriores ficam guardadas no histórico)
+  const currentSchedule = schedule.filter((s) => !s.semesterId || !currentSemester || s.semesterId === currentSemester.id);
+
+  // Organiza dados antigos no calendário acadêmico: semestre ganha período (2026.1 / 2026.2) e
+  // disciplinas, provas e grade de horários sem semestre passam a pertencer ao semestre atual.
+  useEffect(() => {
+    if (!activeUserId || !isInitialLoadComplete || !currentSemester) return;
+    if (semesters.some((s) => !s.period)) {
+      setSemesters((prev) =>
+        prev.map((s) => {
+          if (s.period) return s;
+          const p = periodByCode(s.code) || periodForDate(s.startDate || ymd(new Date()));
+          return { ...s, period: p.code, startDate: p.start, endDate: p.end };
+        })
+      );
+    }
+    if (subjects.some((s) => !s.semesterId)) {
+      setSubjects((prev) => prev.map((s) => (s.semesterId ? s : { ...s, semesterId: currentSemester.id })));
+    }
+    if (schedule.some((s) => !s.semesterId)) {
+      setSchedule((prev) => prev.map((s) => (s.semesterId ? s : { ...s, semesterId: currentSemester.id })));
+    }
+    if (exams.some((e) => !e.semesterId)) {
+      setExams((prev) =>
+        prev.map((e) => {
+          if (e.semesterId) return e;
+          const owner = semesters.find((s) => inPeriod(periodByCode(s.period), e.date));
+          return { ...e, semesterId: owner?.id || currentSemester.id };
+        })
+      );
+    }
+  }, [semesters, subjects, schedule, exams, currentSemester?.id, activeUserId, isInitialLoadComplete]);
+
   const setCurrentSemesterId = (id: string) => {
     setSemesters((prev) =>
       prev.map((s) => ({
@@ -1252,6 +1288,35 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setSemesters((prev) => [...prev, newSem]);
     showNotification(`Semestre "${sem.name}" adicionado!`, 'success');
     // XP is awarded by the calling modal
+    return newSem.id;
+  };
+
+  const startNextSemester = () => {
+    if (!currentSemester) return;
+    const today = ymd(new Date());
+    const after = nextPeriod(periodByCode(currentSemester.period) || periodForDate(currentSemester.startDate || today));
+    const todays = periodForDate(today);
+    const period = todays.code > after.code ? todays : after; // se ficou mais de um semestre sem virar, vai para o atual
+    const id = 'sem-' + Date.now();
+    const name = nextSemesterName(currentSemester.name);
+    setSemesters((prev) => [
+      ...prev.map((s) => ({ ...s, isCurrent: false })),
+      {
+        id,
+        name,
+        code: period.code,
+        period: period.code,
+        startDate: period.start,
+        endDate: period.end,
+        isCurrent: true,
+        targetHoursWeekly: currentSemester.targetHoursWeekly,
+        description: currentSemester.description,
+      },
+    ]);
+    setUserProfile((prev) => ({ ...prev, currentSemesterId: id }));
+    addXp(200, 'Novo semestre iniciado');
+    triggerConfetti();
+    showNotification(`🎓 ${name} (${period.code}) iniciado! O semestre anterior está no Histórico.`, 'success');
   };
 
   const updateSemester = (id: string, sem: Partial<Semester>) => {
@@ -1552,7 +1617,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const addScheduleClass = (sc: Omit<ScheduleClass, 'id'>) => {
-    const newSc: ScheduleClass = { ...sc, id: 'sch-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6) };
+    const newSc: ScheduleClass = {
+      ...sc,
+      semesterId: sc.semesterId || currentSemester?.id,
+      id: 'sch-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+    };
     setSchedule((prev) => [...prev, newSc]);
     showNotification(sc.date ? 'Atividade adicionada ao Planner!' : 'Atividade adicionada à grade de horários!', 'success');
   };
@@ -1909,6 +1978,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addSemester,
         updateSemester,
         deleteSemester,
+        startNextSemester,
         subjects,
         addSubject,
         updateSubject,
@@ -1924,7 +1994,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addExam,
         updateExam,
         deleteExam,
-        schedule,
+        schedule: currentSchedule,
         addScheduleClass,
         updateScheduleClass,
         deleteScheduleClass,

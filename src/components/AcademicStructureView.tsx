@@ -37,7 +37,7 @@ export const AcademicStructureView: React.FC<AcademicStructureViewProps> = ({
     semesters,
     currentSemester,
     setCurrentSemesterId,
-    subjects,
+    subjects: allSubjects,
     deleteSubject,
     topics,
     updateTopic,
@@ -46,6 +46,8 @@ export const AcademicStructureView: React.FC<AcademicStructureViewProps> = ({
     resetTopicProgress,
     setCurrentTab,
   } = useApp();
+  // Só as disciplinas do semestre atual (as anteriores ficam no Histórico)
+  const subjects = allSubjects.filter((s) => !s.semesterId || !currentSemester || s.semesterId === currentSemester.id);
 
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
   const [areaFilter, setAreaFilter] = useState<string>('all');

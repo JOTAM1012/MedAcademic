@@ -91,6 +91,7 @@ export interface Semester {
   isCurrent: boolean;
   targetHoursWeekly: number;
   description?: string;
+  period?: string; // período acadêmico "2026.1" (01/01–30/06) ou "2026.2" (01/08–31/12)
 }
 
 export type ExamShift = 'manha' | 'tarde' | 'noite';
@@ -128,6 +129,7 @@ export interface ScheduleClass {
   isCompleted?: boolean;
   notes?: string;
   category?: string; // id de ACTIVITY_CATEGORIES (aula, academia, simposio, liga, congresso...)
+  semesterId?: string; // a grade de horários é por semestre (as antigas ficam no histórico)
   date?: string; // YYYY-MM-DD: evento de data única (sem repetição semanal)
 }
 

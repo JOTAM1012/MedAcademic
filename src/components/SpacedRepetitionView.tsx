@@ -149,7 +149,93 @@ export const SpacedRepetitionView: React.FC<SpacedRepetitionViewProps> = () => {
     return `próxima em ${days}d · ${REVIEW_PLANS[level].questions}Q`;
   };
 
-  const rate = (b: TopicBlock, level: TopicDifficulty) => reviewTopicBlock(b.id, level);
+  // Questões informadas no card (opcional) entram no registro da revisão e no total do semestre
+  const [cardQ, setCardQ] = useState<Record<string, { total: string; correct: string }>>({});
+  const rate = (b: TopicBlock, level: TopicDifficulty) => {
+    const q = cardQ[b.id];
+    const total = Number(q?.total) || 0;
+    const correct = q && q.correct !== '' ? Math.min(Number(q.correct) || 0, total) : undefined;
+    reviewTopicBlock(b.id, level, total ? { questions: total, correct } : undefined);
+    if (total > 0 && correct !== undefined) addQuestionLog({ kind: 'block', blockId: b.id, subjectId: b.subjectId, total, correct });
+    setCardQ(({ [b.id]: _, ...rest }) => rest);
+  };
+
+  // Linha "Revisões feitas": R · data · dia do ciclo · questões · dificuldade
+  const renderReviewHistory = (b: TopicBlock) => {
+    const log = b.reviewLog || [];
+    if (log.length === 0) return null;
+    return (
+      <div className="rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+        <div className="px-3 py-2 bg-slate-50 dark:bg-slate-950/60 text-[11px] font-black uppercase tracking-wide text-slate-500">
+          Revisões feitas ({log.length}/{BLOCK_REVIEWS_TO_MASTER})
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-[11px] min-w-[460px]">
+            <thead>
+              <tr className="text-left text-[10px] uppercase tracking-wide text-slate-400">
+                <th className="px-3 py-1.5 font-bold">Revisão</th>
+                <th className="px-2 py-1.5 font-bold">Concluída em</th>
+                <th className="px-2 py-1.5 font-bold">Questões</th>
+                <th className="px-2 py-1.5 font-bold">Acertos</th>
+                <th className="px-3 py-1.5 font-bold text-right">Dificuldade</th>
+              </tr>
+            </thead>
+            <tbody>
+              {log.map((r, i) => {
+                const day = cycleDay(b, r.date);
+                const hasQ = !!r.questions;
+                const p = hasQ && r.correct !== undefined ? Math.round((r.correct / r.questions!) * 100) : undefined;
+                const plan = REVIEW_PLANS[r.difficulty];
+                return (
+                  <tr key={i} className="border-t border-slate-100 dark:border-slate-800">
+                    <td className="px-3 py-1.5">
+                      <span className="font-black px-1.5 py-0.5 rounded bg-sky-600 text-white">R{i + 1} ✓</span>
+                    </td>
+                    <td className="px-2 py-1.5 text-slate-700 dark:text-slate-200 font-semibold whitespace-nowrap">
+                      {formatDM(r.date)}
+                      {day !== undefined && <span className="text-slate-400 font-normal"> · Dia {day}</span>}
+                    </td>
+                    <td className="px-2 py-1.5 whitespace-nowrap">
+                      {hasQ ? <span className="font-semibold text-slate-700 dark:text-slate-200">Sim · {r.questions}</span> : <span className="text-slate-400">Não</span>}
+                    </td>
+                    <td className="px-2 py-1.5 whitespace-nowrap">
+                      {p !== undefined ? (
+                        <span>
+                          <span className="text-slate-600 dark:text-slate-300">{r.correct}/{r.questions}</span>{' '}
+                          <strong className={p >= 80 ? 'text-emerald-600 dark:text-emerald-400' : p >= 60 ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400'}>
+                            {p}%
+                          </strong>
+                        </span>
+                      ) : (
+                        <span className="text-slate-400">—</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-1.5 text-right whitespace-nowrap">
+                      <span className="font-bold" style={{ color: plan.color }}>
+                        {plan.emoji} {plan.label}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+              {b.reviewStatus === 'revisao' && b.nextReviewDate && (
+                <tr className="border-t border-dashed border-slate-200 dark:border-slate-700 bg-amber-50/50 dark:bg-amber-950/10">
+                  <td className="px-3 py-1.5">
+                    <span className="font-black px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-700 dark:text-amber-300">R{b.reviewsDone + 1}</span>
+                  </td>
+                  <td className="px-2 py-1.5 text-slate-600 dark:text-slate-300 whitespace-nowrap" colSpan={4}>
+                    Próxima em <strong>{formatDM(b.nextReviewDate)}</strong>
+                    {cycleDay(b, b.nextReviewDate) !== undefined && ` · Dia ${cycleDay(b, b.nextReviewDate)}`}
+                    {suggestedPlan(b) && ` · sugestão: ${suggestedPlan(b)!.steps.join(' + ')}`}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  };
 
   const activeSessionBlock = dueBlocks[sessionCurrentIndex];
 
@@ -515,6 +601,39 @@ export const SpacedRepetitionView: React.FC<SpacedRepetitionViewProps> = () => {
                     )}
                   </div>
                 </div>
+
+                {renderReviewHistory(b)}
+
+                {b.reviewStatus !== 'dominado' && (
+                  <div className="flex flex-wrap items-center gap-2 text-[11px]">
+                    <span className="font-bold text-slate-500">Questões nesta revisão (opcional):</span>
+                    <input
+                      type="number"
+                      min="0"
+                      placeholder={String(suggestedPlan(b)?.questions || 'Feitas')}
+                      value={cardQ[b.id]?.total || ''}
+                      onChange={(e) => setCardQ((q) => ({ ...q, [b.id]: { total: e.target.value, correct: q[b.id]?.correct || '' } }))}
+                      className="w-20 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-2 py-1 font-bold text-slate-800 dark:text-slate-100 focus:outline-hidden focus:border-sky-500"
+                      aria-label={`Questões feitas em ${b.name}`}
+                    />
+                    <span className="text-slate-400">feitas</span>
+                    <input
+                      type="number"
+                      min="0"
+                      placeholder="Acertos"
+                      value={cardQ[b.id]?.correct || ''}
+                      onChange={(e) => setCardQ((q) => ({ ...q, [b.id]: { total: q[b.id]?.total || '', correct: e.target.value } }))}
+                      className="w-20 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-2 py-1 font-bold text-slate-800 dark:text-slate-100 focus:outline-hidden focus:border-sky-500"
+                      aria-label={`Acertos em ${b.name}`}
+                    />
+                    <span className="text-slate-400">acertos</span>
+                    {Number(cardQ[b.id]?.total) > 0 && cardQ[b.id]?.correct !== '' && cardQ[b.id]?.correct !== undefined && (
+                      <strong className="text-slate-700 dark:text-slate-200">
+                        {Math.round((Math.min(Number(cardQ[b.id].correct), Number(cardQ[b.id].total)) / Number(cardQ[b.id].total)) * 100)}%
+                      </strong>
+                    )}
+                  </div>
+                )}
 
                 <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
                   <div className="flex items-center gap-1.5 flex-wrap">

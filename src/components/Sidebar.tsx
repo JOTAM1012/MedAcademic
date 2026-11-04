@@ -11,6 +11,7 @@ import {
   Calendar,
   Sparkles,
   User,
+  History,
   PanelLeftClose,
   PanelLeftOpen,
   ListChecks,
@@ -141,6 +142,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
     badge: string | null;
     badgeColor?: string;
   }> = [
+    {
+      id: 'history',
+      label: 'Histórico',
+      icon: History,
+      badge: null,
+    },
     {
       id: 'profile',
       label: 'Perfil & metas',
