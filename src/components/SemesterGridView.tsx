@@ -18,7 +18,7 @@ import {
 import { useApp } from '../context/AppContext';
 import { Exam } from '../types';
 import { AddExamModal } from './modals/AddExamModal';
-import { EXAM_KINDS, getExamKind, getExamShift, getExamSubjectName, toYMD } from '../data/planning';
+import { EXAM_KINDS, examFormat, getExamKind, getExamShift, getExamSubjectName, toYMD } from '../data/planning';
 
 const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 const MONTHS_SHORT = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
@@ -177,6 +177,36 @@ export const SemesterGridView: React.FC = () => {
     </div>
   );
 
+  // Questões / acertos conforme o tipo da prova
+  const renderFormatDetail = (exam: Exam) => {
+    const fmtType = examFormat(exam.type);
+    const pctOf = (c?: number, t?: number) => (c !== undefined && t ? Math.round((c / t) * 100) : undefined);
+    if (fmtType === 'questions' && exam.totalQuestions) {
+      const p = pctOf(exam.correctAnswers, exam.totalQuestions);
+      return (
+        <span className="font-semibold">
+          {exam.totalQuestions}Q{exam.minCorrect !== undefined && ` · meta ${exam.minCorrect} acertos`}
+          {exam.correctAnswers !== undefined && (
+            <strong className={exam.minCorrect !== undefined ? (exam.correctAnswers >= exam.minCorrect ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400') : ''}>
+              {' '}· acertou {exam.correctAnswers} ({p}%)
+            </strong>
+          )}
+        </span>
+      );
+    }
+    if (fmtType === 'mixed' && (exam.objectiveQuestions || exam.writtenPointsMax)) {
+      return (
+        <span className="font-semibold">
+          {exam.objectiveQuestions ? `Obj. ${exam.objectiveCorrect !== undefined ? `${exam.objectiveCorrect}/` : ''}${exam.objectiveQuestions}` : ''}
+          {exam.writtenPointsMax !== undefined &&
+            ` · Disc. ${exam.writtenPointsEarned !== undefined ? `${String(exam.writtenPointsEarned).replace('.', ',')}/` : ''}${String(exam.writtenPointsMax).replace('.', ',')} pts`}
+          {exam.writtenQuestions ? ` (${exam.writtenQuestions} disc.)` : ''}
+        </span>
+      );
+    }
+    return null;
+  };
+
   const renderExamRow = (exam: Exam, showSubject = true) => {
     const kind = getExamKind(exam.type);
     const shift = getExamShift(exam);
@@ -243,6 +273,7 @@ export const SemesterGridView: React.FC = () => {
                 </span>
               )}
               {exam.weight !== 1 && <span>Peso {exam.weight}</span>}
+              {renderFormatDetail(exam)}
             </div>
           </div>
         </div>

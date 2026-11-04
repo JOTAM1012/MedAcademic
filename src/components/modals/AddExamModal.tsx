@@ -3,7 +3,7 @@ import { X, GraduationCap, Calendar, Clock, MapPin, Target, Award } from 'lucide
 import { useApp } from '../../context/AppContext';
 import { DatePickerField } from '../DatePickerField';
 import { Exam, ExamShift } from '../../types';
-import { EXAM_KINDS, EXAM_SHIFTS, getExamSubjectName, shiftFromTime } from '../../data/planning';
+import { EXAM_KINDS, EXAM_SHIFTS, examFormat, getExamSubjectName, shiftFromTime } from '../../data/planning';
 
 interface AddExamModalProps {
   isOpen: boolean;
@@ -44,6 +44,15 @@ export const AddExamModal: React.FC<AddExamModalProps> = ({
   const [maxGrade, setMaxGrade] = useState('10');
   const [expected, setExpected] = useState('');
   const [grade, setGrade] = useState('');
+  // Personalização por tipo de prova
+  const [totalQ, setTotalQ] = useState('');
+  const [minCorrect, setMinCorrect] = useState('');
+  const [correctAns, setCorrectAns] = useState('');
+  const [objQ, setObjQ] = useState('');
+  const [writtenQ, setWrittenQ] = useState('');
+  const [writtenMax, setWrittenMax] = useState('');
+  const [objCorrect, setObjCorrect] = useState('');
+  const [writtenEarned, setWrittenEarned] = useState('');
   const [notes, setNotes] = useState('');
 
   // Preenche o formulário sempre que abre (nova prova ou edição)
@@ -61,6 +70,15 @@ export const AddExamModal: React.FC<AddExamModalProps> = ({
     setMaxGrade(String(ex?.maxGrade ?? 10));
     setExpected(ex?.expectedGrade !== undefined ? String(ex.expectedGrade) : '');
     setGrade(ex?.grade !== undefined ? String(ex.grade) : '');
+    const str = (n?: number) => (n !== undefined ? String(n) : '');
+    setTotalQ(str(ex?.totalQuestions));
+    setMinCorrect(str(ex?.minCorrect));
+    setCorrectAns(str(ex?.correctAnswers));
+    setObjQ(str(ex?.objectiveQuestions));
+    setWrittenQ(str(ex?.writtenQuestions));
+    setWrittenMax(str(ex?.writtenPointsMax));
+    setObjCorrect(str(ex?.objectiveCorrect));
+    setWrittenEarned(str(ex?.writtenPointsEarned));
     setNotes(ex?.notes || '');
   }, [isOpen, editingExam, defaultDate, defaultSubjectName]);
 
@@ -98,7 +116,38 @@ export const AddExamModal: React.FC<AddExamModalProps> = ({
       return;
     }
 
+    const fmt = examFormat(type);
+    const num = (v: string) => parseGrade(v);
+    const total = num(totalQ);
+    const objTotal = num(objQ);
+    const wMax = num(writtenMax);
+    if (fmt === 'questions' && total !== undefined) {
+      if ((num(correctAns) ?? 0) > total || (num(minCorrect) ?? 0) > total) {
+        showNotification(`Os acertos não podem passar de ${total} questões.`, 'warning');
+        return;
+      }
+    }
+    if (fmt === 'mixed') {
+      if (objTotal !== undefined && (num(objCorrect) ?? 0) > objTotal) {
+        showNotification(`Os acertos não podem passar de ${objTotal} questões objetivas.`, 'warning');
+        return;
+      }
+      if (wMax !== undefined && ((num(writtenEarned) ?? 0) > wMax || wMax > max)) {
+        showNotification('Confira a pontuação das discursivas.', 'warning');
+        return;
+      }
+    }
+
     const payload = {
+      // Campos do formato escolhido (os dos outros formatos são limpos)
+      totalQuestions: fmt === 'questions' ? total : undefined,
+      minCorrect: fmt === 'questions' ? num(minCorrect) : undefined,
+      correctAnswers: fmt === 'questions' ? num(correctAns) : undefined,
+      objectiveQuestions: fmt === 'mixed' ? objTotal : undefined,
+      writtenQuestions: fmt === 'mixed' ? num(writtenQ) : undefined,
+      writtenPointsMax: fmt === 'mixed' ? wMax : undefined,
+      objectiveCorrect: fmt === 'mixed' ? num(objCorrect) : undefined,
+      writtenPointsEarned: fmt === 'mixed' ? num(writtenEarned) : undefined,
       subjectName: name,
       title: title.trim() || `${type} · ${name}`,
       type,
@@ -260,45 +309,165 @@ export const AddExamModal: React.FC<AddExamModalProps> = ({
             </div>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/50 p-3">
-            <div className="grid grid-cols-3 gap-3">
-              <div>
-                <label className={labelCls} htmlFor="exam-expected">
-                  <Target className="inline h-3 w-3 mr-1 -mt-0.5" />Esperada
-                </label>
-                <input
-                  id="exam-expected"
-                  type="number"
-                  step="0.1"
-                  min="0"
-                  placeholder="Ex: 8"
-                  value={expected}
-                  onChange={(e) => setExpected(e.target.value)}
-                  className={inputCls}
-                />
+          {(() => {
+            const fmt = examFormat(type);
+            const max = parseGrade(maxGrade) || 10;
+            const exp = parseGrade(expected);
+            const tq = parseGrade(totalQ);
+            // acertos necessários para a nota desejada (regra de três sobre a nota máxima)
+            const neededCorrect = fmt === 'questions' && tq && exp !== undefined ? Math.min(tq, Math.ceil((exp / max) * tq)) : undefined;
+            const oq = parseGrade(objQ);
+            const wm = parseGrade(writtenMax);
+            const objWorth = wm !== undefined ? Math.max(0, max - wm) : undefined;
+            const oc = parseGrade(objCorrect);
+            const we = parseGrade(writtenEarned);
+            const mixedFinal =
+              fmt === 'mixed' && oq && objWorth !== undefined && oc !== undefined
+                ? Math.round(((oc / oq) * objWorth + (we ?? 0)) * 10) / 10
+                : undefined;
+            const ca = parseGrade(correctAns);
+            const pct = (c?: number, t?: number) => (c !== undefined && t ? `${Math.round((c / t) * 100)}%` : undefined);
+            const n = (id: string, value: string, set: (v: string) => void, placeholder: string, step = '1') => (
+              <input id={id} type="number" step={step} min="0" placeholder={placeholder} value={value} onChange={(e) => set(e.target.value)} className={inputCls} />
+            );
+            const L = ({ htmlFor, children }: { htmlFor: string; children: React.ReactNode }) => (
+              <label className={labelCls} htmlFor={htmlFor}>
+                {children}
+              </label>
+            );
+
+            return (
+              <div id="exam-grade-plan" className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/50 p-3 space-y-3">
+                {/* Antes da prova */}
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-sky-600 dark:text-sky-400 mb-2 flex items-center gap-1">
+                    <Target className="h-3.5 w-3.5" /> Planejamento
+                  </p>
+                  {fmt === 'questions' && (
+                    <div className="grid grid-cols-3 gap-2">
+                      <div>
+                        <L htmlFor="exam-total-q">Questões</L>
+                        {n('exam-total-q', totalQ, setTotalQ, 'Ex: 30')}
+                      </div>
+                      <div>
+                        <L htmlFor="exam-expected">Nota desejada</L>
+                        {n('exam-expected', expected, setExpected, 'Ex: 8', '0.1')}
+                      </div>
+                      <div>
+                        <L htmlFor="exam-min-correct">Acertos mín.</L>
+                        {n('exam-min-correct', minCorrect, setMinCorrect, neededCorrect !== undefined ? String(neededCorrect) : 'Ex: 24')}
+                      </div>
+                    </div>
+                  )}
+                  {fmt === 'grade' && (
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <L htmlFor="exam-expected">Nota desejada</L>
+                        {n('exam-expected', expected, setExpected, 'Ex: 8', '0.1')}
+                      </div>
+                      <div>
+                        <L htmlFor="exam-max">Nota máx.</L>
+                        {n('exam-max', maxGrade, setMaxGrade, '10', '0.5')}
+                      </div>
+                    </div>
+                  )}
+                  {fmt === 'mixed' && (
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <L htmlFor="exam-obj-q">Questões objetivas</L>
+                        {n('exam-obj-q', objQ, setObjQ, 'Ex: 20')}
+                      </div>
+                      <div>
+                        <L htmlFor="exam-written-q">Questões discursivas</L>
+                        {n('exam-written-q', writtenQ, setWrittenQ, 'Ex: 2')}
+                      </div>
+                      <div>
+                        <L htmlFor="exam-written-max">Discursivas valem (pts)</L>
+                        {n('exam-written-max', writtenMax, setWrittenMax, 'Ex: 5', '0.5')}
+                      </div>
+                      <div>
+                        <L htmlFor="exam-expected">Nota desejada</L>
+                        {n('exam-expected', expected, setExpected, 'Ex: 8', '0.1')}
+                      </div>
+                    </div>
+                  )}
+                  {fmt === 'questions' && neededCorrect !== undefined && (
+                    <p className="text-[11px] text-slate-500 mt-1.5">
+                      Para tirar {String(exp).replace('.', ',')} precisa de ~<strong>{neededCorrect}</strong> acertos de {tq}.{' '}
+                      {minCorrect === '' && (
+                        <button type="button" onClick={() => setMinCorrect(String(neededCorrect))} className="font-bold text-sky-600 dark:text-sky-400 hover:underline">
+                          Usar {neededCorrect}
+                        </button>
+                      )}
+                    </p>
+                  )}
+                  {fmt === 'mixed' && objWorth !== undefined && (
+                    <p className="text-[11px] text-slate-500 mt-1.5">
+                      Objetivas valem {String(objWorth).replace('.', ',')} pts · discursivas {String(wm).replace('.', ',')} pts (nota máx. {max}).
+                    </p>
+                  )}
+                </div>
+
+                {/* Depois da prova */}
+                <div className="pt-3 border-t border-slate-200 dark:border-slate-800">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 mb-2 flex items-center gap-1">
+                    <Award className="h-3.5 w-3.5" /> Resultado (depois da prova)
+                  </p>
+                  {fmt === 'questions' && (
+                    <div className="grid grid-cols-3 gap-2 items-end">
+                      <div>
+                        <L htmlFor="exam-grade">Nota que tirei</L>
+                        {n('exam-grade', grade, setGrade, '—', '0.1')}
+                      </div>
+                      <div>
+                        <L htmlFor="exam-correct">Acertei</L>
+                        {n('exam-correct', correctAns, setCorrectAns, tq ? `de ${tq}` : '—')}
+                      </div>
+                      <div className="text-center pb-2">
+                        <div className="text-lg font-black text-slate-900 dark:text-white">{pct(ca, tq) || '—'}</div>
+                        <div className="text-[10px] text-slate-500">de acertos</div>
+                      </div>
+                    </div>
+                  )}
+                  {fmt === 'grade' && (
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <L htmlFor="exam-grade">Nota que tirei</L>
+                        {n('exam-grade', grade, setGrade, '—', '0.1')}
+                      </div>
+                    </div>
+                  )}
+                  {fmt === 'mixed' && (
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-3 gap-2">
+                        <div>
+                          <L htmlFor="exam-obj-correct">Objetivas certas</L>
+                          {n('exam-obj-correct', objCorrect, setObjCorrect, oq ? `de ${oq}` : '—')}
+                        </div>
+                        <div>
+                          <L htmlFor="exam-written-earned">Discursivas (pts)</L>
+                          {n('exam-written-earned', writtenEarned, setWrittenEarned, wm !== undefined ? `de ${wm}` : '—', '0.1')}
+                        </div>
+                        <div>
+                          <L htmlFor="exam-grade">Nota final</L>
+                          {n('exam-grade', grade, setGrade, mixedFinal !== undefined ? String(mixedFinal) : '—', '0.1')}
+                        </div>
+                      </div>
+                      {mixedFinal !== undefined && grade === '' && (
+                        <p className="text-[11px] text-slate-500">
+                          Pela conta: {pct(oc, oq)} das objetivas + {String(we ?? 0).replace('.', ',')} pts nas discursivas ≈ <strong>{String(mixedFinal).replace('.', ',')}</strong>.{' '}
+                          <button type="button" onClick={() => setGrade(String(mixedFinal))} className="font-bold text-sky-600 dark:text-sky-400 hover:underline">
+                            Usar como nota final
+                          </button>
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  <p className="text-[10px] text-slate-500 mt-2">O resultado pode ficar em branco e ser preenchido depois que a nota sair.</p>
+                </div>
               </div>
-              <div>
-                <label className={labelCls} htmlFor="exam-grade">
-                  <Award className="inline h-3 w-3 mr-1 -mt-0.5" />Lançada
-                </label>
-                <input
-                  id="exam-grade"
-                  type="number"
-                  step="0.1"
-                  min="0"
-                  placeholder="—"
-                  value={grade}
-                  onChange={(e) => setGrade(e.target.value)}
-                  className={inputCls}
-                />
-              </div>
-              <div>
-                <label className={labelCls} htmlFor="exam-max">Nota máx.</label>
-                <input id="exam-max" type="number" step="0.5" min="1" value={maxGrade} onChange={(e) => setMaxGrade(e.target.value)} className={inputCls} />
-              </div>
-            </div>
-            <p className="text-[10px] text-slate-500 mt-2">A nota lançada pode ficar em branco e ser preenchida depois, direto na grade.</p>
-          </div>
+            );
+          })()}
 
           <div>
             <label className={labelCls} htmlFor="exam-notes">Observações (opcional)</label>

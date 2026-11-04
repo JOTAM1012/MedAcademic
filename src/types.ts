@@ -113,7 +113,17 @@ export interface Exam {
   maxGrade: number; // usually 10
   location?: string;
   topicsCovered: string[];
-  type: string; // OSCE, Anatomia, Simulado, Prova Escrita, Prova Objetiva, Multimídia, Formativa (ou legado)
+  type: string; // OSCE, Anatomia, Simulado, Prova Escrita, Prova Objetiva, Escrita/Objetiva, Multimídia, Formativa (ou legado)
+  // Provas com questões (Objetiva, Anatomia, Simulado, Multimídia)
+  totalQuestions?: number;
+  minCorrect?: number; // acertos mínimos desejados
+  correctAnswers?: number; // acertos depois da prova
+  // Prova mista (Escrita/Objetiva)
+  objectiveQuestions?: number;
+  writtenQuestions?: number;
+  writtenPointsMax?: number; // quanto valem as discursivas
+  objectiveCorrect?: number;
+  writtenPointsEarned?: number;
   notes?: string;
 }
 

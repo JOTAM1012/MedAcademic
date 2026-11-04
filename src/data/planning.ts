@@ -6,6 +6,7 @@ import { Exam, ExamShift, ScheduleClass, Subject } from '../types';
 export const EXAM_KINDS = [
   { id: 'Prova Escrita', short: 'ESCRITA', color: '#2563eb' },
   { id: 'Prova Objetiva', short: 'OBJETIVA', color: '#0891b2' },
+  { id: 'Escrita/Objetiva', short: 'MISTA', color: '#4f46e5' },
   { id: 'OSCE', short: 'OSCE', color: '#e11d48' },
   { id: 'Anatomia', short: 'ANATOMIA', color: '#ea580c' },
   { id: 'Simulado', short: 'SIMULADO', color: '#7c3aed' },
@@ -15,13 +16,25 @@ export const EXAM_KINDS = [
 
 const LEGACY_EXAM_COLOR = '#64748b';
 
+export type ExamFormat = 'questions' | 'grade' | 'mixed';
+
+/** Como a prova é personalizada: por questões (objetiva, anatomia, simulado, multimídia),
+ *  só nota (escrita, OSCE, formativa) ou mista (questões objetivas + discursivas) */
+export const examFormat = (type?: string): ExamFormat => {
+  const t = (type || '').toLowerCase();
+  if (t.includes('/') || t.includes('mista')) return 'mixed';
+  if (t.includes('objetiva') || t.includes('anatomia') || t.includes('simulado') || t.includes('multim')) return 'questions';
+  return 'grade';
+};
+
 export const getExamKind = (type?: string) => {
   const found = EXAM_KINDS.find((k) => k.id.toLowerCase() === (type || '').toLowerCase());
   if (found) return found;
   const t = (type || '').toLowerCase();
-  if (t.includes('osce')) return EXAM_KINDS[2];
-  if (t.includes('simulado')) return EXAM_KINDS[4];
-  if (t.includes('objetiva')) return EXAM_KINDS[1];
+  const byId = (id: string) => EXAM_KINDS.find((k) => k.id === id)!;
+  if (t.includes('osce')) return byId('OSCE');
+  if (t.includes('simulado')) return byId('Simulado');
+  if (t.includes('objetiva')) return byId('Prova Objetiva');
   return { id: type || 'Prova', short: (type || 'PROVA').toUpperCase(), color: LEGACY_EXAM_COLOR };
 };
 
