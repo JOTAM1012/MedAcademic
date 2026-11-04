@@ -7,6 +7,7 @@ export interface Topic {
   id: string;
   subjectId: string;
   blockId?: string; // bloco da disciplina (ex.: "Diabetes"); a revisão é feita por bloco
+  pending?: boolean; // "ver depois": conta para fechar o bloco, mas fica como pendência até ser visto
   moduleName?: string; // Matéria / Módulo dentro da disciplina
   specialty?: string; // especialidade (Clínica Médica): Cardiologia, Neurologia...
   title: string; // Nome do Assunto
@@ -130,6 +131,7 @@ export interface ScheduleClass {
   notes?: string;
   category?: string; // id de ACTIVITY_CATEGORIES (aula, academia, simposio, liga, congresso...)
   semesterId?: string; // a grade de horários é por semestre (as antigas ficam no histórico)
+  shift?: ExamShift; // turno: manhã, tarde ou noite
   date?: string; // YYYY-MM-DD: evento de data única (sem repetição semanal)
 }
 

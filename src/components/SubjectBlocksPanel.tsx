@@ -1,9 +1,9 @@
 import React, { useMemo, useState } from 'react';
-import { Plus, Search, ChevronDown, Check, Trash2, MoreHorizontal, Pencil, RotateCcw, Repeat, Trophy, Layers, X } from 'lucide-react';
+import { Plus, Search, ChevronDown, Check, Trash2, Clock3, MoreHorizontal, Pencil, RotateCcw, Repeat, Trophy, Layers, X } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { Subject, Topic, TopicBlock } from '../types';
 import { SPECIALTY_BLOCK_SUGGESTIONS, getMedicalArea, getSpecialty } from '../data/areas';
-import { BLOCK_REVIEWS_TO_MASTER, cycleDay, formatDM, isBlockDue, isTopicSeen, suggestedPlan, ymd } from '../data/blockReview';
+import { BLOCK_REVIEWS_TO_MASTER, cycleDay, formatDM, isBlockDue, isTopicPending, isTopicResolved, isTopicSeen, suggestedPlan, ymd } from '../data/blockReview';
 
 interface SubjectBlocksPanelProps {
   subject: Subject;
@@ -24,6 +24,7 @@ export const SubjectBlocksPanel: React.FC<SubjectBlocksPanelProps> = ({ subject 
     deleteTopic,
     markTopicSeen,
     resetTopicProgress,
+    markTopicPending,
     addTopicBlock,
     renameTopicBlock,
     deleteTopicBlock,
@@ -79,7 +80,9 @@ export const SubjectBlocksPanel: React.FC<SubjectBlocksPanelProps> = ({ subject 
     setDrafts((d) => ({ ...d, [block.id]: '' }));
   };
 
+  // Concluído (verde) e Ver depois (vermelho): clicar de novo no ativo volta para "não iniciado"
   const toggleSeen = (t: Topic) => (isTopicSeen(t) ? resetTopicProgress(t.id) : markTopicSeen(t.id));
+  const togglePending = (t: Topic) => (isTopicPending(t) ? resetTopicProgress(t.id) : markTopicPending(t.id));
 
   const renderStatus = (block: TopicBlock, seen: number, total: number) => {
     if (block.reviewStatus === 'dominado') {
@@ -204,6 +207,8 @@ export const SubjectBlocksPanel: React.FC<SubjectBlocksPanelProps> = ({ subject 
         const shown = q ? list.filter((t) => t.title.toLowerCase().includes(q)) : list;
         if (q && shown.length === 0 && !block.name.toLowerCase().includes(q)) return null;
         const seen = list.filter(isTopicSeen).length;
+        const pendingCount = list.filter(isTopicPending).length;
+        const resolved = list.filter(isTopicResolved).length;
         const pct = list.length ? Math.round((seen / list.length) * 100) : 0;
         const isCollapsed = collapsed[block.id] ?? false;
         const due = isBlockDue(block, todayStr);
@@ -318,21 +323,60 @@ export const SubjectBlocksPanel: React.FC<SubjectBlocksPanelProps> = ({ subject 
                 <ul className="space-y-1">
                   {shown.map((t) => {
                     const isSeen = isTopicSeen(t);
+                    const isPending = isTopicPending(t);
                     return (
-                      <li key={t.id} className="group flex items-center gap-2.5 rounded-lg px-2 py-1.5 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800">
-                        <button
-                          onClick={() => toggleSeen(t)}
-                          className="h-5 w-5 shrink-0 rounded-full border-2 flex items-center justify-center transition-colors"
-                          style={{ borderColor: isSeen ? '#10b981' : '#cbd5e1', backgroundColor: isSeen ? '#10b981' : 'transparent' }}
-                          aria-label={isSeen ? 'Desmarcar visto' : 'Marcar como visto'}
-                          title={isSeen ? 'Visto (clique para desmarcar)' : 'Marcar como visto'}
+                      <li
+                        key={t.id}
+                        className={`group flex items-center gap-2.5 rounded-lg px-2 py-1.5 border ${
+                          isPending
+                            ? 'bg-rose-50/70 dark:bg-rose-950/20 border-rose-200 dark:border-rose-900/50'
+                            : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800'
+                        }`}
+                      >
+                        <span
+                          className="h-5 w-5 shrink-0 rounded-full border-2 flex items-center justify-center"
+                          style={{
+                            borderColor: isSeen ? '#10b981' : isPending ? '#e11d48' : '#cbd5e1',
+                            backgroundColor: isSeen ? '#10b981' : isPending ? '#e11d48' : 'transparent',
+                          }}
+                          aria-hidden
                         >
                           {isSeen && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
-                        </button>
-                        <span className={`flex-1 min-w-0 text-xs break-words ${isSeen ? 'text-slate-400 line-through' : 'text-slate-800 dark:text-slate-100 font-semibold'}`}>
+                          {isPending && <X className="h-3 w-3 text-white" strokeWidth={3} />}
+                        </span>
+                        <span
+                          className={`flex-1 min-w-0 text-xs break-words ${
+                            isSeen ? 'text-slate-400 line-through' : isPending ? 'text-rose-700 dark:text-rose-300 font-semibold' : 'text-slate-800 dark:text-slate-100 font-semibold'
+                          }`}
+                        >
                           {t.title}
                         </span>
-                        {isSeen && <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 shrink-0">Visto</span>}
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            onClick={() => toggleSeen(t)}
+                            className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold border transition-colors ${
+                              isSeen
+                                ? 'bg-emerald-500 border-emerald-500 text-white'
+                                : 'border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40'
+                            }`}
+                            aria-label={isSeen ? `Desmarcar ${t.title}` : `Marcar ${t.title} como concluído`}
+                            title={isSeen ? 'Concluído (clique para desfazer)' : 'Já estudei este tópico'}
+                          >
+                            <Check className="h-3 w-3" strokeWidth={3} /> Concluído
+                          </button>
+                          <button
+                            onClick={() => togglePending(t)}
+                            className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold border transition-colors ${
+                              isPending
+                                ? 'bg-rose-600 border-rose-600 text-white'
+                                : 'border-rose-300 dark:border-rose-900 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40'
+                            }`}
+                            aria-label={isPending ? `Tirar ${t.title} de ver depois` : `Marcar ${t.title} para ver depois`}
+                            title={isPending ? 'Pendente (clique para desfazer)' : 'Ainda não vi: o bloco entra nas revisões com esta pendência'}
+                          >
+                            <Clock3 className="h-3 w-3" /> Ver depois
+                          </button>
+                        </div>
                         <button
                           onClick={() => {
                             if (window.confirm(`Excluir o tópico "${t.title}"?`)) deleteTopic(t.id);
@@ -362,9 +406,14 @@ export const SubjectBlocksPanel: React.FC<SubjectBlocksPanelProps> = ({ subject 
                     aria-label={`Adicionar tópico em ${block.name}`}
                   />
                 </form>
-                {block.reviewStatus === 'estudando' && list.length > 0 && seen < list.length && (
+                {pendingCount > 0 && (
+                  <p className="text-[10px] font-semibold text-rose-600 dark:text-rose-400 mt-1.5 px-1">
+                    ⚠ {pendingCount} pendência{pendingCount > 1 ? 's' : ''}: ao terminar cada revisão o app pergunta se você já viu.
+                  </p>
+                )}
+                {block.reviewStatus === 'estudando' && list.length > 0 && resolved < list.length && (
                   <p className="text-[10px] text-slate-500 mt-1.5 px-1">
-                    Faltam {list.length - seen} tópico{list.length - seen > 1 ? 's' : ''} para o bloco entrar nas revisões.
+                    Faltam {list.length - resolved} tópico{list.length - resolved > 1 ? 's' : ''} para o bloco entrar nas revisões (marque como concluído ou ver depois).
                   </p>
                 )}
               </div>

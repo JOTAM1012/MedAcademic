@@ -14,7 +14,7 @@ export const INITIAL_SEMESTERS: Semester[] = [
   {
     id: 'sem-1',
     name: '1º Semestre',
-    code: '2026.1',
+    code: (() => { const d = new Date(); return `${d.getFullYear()}.${d.getMonth() < 6 ? 1 : 2}`; })(),
     startDate: new Date().toISOString().split('T')[0],
     endDate: '',
     isCurrent: true,

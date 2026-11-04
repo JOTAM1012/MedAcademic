@@ -82,5 +82,11 @@ export const cycleDay = (block: TopicBlock, date?: string) =>
 
 export const isTopicSeen = (t: Topic) => t.status !== 'nao_iniciado';
 
+/** Pendente ("ver depois"): ainda não visto, mas não segura o bloco fora das revisões */
+export const isTopicPending = (t: Topic) => !!t.pending && !isTopicSeen(t);
+
+/** Visto ou marcado para ver depois: é o que fecha o bloco (Dia 0) */
+export const isTopicResolved = (t: Topic) => isTopicSeen(t) || isTopicPending(t);
+
 export const isBlockDue = (block: TopicBlock, todayStr = ymd(new Date())) =>
   block.reviewStatus === 'revisao' && !!block.nextReviewDate && block.nextReviewDate <= todayStr;

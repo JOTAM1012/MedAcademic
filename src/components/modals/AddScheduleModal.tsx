@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { X, CalendarDays, Clock, MapPin, Repeat, CalendarCheck } from 'lucide-react';
+import { X, CalendarDays, Clock, Repeat, CalendarCheck } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { DatePickerField } from '../DatePickerField';
 import { ScheduleClass } from '../../types';
-import { ACTIVITY_CATEGORIES, CHECKLIST_COLORS, WEEK_DAYS, dayOfWeekFromDate, getActivityCategory } from '../../data/planning';
+import { ACTIVITY_CATEGORIES, CHECKLIST_COLORS, EXAM_SHIFTS, SHIFT_DEFAULT_TIMES, WEEK_DAYS, dayOfWeekFromDate, getActivityCategory, shiftFromTime } from '../../data/planning';
+import { ExamShift } from '../../types';
 
 interface AddScheduleModalProps {
   isOpen: boolean;
@@ -47,6 +49,7 @@ export const AddScheduleModal: React.FC<AddScheduleModalProps> = ({
   const [startTime, setStartTime] = useState('08:00');
   const [endTime, setEndTime] = useState('10:00');
   const [location, setLocation] = useState('');
+  const [shift, setShift] = useState<ExamShift | undefined>('manha');
   const [color, setColor] = useState<string>(ACTIVITY_CATEGORIES[0].color);
   const [notes, setNotes] = useState('');
 
@@ -66,6 +69,7 @@ export const AddScheduleModal: React.FC<AddScheduleModalProps> = ({
     setStartTime(it?.startTime || '08:00');
     setEndTime(it?.endTime || '10:00');
     setLocation(it?.location || it?.room || '');
+    setShift(it?.shift || shiftFromTime(it?.startTime || '08:00'));
     setColor(it?.color || cat.color);
     setNotes(it?.notes || '');
   }, [isOpen, editingItem, defaultDay, defaultDate, defaultCategory]);
@@ -103,6 +107,7 @@ export const AddScheduleModal: React.FC<AddScheduleModalProps> = ({
     const base = {
       title: title.trim(),
       startTime,
+      shift: shift || shiftFromTime(startTime),
       endTime,
       location: location.trim() || undefined,
       room: '',
@@ -230,11 +235,39 @@ export const AddScheduleModal: React.FC<AddScheduleModalProps> = ({
                 ))}
               </div>
             ) : (
-              <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputCls} aria-label="Data do evento" />
+              <DatePickerField id="activity-date" value={date} onChange={setDate} className={inputCls} placeholder="Escolher a data do evento" />
             )}
             {repeatMode === 'weekly' && !editingItem && (
               <p className="text-[10px] text-slate-500 mt-1">Selecione um ou mais dias.</p>
             )}
+          </div>
+
+          <div>
+            <span className={labelCls}>Turno</span>
+            <div id="activity-shift" className="grid grid-cols-3 gap-1.5">
+              {EXAM_SHIFTS.map((sh) => (
+                <button
+                  key={sh.id}
+                  type="button"
+                  onClick={() => {
+                    setShift(sh.id);
+                    // ao trocar de turno, sugere o horário padrão dele (dá para ajustar abaixo)
+                    if (shiftFromTime(startTime) !== sh.id) {
+                      setStartTime(SHIFT_DEFAULT_TIMES[sh.id].start);
+                      setEndTime(SHIFT_DEFAULT_TIMES[sh.id].end);
+                    }
+                  }}
+                  className={`px-2 py-2 rounded-xl border text-xs font-bold transition-all ${
+                    shift === sh.id
+                      ? 'bg-sky-600 border-sky-600 text-white shadow-sm'
+                      : 'border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-700'
+                  }`}
+                >
+                  {sh.emoji} {sh.label}
+                  <span className={`block text-[9px] font-semibold ${shift === sh.id ? 'text-sky-100' : 'text-slate-400'}`}>{sh.range}</span>
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -242,7 +275,18 @@ export const AddScheduleModal: React.FC<AddScheduleModalProps> = ({
               <label className={labelCls} htmlFor="activity-start">
                 <Clock className="inline h-3 w-3 mr-1 -mt-0.5" />Começa
               </label>
-              <input id="activity-start" type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} className={inputCls} required />
+              <input
+                id="activity-start"
+                type="time"
+                value={startTime}
+                onChange={(e) => {
+                  setStartTime(e.target.value);
+                  const auto = shiftFromTime(e.target.value);
+                  if (auto) setShift(auto);
+                }}
+                className={inputCls}
+                required
+              />
             </div>
             <div>
               <label className={labelCls} htmlFor="activity-end">
@@ -250,20 +294,6 @@ export const AddScheduleModal: React.FC<AddScheduleModalProps> = ({
               </label>
               <input id="activity-end" type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} className={inputCls} required />
             </div>
-          </div>
-
-          <div>
-            <label className={labelCls} htmlFor="activity-location">
-              <MapPin className="inline h-3 w-3 mr-1 -mt-0.5" />Local
-            </label>
-            <input
-              id="activity-location"
-              type="text"
-              placeholder="Ex: Bloco B, sala 12 · Hospital Universitário · Online"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              className={inputCls}
-            />
           </div>
 
           <div>
@@ -280,18 +310,6 @@ export const AddScheduleModal: React.FC<AddScheduleModalProps> = ({
                 />
               ))}
             </div>
-          </div>
-
-          <div>
-            <label className={labelCls} htmlFor="activity-notes">Observações (opcional)</label>
-            <textarea
-              id="activity-notes"
-              rows={2}
-              placeholder="Professor, material, link da sala..."
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              className={`${inputCls} resize-none`}
-            />
           </div>
 
           <div className="pt-3 flex items-center justify-end gap-2 border-t border-slate-100 dark:border-slate-800">

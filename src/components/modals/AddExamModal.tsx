@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { X, GraduationCap, Calendar, Clock, MapPin, Target, Award } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { DatePickerField } from '../DatePickerField';
 import { Exam, ExamShift } from '../../types';
 import { EXAM_KINDS, EXAM_SHIFTS, getExamSubjectName, shiftFromTime } from '../../data/planning';
 
@@ -209,7 +210,7 @@ export const AddExamModal: React.FC<AddExamModalProps> = ({
               <label className={labelCls} htmlFor="exam-date">
                 <Calendar className="inline h-3 w-3 mr-1 -mt-0.5" />Data
               </label>
-              <input id="exam-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputCls} required />
+              <DatePickerField id="exam-date" value={date} onChange={setDate} className={inputCls} placeholder="Escolher data" />
             </div>
             <div>
               <label className={labelCls} htmlFor="exam-time">

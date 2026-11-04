@@ -31,6 +31,13 @@ export const EXAM_SHIFTS: Array<{ id: ExamShift; label: string; emoji: string; r
   { id: 'noite', label: 'Noite', emoji: '🌙', range: '18h–24h' },
 ];
 
+// Horário padrão de cada turno ao escolher o turno na Grade de Horários
+export const SHIFT_DEFAULT_TIMES: Record<ExamShift, { start: string; end: string }> = {
+  manha: { start: '07:00', end: '12:00' },
+  tarde: { start: '13:00', end: '18:00' },
+  noite: { start: '19:00', end: '22:00' },
+};
+
 export const shiftFromTime = (time?: string): ExamShift | undefined => {
   if (!time) return undefined;
   const h = Number(time.split(':')[0]);

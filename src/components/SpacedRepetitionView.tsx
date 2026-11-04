@@ -15,6 +15,7 @@ import {
   difficultyFromScore,
   formatDM,
   isBlockDue,
+  isTopicPending,
   nextIntervalDays,
   suggestedPlan,
   ymd,
@@ -33,7 +34,16 @@ const RATING_STYLE: Record<TopicDifficulty, string> = {
 // Repetição espaçada por BLOCO: Dia 0 = bloco concluído, 1ª revisão no Dia 7; a avaliação
 // (Difícil/Médio/Fácil) define a próxima data e a sugestão de estudo para esse dia.
 export const SpacedRepetitionView: React.FC<SpacedRepetitionViewProps> = () => {
-  const { topicBlocks, topics, subjects, reviewTopicBlock, addQuestionLog, setCurrentTab, setTimerMode, addXp, triggerConfetti } = useApp();
+  const { topicBlocks, topics, subjects, reviewTopicBlock, addQuestionLog, setCurrentTab, setTimerMode, addXp, triggerConfetti, markTopicSeen } = useApp();
+  // Ao terminar a revisão de um bloco com pendências, pergunta se os tópicos "ver depois" já foram vistos
+  const [pendingPromptBlock, setPendingPromptBlock] = useState<string | null>(null);
+  const [pendingAnswers, setPendingAnswers] = useState<Record<string, 'sim' | 'nao'>>({});
+  const askPendings = (blockId: string) => {
+    if (topics.some((t) => t.blockId === blockId && isTopicPending(t))) {
+      setPendingAnswers({});
+      setPendingPromptBlock(blockId);
+    }
+  };
 
   const [selectedSubjectFilter, setSelectedSubjectFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'due' | 'upcoming' | 'mastered'>('all');
@@ -156,6 +166,7 @@ export const SpacedRepetitionView: React.FC<SpacedRepetitionViewProps> = () => {
     const total = Number(q?.total) || 0;
     const correct = q && q.correct !== '' ? Math.min(Number(q.correct) || 0, total) : undefined;
     reviewTopicBlock(b.id, level, total ? { questions: total, correct } : undefined);
+    askPendings(b.id);
     if (total > 0 && correct !== undefined) addQuestionLog({ kind: 'block', blockId: b.id, subjectId: b.subjectId, total, correct });
     setCardQ(({ [b.id]: _, ...rest }) => rest);
   };
@@ -244,6 +255,7 @@ export const SpacedRepetitionView: React.FC<SpacedRepetitionViewProps> = () => {
     const total = Number(reviewQuestions) || 0;
     const correct = reviewCorrect === '' ? undefined : Math.min(Number(reviewCorrect) || 0, total);
     reviewTopicBlock(activeSessionBlock.id, level, { questions: total || undefined, correct });
+    askPendings(activeSessionBlock.id);
     if (total > 0 && correct !== undefined) {
       addQuestionLog({ kind: 'block', blockId: activeSessionBlock.id, subjectId: activeSessionBlock.subjectId, total, correct });
     }
@@ -534,6 +546,11 @@ export const SpacedRepetitionView: React.FC<SpacedRepetitionViewProps> = () => {
                     <span className="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200/60 dark:border-slate-700">
                       {list.length} tópico{list.length === 1 ? '' : 's'}
                     </span>
+                    {list.some(isTopicPending) && (
+                      <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-rose-600 text-white">
+                        ⚠ {list.filter(isTopicPending).length} pendente{list.filter(isTopicPending).length > 1 ? 's' : ''}
+                      </span>
+                    )}
                     {suggestedPlan(b) && b.reviewStatus !== 'dominado' && (
                       <span className="text-[11px] font-bold px-2 py-0.5 rounded-md text-white" style={{ backgroundColor: suggestedPlan(b)!.color }}>
                         {suggestedPlan(b)!.label} · {suggestedPlan(b)!.questions}Q
@@ -547,8 +564,19 @@ export const SpacedRepetitionView: React.FC<SpacedRepetitionViewProps> = () => {
                   <h3 className="text-base font-black text-slate-900 dark:text-white leading-snug">{b.name}</h3>
                   {list.length > 0 && (
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                      {list.slice(0, 8).map((t) => t.title).join(' · ')}
-                      {list.length > 8 && ` · +${list.length - 8}`}
+                      {list.slice(0, 10).map((t, i) => (
+                        <React.Fragment key={t.id}>
+                          {i > 0 && ' · '}
+                          {isTopicPending(t) ? (
+                            <span className="font-semibold text-rose-600 dark:text-rose-400" title="Ver depois: ainda não visto">
+                              ✕ {t.title}
+                            </span>
+                          ) : (
+                            t.title
+                          )}
+                        </React.Fragment>
+                      ))}
+                      {list.length > 10 && ` · +${list.length - 10}`}
                     </p>
                   )}
                 </div>
@@ -682,6 +710,82 @@ export const SpacedRepetitionView: React.FC<SpacedRepetitionViewProps> = () => {
       </div>
 
       <QuestionLogModal isOpen={isQuestionLogOpen} onClose={() => setIsQuestionLogOpen(false)} defaultBlockId={questionLogBlock} />
+
+      {pendingPromptBlock && (() => {
+        const block = topicBlocks.find((x) => x.id === pendingPromptBlock);
+        // mantém na lista os que acabaram de ser respondidos (para mostrar o resultado)
+        const items = topics.filter((t) => t.blockId === pendingPromptBlock && (isTopicPending(t) || pendingAnswers[t.id]));
+        if (!block || items.length === 0) return null;
+        const allAnswered = items.every((t) => pendingAnswers[t.id]);
+        return (
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in">
+            <div id="pending-topics-prompt" className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-2xl space-y-4">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-wider text-rose-600 dark:text-rose-400">Pendências do bloco</p>
+                <h2 className="text-base font-black text-slate-900 dark:text-white">{block.name}</h2>
+                <p className="text-xs text-slate-500 mt-0.5">Revisão registrada! Você já viu estes assuntos que estavam para ver depois?</p>
+              </div>
+              <ul className="space-y-2">
+                {items.map((t) => {
+                  const ans = pendingAnswers[t.id];
+                  return (
+                    <li
+                      key={t.id}
+                      className={`rounded-xl border p-2.5 ${
+                        ans === 'sim'
+                          ? 'border-emerald-300 dark:border-emerald-800 bg-emerald-50/60 dark:bg-emerald-950/20'
+                          : 'border-rose-200 dark:border-rose-900/50 bg-rose-50/60 dark:bg-rose-950/20'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`h-5 w-5 shrink-0 rounded-full flex items-center justify-center text-white text-[11px] font-black ${
+                            ans === 'sim' ? 'bg-emerald-500' : 'bg-rose-600'
+                          }`}
+                        >
+                          {ans === 'sim' ? '✓' : '✕'}
+                        </span>
+                        <span className="flex-1 min-w-0 text-xs font-bold text-slate-800 dark:text-slate-100 break-words">{t.title}</span>
+                      </div>
+                      {ans ? (
+                        <p className={`text-[11px] mt-1.5 pl-7 font-semibold ${ans === 'sim' ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                          {ans === 'sim' ? 'Marcado como concluído.' : 'Continua pendente: pergunto de novo na próxima revisão.'}
+                        </p>
+                      ) : (
+                        <div className="flex gap-1.5 mt-2 pl-7">
+                          <button
+                            onClick={() => {
+                              markTopicSeen(t.id);
+                              setPendingAnswers((a) => ({ ...a, [t.id]: 'sim' }));
+                            }}
+                            className="px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-[11px] font-bold"
+                          >
+                            ✓ Sim, já vi
+                          </button>
+                          <button
+                            onClick={() => setPendingAnswers((a) => ({ ...a, [t.id]: 'nao' }))}
+                            className="px-3 py-1.5 rounded-lg border border-rose-300 dark:border-rose-800 text-rose-600 dark:text-rose-400 text-[11px] font-bold hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                          >
+                            ✕ Ainda não
+                          </button>
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+              <button
+                onClick={() => setPendingPromptBlock(null)}
+                className={`w-full px-4 py-2.5 rounded-xl text-xs font-bold ${
+                  allAnswered ? 'bg-sky-600 hover:bg-sky-700 text-white' : 'border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'
+                }`}
+              >
+                {allAnswered ? 'Concluir' : 'Responder depois'}
+              </button>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };

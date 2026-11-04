@@ -21,7 +21,7 @@ import {
   BLOCK_REVIEWS_TO_MASTER,
   FIRST_REVIEW_DAY,
   addDaysYMD,
-  isTopicSeen,
+  isTopicResolved,
   nextIntervalDays,
   ymd,
 } from '../data/blockReview';
@@ -141,6 +141,8 @@ interface AppContextType {
   markTopicSeen: (id: string) => void;
   /** Volta o assunto para "Não iniciado" e zera as revisões */
   resetTopicProgress: (id: string) => void;
+  /** "Ver depois": conta para o bloco entrar nas revisões, mas fica como pendência (vermelho) */
+  markTopicPending: (id: string) => void;
 
   // Questões registradas (por bloco ou tópico)
   questionLogs: QuestionLog[];
@@ -779,7 +781,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const id = 'blk-auto-' + subjectId;
       if (validIds.has(id)) return;
       const sub = subjects.find((s) => s.id === subjectId);
-      const allSeen = list.every(isTopicSeen);
+      const allSeen = list.every(isTopicResolved);
       const reviewsDone = allSeen ? Math.min(...list.map((t) => getReviewsDone(t))) : 0;
       const dates = list.map((t) => t.nextReviewDate).filter(Boolean).sort() as string[];
       const status: TopicBlock['reviewStatus'] = !allSeen
@@ -1251,7 +1253,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setSemesters((prev) =>
         prev.map((s) => {
           if (s.period) return s;
-          const p = periodByCode(s.code) || periodForDate(s.startDate || ymd(new Date()));
+          const p = s.startDate ? periodForDate(s.startDate) : periodByCode(s.code) || periodForDate(ymd(new Date()));
           return { ...s, period: p.code, startDate: p.start, endDate: p.end };
         })
       );
@@ -1398,7 +1400,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const block = topicBlocks.find((bk) => bk.id === blockId);
     if (!block) return;
     const list = nextTopics.filter((t) => t.blockId === blockId);
-    const allSeen = list.length > 0 && list.every(isTopicSeen);
+    const allSeen = list.length > 0 && list.every(isTopicResolved);
     if (block.reviewStatus === 'estudando' && allSeen) {
       setTopicBlocks((prev) =>
         prev.map((bk) =>
@@ -1430,7 +1432,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const todayStr = ymd(new Date());
     const next = topics.map((x) =>
       x.id === id
-        ? { ...x, status: 'em_andamento' as const, firstContactDate: x.firstContactDate || todayStr, lastStudiedDate: todayStr, inSpacedRepetition: false, nextReviewDate: undefined }
+        ? { ...x, status: 'em_andamento' as const, pending: false, firstContactDate: x.firstContactDate || todayStr, lastStudiedDate: todayStr, inSpacedRepetition: false, nextReviewDate: undefined }
         : x
     );
     setTopics(next);
@@ -1443,7 +1445,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!t) return;
     const next = topics.map((x) =>
       x.id === id
-        ? { ...x, status: 'nao_iniciado' as const, reviewsDone: 0, cycleStep: 0, nextReviewDate: undefined, lastStudiedDate: undefined }
+        ? { ...x, status: 'nao_iniciado' as const, pending: false, reviewsDone: 0, cycleStep: 0, nextReviewDate: undefined, lastStudiedDate: undefined }
         : x
     );
     setTopics(next);
@@ -1466,6 +1468,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const deleteQuestionLog = (id: string) => {
     setQuestionLogs((prev) => prev.filter((q) => q.id !== id));
+  };
+
+  const markTopicPending = (id: string) => {
+    const t = topics.find((x) => x.id === id);
+    if (!t) return;
+    const next = topics.map((x) =>
+      x.id === id ? { ...x, status: 'nao_iniciado' as const, pending: true, lastStudiedDate: undefined } : x
+    );
+    setTopics(next);
+    showNotification(`"${t.title}" marcado para ver depois. Ele fica como pendência do bloco.`, 'info');
+    syncBlockStatus(t.blockId, next);
   };
 
   const addTopicBlock = (subjectId: string, name: string) => {
@@ -1522,7 +1535,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const restartBlockReviews = (id: string) => {
     const block = topicBlocks.find((bk) => bk.id === id);
     if (!block) return;
-    const allSeen = topics.filter((t) => t.blockId === id).every(isTopicSeen) && topics.some((t) => t.blockId === id);
+    const allSeen = topics.filter((t) => t.blockId === id).every(isTopicResolved) && topics.some((t) => t.blockId === id);
     setTopicBlocks((prev) =>
       prev.map((bk) =>
         bk.id === id
@@ -2039,6 +2052,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setTutorMessages,
         checklist,
         checklistBlocks,
+        markTopicPending,
         topicBlocks,
         questionLogs,
         addQuestionLog,

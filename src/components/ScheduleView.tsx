@@ -10,6 +10,8 @@ import {
   formatDateBR,
   getActivityCategory,
   toYMD,
+  EXAM_SHIFTS,
+  shiftFromTime,
 } from '../data/planning';
 
 interface ScheduleViewProps {
@@ -120,6 +122,10 @@ export const ScheduleView: React.FC<ScheduleViewProps> = () => {
             <Clock className="h-3 w-3 shrink-0" />
             {showDate && <span className="font-sans">{formatDateBR(sc.date)} ·</span>}
             {sc.startTime}–{sc.endTime}
+            {(() => {
+              const sh = EXAM_SHIFTS.find((x) => x.id === (sc.shift || shiftFromTime(sc.startTime)));
+              return sh ? <span className="font-sans" title={sh.label}>· {sh.emoji} {sh.label}</span> : null;
+            })()}
           </div>
           {place && (
             <div className="flex items-center gap-1 min-w-0">
