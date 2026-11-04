@@ -93,6 +93,7 @@ export interface Semester {
   targetHoursWeekly: number;
   description?: string;
   period?: string; // período acadêmico "2026.1" (01/01–30/06) ou "2026.2" (01/08–31/12)
+  customDates?: boolean; // datas de início/fim definidas pelo usuário (depois do fim = férias)
 }
 
 export type ExamShift = 'manha' | 'tarde' | 'noite';

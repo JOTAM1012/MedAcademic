@@ -1,5 +1,6 @@
 // Calendário acadêmico: 1º semestre de 01/01 a 30/06, 2º semestre de 01/08 a 31/12, férias em julho.
 import { ymd } from './blockReview';
+import { Semester } from '../types';
 
 export interface AcademicPeriod {
   code: string; // "2026.1" | "2026.2"
@@ -23,6 +24,12 @@ export const periodByCode = (code?: string): AcademicPeriod | undefined => {
 };
 
 export const isVacation = (date = ymd(new Date())) => date.slice(5, 7) === '07';
+
+/** Início e fim do semestre: as datas personalizadas do usuário ou o calendário padrão */
+export const semesterBounds = (s: Semester): AcademicPeriod => {
+  const base = periodByCode(s.period) || periodForDate(s.startDate || ymd(new Date()));
+  return s.customDates && s.startDate && s.endDate ? { ...base, start: s.startDate, end: s.endDate } : base;
+};
 
 /** Semestre em que a data cai; em julho (férias) devolve o semestre que vem (agosto) */
 export const periodForDate = (date = ymd(new Date())): AcademicPeriod => {

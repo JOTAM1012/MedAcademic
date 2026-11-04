@@ -4,7 +4,7 @@ import { useApp } from '../context/AppContext';
 import { Exam, Semester } from '../types';
 import { SemesterStatusCard } from './SemesterStatusCard';
 import { getMedicalArea, getSpecialty } from '../data/areas';
-import { inPeriod, periodByCode, periodForDate, periodLabel } from '../data/academicCalendar';
+import { inPeriod, semesterBounds } from '../data/academicCalendar';
 import { getExamKind, getExamSubjectName } from '../data/planning';
 import { formatDM, isTopicSeen, ymd } from '../data/blockReview';
 
@@ -27,7 +27,7 @@ const weighted = (list: Exam[], pick: (e: Exam) => number | undefined) => {
 export const SemesterHistoryView: React.FC = () => {
   const { semesters, currentSemester, subjects, topics, topicBlocks, questionLogs, studySessions, exams } = useApp();
 
-  const periodOfSem = (s: Semester) => periodByCode(s.period) || periodForDate(s.startDate || ymd(new Date()));
+  const periodOfSem = (s: Semester) => semesterBounds(s);
   const ordered = useMemo(
     () => [...semesters].sort((a, b) => periodOfSem(b).code.localeCompare(periodOfSem(a).code) || b.id.localeCompare(a.id)),
     [semesters]
@@ -98,9 +98,6 @@ export const SemesterHistoryView: React.FC = () => {
           <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
             <History className="h-6 w-6 text-sky-500" /> Histórico de semestres
           </h1>
-          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
-            1º semestre de 01/01 a 30/06 · férias em julho · 2º semestre de 01/08 a 31/12.
-          </p>
         </div>
       </div>
 
@@ -134,7 +131,10 @@ export const SemesterHistoryView: React.FC = () => {
         <div className="flex items-start justify-between gap-3 mb-4">
           <div>
             <h2 className="text-base font-black text-slate-900 dark:text-white">Resumo · {sel.name}</h2>
-            <p className="text-xs text-slate-500">{periodLabel(data.p)}</p>
+            <p className="text-xs text-slate-500">
+              {data.p.code} · {formatDM(data.p.start)}/{data.p.start.slice(0, 4)} a {formatDM(data.p.end)}/{data.p.end.slice(0, 4)}
+              {sel.customDates ? ' · datas personalizadas' : ''}
+            </p>
           </div>
           {data.isCurrent && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-600 dark:text-sky-400">Em andamento</span>}
         </div>
