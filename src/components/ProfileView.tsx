@@ -436,7 +436,7 @@ export const ProfileView: React.FC = () => {
             </div>
           </div>
 
-          <SemesterSwitcher />
+          <SemesterSwitcher readOnly={!access.isOwner} />
 
           <div id="profile-goals-card" className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-xs space-y-3">
             <div>

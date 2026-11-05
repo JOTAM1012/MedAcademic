@@ -1,5 +1,5 @@
 import React from 'react';
-import { GraduationCap, Check, Plus } from 'lucide-react';
+import { GraduationCap, Check, Plus, Lock } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { MEDICAL_CYCLES } from './ProfileCreationPage';
 import { periodForDate, semesterBounds } from '../data/academicCalendar';
@@ -18,8 +18,9 @@ const CYCLE_STYLE: Record<string, { ring: string; chip: string; dot: string }> =
 };
 
 // Trocar de ciclo/semestre no Perfil: cada semestre tem suas próprias disciplinas, provas e grade de horários
-export const SemesterSwitcher: React.FC = () => {
-  const { semesters, currentSemester, setCurrentSemesterId, addSemester, subjects, exams, schedule, showNotification } = useApp();
+// readOnly: usuários comuns só acompanham a trajetória definida na criação do perfil (a troca livre é exclusiva do Dono)
+export const SemesterSwitcher: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
+  const { userProfile, semesters, currentSemester, setCurrentSemesterId, addSemester, subjects, exams, schedule, showNotification } = useApp();
 
   const byNumber = new Map<number, Semester>();
   // prioriza o atual quando houver dois com o mesmo número
@@ -35,6 +36,7 @@ export const SemesterSwitcher: React.FC = () => {
   });
 
   const switchTo = (n: number, cycleTitle: string) => {
+    if (readOnly) return;
     const existing = byNumber.get(n);
     if (existing) {
       if (existing.id === currentSemester?.id) return;
@@ -56,7 +58,8 @@ export const SemesterSwitcher: React.FC = () => {
     setCurrentSemesterId(id);
   };
 
-  const currentN = currentSemester ? semNumber(currentSemester) : undefined;
+  const profileN = Number((userProfile.currentSemester || "").match(/^\s*(\d{1,2})/)?.[1]) || undefined;
+  const currentN = (currentSemester ? semNumber(currentSemester) : undefined) ?? profileN;
 
   return (
     <div id="semester-switcher" className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-xs space-y-4">
@@ -64,8 +67,12 @@ export const SemesterSwitcher: React.FC = () => {
         <div className="flex items-center gap-2">
           <GraduationCap className="h-5 w-5 text-sky-500" />
           <div>
-            <h3 className="text-sm font-black text-slate-900 dark:text-white">Ciclo acadêmico e semestre</h3>
-            <p className="text-xs text-slate-500">Troque de semestre para ver e editar as ferramentas de cada um (disciplinas, provas, grade de horários e revisões).</p>
+            <h3 className="text-sm font-black text-slate-900 dark:text-white">{readOnly ? 'Sua trajetória acadêmica' : 'Ciclo acadêmico e semestre'}</h3>
+            <p className="text-xs text-slate-500">
+              {readOnly
+                ? 'Acompanhe em que ponto do curso você está. O semestre segue o que foi definido na criação do seu perfil.'
+                : 'Troque de semestre para ver e editar as ferramentas de cada um (disciplinas, provas, grade de horários e revisões).'}
+            </p>
           </div>
         </div>
         {currentSemester && (
@@ -90,6 +97,38 @@ export const SemesterSwitcher: React.FC = () => {
                   const sem = byNumber.get(opt.number);
                   const active = !!sem && sem.id === currentSemester?.id;
                   const c = sem ? countsFor(sem.id) : undefined;
+                  if (readOnly) {
+                    const done = currentN !== undefined && opt.number < currentN;
+                    const now = currentN !== undefined ? opt.number === currentN : active;
+                    return (
+                      <div
+                        key={opt.number}
+                        id={`traj-sem-${opt.number}`}
+                        className={`relative rounded-2xl border p-3 ${
+                          now
+                            ? `${st.ring} ring-2 ring-sky-500/30`
+                            : done
+                            ? 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950/60'
+                            : 'border-dashed border-slate-200 dark:border-slate-800 opacity-60'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-1">
+                          <span className={`text-xs font-black ${now ? 'text-slate-900 dark:text-white' : done ? 'text-slate-700 dark:text-slate-200' : 'text-slate-400'}`}>{opt.label}</span>
+                          {now ? (
+                            <span className="h-5 w-5 rounded-full bg-sky-500 text-white flex items-center justify-center"><Check className="h-3 w-3" /></span>
+                          ) : done ? (
+                            <Check className="h-3.5 w-3.5 text-emerald-500" />
+                          ) : (
+                            <Lock className="h-3 w-3 text-slate-400" />
+                          )}
+                        </div>
+                        <p className="text-[10px] text-slate-500 mt-0.5">{opt.yearLabel}</p>
+                        <p className="text-[10px] mt-1.5 font-semibold text-slate-500 dark:text-slate-400">
+                          {now ? (c ? `Você está aqui · ${c.subjects} disc.` : 'Você está aqui') : done ? 'Concluído' : 'Em breve'}
+                        </p>
+                      </div>
+                    );
+                  }
                   return (
                     <button
                       key={opt.number}
