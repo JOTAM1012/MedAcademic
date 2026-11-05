@@ -70,7 +70,7 @@ export const ProfileView: React.FC = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState(userProfile.name);
   const [email, setEmail] = useState(userProfile.email || '');
-  const [university, setUniversity] = useState(userProfile.university);
+  const [university, setUniversity] = useState((userProfile.university || '').toUpperCase());
   const [dreamSpecialty, setDreamSpecialty] = useState(userProfile.dreamSpecialty || '');
   const [targetExam, setTargetExam] = useState(userProfile.targetExam || '');
   const [weeklyTargetHours, setWeeklyTargetHours] = useState(userProfile.weeklyTargetHours || 30);
@@ -88,7 +88,7 @@ export const ProfileView: React.FC = () => {
   React.useEffect(() => {
     setName(userProfile.name);
     setEmail(userProfile.email || '');
-    setUniversity(userProfile.university);
+    setUniversity((userProfile.university || '').toUpperCase());
     setDreamSpecialty(userProfile.dreamSpecialty || '');
     setTargetExam(userProfile.targetExam || '');
     setWeeklyTargetHours(userProfile.weeklyTargetHours || 30);
@@ -142,7 +142,7 @@ export const ProfileView: React.FC = () => {
     updateUserProfile({
       name: name.trim(),
       email: email.trim(),
-      university: university.trim(),
+      university: university.trim().toUpperCase(),
       dreamSpecialty: dreamSpecialty.trim(),
       targetExam: targetExam.trim(),
       googleSyncEnabled,
@@ -412,7 +412,7 @@ export const ProfileView: React.FC = () => {
               )}
               <div className="flex items-center justify-center md:justify-start gap-2 text-sm text-slate-600 dark:text-slate-400 font-medium">
                 <GraduationCap className="h-4 w-4" />
-                <span>{userProfile.university}</span>
+                <span>{(userProfile.university || '').toUpperCase()}</span>
               </div>
               
               <div className="mt-4 flex flex-wrap items-center justify-center md:justify-start gap-3">
@@ -679,7 +679,7 @@ export const ProfileView: React.FC = () => {
                   <input
                     type="text"
                     value={university}
-                    onChange={(e) => setUniversity(e.target.value)}
+                    onChange={(e) => setUniversity(e.target.value.toUpperCase())}
                     className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-4 py-2.5 text-sm text-slate-900 dark:text-white focus:outline-hidden focus:border-sky-500"
                   />
                 </div>

@@ -329,7 +329,7 @@ export const OwnerPanelView: React.FC = () => {
                         {u.lifetime && <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded-md bg-amber-500/15 text-amber-600 dark:text-amber-300 border border-amber-500/30">Vitalício</span>}
                         {u.blocked && <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded-md bg-rose-600 text-white">Suspenso</span>}
                       </div>
-                      <p className="text-xs text-slate-500 truncate">{u.email}{u.university ? ` · ${u.university}` : ''}</p>
+                      <p className="text-xs text-slate-500 truncate">{u.email}{u.university ? ` · ${u.university.toUpperCase()}` : ''}</p>
                       <p className="text-[11px] text-slate-400 mt-1">
                         Cadastro {fmtDate(u.created_at)} · último acesso {ago(u.last_sign_in_at)} · ativo {ago(u.last_activity)}
                         {u.level ? ` · Nv. ${u.level}` : ''}

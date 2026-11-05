@@ -133,7 +133,7 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
   const [name, setName] = useState(signupMode ? '' : userProfile.name || '');
   const [greetingGender, setGreetingGender] = useState<'masculino' | 'feminino' | ''>(userProfile.greetingGender || '');
   const [email, setEmail] = useState(signupMode ? '' : userProfile.email || '');
-  const [university, setUniversity] = useState(signupMode ? '' : userProfile.university || '');
+  const [university, setUniversity] = useState(signupMode ? '' : (userProfile.university || '').toUpperCase());
   // Sign-up access credentials (last step)
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -229,7 +229,7 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
       ...INITIAL_USER_PROFILE,
       name: name.trim(),
       email: cleanEmail,
-      university: university.trim(),
+      university: university.trim().toUpperCase(),
       dreamSpecialty: dreamSpecialty.trim(),
       targetExam: targetExam.trim(),
       googleSyncEnabled,
@@ -258,7 +258,7 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
         name: name.trim(),
         email: cleanEmail,
         password: password.trim(),
-        university: university.trim(),
+        university: university.trim().toUpperCase(),
         currentSemester: chosenSemesterName,
         dreamSpecialty: dreamSpecialty.trim(),
         avatarUrl: selectedAvatarUrl,
@@ -312,7 +312,7 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
       name: name.trim(),
       greetingGender: greetingGender || undefined,
       email: email.trim(),
-      university: university.trim(),
+      university: university.trim().toUpperCase(),
       dreamSpecialty: dreamSpecialty.trim(),
       targetExam: targetExam.trim(),
       googleSyncEnabled: googleSyncEnabled,
@@ -326,7 +326,7 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
     if (activeUserId) {
       updateAccount(activeUserId, {
         name: name.trim(),
-        university: university.trim(),
+        university: university.trim().toUpperCase(),
         dreamSpecialty: dreamSpecialty.trim(),
         avatarUrl: selectedAvatarUrl,
         onboardingCompleted: true,
@@ -623,7 +623,7 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
                     <input
                       type="text"
                       value={university}
-                      onChange={(e) => setUniversity(e.target.value)}
+                      onChange={(e) => setUniversity(e.target.value.toUpperCase())}
                       placeholder="Digite o nome da sua faculdade (Ex: USP, UNIFESP, UFRJ, PUC, UFMG...)"
                       className="w-full rounded-2xl bg-slate-950 border border-slate-800 px-4 py-3 text-sm text-white placeholder:text-slate-600 focus:outline-hidden focus:border-sky-500 transition-colors"
                       autoFocus
@@ -1148,7 +1148,7 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
                     {name.trim() || 'Estudante de Medicina'}
                   </h3>
                   <p className="text-xs text-sky-400 truncate mt-0.5">
-                    {university.trim() || 'Faculdade de Medicina'}
+                    {university.trim().toUpperCase() || 'Faculdade de Medicina'}
                   </p>
                   <div className="flex items-center gap-1.5 text-[10px] text-slate-400 mt-1">
                     <span className="px-1.5 py-0.5 rounded-md bg-slate-800 text-slate-300 font-medium">

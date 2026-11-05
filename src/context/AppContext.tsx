@@ -1915,6 +1915,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showNotification('Tema removido do MedRevision.', 'info');
   };
 
+  // Nome da faculdade sempre em maiúsculas (contas antigas com "famaz" viram "FAMAZ")
+  useEffect(() => {
+    if (!activeUserId || !isInitialLoadComplete) return;
+    const u = userProfile.university;
+    if (u && u !== u.toUpperCase()) updateUserProfile({ university: u.toUpperCase() });
+  }, [userProfile.university, activeUserId, isInitialLoadComplete]);
+
   // Avatares da versão anterior passam para o novo modelo de avatares
   useEffect(() => {
     if (!activeUserId || !isInitialLoadComplete) return;
