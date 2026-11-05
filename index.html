@@ -7,6 +7,14 @@
     <meta name="google-site-verification" content="Cfdo55P44CbhBZLAfOUYb4vy8lAGDkXSoFGhXcvt6W4" />
     <meta name="description" content="Sistema completo para estudantes de medicina com semestres, repetição espaçada, cronômetro Pomodoro, gestão de notas e funcionamento 100% offline." />
     <meta name="theme-color" content="#0f172a" />
+    <script>
+      // aplica o tema antes de desenhar a página (escuro é o padrão)
+      try {
+        var t = localStorage.getItem('medacademic_theme') === 'light' ? 'light' : 'dark';
+        document.documentElement.classList.toggle('dark', t === 'dark');
+        document.documentElement.style.colorScheme = t;
+      } catch (e) { document.documentElement.classList.add('dark'); }
+    </script>
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />

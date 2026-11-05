@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* O tema segue a classe .dark no <html> (escuro é o padrão; o usuário pode trocar para o claro) */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @layer base {
   body {
     @apply bg-[#F8FAFC] dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans antialiased;
@@ -43,10 +46,8 @@
 .app-modal-panel.bg-slate-900 {
   --modal-bg: #0f172a;
 }
-@media (prefers-color-scheme: dark) {
-  .app-modal-panel {
-    --modal-bg: #0f172a;
-  }
+.dark .app-modal-panel {
+  --modal-bg: #0f172a;
 }
 /* Botões de concluir sempre visíveis no rodapé da janela */
 .app-modal-footer {
@@ -258,4 +259,96 @@
   35% { transform: scale(1.08); box-shadow: 0 0 0 10px rgba(14, 165, 233, 0.25); }
   55% { transform: scale(0.95); }
   100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(14, 165, 233, 0); }
+}
+
+/* ==========================================================================
+   MODO CLARO — paleta "névoa clínica"
+   Remete ao azul-marinho/azul-celeste do modo escuro, mas sem branco puro
+   (menos brilho e menos cansaço visual em longas sessões de estudo).
+   ========================================================================== */
+html:not(.dark) body {
+  background: #e9eff6;
+  background-image:
+    radial-gradient(1200px 600px at 100% -10%, rgba(14, 165, 233, 0.07), transparent 60%),
+    radial-gradient(900px 500px at -10% 110%, rgba(37, 99, 235, 0.05), transparent 60%);
+  background-attachment: fixed;
+  color: #1e293b;
+}
+html:not(.dark) .app-modal-panel { --modal-bg: #f7f9fc; }
+
+@layer utilities {
+  /* superfícies: branco-gelo em vez de branco puro */
+  :where(html:not(.dark)) .bg-white:where(:not(.dark *)) { background-color: #f7f9fc; }
+  :where(html:not(.dark)) .bg-white\/80:where(:not(.dark *)),
+  :where(html:not(.dark)) .bg-white\/90:where(:not(.dark *)),
+  :where(html:not(.dark)) .bg-white\/95:where(:not(.dark *)) { background-color: rgb(247 249 252 / 0.9); }
+  :where(html:not(.dark)) .bg-slate-50:where(:not(.dark *)) { background-color: #eef2f8; }
+  :where(html:not(.dark)) .bg-slate-100:where(:not(.dark *)) { background-color: #e3e9f2; }
+  :where(html:not(.dark)) .bg-\[\#F8FAFC\]:where(:not(.dark *)) { background-color: #e9eff6; }
+  /* bordas mais definidas, porém suaves */
+  :where(html:not(.dark)) .border-slate-100:where(:not(.dark *)) { border-color: #dfe6ef; }
+  :where(html:not(.dark)) .border-slate-200:where(:not(.dark *)) { border-color: #d3dce8; }
+  :where(html:not(.dark)) .divide-slate-100 > :not(:last-child):where(:not(.dark *)) { border-color: #dfe6ef; }
+  /* texto: azul-marinho do tema escuro em vez de preto */
+  :where(html:not(.dark)) .text-slate-900:where(:not(.dark *)) { color: #172236; }
+  :where(html:not(.dark)) .text-slate-800:where(:not(.dark *)) { color: #22314a; }
+  :where(html:not(.dark)) .text-slate-700:where(:not(.dark *)) { color: #334563; }
+  :where(html:not(.dark)) .text-slate-400:where(:not(.dark *)) { color: #7b8aa3; }
+  /* sombras com leve tom azulado para dar profundidade sem contraste duro */
+  :where(html:not(.dark)) .shadow-xs:where(:not(.dark *)),
+  :where(html:not(.dark)) .shadow-sm:where(:not(.dark *)) { box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 2px 8px -2px rgba(30, 64, 120, 0.08); }
+}
+
+/* nomes brilhantes legíveis sobre fundo claro */
+html:not(.dark) .user-blue-name:not(.dark *) {
+  background-image: linear-gradient(100deg, #075985 0%, #0369a1 25%, #0ea5e9 45%, #38bdf8 50%, #0ea5e9 55%, #0369a1 75%, #075985 100%);
+  filter: drop-shadow(0 0 4px rgba(14, 165, 233, 0.25));
+}
+html:not(.dark) .owner-gold-name:not(.dark *) {
+  background-image: linear-gradient(100deg, #92400e 0%, #b45309 22%, #d97706 42%, #f59e0b 50%, #d97706 58%, #b45309 78%, #92400e 100%);
+  filter: drop-shadow(0 0 4px rgba(217, 119, 6, 0.3));
+}
+html:not(.dark) ::-webkit-scrollbar-thumb { background: rgba(100, 116, 139, 0.35); }
+
+/* troca de tema suave */
+html.theme-anim, html.theme-anim *, html.theme-anim *::before, html.theme-anim *::after {
+  transition: background-color 0.35s ease, border-color 0.35s ease, color 0.25s ease !important;
+}
+
+/* Modo claro: tons 300/400 (feitos para fundo escuro) ficam mais fortes para manter o contraste */
+@layer utilities {
+  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-sky-400:where(:not(.dark *)) { color: #0284c7; }
+  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-sky-300:where(:not(.dark *)) { color: #0369a1; }
+  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-blue-400:where(:not(.dark *)) { color: #2563eb; }
+  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-blue-300:where(:not(.dark *)) { color: #1d4ed8; }
+  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-indigo-400:where(:not(.dark *)) { color: #4f46e5; }
+  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-indigo-300:where(:not(.dark *)) { color: #4338ca; }
+  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-violet-400:where(:not(.dark *)) { color: #7c3aed; }
+  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-violet-300:where(:not(.dark *)) { color: #6d28d9; }
+  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-purple-400:where(:not(.dark *)) { color: #9333ea; }
+  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-purple-300:where(:not(.dark *)) { color: #7e22ce; }
+  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-emerald-400:where(:not(.dark *)) { color: #059669; }
+  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-emerald-300:where(:not(.dark *)) { color: #047857; }
+  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-green-400:where(:not(.dark *)) { color: #16a34a; }
+  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-green-300:where(:not(.dark *)) { color: #15803d; }
+  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-amber-400:where(:not(.dark *)) { color: #d97706; }
+  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-amber-300:where(:not(.dark *)) { color: #b45309; }
+  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-yellow-400:where(:not(.dark *)) { color: #ca8a04; }
+  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-yellow-300:where(:not(.dark *)) { color: #a16207; }
+  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-orange-400:where(:not(.dark *)) { color: #ea580c; }
+  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-orange-300:where(:not(.dark *)) { color: #c2410c; }
+  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-rose-400:where(:not(.dark *)) { color: #e11d48; }
+  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-rose-300:where(:not(.dark *)) { color: #be123c; }
+  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-red-400:where(:not(.dark *)) { color: #dc2626; }
+  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-red-300:where(:not(.dark *)) { color: #b91c1c; }
+  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-pink-400:where(:not(.dark *)) { color: #db2777; }
+  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-pink-300:where(:not(.dark *)) { color: #be185d; }
+  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-cyan-400:where(:not(.dark *)) { color: #0891b2; }
+  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-cyan-300:where(:not(.dark *)) { color: #0e7490; }
+  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-teal-400:where(:not(.dark *)) { color: #0d9488; }
+  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-teal-300:where(:not(.dark *)) { color: #0f766e; }
+  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-fuchsia-400:where(:not(.dark *)) { color: #c026d3; }
+  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-fuchsia-300:where(:not(.dark *)) { color: #a21caf; }
+  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-lime-400:where(:not(.dark *)) { color: #65a30d; }
+  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-lime-300:where(:not(.dark *)) { color: #4d7c0f; }
 }

@@ -19,7 +19,7 @@ export const SpacedRepetitionRulesCard: React.FC<SpacedRepetitionRulesCardProps>
   return (
     <div
       id="spaced-repetition-rules-card"
-      className={`relative overflow-hidden rounded-2xl bg-gradient-to-br from-sky-600 via-sky-700 to-blue-800 text-white shadow-lg hover:shadow-xl transition-all duration-300 border border-sky-400/20 ${className}`}
+      className={`dark relative overflow-hidden rounded-2xl bg-gradient-to-br from-sky-600 via-sky-700 to-blue-800 text-white shadow-lg hover:shadow-xl transition-all duration-300 border border-sky-400/20 ${className}`}
     >
       <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-cyan-400/15 blur-3xl" />
       <div className="pointer-events-none absolute -left-16 -bottom-16 h-48 w-48 rounded-full bg-blue-900/30 blur-2xl" />

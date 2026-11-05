@@ -184,7 +184,7 @@ export const OwnerPanelView: React.FC = () => {
   return (
     <div id="owner-panel" className="space-y-5 pb-12">
       {/* Cabeçalho */}
-      <div className="rounded-3xl border border-amber-400/40 bg-gradient-to-br from-amber-500/15 via-slate-900 to-slate-950 p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="dark rounded-3xl border border-amber-400/40 bg-gradient-to-br from-amber-500/15 via-slate-900 to-slate-950 p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-amber-300 to-amber-600 text-slate-950 flex items-center justify-center shadow-lg shadow-amber-500/30">
             <Crown className="h-6 w-6" />

@@ -167,24 +167,24 @@ export const StudyCycleModal: React.FC<StudyCycleModalProps> = ({
   };
 
   return (
-    <div className="app-modal fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="app-modal-panel relative w-full max-w-2xl rounded-3xl border border-amber-500/30 bg-slate-900 p-5 sm:p-6 shadow-2xl max-h-[90vh] overflow-y-auto text-slate-100 space-y-5">
+    <div className="app-modal fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-50 dark:bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-200">
+      <div className="app-modal-panel relative w-full max-w-2xl rounded-3xl border border-amber-500/30 bg-white dark:bg-slate-900 p-5 sm:p-6 shadow-2xl max-h-[90vh] overflow-y-auto text-slate-800 dark:text-slate-100 space-y-5">
         {/* Header */}
-        <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+        <div className="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-slate-800">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-2xl bg-amber-500/20 text-amber-400 border border-amber-500/30">
               <RotateCcw className="h-5 w-5" />
             </div>
             <div>
-              <h2 className="text-lg font-black text-white tracking-tight">Ciclos de Estudo</h2>
-              <p className="text-xs text-slate-400">
+              <h2 className="text-lg font-black text-slate-900 dark:text-white tracking-tight">Ciclos de Estudo</h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 Estudo e pausas encadeados automaticamente — você só escolhe por onde começar.
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+            className="p-2 rounded-xl text-slate-500 dark:text-slate-400 hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
             aria-label="Fechar"
           >
             <X className="h-5 w-5" />
@@ -193,14 +193,14 @@ export const StudyCycleModal: React.FC<StudyCycleModalProps> = ({
 
         {/* 1. Subject */}
         <section className="space-y-2">
-          <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-wider">1. Matéria em foco</h3>
+          <h3 className="text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">1. Matéria em foco</h3>
           <div className="relative">
             <BookOpen className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
             <select
               id="cycle-subject-select"
               value={subjectId}
               onChange={(e) => setSubjectId(e.target.value)}
-              className="w-full rounded-xl border border-slate-800 bg-slate-950 pl-9 pr-3 py-2 text-xs font-bold text-white focus:outline-hidden focus:border-amber-500"
+              className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 pl-9 pr-3 py-2 text-xs font-bold text-slate-900 dark:text-white focus:outline-hidden focus:border-amber-500"
             >
               {subjects.length === 0 && <option value="">Estudo geral (nenhuma matéria cadastrada)</option>}
               {subjects.map((s) => (
@@ -214,11 +214,11 @@ export const StudyCycleModal: React.FC<StudyCycleModalProps> = ({
 
         {/* 2. Default cycle */}
         <section className="space-y-3">
-          <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-wider">
+          <h3 className="text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">
             2. Ciclo padrão · {DEFAULT_STUDY_CYCLE_STEPS.length} etapas · {formatTotal(defaultTotal)}
           </h3>
 
-          <div className="rounded-2xl border border-amber-500/30 bg-slate-950/80 p-4 space-y-4">
+          <div className="rounded-2xl border border-amber-500/30 bg-slate-50 dark:bg-slate-950/80 p-4 space-y-4">
             {/* Timeline */}
             <div className="flex items-center flex-wrap gap-1.5">
               {DEFAULT_STUDY_CYCLE_STEPS.map((step, i) => (
@@ -260,7 +260,7 @@ export const StudyCycleModal: React.FC<StudyCycleModalProps> = ({
             </button>
 
             {/* Steps: start from any point */}
-            <div className="divide-y divide-slate-800/80">
+            <div className="divide-y divide-slate-200 dark:divide-slate-800/80">
               {DEFAULT_STUDY_CYCLE_STEPS.map((step, i) => (
                 <div key={step.id} className="flex items-center justify-between gap-3 py-2.5">
                   <div className="flex items-center gap-3 min-w-0">
@@ -268,8 +268,8 @@ export const StudyCycleModal: React.FC<StudyCycleModalProps> = ({
                       {step.tag}
                     </span>
                     <div className="min-w-0">
-                      <p className="text-xs font-bold text-white truncate">{step.title}</p>
-                      <p className="text-[11px] text-slate-400 truncate" title={step.description}>
+                      <p className="text-xs font-bold text-slate-900 dark:text-white truncate">{step.title}</p>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate" title={step.description}>
                         {step.phoneNote}
                       </p>
                     </div>
@@ -277,7 +277,7 @@ export const StudyCycleModal: React.FC<StudyCycleModalProps> = ({
                   <button
                     type="button"
                     onClick={() => start(DEFAULT_STUDY_CYCLE_STEPS, i)}
-                    className="shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-lg border border-amber-500/40 text-amber-300 hover:bg-amber-500/10 text-[11px] font-bold transition-colors cursor-pointer"
+                    className="shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-lg border border-amber-500/40 text-amber-700 dark:text-amber-300 hover:bg-amber-500/10 text-[11px] font-bold transition-colors cursor-pointer"
                   >
                     <Play className="h-3 w-3" />
                     {i === 0 ? 'Começar' : 'Começar daqui'}
@@ -291,11 +291,11 @@ export const StudyCycleModal: React.FC<StudyCycleModalProps> = ({
         {/* 3. Custom cycles */}
         <section className="space-y-3">
           <div className="flex items-center justify-between gap-3">
-            <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-wider">3. Meus ciclos personalizados</h3>
+            <h3 className="text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">3. Meus ciclos personalizados</h3>
             <button
               type="button"
               onClick={() => setIsCreating(!isCreating)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[11px] font-bold text-white transition-colors cursor-pointer"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 text-[11px] font-bold text-slate-900 dark:text-white transition-colors cursor-pointer"
             >
               <Plus className="h-3.5 w-3.5 text-amber-400" />
               {isCreating ? 'Cancelar' : 'Criar ciclo'}
@@ -303,21 +303,21 @@ export const StudyCycleModal: React.FC<StudyCycleModalProps> = ({
           </div>
 
           {isCreating && (
-            <form onSubmit={handleAddCustomCycle} className="p-4 rounded-2xl bg-slate-950 border border-amber-500/30 space-y-3 animate-in fade-in duration-200">
+            <form onSubmit={handleAddCustomCycle} className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-amber-500/30 space-y-3 animate-in fade-in duration-200">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="sm:col-span-3">
-                  <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Nome do ciclo</label>
+                  <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Nome do ciclo</label>
                   <input
                     type="text"
                     required
                     placeholder="Ex: Foco Cirúrgico Avançado"
                     value={newTitle}
                     onChange={(e) => setNewTitle(e.target.value)}
-                    className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-xs font-bold text-white focus:outline-hidden focus:border-amber-500"
+                    className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2 text-xs font-bold text-slate-900 dark:text-white focus:outline-hidden focus:border-amber-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Estudo (min)</label>
+                  <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Estudo (min)</label>
                   <input
                     type="number"
                     min={1}
@@ -325,11 +325,11 @@ export const StudyCycleModal: React.FC<StudyCycleModalProps> = ({
                     required
                     value={newWorkMins}
                     onChange={(e) => setNewWorkMins(Number(e.target.value))}
-                    className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-xs font-bold text-white focus:outline-hidden focus:border-amber-500"
+                    className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2 text-xs font-bold text-slate-900 dark:text-white focus:outline-hidden focus:border-amber-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Pausa (min)</label>
+                  <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Pausa (min)</label>
                   <input
                     type="number"
                     min={0}
@@ -337,28 +337,28 @@ export const StudyCycleModal: React.FC<StudyCycleModalProps> = ({
                     required
                     value={newBreakMins}
                     onChange={(e) => setNewBreakMins(Number(e.target.value))}
-                    className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-xs font-bold text-white focus:outline-hidden focus:border-amber-500"
+                    className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2 text-xs font-bold text-slate-900 dark:text-white focus:outline-hidden focus:border-amber-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Celular na pausa</label>
+                  <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Celular na pausa</label>
                   <select
                     value={newPhoneAllowed ? 'true' : 'false'}
                     onChange={(e) => setNewPhoneAllowed(e.target.value === 'true')}
-                    className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-xs font-bold text-white focus:outline-hidden focus:border-amber-500"
+                    className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2 text-xs font-bold text-slate-900 dark:text-white focus:outline-hidden focus:border-amber-500"
                   >
                     <option value="false">Proibido</option>
                     <option value="true">Permitido</option>
                   </select>
                 </div>
                 <div className="sm:col-span-3">
-                  <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Descrição (opcional)</label>
+                  <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Descrição (opcional)</label>
                   <input
                     type="text"
                     placeholder="Ex: Bloco intensivo de questões de bancas passadas."
                     value={newDescription}
                     onChange={(e) => setNewDescription(e.target.value)}
-                    className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-xs text-slate-200 focus:outline-hidden focus:border-amber-500"
+                    className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2 text-xs text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-amber-500"
                   />
                 </div>
               </div>
@@ -380,15 +380,15 @@ export const StudyCycleModal: React.FC<StudyCycleModalProps> = ({
               {customSteps.map((step) => (
                 <div
                   key={step.id}
-                  className="flex items-center justify-between gap-3 p-3 rounded-xl border border-slate-800 bg-slate-950/60"
+                  className="flex items-center justify-between gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60"
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     <span className="shrink-0 w-16 text-center py-1 rounded-lg bg-amber-500/15 text-amber-300 text-[11px] font-black">
                       {step.tag}
                     </span>
                     <div className="min-w-0">
-                      <p className="text-xs font-bold text-white truncate">{step.title}</p>
-                      <p className="text-[11px] text-slate-400 truncate">{step.description}</p>
+                      <p className="text-xs font-bold text-slate-900 dark:text-white truncate">{step.title}</p>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">{step.description}</p>
                       {step.breakMins > 0 && (
                         <span
                           className={`mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${

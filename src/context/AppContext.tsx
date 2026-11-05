@@ -970,14 +970,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   };
 
-  // Dark Mode side-effect
-  useEffect(() => {
-    if (userProfile.darkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
+  // Tema: escuro é o padrão; o modo claro fica salvo neste aparelho
+  const [themeMode, setThemeMode] = useState<'dark' | 'light'>(() => {
+    try {
+      return localStorage.getItem('medacademic_theme') === 'light' ? 'light' : 'dark';
+    } catch {
+      return 'dark';
     }
-  }, [userProfile.darkMode]);
+  });
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.toggle('dark', themeMode === 'dark');
+    root.style.colorScheme = themeMode;
+    try {
+      localStorage.setItem('medacademic_theme', themeMode);
+    } catch {
+      /* sem armazenamento */
+    }
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', themeMode === 'dark' ? '#0f172a' : '#e9eff6');
+  }, [themeMode]);
 
   // Global Timer Tick: recalcula pelo relógio, então o tempo fica certo mesmo que o navegador
   // atrase o JavaScript em segundo plano (outra aba, outro app, tela bloqueada)
@@ -1947,7 +1958,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const toggleDarkMode = () => {
-    setUserProfile((prev) => ({ ...prev, darkMode: !prev.darkMode }));
+    const root = document.documentElement;
+    root.classList.add('theme-anim');
+    window.setTimeout(() => root.classList.remove('theme-anim'), 450);
+    setThemeMode((m) => (m === 'dark' ? 'light' : 'dark'));
   };
 
   // Clear everything completely (Wipe / Zerar tudo do site)
@@ -2235,7 +2249,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         stopStudyCycle,
         pomodoroSettings,
         updatePomodoroSettings,
-        isDarkMode: userProfile.darkMode,
+        isDarkMode: themeMode === 'dark',
         toggleDarkMode,
         isOnboardingOpen,
         setIsOnboardingOpen,
