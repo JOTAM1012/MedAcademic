@@ -425,7 +425,7 @@ export const ProfileView: React.FC = () => {
               )}
               <div className="flex items-center justify-center md:justify-start gap-2 text-sm text-slate-600 dark:text-slate-400 font-medium">
                 <GraduationCap className="h-4 w-4" />
-                <span>{(userProfile.university || '').toUpperCase()}</span>
+                <span id="profile-university" title={userProfile.universityName || undefined}>{(userProfile.university || "").toUpperCase()}</span>
               </div>
               
               <div className="mt-4 flex flex-wrap items-center justify-center md:justify-start gap-3">

@@ -27,6 +27,7 @@ import { useAuth } from '../context/AuthContext';
 import { UserProfile, Semester } from '../types';
 import { INITIAL_USER_PROFILE, INITIAL_SEMESTERS } from '../mockData';
 import { CARTOON_AVATARS } from '../data/avatars';
+import { UniversityPicker } from './UniversityPicker';
 import { fileToAvatarDataUrl, avatarErrorMessage } from '../data/avatarImage';
 
 const SPECIALTIES_R1 = [
@@ -154,6 +155,8 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
   const [greetingGender, setGreetingGender] = useState<'masculino' | 'feminino' | ''>(userProfile.greetingGender || '');
   const [email, setEmail] = useState(signupMode ? '' : userProfile.email || '');
   const [university, setUniversity] = useState(signupMode ? '' : (userProfile.university || '').toUpperCase());
+  const [universityCode, setUniversityCode] = useState<string | undefined>(signupMode ? undefined : userProfile.universityCode);
+  const [universityName, setUniversityName] = useState<string | undefined>(signupMode ? undefined : userProfile.universityName);
   // Sign-up access credentials (last step)
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -254,6 +257,8 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
       name: name.trim(),
       email: cleanEmail,
       university: university.trim().toUpperCase(),
+      universityCode,
+      universityName,
       dreamSpecialty: dreamSpecialty.trim(),
       targetExam: targetExam.trim(),
       googleSyncEnabled,
@@ -348,6 +353,8 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
       greetingGender: greetingGender || undefined,
       email: email.trim(),
       university: university.trim().toUpperCase(),
+      universityCode,
+      universityName,
       dreamSpecialty: dreamSpecialty.trim(),
       targetExam: targetExam.trim(),
       googleSyncEnabled: googleSyncEnabled,
@@ -695,12 +702,13 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
                       <span>Faculdade de Medicina / Instituição de Ensino</span>
                       <span className="text-[10px] text-rose-400 font-extrabold uppercase">* Obrigatório</span>
                     </label>
-                    <input
-                      type="text"
-                      value={university}
-                      onChange={(e) => setUniversity(e.target.value.toUpperCase())}
-                      placeholder="Digite o nome da sua faculdade (Ex: USP, UNIFESP, UFRJ, PUC, UFMG...)"
-                      className="w-full rounded-2xl bg-slate-950 border border-slate-800 px-4 py-3 text-sm text-white placeholder:text-slate-600 focus:outline-hidden focus:border-sky-500 transition-colors"
+                    <UniversityPicker
+                      value={{ university, universityCode, universityName }}
+                      onChange={(v) => {
+                        setUniversity(v.university);
+                        setUniversityCode(v.universityCode);
+                        setUniversityName(v.universityName);
+                      }}
                       autoFocus
                     />
                   </div>

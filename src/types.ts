@@ -248,7 +248,11 @@ export interface MedRevisionTopic {
 export interface UserProfile {
   name: string;
   email: string;
-  university: string;
+  university: string; // o que aparece: sigla da faculdade (ou nome em "Outra")
+  /** código e-MEC da faculdade escolhida na lista (vazio = "Outra") */
+  universityCode?: string;
+  /** nome completo da faculdade (da lista ou digitado em "Outra") */
+  universityName?: string;
   currentSemesterId: string;
   weeklyTargetHours: number;
   targetAverageGrade: number;

@@ -19,6 +19,7 @@ import {
   StudyTimePrompt,
 } from '../types';
 import { upgradeAvatarUrl } from '../data/avatars';
+import { matchSchool, schoolByCode } from '../data/medicalSchools';
 import { shrinkAvatarDataUrl, AVATAR_MAX_DATAURL } from '../data/avatarImage';
 import {
   BLOCK_REVIEWS_TO_MASTER,
@@ -2004,12 +2005,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showNotification('Tema removido do MedRevision.', 'info');
   };
 
-  // Nome da faculdade sempre em maiúsculas (contas antigas com "famaz" viram "FAMAZ")
+  // Faculdade: perfis antigos (texto livre) passam para a lista do e-MEC e mostram só a sigla;
+  // sem correspondência exata ficam como "Outra" (o texto digitado, em maiúsculas)
   useEffect(() => {
     if (!activeUserId || !isInitialLoadComplete) return;
     const u = userProfile.university;
-    if (u && u !== u.toUpperCase()) updateUserProfile({ university: u.toUpperCase() });
-  }, [userProfile.university, activeUserId, isInitialLoadComplete]);
+    if (!u) return;
+    if (userProfile.universityCode) {
+      const s = schoolByCode(userProfile.universityCode);
+      if (s && u !== s.sigla.toUpperCase()) setUserProfile((p) => ({ ...p, university: s.sigla.toUpperCase(), universityName: s.name }));
+      return;
+    }
+    if (userProfile.universityName !== undefined) {
+      if (u !== u.toUpperCase()) setUserProfile((p) => ({ ...p, university: u.toUpperCase() }));
+      return;
+    }
+    const m = matchSchool(u);
+    if (m) {
+      setUserProfile((p) => ({ ...p, university: m.sigla.toUpperCase(), universityCode: m.code, universityName: m.name }));
+      if (activeUserId) updateAccount(activeUserId, { university: m.sigla.toUpperCase() });
+    } else if (u !== u.toUpperCase()) {
+      setUserProfile((p) => ({ ...p, university: u.toUpperCase() }));
+    }
+  }, [userProfile.university, userProfile.universityCode, userProfile.universityName, activeUserId, isInitialLoadComplete]);
 
   // Avatares da versão anterior passam para o novo modelo de avatares
   useEffect(() => {
