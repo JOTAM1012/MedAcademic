@@ -22,6 +22,8 @@ import { Subject, Topic, TopicStatus } from '../types';
 import { CLINICA_MEDICA_SPECIALTIES, MEDICAL_AREAS, OTHER_AREA, getMedicalArea, getSpecialty } from '../data/areas';
 import { EditSubjectModal } from './modals/EditSubjectModal';
 import { SubjectBlocksPanel } from './SubjectBlocksPanel';
+import { CycleStructureView } from './CycleStructureView';
+import { cycleOfSemester } from '../data/subjectFormats';
 import { TOPIC_STATUS_INFO, REVIEWS_TO_MASTER, getReviewsDone, isTopicDone, topicStatusLabel } from '../data/topicStatus';
 
 interface AcademicStructureViewProps {
@@ -89,6 +91,12 @@ export const AcademicStructureView: React.FC<AcademicStructureViewProps> = ({
   const activeSubject = selectedSubjectId
     ? subjects.find((s) => s.id === selectedSubjectId) || visibleSubjects[0]
     : visibleSubjects[0];
+
+  // Básico e Clínico têm uma organização própria (por formato); o Internato segue por Grande Área
+  const cycle = cycleOfSemester(currentSemester);
+  if (cycle !== 'internato') {
+    return <CycleStructureView cycle={cycle} subjects={subjects} onOpenAddSubject={onOpenAddSubject} />;
+  }
 
   return (
     <div className="space-y-6 pb-12">

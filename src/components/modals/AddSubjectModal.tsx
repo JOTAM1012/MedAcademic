@@ -4,6 +4,9 @@ import { useApp } from '../../context/AppContext';
 import { AreaPicker } from '../AreaPicker';
 import { SpecialtyPicker } from '../SpecialtyPicker';
 import { getMedicalArea, getSpecialty, isClinicaMedica } from '../../data/areas';
+import { CycleSubjectForm } from './CycleSubjectForm';
+import { cycleOfSemester, getSubjectFormat } from '../../data/subjectFormats';
+import type { SubjectFormat, SubjectOrganization } from '../../types';
 
 interface AddSubjectModalProps {
   isOpen: boolean;
@@ -20,8 +23,14 @@ export const AddSubjectModal: React.FC<AddSubjectModalProps> = ({ isOpen, onClos
   const [name, setName] = useState('');
   const [area, setArea] = useState<string | null>(null);
   const [specialty, setSpecialty] = useState('');
+  // Básico/Clínico
+  const [format, setFormat] = useState<SubjectFormat | null>(null);
+  const [organization, setOrganization] = useState<SubjectOrganization>('checklist');
+  const [tutorialCount, setTutorialCount] = useState(5);
 
   if (!isOpen) return null;
+  const cycle = cycleOfSemester(currentSemester);
+  const isCycleMode = cycle !== 'internato';
 
   const isCM = isClinicaMedica(area || undefined);
   const areaInfo = area ? getMedicalArea(area) : null;
@@ -30,6 +39,9 @@ export const AddSubjectModal: React.FC<AddSubjectModalProps> = ({ isOpen, onClos
     setName('');
     setArea(null);
     setSpecialty('');
+    setFormat(null);
+    setOrganization('checklist');
+    setTutorialCount(5);
   };
 
   const handleClose = () => {
@@ -54,6 +66,29 @@ export const AddSubjectModal: React.FC<AddSubjectModalProps> = ({ isOpen, onClos
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isCycleMode) {
+      if (!name.trim() || !format) return;
+      const f = getSubjectFormat(format);
+      addSubject({
+        name: name.trim(),
+        universitySubject: name.trim(),
+        code: f.label.slice(0, 3).toUpperCase(),
+        color: f.color,
+        format,
+        organization,
+        checklistModules: [],
+        tutorials:
+          format === 'tutoria' && organization === 'checklist'
+            ? Array.from({ length: tutorialCount }, (_, i) => ({ id: `tut-${Date.now()}-${i}`, name: `Tutoria ${i + 1}` }))
+            : undefined,
+        targetGrade: 7.0,
+        semesterId: currentSemester?.id,
+      });
+      addXp(50, 'Nova Disciplina Cadastrada');
+      triggerConfetti();
+      handleClose();
+      return;
+    }
     if (!name.trim() || !area || !areaInfo) return;
     const sp = isCM ? getSpecialty(specialty) : undefined;
 
@@ -82,8 +117,10 @@ export const AddSubjectModal: React.FC<AddSubjectModalProps> = ({ isOpen, onClos
               <BookOpen className="h-5 w-5" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-slate-900 dark:text-white">Nova Disciplina da Faculdade</h2>
-              <p className="text-xs text-slate-500">Cadastre a disciplina da sua grade curricular</p>
+              <h2 className="text-base font-bold text-slate-900 dark:text-white">{isCycleMode ? "Novo componente do semestre" : "Nova Disciplina da Faculdade"}</h2>
+              <p className="text-xs text-slate-500">
+                {isCycleMode ? `${cycle === 'ciclo_basico' ? 'Ciclo Básico' : 'Ciclo Clínico'} · escolha o formato e como organizar` : 'Cadastre a disciplina da sua grade curricular'}
+              </p>
             </div>
           </div>
           <button onClick={handleClose} className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200" aria-label="Fechar">
@@ -106,6 +143,20 @@ export const AddSubjectModal: React.FC<AddSubjectModalProps> = ({ isOpen, onClos
             </span>
           </div>
 
+          {isCycleMode ? (
+            <CycleSubjectForm
+              cycle={cycle}
+              format={format}
+              onFormat={setFormat}
+              name={name}
+              onName={setName}
+              organization={organization}
+              onOrganization={setOrganization}
+              tutorialCount={tutorialCount}
+              onTutorialCount={setTutorialCount}
+            />
+          ) : (
+          <>
           {/* 1. Grande área (define grupo e cor) */}
           <AreaPicker value={area} onChange={handleAreaChange} label="1. Grande Área" />
 
@@ -132,6 +183,8 @@ export const AddSubjectModal: React.FC<AddSubjectModalProps> = ({ isOpen, onClos
               />
             </div>
           </div>
+          </>
+          )}
 
           <div className="app-modal-footer pt-3 flex items-center justify-end gap-2 border-t border-slate-100 dark:border-slate-800">
             <button
@@ -143,8 +196,12 @@ export const AddSubjectModal: React.FC<AddSubjectModalProps> = ({ isOpen, onClos
             </button>
             <button
               type="submit"
-              disabled={!name.trim() || !area}
-              title={!area ? 'Escolha a grande área' : !name.trim() ? 'Informe o nome da disciplina' : undefined}
+              disabled={!name.trim() || (isCycleMode ? !format : !area)}
+              title={
+                isCycleMode
+                  ? !format ? 'Escolha o formato' : !name.trim() ? 'Informe o nome' : undefined
+                  : !area ? 'Escolha a grande área' : !name.trim() ? 'Informe o nome da disciplina' : undefined
+              }
               className="px-5 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold text-xs shadow-xs"
             >
               Criar Disciplina

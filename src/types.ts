@@ -29,6 +29,8 @@ export interface Topic {
   nextReviewDate?: string;
   notes?: string;
   imageUrl?: string; // Imagem/diagrama/esquema clínico anexado
+  /** Tutoria: assunto que ficou "de cabide" (para estudar/revisar depois do fechamento) */
+  cabide?: boolean;
   imageCaption?: string;
   tags?: string[];
   estimatedHours?: number;
@@ -103,7 +105,27 @@ export interface Subject {
   currentGradeAverage?: number;
   topicsCount?: number;
   completedTopicsCount?: number;
+  /** Básico/Clínico: formato do componente na faculdade (Tutoria, Aula, Morfo, Anatomia...) */
+  format?: SubjectFormat;
+  /** Básico/Clínico: forma de organizar — por blocos (revisão espaçada) ou checklist Matéria → Tópico */
+  organization?: SubjectOrganization;
+  /** Checklist: ordem das matérias (inclui as que ainda não têm tópicos) */
+  checklistModules?: string[];
+  /** Tutoria (Básico/Clínico): sessões com abertura e fechamento */
+  tutorials?: TutorialSession[];
 }
+
+export interface TutorialSession {
+  id: string;
+  name: string; // "Tutoria 1"
+  date?: string;
+  openingGrade?: number; // 0–5
+  closingGrade?: number; // 0–5
+  cabide?: boolean; // ficou de cabide no fechamento
+}
+
+export type SubjectFormat = 'tutoria' | 'aula' | 'morfo' | 'anatomia' | 'habilidades' | 'personalizada';
+export type SubjectOrganization = 'blocos' | 'checklist';
 
 export interface Semester {
   id: string;

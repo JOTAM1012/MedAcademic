@@ -134,7 +134,7 @@ interface AppContextType {
   subjects: Subject[];
   /** Returns the id of the created subject */
   addSubject: (sub: Omit<Subject, 'id'>) => string;
-  updateSubject: (id: string, sub: Partial<Subject>) => void;
+  updateSubject: (id: string, sub: Partial<Subject>, opts?: { silent?: boolean }) => void;
   deleteSubject: (id: string) => void;
 
   // Topics
@@ -158,6 +158,12 @@ interface AppContextType {
   // Blocos de tópicos (a revisão espaçada é feita por bloco)
   topicBlocks: TopicBlock[];
   addTopicBlock: (subjectId: string, name: string) => string;
+  /** Checklist (Básico/Clínico): adiciona vários tópicos de uma vez (colar lista) */
+  addTopicsBulk: (tops: Omit<Topic, 'id'>[]) => void;
+  /** Checklist: transforma uma matéria vista em bloco do ciclo de revisões (Dia 0 = hoje) */
+  sendModuleToReview: (subjectId: string, moduleName: string) => void;
+  /** Muda a disciplina de Checklist para Blocos: cada matéria vira um bloco em estudo */
+  convertChecklistToBlocks: (subjectId: string) => void;
   renameTopicBlock: (id: string, name: string) => void;
   deleteTopicBlock: (id: string) => void;
   reviewTopicBlock: (id: string, difficulty: TopicDifficulty, result?: { questions?: number; correct?: number }) => void;
@@ -784,7 +790,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     if (!activeUserId || !isInitialLoadComplete) return;
     const validIds = new Set(topicBlocks.map((b) => b.id));
-    const orphans = topics.filter((t) => !t.blockId || !validIds.has(t.blockId));
+    // Checklist/Tutoria (Básico e Clínico) usam tópicos soltos de propósito: só vão para um bloco ao 'Enviar para Revisões'
+    const looseSubjects = new Set(subjects.filter((s) => s.organization === 'checklist').map((s) => s.id));
+    const brokenLoose = topics.some((t) => looseSubjects.has(t.subjectId) && t.blockId && !validIds.has(t.blockId));
+    if (brokenLoose) {
+      setTopics((prev) => prev.map((t) => (looseSubjects.has(t.subjectId) && t.blockId && !validIds.has(t.blockId) ? { ...t, blockId: undefined } : t)));
+      return;
+    }
+    const orphans = topics.filter((t) => !looseSubjects.has(t.subjectId) && (!t.blockId || !validIds.has(t.blockId)));
     if (orphans.length === 0) return;
 
     const today = ymd(new Date());
@@ -814,7 +827,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
     if (newBlocks.length > 0) setTopicBlocks((prev) => [...prev, ...newBlocks.filter((b) => !prev.some((p) => p.id === b.id))]);
     setTopics((prev) =>
-      prev.map((t) => (t.blockId && validIds.has(t.blockId) ? t : { ...t, blockId: 'blk-auto-' + t.subjectId }))
+      prev.map((t) => (looseSubjects.has(t.subjectId) || (t.blockId && validIds.has(t.blockId)) ? t : { ...t, blockId: 'blk-auto-' + t.subjectId }))
     );
   }, [topics, topicBlocks, subjects, activeUserId, isInitialLoadComplete]);
 
@@ -1489,9 +1502,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return newSub.id;
   };
 
-  const updateSubject = (id: string, sub: Partial<Subject>) => {
+  const updateSubject = (id: string, sub: Partial<Subject>, opts?: { silent?: boolean }) => {
     setSubjects((prev) => prev.map((s) => (s.id === id ? { ...s, ...sub } : s)));
-    showNotification('Disciplina atualizada!', 'success');
+    if (!opts?.silent) showNotification('Disciplina atualizada!', 'success');
   };
 
   const deleteSubject = (id: string) => {
@@ -1640,6 +1653,66 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     ]);
     showNotification(`Bloco "${name.trim()}" criado.`, 'success');
     return id;
+  };
+
+  const addTopicsBulk = (tops: Omit<Topic, 'id'>[]) => {
+    if (tops.length === 0) return;
+    const stamp = Date.now();
+    const created: Topic[] = tops.map((t, i) => ({ ...t, id: `top-${stamp}-${i}-${Math.random().toString(36).slice(2, 6)}` }));
+    setTopics((prev) => [...prev, ...created]);
+    showNotification(created.length === 1 ? `Tópico "${created[0].title}" adicionado!` : `${created.length} tópicos adicionados!`, 'success');
+  };
+
+  const sendModuleToReview = (subjectId: string, moduleName: string) => {
+    const list = topics.filter((t) => t.subjectId === subjectId && (t.moduleName || '') === moduleName && !t.blockId);
+    if (list.length === 0) return;
+    const id = 'blk-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
+    const today = ymd(new Date());
+    setTopicBlocks((prev) => [
+      ...prev,
+      {
+        id,
+        subjectId,
+        name: moduleName,
+        createdAt: new Date().toISOString(),
+        reviewStatus: 'revisao',
+        reviewsDone: 0,
+        completedDate: today,
+        nextReviewDate: addDaysYMD(FIRST_REVIEW_DAY),
+      },
+    ]);
+    const ids = new Set(list.map((t) => t.id));
+    setTopics((prev) => prev.map((t) => (ids.has(t.id) ? { ...t, blockId: id } : t)));
+    addXp(50, 'Matéria enviada para as revisões');
+    triggerConfetti();
+    setStudyTimePrompt({ kind: 'block', blockId: id, subjectId, name: moduleName });
+    showNotification(`🔁 "${moduleName}" entrou nas Revisões! 1ª revisão no Dia 7, em ${addDaysYMD(FIRST_REVIEW_DAY).split('-').reverse().slice(0, 2).join('/')}.`, 'success');
+  };
+
+  const convertChecklistToBlocks = (subjectId: string) => {
+    const sub = subjects.find((x) => x.id === subjectId);
+    const loose = topics.filter((t) => t.subjectId === subjectId && !t.blockId);
+    const names = Array.from(new Set([...(sub?.checklistModules || []), ...loose.map((t) => t.moduleName || 'Geral')]));
+    const existing = topicBlocks.filter((b) => b.subjectId === subjectId);
+    const stamp = Date.now();
+    const newBlocks: TopicBlock[] = [];
+    const idByName = new Map<string, string>();
+    names.forEach((name, i) => {
+      const found = existing.find((b) => b.name === name);
+      if (found) {
+        idByName.set(name, found.id);
+        return;
+      }
+      const id = `blk-${stamp}-${i}-${Math.random().toString(36).slice(2, 6)}`;
+      idByName.set(name, id);
+      newBlocks.push({ id, subjectId, name, createdAt: new Date(stamp + i).toISOString(), reviewStatus: 'estudando', reviewsDone: 0 });
+    });
+    if (newBlocks.length) setTopicBlocks((prev) => [...prev, ...newBlocks]);
+    setTopics((prev) =>
+      prev.map((t) =>
+        t.subjectId === subjectId && !t.blockId ? { ...t, moduleName: t.moduleName || 'Geral', blockId: idByName.get(t.moduleName || 'Geral') } : t
+      )
+    );
   };
 
   const renameTopicBlock = (id: string, name: string) => {
@@ -2295,6 +2368,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addQuestionLog,
         deleteQuestionLog,
         addTopicBlock,
+        addTopicsBulk,
+        sendModuleToReview,
+        convertChecklistToBlocks,
         renameTopicBlock,
         deleteTopicBlock,
         reviewTopicBlock,

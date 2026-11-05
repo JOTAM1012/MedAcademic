@@ -5,6 +5,9 @@ import { Subject } from '../../types';
 import { AreaPicker } from '../AreaPicker';
 import { getMedicalArea, getSpecialty, isClinicaMedica, OTHER_AREA } from '../../data/areas';
 import { SpecialtyPicker } from '../SpecialtyPicker';
+import { CycleSubjectForm } from './CycleSubjectForm';
+import { cycleOfSemester, getSubjectFormat } from '../../data/subjectFormats';
+import type { SubjectFormat, SubjectOrganization } from '../../types';
 
 interface EditSubjectModalProps {
   isOpen: boolean;
@@ -18,14 +21,18 @@ export const EditSubjectModal: React.FC<EditSubjectModalProps> = ({
   onClose,
   subject,
 }) => {
-  const { currentSemester, updateSubject, deleteSubject, showNotification } = useApp();
+  const { currentSemester, updateSubject, deleteSubject, showNotification, topicBlocks, convertChecklistToBlocks } = useApp();
 
   const [name, setName] = useState('');
   const [area, setArea] = useState<string | null>(null);
   const [specialty, setSpecialty] = useState('');
+  const [format, setFormat] = useState<SubjectFormat | null>(null);
+  const [organization, setOrganization] = useState<SubjectOrganization>('blocos');
 
   useEffect(() => {
     if (subject) {
+      setFormat(subject.format || 'personalizada');
+      setOrganization(subject.organization || 'blocos');
       setName(subject.universitySubject || subject.name || '');
       const current = getMedicalArea(subject.majorArea);
       setArea(current.id === OTHER_AREA.id ? null : current.id);
@@ -34,9 +41,32 @@ export const EditSubjectModal: React.FC<EditSubjectModalProps> = ({
   }, [subject]);
 
   if (!isOpen || !subject) return null;
+  const cycle = cycleOfSemester(currentSemester);
+  const isCycleMode = cycle !== 'internato';
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isCycleMode) {
+      if (!name.trim() || !format) return;
+      const f = getSubjectFormat(format);
+      const prevOrg = subject.organization || 'blocos';
+      const changes: Partial<Subject> = {
+        name: name.trim(),
+        universitySubject: name.trim(),
+        format,
+        organization,
+        color: f.color,
+        code: f.label.slice(0, 3).toUpperCase(),
+      };
+      if (prevOrg === 'checklist' && organization === 'blocos') convertChecklistToBlocks(subject.id);
+      if (prevOrg === 'blocos' && organization === 'checklist') {
+        // os blocos viram as matérias do checklist (os tópicos continuam nos mesmos grupos)
+        changes.checklistModules = topicBlocks.filter((b) => b.subjectId === subject.id).map((b) => b.name);
+      }
+      updateSubject(subject.id, changes);
+      onClose();
+      return;
+    }
     if (!name.trim() || !area) return;
     const areaInfo = getMedicalArea(area);
 
@@ -103,6 +133,18 @@ export const EditSubjectModal: React.FC<EditSubjectModalProps> = ({
             </span>
           </div>
 
+          {isCycleMode ? (
+            <CycleSubjectForm
+              cycle={cycle}
+              format={format}
+              onFormat={setFormat}
+              name={name}
+              onName={setName}
+              organization={organization}
+              onOrganization={setOrganization}
+            />
+          ) : (
+          <>
           {/* Discipline Name */}
           <div>
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
@@ -122,6 +164,9 @@ export const EditSubjectModal: React.FC<EditSubjectModalProps> = ({
           {/* Grande Área (define grupo e cor) */}
           <AreaPicker value={area} onChange={setArea} />
           {isClinicaMedica(area || undefined) && <SpecialtyPicker value={specialty} onChange={setSpecialty} />}
+
+          </>
+          )}
 
           <div className="pt-3 flex items-center justify-between gap-2 border-t border-slate-100 dark:border-slate-800">
             <button
@@ -143,7 +188,7 @@ export const EditSubjectModal: React.FC<EditSubjectModalProps> = ({
               </button>
               <button
                 type="submit"
-                disabled={!name.trim() || !area}
+                disabled={!name.trim() || (isCycleMode ? !format : !area)}
                 title={!area ? 'Escolha a grande área' : undefined}
                 className="px-5 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold text-xs shadow-xs"
               >
