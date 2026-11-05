@@ -205,3 +205,33 @@
 @media (prefers-reduced-motion: reduce) {
   .onair-sign--live, .onair-dot, .onair-gear { animation: none; }
 }
+
+
+/* Moldura dourada do avatar do Dono (borda girando + brilho) */
+.owner-gold-frame {
+  position: relative;
+  padding: 4px;
+  isolation: isolate;
+  box-shadow: 0 0 18px rgba(251, 191, 36, 0.45), 0 0 42px rgba(245, 158, 11, 0.18);
+}
+.owner-gold-frame::before {
+  content: '';
+  position: absolute;
+  inset: -40%;
+  z-index: -1;
+  background: conic-gradient(from 0deg, #92400e, #f59e0b, #fde68a, #fffbeb, #fde68a, #f59e0b, #92400e, #f59e0b, #fde68a, #92400e);
+  animation: owner-frame-spin 5s linear infinite;
+}
+.owner-gold-frame > img {
+  position: relative;
+  border-radius: calc(1.5rem - 4px);
+}
+.owner-gold-frame--sm {
+  padding: 2px;
+  box-shadow: 0 0 10px rgba(251, 191, 36, 0.55);
+}
+.owner-gold-frame--sm > img { border-radius: 9999px; }
+@keyframes owner-frame-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .owner-gold-frame::before { animation: none; }
+}

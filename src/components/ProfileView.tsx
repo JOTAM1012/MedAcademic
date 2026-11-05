@@ -394,8 +394,13 @@ export const ProfileView: React.FC = () => {
           
           {/* Identity & Main Info Card */}
           <div className="relative overflow-hidden rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs flex flex-col md:flex-row items-center gap-6 p-6">
-            <div className="shrink-0 w-24 h-24 sm:w-32 sm:h-32 rounded-3xl overflow-hidden border-4 border-white dark:border-slate-800 shadow-md">
-              <img src={userProfile.avatarUrl || CARTOON_AVATARS[0].url} alt="Avatar" className="w-full h-full object-cover" />
+            <div
+              id="profile-avatar-frame"
+              className={`shrink-0 w-24 h-24 sm:w-32 sm:h-32 rounded-3xl overflow-hidden shadow-md ${
+                access.isOwner ? 'owner-gold-frame' : 'border-4 border-white dark:border-slate-800'
+              }`}
+            >
+              <img src={userProfile.avatarUrl || CARTOON_AVATARS[0].url} alt="Avatar" className="w-full h-full object-cover rounded-[inherit]" />
             </div>
             <div className="text-center md:text-left flex-1">
               <h2 className="text-2xl font-black text-slate-900 dark:text-white mb-1">

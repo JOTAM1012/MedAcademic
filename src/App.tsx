@@ -11,6 +11,7 @@ import { AccessGate } from './components/AccessGate';
 import { AnnouncementBanner } from './components/AnnouncementBanner';
 import { OwnerPanelView } from './components/OwnerPanelView';
 import { OwnerName } from './components/OwnerName';
+import { useAccess } from './context/AccessContext';
 import { StudyTimeModal } from './components/modals/StudyTimeModal';
 import { DashboardView } from './components/DashboardView';
 import { AcademicStructureView } from './components/AcademicStructureView';
@@ -38,6 +39,7 @@ import { AuthModal } from './components/modals/AuthModal';
 
 const AppContent: React.FC = () => {
   const { activeUserId, activeUser, logout, isDeleting, isSigningUp } = useAuth();
+  const { isOwner: isOwnerAccount } = useAccess();
   const {
     currentTab,
     setCurrentTab,
@@ -422,7 +424,11 @@ const AppContent: React.FC = () => {
             }`}
           >
             <div className="relative shrink-0">
-              <div className="w-8 h-8 rounded-full bg-blue-950 border border-slate-700 overflow-hidden transition-transform group-hover:scale-105">
+              <div
+                className={`w-8 h-8 rounded-full bg-blue-950 overflow-hidden transition-transform group-hover:scale-105 ${
+                  isOwnerAccount ? 'owner-gold-frame owner-gold-frame--sm' : 'border border-slate-700'
+                }`}
+              >
                 <img
                   src={userProfile.avatarUrl}
                   alt={userProfile.name}
