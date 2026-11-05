@@ -19,6 +19,8 @@ import {
   Camera,
   Cloud,
   CloudOff,
+  X as XIcon,
+  Pencil,
 } from 'lucide-react';
 import { useApp, seedNewUserData } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
@@ -124,7 +126,24 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
     forceCloudSync,
     setIsEditingProfileSetup,
     isEditingProfileSetup,
+    currentSemester,
   } = useApp();
+
+  // Edição de perfil (não é o cadastro inicial): passos 2 e 3 são opcionais
+  const editMode = isEditingProfileSetup && !signupMode;
+  // Ciclo/semestre iniciais vêm do semestre atual (antes sempre começava em "5º - Ciclo Clínico")
+  const initialAcademic = (() => {
+    const n = Number(currentSemester?.name.match(/^\s*(\d{1,2})/)?.[1]) || 0;
+    const cycle = MEDICAL_CYCLES.find((c) => c.semesters.some((x) => x.number === n));
+    if (!editMode || !cycle) return null;
+    return {
+      cycle: cycle.id as 'ciclo_basico' | 'ciclo_clinico' | 'internato',
+      num: n,
+      name: currentSemester?.name || '',
+      code: currentSemester?.code || currentSemester?.period || '2026.1',
+    };
+  })();
+  const [editAcademic, setEditAcademic] = useState(false);
 
   const [currentStep, setCurrentStep] = useState<number>(1);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -140,10 +159,10 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
   const [showPassword, setShowPassword] = useState(false);
   const [signupError, setSignupError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [selectedCycle, setSelectedCycle] = useState<'ciclo_basico' | 'ciclo_clinico' | 'internato'>('ciclo_clinico');
-  const [selectedSemesterNum, setSelectedSemesterNum] = useState<number>(5);
-  const [semesterName, setSemesterName] = useState('5º Semestre - Ciclo Clínico');
-  const [semesterCode, setSemesterCode] = useState('2026.1');
+  const [selectedCycle, setSelectedCycle] = useState<'ciclo_basico' | 'ciclo_clinico' | 'internato'>(initialAcademic?.cycle || 'ciclo_clinico');
+  const [selectedSemesterNum, setSelectedSemesterNum] = useState<number>(initialAcademic?.num || 5);
+  const [semesterName, setSemesterName] = useState(initialAcademic?.name || '5º Semestre - Ciclo Clínico');
+  const [semesterCode, setSemesterCode] = useState(initialAcademic?.code || '2026.1');
   const [dreamSpecialty, setDreamSpecialty] = useState(userProfile.dreamSpecialty || 'Clínica Médica');
   const [targetExam, setTargetExam] = useState(userProfile.targetExam || '');
   const [googleSyncEnabled, setGoogleSyncEnabled] = useState(true);
@@ -284,7 +303,7 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
       setCurrentStep(1);
       return;
     }
-    if (!email.trim() || !email.includes('@')) {
+    if (!editMode && (!email.trim() || !email.includes('@'))) {
       showNotification('Por favor, informe um e-mail acadêmico válido.', 'warning');
       setCurrentStep(1);
       return;
@@ -304,6 +323,17 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
         name: chosenSemesterName,
         targetHoursWeekly: Number(weeklyTargetHours),
         description: `${activeCycleConfig.title} • ${chosenSemesterName}`,
+      });
+    }
+
+    // Edição: só altera ciclo/semestre se o usuário escolheu editar
+    if (editMode && editAcademic && currentSemester) {
+      const chosen = semesterName.trim() || `${selectedSemesterNum}º Semestre - ${activeCycleConfig.title}`;
+      updateSemester(currentSemester.id, {
+        name: chosen,
+        code: semesterCode.trim() || currentSemester.code,
+        period: semesterCode.trim() || currentSemester.period,
+        description: `${activeCycleConfig.title} • ${chosen}`,
       });
     }
 
@@ -407,10 +437,12 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
           )}
           {isEditingProfileSetup && (
             <button
+              id="profile-edit-cancel-top"
               onClick={() => setIsEditingProfileSetup(false)}
-              className="text-xs font-bold px-4 py-2 rounded-xl border border-slate-700 text-slate-300 hover:bg-slate-800 transition-colors"
+              className="text-xs font-black px-4 py-2 rounded-xl border border-rose-500/50 bg-rose-500/10 text-rose-300 hover:bg-rose-500/20 transition-colors flex items-center gap-1.5"
             >
-              Cancelar Edição
+              <XIcon className="h-3.5 w-3.5" />
+              Cancelar edição
             </button>
           )}
           <div className="flex items-center gap-2 hidden sm:flex">
@@ -427,9 +459,9 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
             >
               {currentStep > step ? <Check className="h-3 w-3" /> : <span>{step}</span>}
               <span className="hidden sm:inline">
-                {step === 1 && 'Identidade & Foto'}
+                {step === 1 && (editMode ? 'Nome & Avatar' : 'Identidade & Foto')}
                 {step === 2 && 'Faculdade & Ciclo'}
-                {step === 3 && 'Residência R1'}
+                {step === 3 && (editMode ? 'Metas' : 'Residência R1')}
                 {step === 4 && (signupMode ? 'E-mail & Senha' : isEditingProfileSetup ? 'Salvar' : 'Concluir')}
               </span>
             </div>
@@ -451,13 +483,15 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
                 <div>
                   <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-500/10 text-sky-400 text-xs font-bold border border-sky-500/20 mb-2">
                     <User className="h-3.5 w-3.5" />
-                    <span>Passo 1 de 4: Identificação e Foto do Estudante</span>
+                    <span>{editMode ? 'Passo 1 de 4: Nome, avatar e saudação' : 'Passo 1 de 4: Identificação e Foto do Estudante'}</span>
                   </div>
                   <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
-                    Como podemos chamar você?
+                    {editMode ? 'Seu nome e seu avatar' : 'Como podemos chamar você?'}
                   </h2>
                   <p className="text-xs sm:text-sm text-slate-400 mt-1">
-                    Defina seu nome e escolha um avatar médico cartoon ou faça upload da sua própria foto.
+                    {editMode
+                      ? 'Altere seu nome, a forma como prefere ser saudado(a) e seu avatar.'
+                      : 'Defina seu nome e escolha um avatar médico cartoon ou faça upload da sua própria foto.'}
                   </p>
                 </div>
 
@@ -503,8 +537,8 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
                     </div>
                   )}
 
-                  {/* In sign-up mode the e-mail is asked on the last step, together with the password */}
-                  {!signupMode && (
+                  {/* No cadastro o e-mail é pedido no último passo; na edição de perfil ele não aparece */}
+                  {!signupMode && !editMode && (
                   <div>
                     <label className="block text-xs font-bold text-slate-300 mb-1.5 flex items-center justify-between">
                       <span>E-mail Acadêmico / Principal</span>
@@ -609,10 +643,41 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
                     Onde e em que fase você está estudando?
                   </h2>
                   <p className="text-xs sm:text-sm text-slate-400 mt-1">
-                    Informe sua faculdade de medicina e selecione seu ciclo acadêmico atual.
+                    {editMode
+                      ? 'Este passo é opcional: só altere se precisar corrigir sua faculdade, ciclo ou semestre.'
+                      : 'Informe sua faculdade de medicina e selecione seu ciclo acadêmico atual.'}
                   </p>
                 </div>
 
+                {editMode && (
+                  <div id="profile-edit-academic-toggle" className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                      <div className="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800">
+                        <div className="text-[10px] text-slate-500 font-bold uppercase">Faculdade</div>
+                        <div className="text-sm font-black text-slate-200 mt-0.5 truncate">{(userProfile.university || '—').toUpperCase()}</div>
+                      </div>
+                      <div className="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800">
+                        <div className="text-[10px] text-slate-500 font-bold uppercase">Semestre atual</div>
+                        <div className="text-sm font-black text-slate-200 mt-0.5 truncate">{currentSemester?.name || '—'}</div>
+                      </div>
+                    </div>
+                    <label className="flex items-start gap-3 cursor-pointer select-none">
+                      <input
+                        id="profile-edit-academic-checkbox"
+                        type="checkbox"
+                        checked={editAcademic}
+                        onChange={(e) => setEditAcademic(e.target.checked)}
+                        className="mt-0.5 h-4 w-4 accent-sky-500 cursor-pointer"
+                      />
+                      <span>
+                        <span className="block text-xs font-black text-white">Editar faculdade, ciclo acadêmico e semestre</span>
+                        <span className="block text-[11px] text-slate-400">Opcional. Se não marcar, tudo continua como está — é só seguir para o próximo passo.</span>
+                      </span>
+                    </label>
+                  </div>
+                )}
+
+                {(!editMode || editAcademic) && (
                 <div className="space-y-5">
                   {/* University Freeform Input */}
                   <div>
@@ -729,6 +794,7 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
                     </div>
                   </div>
                 </div>
+                )}
               </div>
             )}
 
@@ -754,6 +820,11 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
                       ? 'Defina sua especialidade principal para o R1 e configure suas metas de horas e média acadêmica.'
                       : 'Configure suas metas semanais de estudos e sua média acadêmica alvo para o seu ciclo de formação.'}
                   </p>
+                  {editMode && (
+                    <p className="mt-2 inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-2.5 py-1">
+                      <Pencil className="h-3 w-3" /> Opcional: suas metas atuais já estão marcadas — mude só se quiser.
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-5">
@@ -821,10 +892,11 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
                     </div>
 
                     {/* Quick presets for weekly hours */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
                       {[
                         { hours: 15, label: 'Leve', desc: '15h/sem' },
                         { hours: 25, label: 'Moderada', desc: '25h/sem' },
+                        { hours: 30, label: 'Recomendada', desc: '30h/sem' },
                         { hours: 35, label: 'Foco R1', desc: '35h/sem' },
                         { hours: 45, label: 'Intensiva', desc: '45h/sem' },
                       ].map((preset) => {
@@ -874,11 +946,12 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
                     </div>
 
                     {/* Quick presets for Target Grade */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
                       {[
+                        { grade: 7.0, label: 'Na média', desc: 'Nota 7.0' },
                         { grade: 7.5, label: 'Aprovação', desc: 'Nota 7.5' },
-                        { grade: 8.0, label: 'Bom Desempenho', desc: 'Nota 8.0' },
-                        { grade: 8.5, label: 'Destaque R1', desc: 'Nota 8.5' },
+                        { grade: 8.0, label: 'Bom desempenho', desc: 'Nota 8.0' },
+                        { grade: 8.5, label: 'Destaque da turma', desc: 'Nota 8.5' },
                         { grade: 9.0, label: 'Excelência', desc: 'Nota 9.0' },
                       ].map((preset) => {
                         const isSelected = targetAverageGrade === preset.grade;
@@ -1030,7 +1103,7 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
                       <h4 className="text-sm font-black text-white">{isEditingProfileSetup ? 'Seus dados estão seguros' : 'Painel estruturado'}</h4>
                       <p className="text-xs text-slate-400 mt-1 leading-relaxed">
                         {isEditingProfileSetup
-                          ? 'Nada é apagado ao editar o perfil. Para estudar outro semestre, troque em Perfil → Ciclo acadêmico e semestre.'
+                          ? 'Nada é apagado ao editar o perfil.'
                           : 'Adicione as disciplinas da sua faculdade, monte os blocos de revisão e registre suas horas de estudo.'}
                       </p>
                     </div>
@@ -1061,18 +1134,29 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
 
             {/* Navigation Buttons */}
             <div className="flex items-center justify-between pt-6 border-t border-slate-800">
-              {currentStep > 1 ? (
-                <button
-                  type="button"
-                  onClick={() => setCurrentStep((prev) => prev - 1)}
-                  className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-slate-800 text-xs font-bold text-slate-300 hover:bg-slate-800 transition-colors cursor-pointer"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                  <span>Voltar</span>
-                </button>
-              ) : (
-                <div />
-              )}
+              <div className="flex items-center gap-2">
+                {currentStep > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => setCurrentStep((prev) => prev - 1)}
+                    className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-slate-800 text-xs font-bold text-slate-300 hover:bg-slate-800 transition-colors cursor-pointer"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                    <span>Voltar</span>
+                  </button>
+                )}
+                {editMode && (
+                  <button
+                    type="button"
+                    id="profile-edit-cancel-btn"
+                    onClick={() => setIsEditingProfileSetup(false)}
+                    className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-rose-500/50 bg-rose-500/10 text-xs font-black text-rose-300 hover:bg-rose-500/20 transition-colors cursor-pointer"
+                  >
+                    <XIcon className="h-4 w-4" />
+                    <span>Cancelar edição</span>
+                  </button>
+                )}
+              </div>
 
               {currentStep < 4 ? (
                 <button
@@ -1083,12 +1167,12 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
                         showNotification('Por favor, informe seu Nome Completo (campo obrigatório).', 'warning');
                         return;
                       }
-                      if (!signupMode && (!email.trim() || !email.includes('@'))) {
+                      if (!signupMode && !editMode && (!email.trim() || !email.includes('@'))) {
                         showNotification('Por favor, informe um E-mail Acadêmico válido (campo obrigatório).', 'warning');
                         return;
                       }
                     }
-                    if (currentStep === 2) {
+                    if (currentStep === 2 && (!editMode || editAcademic)) {
                       if (!university.trim()) {
                         showNotification('Por favor, informe sua Faculdade de Medicina (campo obrigatório).', 'warning');
                         return;
