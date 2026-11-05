@@ -38,7 +38,17 @@ export type BlockReviewStatus = 'estudando' | 'revisao' | 'dominado';
 
 // Bloco de tópicos dentro de uma disciplina (ex.: Endocrinologia → Diabetes, Tireoide).
 // Entra nas revisões quando todos os tópicos forem vistos; 4 revisões espaçadas → dominado.
+export interface StudyTimePrompt {
+  kind: 'block' | 'review';
+  blockId: string;
+  subjectId?: string;
+  name: string;
+  reviewNumber?: number;
+}
+
 export interface TopicBlock {
+  /** Tempo de estudo informado ao concluir o bloco (Dia 0) */
+  studyMinutes?: number;
   id: string;
   subjectId: string;
   name: string;
@@ -49,7 +59,17 @@ export interface TopicBlock {
   nextReviewDate?: string; // YYYY-MM-DD
   lastReviewDate?: string;
   difficulty?: TopicDifficulty; // última avaliação: define o plano sugerido da próxima revisão
-  reviewLog?: Array<{ date: string; difficulty: TopicDifficulty; questions?: number; correct?: number }>;
+  reviewLog?: Array<{
+    date: string;
+    difficulty: TopicDifficulty;
+    questions?: number;
+    correct?: number;
+    /** Estado do bloco antes desta revisão (para desfazer) */
+    prev?: { nextReviewDate?: string; lastReviewDate?: string; difficulty?: TopicDifficulty };
+    /** Tempo de estudo informado na conclusão da revisão */
+    minutes?: number;
+    sessionId?: string;
+  }>;
 }
 
 // Questões registradas (por bloco ou por tópico), somadas no semestre

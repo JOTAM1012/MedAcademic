@@ -1,12 +1,18 @@
 import React, { useState } from 'react';
-import { AlertCircle, Award, Calendar, Search, Timer, Zap, ArrowRight, BookmarkCheck, ClipboardCheck, Layers, ClipboardList } from 'lucide-react';
+import { AlertCircle, Award, Calendar, Search, Timer, Zap, ArrowRight, BookmarkCheck, ClipboardCheck, Layers, ClipboardList,
+  Undo2,
+} from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { TopicBlock, TopicDifficulty } from '../types';
 import { SpacedRepetitionRulesCard } from './SpacedRepetitionRulesCard';
 import { QuestionLogModal } from './modals/QuestionLogModal';
+import { formatMinutes } from './modals/StudyTimeModal';
 import { getMedicalArea, getSpecialty } from '../data/areas';
 import {
   BLOCK_REVIEWS_TO_MASTER,
+  completedCycles,
+  currentGroupStart,
+  isBlockMastered,
   FIRST_REVIEW_DAY,
   PLAN_ORDER,
   REVIEW_PLANS,
@@ -34,7 +40,7 @@ const RATING_STYLE: Record<TopicDifficulty, string> = {
 // Repetição espaçada por BLOCO: Dia 0 = bloco concluído, 1ª revisão no Dia 7; a avaliação
 // (Difícil/Médio/Fácil) define a próxima data e a sugestão de estudo para esse dia.
 export const SpacedRepetitionView: React.FC<SpacedRepetitionViewProps> = () => {
-  const { topicBlocks, topics, subjects, reviewTopicBlock, addQuestionLog, setCurrentTab, setTimerMode, addXp, triggerConfetti, markTopicSeen } = useApp();
+  const { topicBlocks, topics, subjects, reviewTopicBlock, undoBlockReview, addQuestionLog, setCurrentTab, setTimerMode, addXp, triggerConfetti, markTopicSeen } = useApp();
   // Ao terminar a revisão de um bloco com pendências, pergunta se os tópicos "ver depois" já foram vistos
   const [pendingPromptBlock, setPendingPromptBlock] = useState<string | null>(null);
   const [pendingAnswers, setPendingAnswers] = useState<Record<string, 'sim' | 'nao'>>({});
@@ -70,7 +76,7 @@ export const SpacedRepetitionView: React.FC<SpacedRepetitionViewProps> = () => {
   const cycleBlocks = topicBlocks.filter((b) => b.reviewStatus !== 'estudando' && subjects.some((s) => s.id === b.subjectId));
   const studyingCount = topicBlocks.filter((b) => b.reviewStatus === 'estudando').length;
   const dueBlocks = cycleBlocks.filter((b) => isBlockDue(b, todayStr)).sort((a, b) => (a.nextReviewDate || '').localeCompare(b.nextReviewDate || ''));
-  const masteredBlocks = cycleBlocks.filter((b) => b.reviewStatus === 'dominado');
+  const masteredBlocks = cycleBlocks.filter(isBlockMastered);
   const upcomingBlocks = cycleBlocks.filter((b) => b.reviewStatus === 'revisao' && !!b.nextReviewDate && b.nextReviewDate > todayStr);
   const next7Count = upcomingBlocks.filter((b) => b.nextReviewDate! <= addDaysYMD(7)).length;
 
@@ -79,7 +85,7 @@ export const SpacedRepetitionView: React.FC<SpacedRepetitionViewProps> = () => {
       if (selectedSubjectFilter !== 'all' && b.subjectId !== selectedSubjectFilter) return false;
       if (statusFilter === 'due' && !isBlockDue(b, todayStr)) return false;
       if (statusFilter === 'upcoming' && !(b.reviewStatus === 'revisao' && b.nextReviewDate && b.nextReviewDate > todayStr)) return false;
-      if (statusFilter === 'mastered' && b.reviewStatus !== 'dominado') return false;
+      if (statusFilter === 'mastered' && !isBlockMastered(b)) return false;
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         const sub = subjectOf(b);
@@ -154,9 +160,8 @@ export const SpacedRepetitionView: React.FC<SpacedRepetitionViewProps> = () => {
   // Prévia do que cada botão agenda
   const ratingPreview = (b: TopicBlock, level: TopicDifficulty) => {
     const done = b.reviewsDone + 1;
-    if (done >= BLOCK_REVIEWS_TO_MASTER) return 'conclui → Dominado';
     const days = nextIntervalDays(level, done);
-    return `próxima em ${days}d · ${REVIEW_PLANS[level].questions}Q`;
+    return `R${done + 1} em ${days}d · ${REVIEW_PLANS[level].questions}Q`;
   };
 
   // Questões informadas no card (opcional) entram no registro da revisão e no total do semestre
@@ -178,7 +183,7 @@ export const SpacedRepetitionView: React.FC<SpacedRepetitionViewProps> = () => {
     return (
       <div className="rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
         <div className="px-3 py-2 bg-slate-50 dark:bg-slate-950/60 text-[11px] font-black uppercase tracking-wide text-slate-500">
-          Revisões feitas ({log.length}/{BLOCK_REVIEWS_TO_MASTER})
+          Revisões feitas ({log.length})
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-[11px] min-w-[460px]">
@@ -188,6 +193,7 @@ export const SpacedRepetitionView: React.FC<SpacedRepetitionViewProps> = () => {
                 <th className="px-2 py-1.5 font-bold">Concluída em</th>
                 <th className="px-2 py-1.5 font-bold">Questões</th>
                 <th className="px-2 py-1.5 font-bold">Acertos</th>
+                <th className="px-2 py-1.5 font-bold">Tempo</th>
                 <th className="px-3 py-1.5 font-bold text-right">Dificuldade</th>
               </tr>
             </thead>
@@ -221,6 +227,9 @@ export const SpacedRepetitionView: React.FC<SpacedRepetitionViewProps> = () => {
                         <span className="text-slate-400">—</span>
                       )}
                     </td>
+                    <td className="px-2 py-1.5 whitespace-nowrap">
+                      {r.minutes ? <span className="font-semibold text-slate-700 dark:text-slate-200">{formatMinutes(r.minutes)}</span> : <span className="text-slate-400">—</span>}
+                    </td>
                     <td className="px-3 py-1.5 text-right whitespace-nowrap">
                       <span className="font-bold" style={{ color: plan.color }}>
                         {plan.emoji} {plan.label}
@@ -234,7 +243,7 @@ export const SpacedRepetitionView: React.FC<SpacedRepetitionViewProps> = () => {
                   <td className="px-3 py-1.5">
                     <span className="font-black px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-700 dark:text-amber-300">R{b.reviewsDone + 1}</span>
                   </td>
-                  <td className="px-2 py-1.5 text-slate-600 dark:text-slate-300 whitespace-nowrap" colSpan={4}>
+                  <td className="px-2 py-1.5 text-slate-600 dark:text-slate-300 whitespace-nowrap" colSpan={5}>
                     Próxima em <strong>{formatDM(b.nextReviewDate)}</strong>
                     {cycleDay(b, b.nextReviewDate) !== undefined && ` · Dia ${cycleDay(b, b.nextReviewDate)}`}
                     {suggestedPlan(b) && ` · sugestão: ${suggestedPlan(b)!.steps.join(' + ')}`}
@@ -388,7 +397,7 @@ export const SpacedRepetitionView: React.FC<SpacedRepetitionViewProps> = () => {
           <div className="space-y-3">
             <div>
               <span className="text-xs text-slate-400">
-                Revisão {Math.min(BLOCK_REVIEWS_TO_MASTER, activeSessionBlock.reviewsDone + 1)} de {BLOCK_REVIEWS_TO_MASTER}
+                Revisão R{activeSessionBlock.reviewsDone + 1} · ciclo {Math.floor(activeSessionBlock.reviewsDone / BLOCK_REVIEWS_TO_MASTER) + 1}
                 {cycleDay(activeSessionBlock, todayStr) !== undefined && ` · Dia ${cycleDay(activeSessionBlock, todayStr)}`}
               </span>
               <h2 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white">{activeSessionBlock.name}</h2>
@@ -551,6 +560,11 @@ export const SpacedRepetitionView: React.FC<SpacedRepetitionViewProps> = () => {
                         ⚠ {list.filter(isTopicPending).length} pendente{list.filter(isTopicPending).length > 1 ? 's' : ''}
                       </span>
                     )}
+                    {completedCycles(b) > 0 && (
+                      <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
+                        🏆 {completedCycles(b)} ciclo{completedCycles(b) > 1 ? 's' : ''} de 4
+                      </span>
+                    )}
                     {suggestedPlan(b) && b.reviewStatus !== 'dominado' && (
                       <span className="text-[11px] font-bold px-2 py-0.5 rounded-md text-white" style={{ backgroundColor: suggestedPlan(b)!.color }}>
                         {suggestedPlan(b)!.label} · {suggestedPlan(b)!.questions}Q
@@ -586,11 +600,19 @@ export const SpacedRepetitionView: React.FC<SpacedRepetitionViewProps> = () => {
                 <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200/70 dark:border-slate-800/80 flex flex-col md:flex-row md:items-center justify-between gap-3">
                   <div className="flex items-center gap-2 text-xs text-slate-500 flex-wrap">
                     <span>
-                      Revisões: <strong className="text-slate-700 dark:text-slate-200">{done}/{BLOCK_REVIEWS_TO_MASTER}</strong>
+                      Revisões: <strong className="text-slate-700 dark:text-slate-200">{done}</strong>
                     </span>
                     <div className="flex items-center gap-1 flex-wrap">
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-700 text-white">Dia 0</span>
-                      {Array.from({ length: BLOCK_REVIEWS_TO_MASTER }, (_, i) => {
+                      {currentGroupStart(done) > 0 && (
+                        <>
+                          <ArrowRight className="h-2.5 w-2.5 text-slate-400" />
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-600 text-white" title="Ciclos anteriores concluídos">
+                            R1–R{currentGroupStart(done)} ✓
+                          </span>
+                        </>
+                      )}
+                      {Array.from({ length: BLOCK_REVIEWS_TO_MASTER }, (_, k) => currentGroupStart(done) + k).map((i) => {
                         const isNext = i === done && b.reviewStatus === 'revisao';
                         const day =
                           i < done ? cycleDay(b, b.reviewLog?.[i]?.date) : isNext ? cycleDay(b, b.nextReviewDate) : i === 0 ? FIRST_REVIEW_DAY : undefined;
@@ -666,9 +688,7 @@ export const SpacedRepetitionView: React.FC<SpacedRepetitionViewProps> = () => {
                 <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <span className="text-xs font-bold text-slate-400 mr-1">
-                      {b.reviewStatus === 'dominado'
-                        ? 'Dominado — 4 revisões concluídas'
-                        : `Concluir revisão ${Math.min(BLOCK_REVIEWS_TO_MASTER, done + 1)}/${BLOCK_REVIEWS_TO_MASTER}:`}
+                      {`Concluir revisão R${done + 1}:`}
                     </span>
                     {b.reviewStatus !== 'dominado' &&
                       PLAN_ORDER.map((level) => (
@@ -685,7 +705,22 @@ export const SpacedRepetitionView: React.FC<SpacedRepetitionViewProps> = () => {
                         </button>
                       ))}
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {(b.reviewLog?.length || 0) > 0 && (
+                      <button
+                        id={`undo-review-${b.id}`}
+                        onClick={() => {
+                          const n = b.reviewLog!.length;
+                          if (window.confirm(`Desfazer a R${n} de "${b.name}"? A avaliação e as questões dessa revisão serão removidas e a data volta a ser a anterior.`)) {
+                            undoBlockReview(b.id);
+                          }
+                        }}
+                        className="flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-lg bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/30 hover:bg-amber-500/20 transition-colors"
+                        title="Clicou sem querer? Volta a última revisão deste bloco"
+                      >
+                        <Undo2 className="h-3.5 w-3.5" /> Desfazer R{b.reviewLog!.length}
+                      </button>
+                    )}
                     <button
                       onClick={() => {
                         setQuestionLogBlock(b.id);

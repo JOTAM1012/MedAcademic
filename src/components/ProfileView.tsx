@@ -33,6 +33,8 @@ import {
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { CARTOON_AVATARS } from '../data/avatars';
+import { getMedicalArea, getSpecialty } from '../data/areas';
+import { ymd } from '../data/blockReview';
 
 export const ProfileView: React.FC = () => {
   const { accounts, activeUser, activeUserId, openAuthModal, updateAccount, logout, deleteAccount } = useAuth();
@@ -46,6 +48,8 @@ export const ProfileView: React.FC = () => {
     exams,
     schedule,
     studySessions,
+    questionLogs,
+    topicBlocks,
     achievements,
     medRevisions,
     showNotification,
@@ -234,9 +238,29 @@ export const ProfileView: React.FC = () => {
   const hoursThisMonth = (sessionsThisMonth.reduce((acc, s) => acc + s.durationMinutes, 0) / 60).toFixed(1);
   const hoursThisYear = (sessionsThisYear.reduce((acc, s) => acc + s.durationMinutes, 0) / 60).toFixed(1);
 
-  // Estimates for "questões" based on sessions, and "revisões"
-  const revisionsThisWeek = sessionsThisWeek.filter((s) => s.type === 'spaced_repetition').length;
-  const questionsThisWeek = sessionsThisWeek.length * 12; // estimated ~12 questions per general session
+  // Questões e revisões reais da semana (registros de questões e revisões dos blocos)
+  const weekStartStr = ymd(startOfWeek);
+  const weekLogs = questionLogs.filter((q) => q.date >= weekStartStr);
+  const weekTotal = weekLogs.reduce((a, q) => a + q.total, 0);
+  const weekCorrect = weekLogs.reduce((a, q) => a + q.correct, 0);
+  const weekPct = weekTotal ? Math.round((weekCorrect / weekTotal) * 100) : undefined;
+  const areaMap = new Map<string, { label: string; color: string; total: number; correct: number }>();
+  weekLogs.forEach((q) => {
+    const block = q.blockId ? topicBlocks.find((b) => b.id === q.blockId) : undefined;
+    const sub = subjects.find((x) => x.id === (q.subjectId || block?.subjectId));
+    const spec = getSpecialty(sub?.specialty);
+    const area = getMedicalArea(sub?.majorArea);
+    const key = spec ? 'spec:' + spec.id : sub ? 'area:' + area.id : 'none';
+    const label = spec ? `${spec.emoji} ${spec.id}` : sub ? area.id : 'Sem área';
+    const color = spec ? spec.color : sub ? area.color : '#64748b';
+    const cur = areaMap.get(key) || { label, color, total: 0, correct: 0 };
+    cur.total += q.total;
+    cur.correct += q.correct;
+    areaMap.set(key, cur);
+  });
+  const weekAreas = [...areaMap.values()].sort((a, b) => b.total - a.total);
+  const revisionsThisWeek = topicBlocks.reduce((a, b) => a + (b.reviewLog || []).filter((r) => r.date >= weekStartStr).length, 0);
+  const pctColor = (p: number) => (p >= 80 ? 'text-emerald-600 dark:text-emerald-400' : p >= 60 ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400');
 
   return (
     <div className="space-y-6 pb-12 max-w-4xl mx-auto">
@@ -372,15 +396,53 @@ export const ProfileView: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-             {/* Weekly Questions */}
-             <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-xs flex items-center gap-4">
-               <div className="h-12 w-12 rounded-2xl bg-amber-100 dark:bg-amber-950/60 text-amber-600 flex items-center justify-center shrink-0">
-                 <FileCheck className="h-6 w-6" />
+             {/* Weekly Questions: total, % de acertos e por área */}
+             <div id="profile-week-questions" className="sm:col-span-2 rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-xs space-y-4">
+               <div className="flex items-center gap-4 flex-wrap">
+                 <div className="h-12 w-12 rounded-2xl bg-amber-100 dark:bg-amber-950/60 text-amber-600 flex items-center justify-center shrink-0">
+                   <FileCheck className="h-6 w-6" />
+                 </div>
+                 <div className="flex-1 min-w-0">
+                   <div className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Questões na Semana</div>
+                   <div className="flex items-baseline gap-2 flex-wrap mt-0.5">
+                     <span className="text-xl font-black text-slate-900 dark:text-white">{weekTotal}</span>
+                     <span className="text-xs text-slate-500">feitas</span>
+                     {weekPct !== undefined && (
+                       <>
+                         <span className="text-slate-300 dark:text-slate-700">·</span>
+                         <span className="text-sm font-bold text-slate-700 dark:text-slate-200">{weekCorrect} acertos</span>
+                         <span className={`text-xl font-black ${pctColor(weekPct)}`}>{weekPct}%</span>
+                       </>
+                     )}
+                   </div>
+                 </div>
                </div>
-               <div>
-                 <div className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Questões na Semana</div>
-                 <div className="text-xl font-black text-slate-900 dark:text-white mt-0.5">{questionsThisWeek}</div>
-               </div>
+               {weekAreas.length > 0 ? (
+                 <div className="space-y-2.5">
+                   <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">Acertos por área</div>
+                   {weekAreas.map((ar) => {
+                     const p = Math.round((ar.correct / ar.total) * 100);
+                     return (
+                       <div key={ar.label}>
+                         <div className="flex items-center justify-between text-xs mb-1 gap-2">
+                           <span className="font-bold text-slate-700 dark:text-slate-200 truncate flex items-center gap-1.5">
+                             <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: ar.color }} />
+                             {ar.label}
+                           </span>
+                           <span className="shrink-0 text-slate-500">
+                             {ar.correct}/{ar.total} · <strong className={pctColor(p)}>{p}%</strong>
+                           </span>
+                         </div>
+                         <div className="h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                           <div className="h-full rounded-full" style={{ width: `${p}%`, backgroundColor: ar.color }} />
+                         </div>
+                       </div>
+                     );
+                   })}
+                 </div>
+               ) : (
+                 <p className="text-xs text-slate-400">Nenhuma questão registrada nesta semana. Use o botão "Questões" na aba Revisões para registrar.</p>
+               )}
              </div>
 
              {/* Reviews Done */}

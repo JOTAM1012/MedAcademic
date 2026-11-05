@@ -63,7 +63,7 @@ export const DashboardView: React.FC = () => {
 
   // Compute Topics Mastery
   // Domínio = blocos com as 4 revisões concluídas
-  const masteredTopics = topicBlocks.filter((b) => b.reviewStatus === 'dominado').length;
+  const masteredTopics = topicBlocks.filter((b) => b.reviewStatus !== 'estudando' && b.reviewsDone >= 4).length;
   const totalTopics = topicBlocks.length;
   const masteryPercentage = totalTopics > 0 ? Math.round((masteredTopics / totalTopics) * 100) : 0;
 

@@ -78,7 +78,7 @@ export const SemesterHistoryView: React.FC = () => {
   const overallExpected = weighted(data.exs, (e) => e.expectedGrade);
   const pct = data.qTotal ? Math.round((data.qCorrect / data.qTotal) * 100) : undefined;
   const seen = data.tps.filter(isTopicSeen).length;
-  const mastered = data.blks.filter((b) => b.reviewStatus === 'dominado').length;
+  const mastered = data.blks.filter((b) => b.reviewStatus !== 'estudando' && b.reviewsDone >= 4).length;
   const gradeTone = (g?: number, target?: number) =>
     g === undefined ? 'text-slate-400' : target !== undefined ? (g >= target ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400') : g >= 7 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400';
 

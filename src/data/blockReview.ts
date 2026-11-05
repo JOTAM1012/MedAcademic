@@ -1,10 +1,22 @@
 // Revisões por BLOCO. Quando todos os tópicos de um bloco são vistos, aquele dia é o Dia 0 e a
 // 1ª revisão fica para o Dia 7. Depois de cada revisão o usuário avalia (Difícil/Médio/Fácil):
 // a avaliação define a data da próxima revisão e o plano sugerido para esse dia.
-// São 4 revisões; na 4ª o bloco fica dominado.
+// As revisões seguem em ciclos de 4 (R1–R4, R5–R8, ...): não há fim, a cada ciclo o intervalo é o maior.
 import { Topic, TopicBlock, TopicDifficulty } from '../types';
 
+/** Tamanho de cada ciclo de revisões (R1–R4, R5–R8...) */
 export const BLOCK_REVIEWS_TO_MASTER = 4;
+export const REVIEW_GROUP_SIZE = BLOCK_REVIEWS_TO_MASTER;
+
+/** Bloco que já completou pelo menos um ciclo de 4 revisões */
+export const isBlockMastered = (b: { reviewsDone: number; reviewStatus: string }) =>
+  b.reviewStatus !== 'estudando' && b.reviewsDone >= BLOCK_REVIEWS_TO_MASTER;
+
+/** Ciclos completos de 4 revisões */
+export const completedCycles = (b: { reviewsDone: number }) => Math.floor(b.reviewsDone / BLOCK_REVIEWS_TO_MASTER);
+
+/** 1ª revisão (índice 0) do ciclo em que está a próxima revisão */
+export const currentGroupStart = (done: number) => Math.floor(done / BLOCK_REVIEWS_TO_MASTER) * BLOCK_REVIEWS_TO_MASTER;
 export const FIRST_REVIEW_DAY = 7;
 
 // Dias até a revisão nº (feitas + 1). A 1ª é sempre no Dia 7; as seguintes dependem da avaliação.

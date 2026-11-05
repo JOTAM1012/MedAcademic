@@ -6,6 +6,7 @@ import { AppProvider, useApp } from './context/AppContext';
 import { Sidebar } from './components/Sidebar';
 import { TopBar } from './components/TopBar';
 import { MobileTabBar } from './components/MobileTabBar';
+import { StudyTimeModal } from './components/modals/StudyTimeModal';
 import { DashboardView } from './components/DashboardView';
 import { AcademicStructureView } from './components/AcademicStructureView';
 import { SpacedRepetitionView } from './components/SpacedRepetitionView';
@@ -295,6 +296,7 @@ const AppContent: React.FC = () => {
 
       {/* Abas fixas no rodapé (celular / app) */}
       <MobileTabBar />
+      <StudyTimeModal />
 
       {/* Global Creation & Onboarding Modals */}
       <AddSubjectModal

@@ -50,7 +50,7 @@ export const SubjectBlocksPanel: React.FC<SubjectBlocksPanelProps> = ({ subject 
   const subjectTopics = topics.filter((t) => t.subjectId === subject.id);
   const seenCount = subjectTopics.filter(isTopicSeen).length;
   const inReview = blocks.filter((b) => b.reviewStatus === 'revisao').length;
-  const mastered = blocks.filter((b) => b.reviewStatus === 'dominado').length;
+  const mastered = blocks.filter((b) => b.reviewStatus !== 'estudando' && b.reviewsDone >= BLOCK_REVIEWS_TO_MASTER).length;
 
   const suggestions = (SPECIALTY_BLOCK_SUGGESTIONS[subject.specialty || ''] || []).filter(
     (s) => !blocks.some((b) => b.name.toLowerCase() === s.toLowerCase())
@@ -103,7 +103,7 @@ export const SubjectBlocksPanel: React.FC<SubjectBlocksPanelProps> = ({ subject 
           title={plan ? `Sugestão: ${plan.steps.join(' + ')}` : 'Revisão do Dia 7: avalie a dificuldade ao terminar'}
         >
           <Repeat className="h-3 w-3" />
-          R{Math.min(BLOCK_REVIEWS_TO_MASTER, block.reviewsDone + 1)}/{BLOCK_REVIEWS_TO_MASTER} ·{' '}
+          R{block.reviewsDone + 1} ·{' '}
           {due ? (block.nextReviewDate! < todayStr ? 'atrasada' : 'hoje') : formatShort(block.nextReviewDate)}
         </span>
       );

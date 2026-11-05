@@ -16,6 +16,7 @@ import {
   TopicBlock,
   TopicDifficulty,
   QuestionLog,
+  StudyTimePrompt,
 } from '../types';
 import {
   BLOCK_REVIEWS_TO_MASTER,
@@ -157,6 +158,7 @@ interface AppContextType {
   reviewTopicBlock: (id: string, difficulty: TopicDifficulty, result?: { questions?: number; correct?: number }) => void;
   /** Recomeça as revisões do bloco (volta para "Em estudo" se algum tópico não estiver visto) */
   restartBlockReviews: (id: string) => void;
+  undoBlockReview: (id: string) => void;
 
   // Exams & Grades
   exams: Exam[];
@@ -178,7 +180,9 @@ interface AppContextType {
 
   // Study Sessions & Gamification
   studySessions: StudySession[];
-  logStudySession: (session: Omit<StudySession, 'id' | 'timestamp'>) => void;
+  logStudySession: (session: Omit<StudySession, 'id' | 'timestamp'>) => string;
+  studyTimePrompt: StudyTimePrompt | null;
+  completeStudyTimePrompt: (minutes: number) => void;
   achievements: Achievement[];
   userProfile: UserProfile;
   updateUserProfile: (profile: Partial<UserProfile>) => void;
@@ -784,18 +788,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const allSeen = list.every(isTopicResolved);
       const reviewsDone = allSeen ? Math.min(...list.map((t) => getReviewsDone(t))) : 0;
       const dates = list.map((t) => t.nextReviewDate).filter(Boolean).sort() as string[];
-      const status: TopicBlock['reviewStatus'] = !allSeen
-        ? 'estudando'
-        : reviewsDone >= BLOCK_REVIEWS_TO_MASTER
-        ? 'dominado'
-        : 'revisao';
+      const status: TopicBlock['reviewStatus'] = !allSeen ? 'estudando' : 'revisao';
       newBlocks.push({
         id,
         subjectId,
         name: sub?.universitySubject || sub?.name || 'Geral',
         createdAt: new Date().toISOString(),
         reviewStatus: status,
-        reviewsDone: Math.min(reviewsDone, BLOCK_REVIEWS_TO_MASTER),
+        reviewsDone,
         completedDate: status !== 'estudando' ? today : undefined,
         nextReviewDate:
           status === 'revisao' ? (reviewsDone === 0 ? addDaysYMD(FIRST_REVIEW_DAY, today) : dates[0] || addDaysYMD(FIRST_REVIEW_DAY, today)) : undefined,
@@ -807,6 +807,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       prev.map((t) => (t.blockId && validIds.has(t.blockId) ? t : { ...t, blockId: 'blk-auto-' + t.subjectId }))
     );
   }, [topics, topicBlocks, subjects, activeUserId, isInitialLoadComplete]);
+
+  // Blocos "dominados" (versão antiga, fim na R4) continuam no ciclo: R5, R6, R7...
+  useEffect(() => {
+    if (!activeUserId || !isInitialLoadComplete) return;
+    if (!topicBlocks.some((b) => b.reviewStatus === 'dominado')) return;
+    setTopicBlocks((prev) =>
+      prev.map((b) => {
+        if (b.reviewStatus !== 'dominado') return b;
+        const level = b.difficulty || 'medio';
+        const base = b.lastReviewDate || ymd(new Date());
+        return { ...b, reviewStatus: 'revisao', difficulty: level, nextReviewDate: addDaysYMD(nextIntervalDays(level, b.reviewsDone), base) };
+      })
+    );
+  }, [topicBlocks, activeUserId, isInitialLoadComplete]);
 
   // Blocos que entraram nas revisões antes do "Dia 0" existir: Dia 0 = data registrada e 1ª revisão no Dia 7
   useEffect(() => {
@@ -1191,7 +1205,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const logStudySession = (session: Omit<StudySession, 'id' | 'timestamp'>) => {
     const newSession: StudySession = {
       ...session,
-      id: 'sess-' + Date.now(),
+      id: 'sess-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
       timestamp: new Date().toISOString(),
     };
     setStudySessions((prev) => [newSession, ...prev]);
@@ -1237,6 +1251,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return ach;
       })
     );
+    return newSession.id;
+  };
+
+  // Aba de conclusão (bloco fechado / revisão feita): tempo de estudo vira sessão nas métricas
+  const [studyTimePrompt, setStudyTimePrompt] = useState<StudyTimePrompt | null>(null);
+  const completeStudyTimePrompt = (minutes: number) => {
+    const p = studyTimePrompt;
+    setStudyTimePrompt(null);
+    if (!p || !minutes || minutes <= 0) return;
+    const sessionId = logStudySession({
+      subjectId: p.subjectId,
+      durationMinutes: minutes,
+      type: p.kind === 'review' ? 'spaced_repetition' : 'stopwatch',
+      notes: p.kind === 'review' ? `Revisão R${p.reviewNumber} · ${p.name}` : `Bloco concluído · ${p.name}`,
+      xpEarned: 0,
+    });
+    setTopicBlocks((prev) =>
+      prev.map((bk) => {
+        if (bk.id !== p.blockId) return bk;
+        if (p.kind === 'block') return { ...bk, studyMinutes: minutes };
+        const log = [...(bk.reviewLog || [])];
+        const idx = (p.reviewNumber || log.length) - 1;
+        if (!log[idx]) return bk;
+        log[idx] = { ...log[idx], minutes, sessionId };
+        return { ...bk, reviewLog: log };
+      })
+    );
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    showNotification(`⏱ ${h ? h + 'h' : ''}${m ? (h ? String(m).padStart(2, '0') : m + ' min') : ''} de estudo registrados.`, 'success');
   };
 
   // Current Semester
@@ -1418,6 +1462,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       );
       addXp(50, 'Bloco concluído');
       triggerConfetti();
+      setStudyTimePrompt({ kind: 'block', blockId, subjectId: block.subjectId, name: block.name });
       showNotification(`✅ Bloco "${block.name}" concluído hoje (Dia 0)! 1ª revisão no Dia 7, em ${addDaysYMD(FIRST_REVIEW_DAY).split('-').reverse().slice(0, 2).join('/')}.`, 'success');
     } else if (block.reviewStatus === 'revisao' && block.reviewsDone === 0 && !allSeen) {
       setTopicBlocks((prev) =>
@@ -1504,32 +1549,77 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const reviewTopicBlock = (id: string, difficulty: TopicDifficulty, result?: { questions?: number; correct?: number }) => {
     const block = topicBlocks.find((bk) => bk.id === id);
-    if (!block || block.reviewStatus !== 'revisao') return;
-    const done = Math.min(BLOCK_REVIEWS_TO_MASTER, block.reviewsDone + 1);
+    if (!block || block.reviewStatus === 'estudando') return;
+    const done = block.reviewsDone + 1;
     const todayStr = ymd(new Date());
-    const log = [...(block.reviewLog || []), { date: todayStr, difficulty, ...result }];
-
-    if (done >= BLOCK_REVIEWS_TO_MASTER) {
-      setTopicBlocks((prev) =>
-        prev.map((bk) =>
-          bk.id === id ? { ...bk, reviewStatus: 'dominado', reviewsDone: done, difficulty, lastReviewDate: todayStr, nextReviewDate: undefined, reviewLog: log } : bk
-        )
-      );
-      addXp(150, 'Bloco Dominado (4 revisões)');
-      triggerConfetti();
-      showNotification(`🏆 4ª revisão concluída! O bloco "${block.name}" agora está dominado.`, 'success');
-      return;
-    }
+    const prevState = { nextReviewDate: block.nextReviewDate, lastReviewDate: block.lastReviewDate, difficulty: block.difficulty };
+    const log = [...(block.reviewLog || []), { date: todayStr, difficulty, ...result, prev: prevState }];
     const intervalDays = nextIntervalDays(difficulty, done);
     setTopicBlocks((prev) =>
       prev.map((bk) =>
         bk.id === id
-          ? { ...bk, reviewsDone: done, difficulty, lastReviewDate: todayStr, nextReviewDate: addDaysYMD(intervalDays), reviewLog: log }
+          ? { ...bk, reviewStatus: 'revisao', reviewsDone: done, difficulty, lastReviewDate: todayStr, nextReviewDate: addDaysYMD(intervalDays), reviewLog: log }
           : bk
       )
     );
-    addXp(difficulty === 'facil' ? 60 : difficulty === 'medio' ? 45 : 30, `Revisão ${done}/${BLOCK_REVIEWS_TO_MASTER} do bloco`);
-    showNotification(`Revisão ${done}/${BLOCK_REVIEWS_TO_MASTER} de "${block.name}" registrada. Próxima em ${intervalDays} dia${intervalDays > 1 ? 's' : ''}.`, 'success');
+    setStudyTimePrompt({ kind: 'review', blockId: id, subjectId: block.subjectId, name: block.name, reviewNumber: done });
+    if (done % BLOCK_REVIEWS_TO_MASTER === 0) {
+      addXp(150, `Ciclo de revisões R${done - 3}–R${done} concluído`);
+      triggerConfetti();
+      showNotification(
+        `🏆 R${done - 3}–R${done} concluídas em "${block.name}"! O ciclo continua: R${done + 1} em ${intervalDays} dias.`,
+        'success'
+      );
+      return;
+    }
+    addXp(difficulty === 'facil' ? 60 : difficulty === 'medio' ? 45 : 30, `Revisão R${done} do bloco`);
+    showNotification(`R${done} de "${block.name}" registrada. Próxima em ${intervalDays} dia${intervalDays > 1 ? 's' : ''}.`, 'success');
+  };
+
+  // Desfaz a última revisão do bloco (clique sem querer): volta datas, avaliação e questões registradas
+  const undoBlockReview = (id: string) => {
+    const block = topicBlocks.find((bk) => bk.id === id);
+    const log = block?.reviewLog || [];
+    if (!block || log.length === 0) return;
+    const last = log[log.length - 1];
+    const rest = log.slice(0, -1);
+    const before = rest[rest.length - 1];
+    const prev = last.prev || {
+      // revisões antigas (sem registro do estado anterior): reconstrói pela revisão anterior
+      difficulty: before?.difficulty,
+      lastReviewDate: before?.date,
+      nextReviewDate: before
+        ? addDaysYMD(nextIntervalDays(before.difficulty, rest.length), before.date)
+        : addDaysYMD(FIRST_REVIEW_DAY, block.completedDate || ymd(new Date())),
+    };
+    setTopicBlocks((p) =>
+      p.map((bk) =>
+        bk.id === id
+          ? {
+              ...bk,
+              reviewStatus: 'revisao',
+              reviewsDone: Math.max(0, bk.reviewsDone - 1),
+              reviewLog: rest,
+              difficulty: prev.difficulty,
+              lastReviewDate: prev.lastReviewDate,
+              nextReviewDate: prev.nextReviewDate,
+            }
+          : bk
+      )
+    );
+    if (last.sessionId) setStudySessions((ss) => ss.filter((x) => x.id !== last.sessionId));
+    if (studyTimePrompt?.blockId === id && studyTimePrompt.kind === 'review') setStudyTimePrompt(null);
+    // remove as questões que entraram junto com essa revisão
+    if (last.questions && last.correct !== undefined) {
+      setQuestionLogs((qs) => {
+        const idx = [...qs]
+          .map((q, i) => ({ q, i }))
+          .reverse()
+          .find(({ q }) => q.blockId === id && q.date === last.date && q.total === last.questions && q.correct === last.correct)?.i;
+        return idx === undefined ? qs : qs.filter((_, i) => i !== idx);
+      });
+    }
+    showNotification(`↩ R${log.length} de "${block.name}" desfeita. A revisão volta para ${prev.nextReviewDate ? prev.nextReviewDate.split('-').reverse().slice(0, 2).join('/') : 'a data anterior'}.`, 'info');
   };
 
   const restartBlockReviews = (id: string) => {
@@ -2017,6 +2107,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         deleteMedRevision,
         studySessions,
         logStudySession,
+        studyTimePrompt,
+        completeStudyTimePrompt,
         achievements,
         userProfile,
         updateUserProfile,
@@ -2062,6 +2154,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         deleteTopicBlock,
         reviewTopicBlock,
         restartBlockReviews,
+        undoBlockReview,
         addChecklistItem,
         updateChecklistItem,
         addChecklistBlock,
