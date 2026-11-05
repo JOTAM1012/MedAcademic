@@ -18,6 +18,7 @@ import {
   QuestionLog,
   StudyTimePrompt,
 } from '../types';
+import { upgradeAvatarUrl } from '../data/avatars';
 import {
   BLOCK_REVIEWS_TO_MASTER,
   FIRST_REVIEW_DAY,
@@ -1913,6 +1914,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setMedRevisions((prev) => prev.filter((mr) => mr.id !== id));
     showNotification('Tema removido do MedRevision.', 'info');
   };
+
+  // Avatares da versão anterior passam para o novo modelo de avatares
+  useEffect(() => {
+    if (!activeUserId || !isInitialLoadComplete) return;
+    const next = upgradeAvatarUrl(userProfile.avatarUrl);
+    if (next && next !== userProfile.avatarUrl) updateUserProfile({ avatarUrl: next });
+  }, [userProfile.avatarUrl, activeUserId, isInitialLoadComplete]);
 
   const updateUserProfile = (profile: Partial<UserProfile>) => {
     setUserProfile((prev) => ({ ...prev, ...profile }));

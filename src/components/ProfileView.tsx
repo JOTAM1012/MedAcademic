@@ -616,7 +616,7 @@ export const ProfileView: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2">
+                  <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 pt-2">
                     {CARTOON_AVATARS.map((avatar) => (
                       <button
                         key={avatar.id}

@@ -1,48 +1,37 @@
-import docMaleWhite from '../assets/images/doc_male_white_1787501957110.jpg';
-import docMaleBrown from '../assets/images/doc_male_brown_1787501974297.jpg';
-import docFemWhite from '../assets/images/doc_fem_white_1787501989649.jpg';
-import docFemBrown from '../assets/images/doc_fem_brown_1787502005207.jpg';
+import docMaleWhite from '../assets/images/avatars/doc-male-white.jpg';
+import docMaleBlack from '../assets/images/avatars/doc-male-black.jpg';
+import docFemBrunette from '../assets/images/avatars/doc-fem-brunette.jpg';
+import docFemBlonde from '../assets/images/avatars/doc-fem-blonde.jpg';
+import docFemBlack from '../assets/images/avatars/doc-fem-black.jpg';
 
 export interface DoctorAvatar {
   id: string;
   label: string;
   sublabel: string;
   gender: 'male' | 'female';
-  tone: 'white' | 'brown';
+  tone: 'white' | 'black';
   url: string;
 }
 
 export const CARTOON_AVATARS: DoctorAvatar[] = [
-  {
-    id: 'avatar-doc-male-white',
-    label: 'Médico Branco',
-    sublabel: 'Homem',
-    gender: 'male',
-    tone: 'white',
-    url: docMaleWhite,
-  },
-  {
-    id: 'avatar-doc-male-brown',
-    label: 'Médico Moreno',
-    sublabel: 'Homem',
-    gender: 'male',
-    tone: 'brown',
-    url: docMaleBrown,
-  },
-  {
-    id: 'avatar-doc-fem-white',
-    label: 'Médica Branca',
-    sublabel: 'Mulher',
-    gender: 'female',
-    tone: 'white',
-    url: docFemWhite,
-  },
-  {
-    id: 'avatar-doc-fem-brown',
-    label: 'Médica Morena',
-    sublabel: 'Mulher',
-    gender: 'female',
-    tone: 'brown',
-    url: docFemBrown,
-  },
+  { id: 'avatar-doc-male-white', label: 'Médico Branco', sublabel: 'Homem', gender: 'male', tone: 'white', url: docMaleWhite },
+  { id: 'avatar-doc-male-brown', label: 'Médico Negro', sublabel: 'Homem', gender: 'male', tone: 'black', url: docMaleBlack },
+  { id: 'avatar-doc-fem-white', label: 'Médica Morena', sublabel: 'Mulher', gender: 'female', tone: 'white', url: docFemBrunette },
+  { id: 'avatar-doc-fem-blonde', label: 'Médica Loira', sublabel: 'Mulher', gender: 'female', tone: 'white', url: docFemBlonde },
+  { id: 'avatar-doc-fem-brown', label: 'Médica Negra', sublabel: 'Mulher', gender: 'female', tone: 'black', url: docFemBlack },
 ];
+
+// Avatares da versão anterior → novo avatar equivalente (as imagens antigas saíram do site)
+const LEGACY: Array<[string, string]> = [
+  ['doc_male_white', docMaleWhite],
+  ['doc_male_brown', docMaleBlack],
+  ['doc_fem_white', docFemBrunette],
+  ['doc_fem_brown', docFemBlack],
+];
+
+/** Troca a URL de um avatar antigo pela do novo; fotos próprias ficam como estão */
+export const upgradeAvatarUrl = (url?: string): string | undefined => {
+  if (!url) return url;
+  const hit = LEGACY.find(([key]) => url.includes(key));
+  return hit ? hit[1] : url;
+};

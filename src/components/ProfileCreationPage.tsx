@@ -497,8 +497,8 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
                       Escolha um Avatar Cartoon ou envie sua Própria Foto
                     </label>
                     
-                    <div className="grid grid-cols-5 gap-3">
-                      {/* 4 Cartoon Avatars */}
+                    <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
+                      {/* Avatares cartoon */}
                       {CARTOON_AVATARS.map((avatar) => (
                         <button
                           key={avatar.id}
