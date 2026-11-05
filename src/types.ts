@@ -231,6 +231,8 @@ export interface UserProfile {
   weeklyTargetHours: number;
   targetAverageGrade: number;
   /** Metas de acertos do mês (%) — Dashboard */
+  /** Tratamento usado nas saudações (sem valor = neutro "bem-vindo(a)") */
+  greetingGender?: 'masculino' | 'feminino';
   goalExamPct?: number;
   goalReviewPct?: number;
   dreamSpecialty: string; // e.g. "Cardiologia Intervencionista", "Neurocirurgia"

@@ -11,11 +11,11 @@ interface OwnerNameProps {
 }
 
 // Nome do usuário: dourado e brilhando para o Dono do site
-export const OwnerName: React.FC<OwnerNameProps> = ({ name, className = '', badge = false, crown = true }) => {
+export const OwnerName: React.FC<OwnerNameProps> = ({ name, className = '', badge = false, crown = false }) => {
   const { isOwner, role } = useAccess();
   if (!role) return <span className={className}>{name}</span>;
   return (
-    <span className="inline-flex items-center gap-1.5 min-w-0 align-middle">
+    <span className={`inline-flex items-center min-w-0 align-baseline ${badge || (crown && isOwner) ? 'gap-1.5' : ''}`}>
       {crown && isOwner && <Crown className="h-[0.9em] w-[0.9em] shrink-0 text-amber-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.8)]" />}
       <span className={`${isOwner ? 'owner-gold-name' : 'text-violet-400'} ${className}`} title={isOwner ? 'Dono do MedAcademic' : 'Moderador'}>
         {name}

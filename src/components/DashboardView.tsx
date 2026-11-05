@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import {
+  Crown,
   Clock,
   Flame,
   Award,
@@ -22,6 +23,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { OwnerName } from './OwnerName';
+import { useAccess } from '../context/AccessContext';
 import { getActivityCategory, getExamKind, getExamSubjectName, occursOn, toYMD } from '../data/planning';
 import { isBlockDue } from '../data/blockReview';
 import { InstallAppBanner } from './InstallAppGuide';
@@ -107,7 +109,11 @@ export const DashboardView: React.FC = () => {
     : null;
   const primarySubject = primaryNextExam ? getSubject(primaryNextExam.subjectId) : null;
 
+  const { isOwner: isOwnerAccount } = useAccess();
   const isReturning = userProfile.onboardingCompleted;
+  const welcome = userProfile.greetingGender === 'feminino' ? 'bem-vinda' : userProfile.greetingGender === 'masculino' ? 'bem-vindo' : 'bem-vindo(a)';
+  const firstName = userProfile.name.split(' ')[0];
+  const GREETING_SUBTITLE = 'Cada dia de estudo é um passo a mais rumo ao profissional que você deseja ser.';
 
   return (
     <div id="tour-dashboard" className="space-y-6 pb-12">
@@ -122,13 +128,11 @@ export const DashboardView: React.FC = () => {
               </div>
               <div>
                 <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
-                  {isReturning 
-                    ? `Seja bem-vindo(a) novamente ao seu Painel Acadêmico, ${userProfile.name.split(' ')[0]}! 🩺`
-                    : `Seja bem-vindo(a) ao seu Painel Acadêmico, ${userProfile.name.split(' ')[0]}! 🩺`}
+                  {isReturning ? `Seja ${welcome} novamente, ${firstName}! 🩺` : `Seja ${welcome} ao MedAcademic, ${firstName}! 🩺`}
                 </h2>
                 <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 max-w-2xl">
-                  {isReturning 
-                    ? "Sua jornada rumo à excelência médica continua. Mantenha o foco, sua dedicação de hoje constrói o grande profissional de amanhã!"
+                  {isReturning
+                    ? GREETING_SUBTITLE
                     : "Seu painel foi iniciado limpo e pronto para a sua rotina. Comece cadastrando suas disciplinas ou explore o tutorial com todas as funcionalidades."}
                 </p>
               </div>
@@ -159,10 +163,19 @@ export const DashboardView: React.FC = () => {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
           <div>
             <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white leading-snug">
-              Seja bem-vindo(a) novamente, <OwnerName name={userProfile.name.split(' ')[0]} />! 🩺
+              Seja {welcome} novamente, <OwnerName name={firstName} />!{' '}
+              {isOwnerAccount ? (
+                <Crown
+                  id="greeting-owner-crown"
+                  className="inline h-[1em] w-[1em] -mt-1 text-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.8)]"
+                  aria-label="Dono"
+                />
+              ) : (
+                '🩺'
+              )}
             </h1>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Sua jornada rumo à excelência médica continua. Mantenha o foco, sua dedicação de hoje constrói o grande profissional de amanhã!
+              {GREETING_SUBTITLE}
             </p>
           </div>
 

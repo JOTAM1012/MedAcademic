@@ -131,6 +131,7 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
 
   // Form State
   const [name, setName] = useState(signupMode ? '' : userProfile.name || '');
+  const [greetingGender, setGreetingGender] = useState<'masculino' | 'feminino' | ''>(userProfile.greetingGender || '');
   const [email, setEmail] = useState(signupMode ? '' : userProfile.email || '');
   const [university, setUniversity] = useState(signupMode ? '' : userProfile.university || '');
   // Sign-up access credentials (last step)
@@ -309,6 +310,7 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
     // Update user profile
     const updated: Partial<UserProfile> = {
       name: name.trim(),
+      greetingGender: greetingGender || undefined,
       email: email.trim(),
       university: university.trim(),
       dreamSpecialty: dreamSpecialty.trim(),
@@ -473,6 +475,33 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
                       autoFocus
                     />
                   </div>
+
+                  {!signupMode && (
+                    <div id="greeting-gender-field">
+                      <label className="block text-xs font-bold text-slate-300 mb-2">Como prefere ser saudado(a)?</label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {(
+                          [
+                            ['masculino', 'Bem-vindo'],
+                            ['feminino', 'Bem-vinda'],
+                            ['', 'Bem-vindo(a)'],
+                          ] as const
+                        ).map(([id, label]) => (
+                          <button
+                            key={id || 'neutro'}
+                            type="button"
+                            id={`greeting-gender-${id || 'neutro'}`}
+                            onClick={() => setGreetingGender(id)}
+                            className={`rounded-xl border px-3 py-2 text-xs font-bold transition-colors ${
+                              greetingGender === id ? 'border-sky-500 bg-sky-950/40 text-sky-200' : 'border-slate-800 bg-slate-950 text-slate-400 hover:border-slate-700'
+                            }`}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {/* In sign-up mode the e-mail is asked on the last step, together with the password */}
                   {!signupMode && (
