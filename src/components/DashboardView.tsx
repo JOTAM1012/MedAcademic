@@ -21,6 +21,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { OwnerName } from './OwnerName';
 import { getActivityCategory, getExamKind, getExamSubjectName, occursOn, toYMD } from '../data/planning';
 import { WeeklyStatsCard } from './WeeklyStatsCard';
 import { isBlockDue } from '../data/blockReview';
@@ -159,7 +160,7 @@ export const DashboardView: React.FC = () => {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
           <div>
             <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              Seja bem-vindo(a) novamente, {userProfile.name.split(' ')[0]}! 🩺
+              Seja bem-vindo(a) novamente, <OwnerName name={userProfile.name.split(' ')[0]} />! 🩺
             </h1>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
               Sua jornada rumo à excelência médica continua. Mantenha o foco, sua dedicação de hoje constrói o grande profissional de amanhã!

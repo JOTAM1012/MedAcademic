@@ -33,6 +33,8 @@ import {
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { CARTOON_AVATARS } from '../data/avatars';
+import { OwnerName } from './OwnerName';
+import { useAccess } from '../context/AccessContext';
 import { getMedicalArea, getSpecialty } from '../data/areas';
 import { ymd } from '../data/blockReview';
 
@@ -59,6 +61,7 @@ export const ProfileView: React.FC = () => {
     setIsEditingProfileSetup,
   } = useApp();
 
+  const access = useAccess();
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState(userProfile.name);
   const [email, setEmail] = useState(userProfile.email || '');
@@ -325,7 +328,12 @@ export const ProfileView: React.FC = () => {
               <img src={userProfile.avatarUrl || CARTOON_AVATARS[0].url} alt="Avatar" className="w-full h-full object-cover" />
             </div>
             <div className="text-center md:text-left flex-1">
-              <h2 className="text-2xl font-black text-slate-900 dark:text-white mb-1">{userProfile.name}</h2>
+              <h2 className="text-2xl font-black text-slate-900 dark:text-white mb-1">
+                <OwnerName name={userProfile.name} badge />
+              </h2>
+              {access.lifetime && (
+                <p className="text-[11px] font-black uppercase tracking-widest text-amber-500 mb-1">♾ Acesso vitalício</p>
+              )}
               <div className="flex items-center justify-center md:justify-start gap-2 text-sm text-slate-600 dark:text-slate-400 font-medium">
                 <GraduationCap className="h-4 w-4" />
                 <span>{userProfile.university}</span>

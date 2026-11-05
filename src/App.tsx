@@ -6,6 +6,11 @@ import { AppProvider, useApp } from './context/AppContext';
 import { Sidebar } from './components/Sidebar';
 import { TopBar } from './components/TopBar';
 import { MobileTabBar } from './components/MobileTabBar';
+import { AccessProvider } from './context/AccessContext';
+import { AccessGate } from './components/AccessGate';
+import { AnnouncementBanner } from './components/AnnouncementBanner';
+import { OwnerPanelView } from './components/OwnerPanelView';
+import { OwnerName } from './components/OwnerName';
 import { StudyTimeModal } from './components/modals/StudyTimeModal';
 import { DashboardView } from './components/DashboardView';
 import { AcademicStructureView } from './components/AcademicStructureView';
@@ -252,6 +257,8 @@ const AppContent: React.FC = () => {
         );
       case 'history':
         return <SemesterHistoryView />;
+      case 'admin':
+        return <OwnerPanelView />;
       case 'profile':
         return <ProfileView />;
       case 'checklist':
@@ -262,6 +269,7 @@ const AppContent: React.FC = () => {
   };
 
   return (
+    <AccessGate>
     <div className="flex h-screen h-[100dvh] w-screen overflow-hidden bg-slate-50 dark:bg-slate-950 font-sans text-slate-900 dark:text-slate-100 transition-colors">
       {/* Navigation Sidebar */}
       <Sidebar
@@ -288,6 +296,7 @@ const AppContent: React.FC = () => {
               transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
               className="w-full"
             >
+              <AnnouncementBanner />
               {renderActiveView()}
             </motion.div>
           </AnimatePresence>
@@ -456,7 +465,7 @@ const AppContent: React.FC = () => {
               }`}
             >
               <span className="text-xs font-bold text-slate-200 group-hover:text-sky-400 transition-colors truncate max-w-[110px]">
-                {userProfile.name.split(' ')[0]}
+                <OwnerName name={userProfile.name.split(' ')[0]} crown={false} />
               </span>
               <div className="flex items-center gap-1.5 whitespace-nowrap">
                 <span className="text-[10px] text-emerald-400 font-medium">
@@ -522,15 +531,18 @@ const AppContent: React.FC = () => {
         currentTab={currentTab}
       />
     </div>
+    </AccessGate>
   );
 };
 
 export default function App() {
   return (
     <AuthProvider>
+      <AccessProvider>
       <AppProvider>
         <AppContent />
       </AppProvider>
+      </AccessProvider>
     </AuthProvider>
   );
 }

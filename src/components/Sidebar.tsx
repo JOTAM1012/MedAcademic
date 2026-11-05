@@ -15,7 +15,9 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   ListChecks,
+  Crown,
 } from 'lucide-react';
+import { useAccess } from '../context/AccessContext';
 import { useApp } from '../context/AppContext';
 import { isBlockDue } from '../data/blockReview';
 
@@ -35,6 +37,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
     checklist,
   } = useApp();
   const pendingChecklistCount = checklist.filter((i) => !i.done).length;
+  const { isAdmin } = useAccess();
 
   // Collapsed sidebar state with localStorage persistence
   const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
@@ -154,6 +157,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
       icon: User,
       badge: null,
     },
+    ...(isAdmin ? [{ id: 'admin', label: 'Painel do Dono', icon: Crown, badge: '👑', badgeColor: 'bg-amber-500/20 text-amber-300 border border-amber-400/40' }] : []),
   ];
 
   return (

@@ -16,6 +16,8 @@ import {
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { isBlockDue } from '../data/blockReview';
+import { useAccess } from '../context/AccessContext';
+import { Crown } from 'lucide-react';
 
 type NavItem = { id: string; label: string; short: string; icon: React.ElementType; color: string; badge?: string | null };
 
@@ -23,6 +25,7 @@ type NavItem = { id: string; label: string; short: string; icon: React.ElementTy
 export const MobileTabBar: React.FC = () => {
   const { currentTab, setCurrentTab, topicBlocks, exams, checklist } = useApp();
   const [isMoreOpen, setIsMoreOpen] = useState(false);
+  const { isAdmin } = useAccess();
 
   const todayStr = new Date().toISOString().split('T')[0];
   const dueCount = topicBlocks.filter((b) => isBlockDue(b, todayStr)).length;
@@ -44,6 +47,7 @@ export const MobileTabBar: React.FC = () => {
     { id: 'checklist', label: 'Checklist', short: 'Checklist', icon: ListChecks, color: 'from-emerald-500 to-emerald-700', badge: pendingChecklist ? String(pendingChecklist) : null },
     { id: 'history', label: 'Histórico', short: 'Histórico', icon: History, color: 'from-amber-500 to-amber-700' },
     { id: 'profile', label: 'Perfil & metas', short: 'Perfil', icon: User, color: 'from-slate-500 to-slate-700' },
+    ...(isAdmin ? [{ id: 'admin', label: 'Painel do Dono', short: 'Dono', icon: Crown, color: 'from-amber-400 to-amber-600' }] : []),
   ];
   const byId = (id: string) => all.find((i) => i.id === id)!;
   const primary = ['dashboard', 'calendar', 'spaced_repetition', 'stopwatch'].map(byId);
