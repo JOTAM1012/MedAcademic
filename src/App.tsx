@@ -439,13 +439,7 @@ const AppContent: React.FC = () => {
           }}
           className={`relative flex items-center bg-slate-900/95 dark:bg-slate-900/95 backdrop-blur-md border text-white rounded-full p-1.5 transition-all duration-300 ${
             isDockCompact
-              ? `gap-0 pr-1.5 ${
-                  cloudSyncStatus === 'synced'
-                    ? 'border-emerald-500/50 ring-1 ring-emerald-500/30 shadow-[0_0_14px_rgba(16,185,129,0.25)]'
-                    : cloudSyncStatus === 'syncing'
-                    ? 'border-amber-500/50 ring-1 ring-amber-500/30 shadow-[0_0_14px_rgba(245,158,11,0.25)] animate-pulse'
-                    : 'border-rose-500/50 ring-1 ring-rose-500/30 shadow-[0_0_14px_rgba(244,63,94,0.25)]'
-                }`
+              ? 'gap-0 pr-1.5 border-slate-800 shadow-2xl'
               : 'gap-2 pr-2 border-slate-800 hover:border-slate-700 shadow-2xl'
           }`}
         >

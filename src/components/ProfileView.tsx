@@ -363,14 +363,6 @@ export const ProfileView: React.FC = () => {
         {!isEditing ? (
           <div className="flex flex-wrap items-center gap-2">
             <button
-              id="profile-change-photo-btn"
-              onClick={() => setIsPhotoModalOpen(true)}
-              className="shrink-0 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-sky-50 dark:bg-sky-950/40 hover:bg-sky-100 dark:hover:bg-sky-900/50 text-sky-700 dark:text-sky-300 font-bold text-xs border border-sky-200 dark:border-sky-800/60 shadow-xs transition-colors cursor-pointer"
-            >
-              <Camera className="h-4 w-4" />
-              <span>Trocar foto</span>
-            </button>
-            <button
               onClick={() => setIsEditingProfileSetup(true)}
               className="shrink-0 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer"
             >
