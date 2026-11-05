@@ -11,6 +11,7 @@ import { AccessGate } from './components/AccessGate';
 import { AnnouncementBanner } from './components/AnnouncementBanner';
 import { OwnerPanelView } from './components/OwnerPanelView';
 import { OwnerName } from './components/OwnerName';
+import { CARTOON_AVATARS } from './data/avatars';
 import { useAccess } from './context/AccessContext';
 import { StudyTimeModal } from './components/modals/StudyTimeModal';
 import { DashboardView } from './components/DashboardView';
@@ -466,7 +467,7 @@ const AppContent: React.FC = () => {
                 }`}
               >
                 <img
-                  src={userProfile.avatarUrl}
+                  src={userProfile.avatarUrl || CARTOON_AVATARS[0].url}
                   alt={userProfile.name}
                   referrerPolicy="no-referrer"
                   className="w-full h-full object-cover"

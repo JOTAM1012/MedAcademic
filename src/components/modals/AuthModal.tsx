@@ -384,7 +384,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isPage = false }) => {
               <div className="w-full max-w-sm bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl text-center space-y-4">
                 <div className="relative inline-block">
                   <img
-                    src={selectedUserForPassword.avatarUrl}
+                    src={selectedUserForPassword.avatarUrl || CARTOON_AVATARS[0].url}
                     alt={selectedUserForPassword.name}
                     referrerPolicy="no-referrer"
                     className="w-16 h-16 rounded-full mx-auto object-cover border-2 border-blue-500 shadow-md"
