@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { LogOut, Stethoscope, CloudOff, RefreshCw, X, ChevronDown, Trash2 } from 'lucide-react';
 import { AuthProvider, useAuth, isLocalOnly } from './context/AuthContext';
@@ -77,9 +77,45 @@ const AppContent: React.FC = () => {
     } catch (e) {}
   };
 
+  // Conta nova: tour primeiro; ao terminar ou pular, o app "aperta" o botão "Como Usar a Plataforma"
+  const newUserFlowRef = useRef(false);
+  useEffect(() => {
+    const start = () => {
+      let pending = false;
+      try {
+        pending = sessionStorage.getItem('medacademic_new_user_welcome') === '1';
+        sessionStorage.removeItem('medacademic_new_user_welcome');
+      } catch {}
+      if (!pending) return;
+      newUserFlowRef.current = true;
+      setCurrentTab('dashboard');
+      setTimeout(() => setIsTourOpen(true), 400);
+    };
+    window.addEventListener('medacademic:new-user-welcome', start);
+    start();
+    return () => window.removeEventListener('medacademic:new-user-welcome', start);
+  }, []);
+
+  const pressHowToUse = () => {
+    setCurrentTab('dashboard');
+    setTimeout(() => {
+      const btn = document.getElementById('dashboard-how-to-use-btn') || document.getElementById('dashboard-tutorial-btn');
+      if (btn) {
+        btn.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        btn.classList.add('how-to-press');
+        setTimeout(() => btn.classList.remove('how-to-press'), 1200);
+      }
+      setTimeout(() => setIsOnboardingOpen(true), btn ? 700 : 0);
+    }, 350);
+  };
+
   const handleCloseTour = () => {
     setIsTourOpen(false);
     markTourSeen();
+    if (newUserFlowRef.current) {
+      newUserFlowRef.current = false;
+      pressHowToUse();
+    }
   };
 
   // Modals state

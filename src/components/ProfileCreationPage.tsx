@@ -60,6 +60,15 @@ export interface MedicalCycleConfig {
   semesters: SemesterOption[];
 }
 
+// Boas-vindas de conta nova: tour → depois o app "aperta" o botão "Como Usar a Plataforma"
+export const NEW_USER_WELCOME_EVENT = 'medacademic:new-user-welcome';
+const startNewUserWelcome = () => {
+  try {
+    sessionStorage.setItem('medacademic_new_user_welcome', '1');
+  } catch {}
+  window.dispatchEvent(new Event(NEW_USER_WELCOME_EVENT));
+};
+
 export const MEDICAL_CYCLES: MedicalCycleConfig[] = [
   {
     id: 'ciclo_basico',
@@ -265,7 +274,7 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
     if (res.needsEmailConfirmation) return; // back to the login screen with the confirmation notice
     triggerConfetti();
     showNotification(`Bem-vindo(a), ${name.trim()}! Sua conta foi criada. Use ${cleanEmail} e sua senha para entrar.`, 'success');
-    setTimeout(() => setIsOnboardingOpen(true), 800);
+    setTimeout(() => startNewUserWelcome(), 800);
   };
 
   const handleFinish = () => {
@@ -339,7 +348,7 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
       showNotification(`Bem-vindo(a), ${name.trim()}! Seu perfil foi configurado com sucesso e o painel iniciado no ${selectedSemesterNum}º Semestre.`, 'success');
       // Open quick tutorial guide right after finishing
       setTimeout(() => {
-        setIsOnboardingOpen(true);
+        startNewUserWelcome();
       }, 600);
     } else {
       showNotification(`Perfil atualizado com sucesso!`, 'success');

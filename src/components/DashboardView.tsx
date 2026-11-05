@@ -138,6 +138,7 @@ export const DashboardView: React.FC = () => {
 
             <div className="flex flex-wrap items-center gap-2 shrink-0">
               <button
+                id="dashboard-tutorial-btn"
                 onClick={() => setIsOnboardingOpen(true)}
                 className="px-3.5 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-700/80 transition-all flex items-center gap-1.5 shadow-xs cursor-pointer"
               >

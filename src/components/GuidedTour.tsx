@@ -15,6 +15,7 @@ import {
   Compass,
   Zap,
   Cloud,
+  BookOpen,
 } from 'lucide-react';
 
 export interface TourStep {
@@ -100,6 +101,17 @@ const TOUR_STEPS: TourStep[] = [
       'Toque em “Instalar app” para adicionar o MedAcademic à tela inicial e usá-lo em tela cheia, inclusive offline. A instalação está disponível para Android e iOS.',
     badgeText: 'Aplicativo 📲',
     icon: <Smartphone className="w-5 h-5 text-sky-400" />,
+    position: 'bottom',
+  },
+  {
+    id: 'how-to-use',
+    targetSelector: '#dashboard-how-to-use-btn, #dashboard-tutorial-btn',
+    title: 'Como usar a plataforma',
+    description:
+      'Este botão no Dashboard abre o guia “Como Usar a Plataforma”, que explica passo a passo como funciona cada ferramenta. Volte a ele sempre que tiver dúvida. Na primeira vez, ele abre sozinho logo depois deste tour (dá para pular).',
+    badgeText: 'Guia das ferramentas 📘',
+    icon: <BookOpen className="w-5 h-5 text-sky-400" />,
+    tabToNavigate: 'dashboard',
     position: 'bottom',
   },
 ];
