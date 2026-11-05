@@ -222,33 +222,53 @@ export const TutoriaPanel: React.FC<Props> = ({ subject }) => {
 
   const addInput = (tut: TutorialSession, cabide: boolean) => {
     const key = `${tut.id}-${cabide ? 'c' : 'o'}`;
+    const color = cabide ? '#f43f5e' : accent;
+    const submit = () => {
+      addTopics(tut, [drafts[key] || ''], cabide);
+      setDrafts((d) => ({ ...d, [key]: '' }));
+    };
+    const hasText = !!(drafts[key] || '').trim();
     return (
-      <div className="flex items-center gap-1.5 pt-1">
-        <Plus className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-        <input
-          value={drafts[key] || ''}
-          onChange={(e) => setDrafts((d) => ({ ...d, [key]: e.target.value }))}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              addTopics(tut, [drafts[key] || ''], cabide);
-              setDrafts((d) => ({ ...d, [key]: '' }));
-            }
-          }}
-          onPaste={(e) => {
-            const txt = e.clipboardData.getData('text');
-            if (txt.includes('\n')) {
-              e.preventDefault();
-              addTopics(tut, txt.split(/\r?\n/), cabide);
-            }
-          }}
-          placeholder={cabide ? 'O que ficou para estudar/revisar — Enter' : 'Pergunta / objetivo da abertura — Enter'}
-          className={`${cabide ? 'tutoria-add-cabide' : 'tutoria-add-objective'} flex-1 min-w-0 bg-transparent py-1 text-xs placeholder:text-slate-400 focus:outline-hidden`}
-        />
-        {!cabide && (
-          <button type="button" onClick={() => setPasteFor(tut.id)} className="shrink-0 p-1 rounded-md text-slate-400 hover:text-sky-500" title="Colar lista (um por linha)" aria-label="Colar lista">
-            <ClipboardPaste className="h-3.5 w-3.5" />
+      <div className="pt-2 space-y-1">
+        <div
+          className="flex items-center gap-1.5 rounded-xl border-2 border-dashed bg-white dark:bg-slate-950/60 pl-2.5 pr-1 py-1 transition-colors focus-within:border-solid"
+          style={{ borderColor: hasText ? color : `${color}66` }}
+        >
+          <Plus className="h-4 w-4 shrink-0" style={{ color }} />
+          <input
+            value={drafts[key] || ''}
+            onChange={(e) => setDrafts((d) => ({ ...d, [key]: e.target.value }))}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') submit();
+            }}
+            onPaste={(e) => {
+              const txt = e.clipboardData.getData('text');
+              if (txt.includes('\n')) {
+                e.preventDefault();
+                addTopics(tut, txt.split(/\r?\n/), cabide);
+              }
+            }}
+            placeholder={cabide ? 'Novo assunto' : 'Novo objetivo'}
+            className={`${cabide ? 'tutoria-add-cabide' : 'tutoria-add-objective'} flex-1 min-w-0 bg-transparent py-1.5 text-xs font-medium text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-hidden`}
+          />
+          <button
+            type="button"
+            onClick={submit}
+            disabled={!hasText}
+            className="tutoria-add-btn shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-white text-[11px] font-black disabled:opacity-40 transition-opacity"
+            style={{ backgroundColor: color }}
+          >
+            <Plus className="h-3.5 w-3.5" /> Adicionar
           </button>
-        )}
+        </div>
+        <div className="flex items-center justify-between gap-2 px-1">
+          <span className="text-[10px] text-slate-400">Enter também adiciona</span>
+          {!cabide && (
+            <button type="button" onClick={() => setPasteFor(tut.id)} className="flex items-center gap-1 text-[10px] font-bold text-slate-400 hover:text-sky-500">
+              <ClipboardPaste className="h-3 w-3" /> Colar lista
+            </button>
+          )}
+        </div>
       </div>
     );
   };

@@ -455,36 +455,50 @@ export const SubjectChecklistPanel: React.FC<Props> = ({ subject }) => {
                       </div>
                     </div>
                   ) : (
-                    <div className="flex items-center gap-1.5 pt-1">
-                      <Plus className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                      <input
-                        value={drafts[m] || ''}
-                        onChange={(e) => setDrafts((d) => ({ ...d, [m]: e.target.value }))}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
+                    <div className="pt-2 space-y-1">
+                      <div
+                        className="flex items-center gap-1.5 rounded-xl border-2 border-dashed bg-white dark:bg-slate-950/60 pl-2.5 pr-1 py-1 transition-colors focus-within:border-solid"
+                        style={{ borderColor: (drafts[m] || '').trim() ? accent : `${accent}66` }}
+                      >
+                        <Plus className="h-4 w-4 shrink-0" style={{ color: accent }} />
+                        <input
+                          value={drafts[m] || ''}
+                          onChange={(e) => setDrafts((d) => ({ ...d, [m]: e.target.value }))}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              addTopics(m, [drafts[m] || '']);
+                              setDrafts((d) => ({ ...d, [m]: '' }));
+                            }
+                          }}
+                          onPaste={(e) => {
+                            const txt = e.clipboardData.getData('text');
+                            if (txt.includes('\n')) {
+                              e.preventDefault();
+                              addTopics(m, txt.split(/\r?\n/));
+                            }
+                          }}
+                          placeholder={`Escreva ${fmt.item === 'Estrutura' || fmt.item === 'Prática / Estação' ? 'uma' : 'um'} ${fmt.item.toLowerCase()} — ${fmt.itemPlaceholder.replace(/^Ex:\s*/, 'ex: ')}`}
+                          className="checklist-add-topic flex-1 min-w-0 bg-transparent py-1.5 text-xs font-medium text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-hidden"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
                             addTopics(m, [drafts[m] || '']);
                             setDrafts((d) => ({ ...d, [m]: '' }));
-                          }
-                        }}
-                        onPaste={(e) => {
-                          const txt = e.clipboardData.getData('text');
-                          if (txt.includes('\n')) {
-                            e.preventDefault();
-                            addTopics(m, txt.split(/\r?\n/));
-                          }
-                        }}
-                        placeholder={`Adicionar ${fmt.item.toLowerCase()} e Enter — ${fmt.itemPlaceholder.replace(/^Ex:\s*/, 'ex: ')}`}
-                        className="checklist-add-topic flex-1 min-w-0 bg-transparent py-1 text-xs placeholder:text-slate-400 focus:outline-hidden"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setPasteFor(m)}
-                        className="shrink-0 p-1 rounded-md text-slate-400 hover:text-sky-500"
-                        title="Colar uma lista (um por linha)"
-                        aria-label="Colar lista"
-                      >
-                        <ClipboardPaste className="h-3.5 w-3.5" />
-                      </button>
+                          }}
+                          disabled={!(drafts[m] || '').trim()}
+                          className="shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-white text-[11px] font-black disabled:opacity-40"
+                          style={{ backgroundColor: accent }}
+                        >
+                          <Plus className="h-3.5 w-3.5" /> Adicionar
+                        </button>
+                      </div>
+                      <div className="flex items-center justify-between gap-2 px-1">
+                        <span className="text-[10px] text-slate-400">Enter também adiciona · quantos quiser</span>
+                        <button type="button" onClick={() => setPasteFor(m)} className="flex items-center gap-1 text-[10px] font-bold text-slate-400 hover:text-sky-500">
+                          <ClipboardPaste className="h-3 w-3" /> Colar lista
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
