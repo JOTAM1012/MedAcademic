@@ -47,6 +47,8 @@ export interface StudyTimePrompt {
 }
 
 export interface TopicBlock {
+  /** Dia planejado para estudar o bloco (D0 no Planner) */
+  plannedDate?: string;
   /** Tempo de estudo informado ao concluir o bloco (Dia 0) */
   studyMinutes?: number;
   id: string;

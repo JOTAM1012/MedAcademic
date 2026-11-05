@@ -43,8 +43,8 @@ export const StudyTimeModal: React.FC = () => {
       : 'Quanto tempo durou esta revisão?';
 
   return (
-    <div className="fixed inset-0 z-[90] flex items-end sm:items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in">
-      <div id="study-time-modal" className="w-full max-w-md rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-2xl space-y-4">
+    <div className="app-modal fixed inset-0 z-[90] flex items-end sm:items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in">
+      <div id="study-time-modal" className="app-modal-panel w-full max-w-md rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-2xl space-y-4">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-start gap-3">
             <div className="p-2 rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 shrink-0">
@@ -123,7 +123,7 @@ export const StudyTimeModal: React.FC = () => {
           )}
         </div>
 
-        <div className="flex items-center justify-end gap-2">
+        <div className="app-modal-footer flex items-center justify-end gap-2">
           <button onClick={() => completeStudyTimePrompt(0)} className="px-3 py-2 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">
             Pular
           </button>

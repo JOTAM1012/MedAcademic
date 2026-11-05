@@ -167,8 +167,8 @@ export const StudyCycleModal: React.FC<StudyCycleModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="relative w-full max-w-2xl rounded-3xl border border-amber-500/30 bg-slate-900 p-5 sm:p-6 shadow-2xl max-h-[90vh] overflow-y-auto text-slate-100 space-y-5">
+    <div className="app-modal fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-200">
+      <div className="app-modal-panel relative w-full max-w-2xl rounded-3xl border border-amber-500/30 bg-slate-900 p-5 sm:p-6 shadow-2xl max-h-[90vh] overflow-y-auto text-slate-100 space-y-5">
         {/* Header */}
         <div className="flex items-center justify-between pb-4 border-b border-slate-800">
           <div className="flex items-center gap-3">
@@ -362,7 +362,7 @@ export const StudyCycleModal: React.FC<StudyCycleModalProps> = ({
                   />
                 </div>
               </div>
-              <div className="flex justify-end">
+              <div className="app-modal-footer flex justify-end">
                 <button
                   type="submit"
                   className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition-all cursor-pointer shadow-md"

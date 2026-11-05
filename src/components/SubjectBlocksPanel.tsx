@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Plus, Search, ChevronDown, Check, Trash2, Clock3, MoreHorizontal, Pencil, RotateCcw, Repeat, Trophy, Layers, X } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { Subject, Topic, TopicBlock } from '../types';
+import { DatePickerField } from './DatePickerField';
 import { SPECIALTY_BLOCK_SUGGESTIONS, getMedicalArea, getSpecialty } from '../data/areas';
 import { BLOCK_REVIEWS_TO_MASTER, cycleDay, formatDM, isBlockDue, isTopicPending, isTopicResolved, isTopicSeen, suggestedPlan, ymd } from '../data/blockReview';
 
@@ -30,6 +31,7 @@ export const SubjectBlocksPanel: React.FC<SubjectBlocksPanelProps> = ({ subject 
     deleteTopicBlock,
     restartBlockReviews,
     setCurrentTab,
+    updateTopicBlock,
   } = useApp();
 
   const [search, setSearch] = useState('');
@@ -410,6 +412,18 @@ export const SubjectBlocksPanel: React.FC<SubjectBlocksPanelProps> = ({ subject 
                   <p className="text-[10px] font-semibold text-rose-600 dark:text-rose-400 mt-1.5 px-1">
                     ⚠ {pendingCount} pendência{pendingCount > 1 ? 's' : ''}: ao terminar cada revisão o app pergunta se você já viu.
                   </p>
+                )}
+                {block.reviewStatus === 'estudando' && (
+                  <div className="mt-2 px-1 flex items-center gap-2 flex-wrap text-[10px]" onClick={(e) => e.stopPropagation()}>
+                    <span className="font-bold text-slate-500">📅 Estudar no dia (D0 no Planner):</span>
+                    <DatePickerField
+                      id={'block-plan-' + block.id}
+                      value={block.plannedDate || ''}
+                      onChange={(v) => updateTopicBlock(block.id, { plannedDate: v || undefined })}
+                      placeholder="Planejar data"
+                      className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-2 py-1 text-[11px] font-bold text-slate-700 dark:text-slate-200"
+                    />
+                  </div>
                 )}
                 {block.reviewStatus === 'estudando' && list.length > 0 && resolved < list.length && (
                   <p className="text-[10px] text-slate-500 mt-1.5 px-1">

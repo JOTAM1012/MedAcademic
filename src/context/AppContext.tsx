@@ -159,6 +159,7 @@ interface AppContextType {
   /** Recomeça as revisões do bloco (volta para "Em estudo" se algum tópico não estiver visto) */
   restartBlockReviews: (id: string) => void;
   undoBlockReview: (id: string) => void;
+  updateTopicBlock: (id: string, changes: Partial<TopicBlock>) => void;
 
   // Exams & Grades
   exams: Exam[];
@@ -1576,6 +1577,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showNotification(`R${done} de "${block.name}" registrada. Próxima em ${intervalDays} dia${intervalDays > 1 ? 's' : ''}.`, 'success');
   };
 
+  const updateTopicBlock = (id: string, changes: Partial<TopicBlock>) => {
+    setTopicBlocks((prev) => prev.map((bk) => (bk.id === id ? { ...bk, ...changes } : bk)));
+  };
+
   // Desfaz a última revisão do bloco (clique sem querer): volta datas, avaliação e questões registradas
   const undoBlockReview = (id: string) => {
     const block = topicBlocks.find((bk) => bk.id === id);
@@ -2155,6 +2160,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         reviewTopicBlock,
         restartBlockReviews,
         undoBlockReview,
+        updateTopicBlock,
         addChecklistItem,
         updateChecklistItem,
         addChecklistBlock,

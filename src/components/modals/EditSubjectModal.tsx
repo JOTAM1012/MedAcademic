@@ -61,8 +61,8 @@ export const EditSubjectModal: React.FC<EditSubjectModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
-      <div className="relative w-full max-w-lg max-h-[92vh] overflow-y-auto rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 sm:p-6 shadow-2xl">
+    <div className="app-modal fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
+      <div className="app-modal-panel relative w-full max-w-lg max-h-[92vh] overflow-y-auto rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 sm:p-6 shadow-2xl">
         <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
           <div className="flex items-center gap-2.5">
             <div className="p-2 rounded-xl bg-sky-500/10 text-sky-600 dark:text-sky-400">
@@ -133,7 +133,7 @@ export const EditSubjectModal: React.FC<EditSubjectModalProps> = ({
               <span>Excluir</span>
             </button>
 
-            <div className="flex items-center gap-2">
+            <div className="app-modal-footer flex items-center gap-2">
               <button
                 type="button"
                 onClick={onClose}

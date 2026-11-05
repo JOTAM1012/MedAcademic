@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
   Calendar as CalendarIcon,
   ChevronLeft,
@@ -29,7 +29,8 @@ import { useApp } from '../context/AppContext';
 import { getReviewsDone, REVIEWS_TO_MASTER } from '../data/topicStatus';
 import { getActivityCategory, getExamKind, getExamSubjectName, getExamShift, occursOn } from '../data/planning';
 import { Exam, ScheduleClass, Topic, Subject, ChecklistItem, TopicBlock } from '../types';
-import { BLOCK_REVIEWS_TO_MASTER, cycleDay, suggestedPlan } from '../data/blockReview';
+import { BLOCK_REVIEWS_TO_MASTER, cycleDay, formatDM, isTopicSeen, suggestedPlan } from '../data/blockReview';
+import { DatePickerField } from './DatePickerField';
 
 interface CalendarViewProps {
   onOpenAddExam?: (date?: string) => void;
@@ -63,7 +64,7 @@ const VIEW_LABELS: Record<ViewMode, { title: string; live: string; prev: string;
 
 interface UnifiedCalendarItem {
   id: string;
-  sourceType: 'schedule' | 'exam' | 'topic' | 'task' | 'block';
+  sourceType: 'schedule' | 'exam' | 'topic' | 'task' | 'block' | 'blockstudy';
   time: string;
   badge: string;
   badgeColor: 'amber' | 'blue' | 'rose' | 'emerald' | 'purple';
@@ -104,6 +105,9 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     setTimerMode,
     setCurrentTab,
     showNotification,
+    updateExam,
+    updateChecklistItem,
+    updateTopicBlock,
   } = useApp();
 
   // Calendar View State: default to 'weekly'
@@ -240,6 +244,212 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     return rangeDays.some((d) => d.dateStr === todayYMD);
   }, [rangeDays]);
 
+  // ---------- D0 e arrastar cards entre dias ----------
+  // Dia de estudo de um bloco em estudo: data planejada ou o 1º contato agendado mais cedo dos tópicos
+  const studyDateOf = (bk: TopicBlock) => {
+    if (bk.plannedDate) return bk.plannedDate;
+    const dates = topics
+      .filter((t) => t.blockId === bk.id && t.scheduleFirstContact && t.firstContactDate && t.status === 'nao_iniciado')
+      .map((t) => t.firstContactDate!)
+      .sort();
+    return dates[0];
+  };
+
+  const isMovable = (item: UnifiedCalendarItem) =>
+    item.sourceType === 'schedule' ? !!(item.originalData as ScheduleClass).date : true;
+
+  const moveItemToDate = (item: UnifiedCalendarItem, date: string) => {
+    const label = formatDM(date);
+    switch (item.sourceType) {
+      case 'block': {
+        const bk = item.originalData as TopicBlock;
+        updateTopicBlock(bk.id, { nextReviewDate: date });
+        showNotification(`Revisão R${bk.reviewsDone + 1} de "${bk.name}" movida para ${label}.`, 'success');
+        break;
+      }
+      case 'blockstudy': {
+        const bk = item.originalData as TopicBlock;
+        updateTopicBlock(bk.id, { plannedDate: date });
+        topics
+          .filter((t) => t.blockId === bk.id && t.scheduleFirstContact && t.status === 'nao_iniciado')
+          .forEach((t) => updateTopic(t.id, { firstContactDate: date }));
+        showNotification(`Estudo do bloco "${bk.name}" movido para ${label}.`, 'success');
+        break;
+      }
+      case 'exam':
+        updateExam((item.originalData as Exam).id, { date });
+        showNotification(`Prova movida para ${label}.`, 'success');
+        break;
+      case 'task':
+        updateChecklistItem((item.originalData as ChecklistItem).id, { dueDate: date });
+        showNotification(`Tarefa movida para ${label}.`, 'success');
+        break;
+      case 'topic':
+        updateTopic((item.originalData as Topic).id, { firstContactDate: date });
+        showNotification(`Estudo movido para ${label}.`, 'success');
+        break;
+      case 'schedule': {
+        const sc = item.originalData as ScheduleClass;
+        if (!sc.date) return;
+        const wd = new Date(date + 'T12:00:00').getDay();
+        updateScheduleClass(sc.id, { date, dayOfWeek: (wd === 0 ? 7 : wd) as ScheduleClass['dayOfWeek'] });
+        showNotification(`"${item.title}" movido para ${label}.`, 'success');
+        break;
+      }
+    }
+  };
+
+  // Atalhos: hoje, amanhã, próximo sábado e +7 dias
+  const quickMoveTargets = () => {
+    const base = new Date();
+    const add = (n: number) => {
+      const d = new Date(base);
+      d.setDate(d.getDate() + n);
+      return formatToYMD(d);
+    };
+    const toSat = (6 - base.getDay() + 7) % 7 || 7;
+    return [
+      { label: 'Hoje', date: add(0) },
+      { label: 'Amanhã', date: add(1) },
+      { label: `Sábado (${formatDM(add(toSat))})`, date: add(toSat) },
+      { label: '+7 dias', date: add(7) },
+    ];
+  };
+
+  const [drag, setDrag] = useState<{ item: UnifiedCalendarItem; x: number; y: number } | null>(null);
+  const [dropDate, setDropDate] = useState<string | null>(null);
+  const dropDateRef = useRef<string | null>(null);
+  const suppressClickRef = useRef(false);
+  const pendingRef = useRef<{ item: UnifiedCalendarItem; x: number; y: number; timer?: number; started: boolean } | null>(null);
+
+  // Rola a tela sozinho quando o card arrastado chega perto da borda (dias empilhados no celular)
+  const lastPosRef = useRef<{ x: number; y: number } | null>(null);
+  const autoScrollRef = useRef<number | null>(null);
+  const startAutoScroll = () => {
+    if (autoScrollRef.current) return;
+    autoScrollRef.current = window.setInterval(() => {
+      const p = lastPosRef.current;
+      const main = document.querySelector('main');
+      if (!p || !main) return;
+      const edge = 110;
+      const h = window.innerHeight;
+      const dy = p.y < edge ? -Math.ceil((edge - p.y) / 6) : p.y > h - edge ? Math.ceil((p.y - (h - edge)) / 6) : 0;
+      if (dy) {
+        main.scrollBy(0, dy);
+        updateHover(p.x, p.y);
+      }
+    }, 16);
+  };
+  const stopAutoScroll = () => {
+    if (autoScrollRef.current) window.clearInterval(autoScrollRef.current);
+    autoScrollRef.current = null;
+    lastPosRef.current = null;
+  };
+
+  const updateHover = (x: number, y: number) => {
+    lastPosRef.current = { x, y };
+    const el = document.elementFromPoint(x, y)?.closest('[data-drop-date]') as HTMLElement | null;
+    const d = el?.dataset.dropDate || null;
+    dropDateRef.current = d;
+    setDropDate(d);
+  };
+  const beginDrag = (x: number, y: number) => {
+    const p = pendingRef.current;
+    if (!p || p.started) return;
+    p.started = true;
+    setDrag({ item: p.item, x, y });
+    updateHover(x, y);
+    startAutoScroll();
+    if (navigator.vibrate) try { navigator.vibrate(15); } catch {}
+  };
+  const finishDrag = () => {
+    stopAutoScroll();
+    const p = pendingRef.current;
+    if (p?.timer) window.clearTimeout(p.timer);
+    if (p?.started) {
+      const target = dropDateRef.current;
+      if (target) moveItemToDate(p.item, target);
+      suppressClickRef.current = true;
+      window.setTimeout(() => (suppressClickRef.current = false), 50);
+    }
+    pendingRef.current = null;
+    dropDateRef.current = null;
+    setDrag(null);
+    setDropDate(null);
+  };
+
+  // Mouse / caneta: arrasta depois de mover alguns pixels
+  const startDrag = (e: React.PointerEvent, item: UnifiedCalendarItem) => {
+    if (e.pointerType === 'touch' || e.button !== 0 || !isMovable(item)) return;
+    if ((e.target as HTMLElement).closest('button')) return;
+    pendingRef.current = { item, x: e.clientX, y: e.clientY, started: false };
+    const move = (ev: PointerEvent) => {
+      const p = pendingRef.current;
+      if (!p) return;
+      if (!p.started && Math.hypot(ev.clientX - p.x, ev.clientY - p.y) > 6) beginDrag(ev.clientX, ev.clientY);
+      if (p.started) {
+        ev.preventDefault();
+        setDrag((d) => (d ? { ...d, x: ev.clientX, y: ev.clientY } : d));
+        updateHover(ev.clientX, ev.clientY);
+      }
+    };
+    const up = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', up);
+      finishDrag();
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', up);
+  };
+
+  // Toque: segurar ~0,35s e arrastar (rolar a tela continua funcionando)
+  const startTouchDrag = (e: React.TouchEvent, item: UnifiedCalendarItem) => {
+    if (!isMovable(item) || e.touches.length !== 1) return;
+    if ((e.target as HTMLElement).closest('button')) return;
+    const t = e.touches[0];
+    pendingRef.current = { item, x: t.clientX, y: t.clientY, started: false };
+    pendingRef.current.timer = window.setTimeout(() => {
+      const p = pendingRef.current;
+      if (p) beginDrag(p.x, p.y);
+    }, 350);
+    const move = (ev: TouchEvent) => {
+      const p = pendingRef.current;
+      if (!p) return;
+      const tt = ev.touches[0];
+      if (!p.started) {
+        if (Math.hypot(tt.clientX - p.x, tt.clientY - p.y) > 10) {
+          // é rolagem: cancela o arrastar
+          cleanup();
+          pendingRef.current = null;
+          if (p.timer) window.clearTimeout(p.timer);
+        }
+        return;
+      }
+      ev.preventDefault();
+      setDrag((d) => (d ? { ...d, x: tt.clientX, y: tt.clientY } : d));
+      updateHover(tt.clientX, tt.clientY);
+    };
+    const end = () => {
+      cleanup();
+      finishDrag();
+    };
+    const cleanup = () => {
+      window.removeEventListener('touchmove', move);
+      window.removeEventListener('touchend', end);
+      window.removeEventListener('touchcancel', end);
+    };
+    window.addEventListener('touchmove', move, { passive: false });
+    window.addEventListener('touchend', end);
+    window.addEventListener('touchcancel', end);
+  };
+
+  useEffect(() => () => {
+    if (pendingRef.current?.timer) window.clearTimeout(pendingRef.current.timer);
+    if (autoScrollRef.current) window.clearInterval(autoScrollRef.current);
+  }, []);
+
   // Generate unified items for a specific day of the week
   const getItemsForDay = (dayInfo: { dateStr: string; dayNum: number }) => {
     const items: UnifiedCalendarItem[] = [];
@@ -320,9 +530,43 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         });
       });
 
-    // 3. 1º contato agendado para este dia (tópicos ainda não vistos)
+    // 3a. Blocos em estudo (D0): um card por bloco, com a % de tópicos vistos
+    topicBlocks
+      .filter((bk) => bk.reviewStatus === 'estudando' && studyDateOf(bk) === dayInfo.dateStr)
+      .forEach((bk) => {
+        const sub = getSubject(bk.subjectId);
+        const list = topics.filter((t) => t.blockId === bk.id);
+        const seen = list.filter(isTopicSeen).length;
+        const pct = list.length ? Math.round((seen / list.length) * 100) : 0;
+        items.push({
+          id: `blockstudy-${bk.id}`,
+          sourceType: 'blockstudy',
+          time: '--:--',
+          badge: 'D0',
+          badgeColor: 'blue',
+          title: bk.name,
+          subtitle: sub?.universitySubject || sub?.name,
+          bottomLeftLabel: `${seen}/${list.length} tópicos`,
+          bottomLeftIcon: 'brain',
+          statusLabel: `${pct}%`,
+          progressPercent: pct,
+          isCompleted: false,
+          isFirstContact: true,
+          subject: sub,
+          accentColor: sub?.color || '#6366f1',
+          originalData: bk,
+        });
+      });
+
+    // 3b. 1º contato agendado para este dia (tópicos soltos, fora de um bloco em estudo)
     topics
-      .filter((t) => t.scheduleFirstContact && t.firstContactDate === dayInfo.dateStr && t.status === 'nao_iniciado')
+      .filter(
+        (t) =>
+          t.scheduleFirstContact &&
+          t.firstContactDate === dayInfo.dateStr &&
+          t.status === 'nao_iniciado' &&
+          !topicBlocks.some((bk) => bk.id === t.blockId && bk.reviewStatus === 'estudando')
+      )
       .forEach((topic) => {
         const sub = getSubject(topic.subjectId);
         const block = topicBlocks.find((bk) => bk.id === topic.blockId);
@@ -367,7 +611,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           subtitle: plan ? `${sub?.universitySubject || sub?.name || 'Bloco'} · ${plan.steps.join(' + ')}` : `${sub?.universitySubject || sub?.name || 'Bloco'} · 1ª revisão, avalie a dificuldade`,
           bottomLeftLabel: `Revisão R${bk.reviewsDone + 1}${day !== undefined ? ` · Dia ${day}` : ''}`,
           bottomLeftIcon: 'brain',
-          statusLabel: `${bk.reviewsDone % BLOCK_REVIEWS_TO_MASTER}/${BLOCK_REVIEWS_TO_MASTER}`,
+          statusLabel: `${Math.round(((bk.reviewsDone % BLOCK_REVIEWS_TO_MASTER) / BLOCK_REVIEWS_TO_MASTER) * 100)}%`,
           progressPercent: Math.round(((bk.reviewsDone % BLOCK_REVIEWS_TO_MASTER) / BLOCK_REVIEWS_TO_MASTER) * 100),
           isCompleted: false,
           subject: sub,
@@ -390,7 +634,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         if (filterType === 'exams' && item.sourceType !== 'exam') {
           return false;
         }
-        if (filterType === 'reviews' && item.sourceType !== 'topic' && item.sourceType !== 'block') {
+        if (filterType === 'reviews' && item.sourceType !== 'topic' && item.sourceType !== 'block' && item.sourceType !== 'blockstudy') {
           return false;
         }
 
@@ -425,6 +669,8 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     } else if (item.sourceType === 'block') {
       // A revisão do bloco é feita na aba Revisões (plano sugerido + avaliação)
       setCurrentTab('spaced_repetition');
+    } else if (item.sourceType === 'blockstudy') {
+      setCurrentTab('structure');
     } else if (item.sourceType === 'topic') {
       const top = item.originalData as Topic;
       // 1º contato → Visto; revisão agendada → conclui a revisão (dominado após a 4ª)
@@ -495,7 +741,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       totalItems += items.length;
       completedItems += items.filter((i) => i.isCompleted).length;
       examsCount += items.filter((i) => i.sourceType === 'exam').length;
-      reviewsCount += items.filter((i) => i.sourceType === 'topic' || i.sourceType === 'block').length;
+      reviewsCount += items.filter((i) => i.sourceType === 'topic' || i.sourceType === 'block' || i.sourceType === 'blockstudy').length;
     });
 
     return { totalItems, completedItems, examsCount, reviewsCount };
@@ -505,8 +751,19 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   const renderItemCard = (item: UnifiedCalendarItem, compact = false) => (
     <div
       key={item.id}
-      onClick={() => setSelectedItem(item)}
-      className={`group relative min-w-0 rounded-2xl border transition-all cursor-pointer ${compact ? 'p-2' : 'p-3'} ${
+      data-planner-item={item.id}
+      onClick={() => {
+        if (suppressClickRef.current) return;
+        setSelectedItem(item);
+      }}
+      onPointerDown={(e) => startDrag(e, item)}
+      onTouchStart={(e) => startTouchDrag(e, item)}
+      onContextMenu={(e) => isMovable(item) && e.preventDefault()}
+      style={isMovable(item) ? { WebkitTouchCallout: 'none' } : undefined}
+      title={isMovable(item) ? 'Clique para detalhes · arraste para outro dia' : undefined}
+      className={`group relative min-w-0 rounded-2xl border transition-all select-none ${isMovable(item) ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'} ${
+        drag?.item.id === item.id ? 'opacity-40 ring-2 ring-sky-500/60' : ''
+      } ${compact ? 'p-2' : 'p-3'} ${
         item.isCompleted
           ? 'bg-slate-950/40 border-slate-800/50 opacity-65 hover:opacity-100'
           : 'bg-slate-950/80 border-slate-800 hover:border-slate-700 hover:bg-slate-950 shadow-xs'
@@ -557,7 +814,22 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         </p>
       )}
 
-      {/* Bottom Line: Recurrence/Type and Status (stacked in the narrow weekly columns) */}
+      {/* Blocos (D0 / revisões): % de conclusão com barra */}
+      {item.progressPercent !== undefined && (item.sourceType === 'block' || item.sourceType === 'blockstudy') ? (
+        <div className="mt-2">
+          <div className="flex items-center justify-between gap-1">
+            <span className="text-[10px] text-slate-400 font-medium truncate">{item.bottomLeftLabel}</span>
+            <span className="text-sm font-black text-white shrink-0">{item.progressPercent}%</span>
+          </div>
+          <div className="mt-1 h-1.5 rounded-full bg-slate-800 overflow-hidden">
+            <div
+              className="h-full rounded-full transition-all"
+              style={{ width: `${Math.max(item.progressPercent, 2)}%`, backgroundColor: item.accentColor || '#0ea5e9' }}
+            />
+          </div>
+        </div>
+      ) : (
+      /* Bottom Line: Recurrence/Type and Status (stacked in the narrow weekly columns) */
       <div
         className={`border-t border-slate-800/60 flex text-[10px] ${
           compact ? 'mt-2 pt-1.5 flex-col items-start gap-1' : 'mt-2.5 pt-2 items-center justify-between gap-2'
@@ -585,6 +857,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           <span>{item.statusLabel}</span>
         </button>
       </div>
+      )}
     </div>
   );
 
@@ -760,6 +1033,27 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         </div>
       </div>
 
+      {/* Card sendo arrastado */}
+      {drag && (
+        <div
+          id="planner-drag-ghost"
+          className="fixed z-[100] pointer-events-none w-44 rounded-2xl border border-sky-400/60 bg-slate-900/95 p-2.5 shadow-2xl shadow-sky-950/60 rotate-3"
+          style={{ left: drag.x - 40, top: drag.y - 24 }}
+        >
+          <p className="text-[11px] font-black text-white uppercase line-clamp-2">{drag.item.title}</p>
+          <div className="mt-1 flex items-center justify-between">
+            <span className="text-[9px] font-black px-1.5 py-0.5 rounded-md bg-sky-500/20 text-sky-300 border border-sky-500/40">{drag.item.badge}</span>
+            <span className="text-[10px] font-bold text-sky-300">{dropDate ? `→ ${formatDM(dropDate)}` : 'solte num dia'}</span>
+          </div>
+        </div>
+      )}
+
+      {(viewMode === 'weekly' || viewMode === 'monthly') && (
+        <p className="text-[11px] text-slate-400 -mt-2 px-1">
+          💡 Não conseguiu fazer? <strong className="text-slate-300">Arraste o card</strong> para outro dia (no celular, segure o card e arraste) ou toque nele e use “Mover para”.
+        </p>
+      )}
+
       {/* 7-COLUMN WEEKLY BOARD */}
       {viewMode === 'weekly' && (
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-2.5 items-stretch">
@@ -769,7 +1063,10 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           return (
             <div
               key={day.dateStr}
-              className={`flex flex-col min-w-0 min-h-[360px] rounded-2xl border transition-all ${
+              data-drop-date={day.dateStr}
+              className={`flex flex-col min-w-0 min-h-[150px] sm:min-h-[360px] rounded-2xl border transition-all ${
+                dropDate === day.dateStr && drag ? '!border-sky-400 !bg-sky-950/40 ring-2 ring-sky-400/60 scale-[1.01]' : ''
+              } ${
                 day.isToday
                   ? 'bg-slate-900/95 border-sky-500/50 shadow-lg shadow-sky-950/40 ring-1 ring-sky-500/30'
                   : 'bg-slate-900/70 border-slate-800/80 hover:border-slate-700 shadow-md'
@@ -937,9 +1234,12 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 <button
                   key={cell.dateStr}
                   type="button"
+                  data-drop-date={cell.dateStr}
                   onClick={() => openDay(cell.date)}
                   title={`Abrir ${cell.long}, ${cell.dayNumber}/${cell.monthNumber}`}
                   className={`min-h-[92px] sm:min-h-[128px] rounded-xl sm:rounded-2xl border p-1.5 sm:p-2 text-left flex flex-col gap-1 transition-all hover:border-sky-500/60 ${
+                    dropDate === cell.dateStr && drag ? 'ring-2 ring-sky-400' : ''
+                  } ${
                     cell.isToday
                       ? 'border-sky-500/60 bg-sky-950/30 ring-1 ring-sky-500/30'
                       : cell.inMonth
@@ -1016,8 +1316,8 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 
       {/* Selected Item Detail & Quick Actions Modal */}
       {selectedItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xs animate-in fade-in">
-          <div className="relative w-full max-w-md rounded-3xl border border-slate-800 bg-slate-900 p-6 shadow-2xl space-y-4">
+        <div className="app-modal fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xs animate-in fade-in">
+          <div className="app-modal-panel relative w-full max-w-md rounded-3xl border border-slate-800 bg-slate-900 p-6 shadow-2xl space-y-4">
             {/* Header */}
             <div className="flex items-start justify-between pb-3 border-b border-slate-800">
               <div className="flex items-center gap-2.5">
@@ -1033,7 +1333,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                   }`}
                 >
                   {selectedItem.sourceType === 'schedule' && <Clock className="h-5 w-5" />}
-                  {(selectedItem.sourceType === 'topic' || selectedItem.sourceType === 'block') && <Brain className="h-5 w-5" />}
+                  {(selectedItem.sourceType === 'topic' || selectedItem.sourceType === 'block' || selectedItem.sourceType === 'blockstudy') && <Brain className="h-5 w-5" />}
                   {selectedItem.sourceType === 'exam' && <GraduationCap className="h-5 w-5" />}
                   {selectedItem.sourceType === 'task' && <Check className="h-5 w-5" />}
                 </div>
@@ -1090,6 +1390,38 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 </span>
               </div>
             </div>
+
+            {isMovable(selectedItem) && (
+              <div id="planner-move-to" className="rounded-xl border border-slate-800 bg-slate-950/60 p-3 space-y-2">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Não deu hoje? Mover para</p>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {quickMoveTargets().map((t) => (
+                    <button
+                      key={t.label}
+                      type="button"
+                      onClick={() => {
+                        moveItemToDate(selectedItem, t.date);
+                        setSelectedItem(null);
+                      }}
+                      className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold bg-slate-800 text-slate-200 hover:bg-sky-600 hover:text-white transition-colors"
+                    >
+                      {t.label}
+                    </button>
+                  ))}
+                  <DatePickerField
+                    id="planner-move-date"
+                    value=""
+                    onChange={(v) => {
+                      if (!v) return;
+                      moveItemToDate(selectedItem, v);
+                      setSelectedItem(null);
+                    }}
+                    placeholder="Outra data…"
+                    className="rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-[11px] font-bold text-slate-200"
+                  />
+                </div>
+              </div>
+            )}
 
             {/* Footer Action Buttons */}
             <div className="pt-2 flex items-center justify-between gap-2 border-t border-slate-800">
@@ -1152,7 +1484,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                   className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold transition-colors"
                 >
                   <Check className="h-3.5 w-3.5" />
-                  <span>{selectedItem.sourceType === 'block' ? 'Revisar agora' : selectedItem.isCompleted ? 'Marcar Pendente' : 'Marcar Concluído'}</span>
+                  <span>{selectedItem.sourceType === 'block' ? 'Revisar agora' : selectedItem.sourceType === 'blockstudy' ? 'Abrir bloco' : selectedItem.isCompleted ? 'Marcar Pendente' : 'Marcar Concluído'}</span>
                 </button>
                 )}
               </div>

@@ -76,7 +76,7 @@ export const MobileTabBar: React.FC = () => {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsMoreOpen(false)}
-              className="fixed inset-0 z-[55] bg-slate-950/70 backdrop-blur-xs lg:hidden"
+              className="fixed inset-0 z-[43] bg-slate-950/70 backdrop-blur-xs lg:hidden"
             />
             <motion.div
               key="more-sheet"
@@ -85,7 +85,7 @@ export const MobileTabBar: React.FC = () => {
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
               transition={{ type: 'spring', stiffness: 380, damping: 36 }}
-              className="fixed inset-x-0 bottom-0 z-[60] lg:hidden rounded-t-3xl border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 pt-3 shadow-2xl"
+              className="fixed inset-x-0 bottom-0 z-[44] lg:hidden rounded-t-3xl border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 pt-3 shadow-2xl"
               style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 92px)' }}
             >
               <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-slate-300 dark:bg-slate-700" />
@@ -133,10 +133,10 @@ export const MobileTabBar: React.FC = () => {
       {/* Barra de abas */}
       <nav
         id="mobile-tab-bar"
-        className="fixed inset-x-0 bottom-0 z-[65] lg:hidden border-t border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md shadow-[0_-6px_24px_rgba(0,0,0,0.12)]"
+        className="fixed inset-x-0 bottom-0 z-[45] lg:hidden border-t border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md shadow-[0_-6px_24px_rgba(0,0,0,0.12)]"
         style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
       >
-        <div className="grid grid-cols-5 h-[68px] px-1">
+        <div className="grid grid-cols-5 h-[68px] px-1 max-w-2xl mx-auto">
           {[...primary, null].map((item) => {
             const isMore = item === null;
             const active = isMore ? isMoreOpen || moreActive : currentTab === item.id && !isMoreOpen;

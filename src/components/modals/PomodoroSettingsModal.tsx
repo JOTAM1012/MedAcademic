@@ -43,8 +43,8 @@ export const PomodoroSettingsModal: React.FC<PomodoroSettingsModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="relative w-full max-w-md rounded-3xl border border-slate-700 bg-slate-900 p-6 sm:p-7 shadow-2xl text-slate-100">
+    <div className="app-modal fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-200">
+      <div className="app-modal-panel relative w-full max-w-md rounded-3xl border border-slate-700 bg-slate-900 p-6 sm:p-7 shadow-2xl text-slate-100">
         
         {/* Header */}
         <div className="flex items-center justify-between pb-4 border-b border-slate-800">
@@ -128,7 +128,7 @@ export const PomodoroSettingsModal: React.FC<PomodoroSettingsModalProps> = ({
             />
           </div>
 
-          <div className="flex justify-end gap-3 pt-4 border-t border-slate-800">
+          <div className="app-modal-footer flex justify-end gap-3 pt-4 border-t border-slate-800">
             <button
               type="button"
               onClick={onClose}

@@ -753,8 +753,8 @@ export const SpacedRepetitionView: React.FC<SpacedRepetitionViewProps> = () => {
         if (!block || items.length === 0) return null;
         const allAnswered = items.every((t) => pendingAnswers[t.id]);
         return (
-          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in">
-            <div id="pending-topics-prompt" className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-2xl space-y-4">
+          <div className="app-modal fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in">
+            <div id="pending-topics-prompt" className="app-modal-panel w-full max-w-md max-h-[90vh] overflow-y-auto rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-2xl space-y-4">
               <div>
                 <p className="text-[10px] font-black uppercase tracking-wider text-rose-600 dark:text-rose-400">Pendências do bloco</p>
                 <h2 className="text-base font-black text-slate-900 dark:text-white">{block.name}</h2>

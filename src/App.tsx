@@ -262,7 +262,7 @@ const AppContent: React.FC = () => {
   };
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-slate-50 dark:bg-slate-950 font-sans text-slate-900 dark:text-slate-100 transition-colors">
+    <div className="flex h-screen h-[100dvh] w-screen overflow-hidden bg-slate-50 dark:bg-slate-950 font-sans text-slate-900 dark:text-slate-100 transition-colors">
       {/* Navigation Sidebar */}
       <Sidebar
         isMobileOpen={isMobileMenuOpen}

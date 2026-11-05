@@ -32,3 +32,77 @@
 .dark ::-webkit-scrollbar-thumb:hover {
   background: rgba(51, 65, 85, 0.8);
 }
+
+/* ---------- Janelas (modais) que cabem na tela do celular/tablet ---------- */
+.app-modal-panel {
+  --modal-bg: #ffffff;
+  max-height: calc(100dvh - 2rem) !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+}
+.app-modal-panel.bg-slate-900 {
+  --modal-bg: #0f172a;
+}
+@media (prefers-color-scheme: dark) {
+  .app-modal-panel {
+    --modal-bg: #0f172a;
+  }
+}
+/* Botões de concluir sempre visíveis no rodapé da janela */
+.app-modal-footer {
+  position: sticky;
+  bottom: -1.25rem;
+  z-index: 5;
+  background: var(--modal-bg);
+  margin-left: -0.25rem;
+  margin-right: -0.25rem;
+  padding-left: 0.25rem;
+  padding-right: 0.25rem;
+  padding-bottom: 1.25rem;
+  margin-bottom: -1.25rem;
+}
+
+@media (max-width: 639px) {
+  /* No celular a janela vira uma "folha" que sobe do rodapé */
+  .app-modal {
+    align-items: flex-end !important;
+    padding: env(safe-area-inset-top, 0px) 0 0 0 !important;
+    overflow: hidden !important;
+  }
+  .app-modal-panel {
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: 90dvh !important;
+    margin: 0 !important;
+    border-bottom-left-radius: 0 !important;
+    border-bottom-right-radius: 0 !important;
+    border-bottom-width: 0 !important;
+    padding: 1rem 1rem calc(1rem + env(safe-area-inset-bottom, 0px)) !important;
+    animation: modal-sheet-up 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .app-modal-panel::before {
+    content: '';
+    display: block;
+    width: 2.5rem;
+    height: 0.3rem;
+    border-radius: 9999px;
+    background: rgba(148, 163, 184, 0.45);
+    margin: -0.25rem auto 0.6rem;
+  }
+  .app-modal-footer {
+    bottom: calc(-1rem - env(safe-area-inset-bottom, 0px));
+    padding-top: 0.75rem;
+    padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+    margin-bottom: calc(-1rem - env(safe-area-inset-bottom, 0px));
+  }
+  .app-modal-footer button {
+    flex: 1 1 0;
+    min-height: 2.75rem;
+    justify-content: center;
+  }
+}
+
+@keyframes modal-sheet-up {
+  from { transform: translateY(40px); opacity: 0.6; }
+  to { transform: translateY(0); opacity: 1; }
+}
