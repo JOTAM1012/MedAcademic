@@ -87,7 +87,7 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleMobileMenu, onOpenTour }
         <button
           id="topbar-mobile-menu-btn"
           onClick={onToggleMobileMenu}
-          className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 lg:hidden shrink-0"
+          className="rounded-xl p-2 bg-blue-600 text-white shadow-md shadow-blue-600/30 hover:bg-blue-700 lg:hidden shrink-0"
           aria-label="Abrir Menu Lateral"
         >
           <Menu className="h-5 w-5" />

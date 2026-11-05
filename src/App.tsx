@@ -5,6 +5,7 @@ import { AuthProvider, useAuth, isLocalOnly } from './context/AuthContext';
 import { AppProvider, useApp } from './context/AppContext';
 import { Sidebar } from './components/Sidebar';
 import { TopBar } from './components/TopBar';
+import { MobileTabBar } from './components/MobileTabBar';
 import { DashboardView } from './components/DashboardView';
 import { AcademicStructureView } from './components/AcademicStructureView';
 import { SpacedRepetitionView } from './components/SpacedRepetitionView';
@@ -276,7 +277,7 @@ const AppContent: React.FC = () => {
         />
 
         {/* Dynamic Scrollable Page Content with Smooth Page Transitions */}
-        <main className="flex-1 overflow-y-auto px-4 sm:px-8 py-6 max-w-7xl w-full mx-auto">
+        <main className="flex-1 overflow-y-auto px-4 sm:px-8 pt-6 pb-36 lg:pb-6 max-w-7xl w-full mx-auto">
           <AnimatePresence mode="wait">
             <motion.div
               key={currentTab}
@@ -291,6 +292,9 @@ const AppContent: React.FC = () => {
           </AnimatePresence>
         </main>
       </div>
+
+      {/* Abas fixas no rodapé (celular / app) */}
+      <MobileTabBar />
 
       {/* Global Creation & Onboarding Modals */}
       <AddSubjectModal
@@ -334,7 +338,7 @@ const AppContent: React.FC = () => {
       <AuthModal />
 
       {/* Floating Bottom-Right Container with User Status Dock & Toast */}
-      <div className="fixed bottom-4 right-4 z-40 flex flex-col items-end gap-2.5 max-w-[340px]">
+      <div className="fixed bottom-[calc(84px+env(safe-area-inset-bottom,0px))] lg:bottom-4 right-3 lg:right-4 z-40 flex flex-col items-end gap-2.5 max-w-[340px]">
         {/* Subtle Offline Toast above dock (shown when offline > 30s) */}
         {showOfflineToast && !isOfflineToastDismissed && !isLocalOnly && (
           <div

@@ -47,7 +47,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
   const [isHovered, setIsHovered] = useState<boolean>(false);
 
   // Computed expanded state: if not collapsed OR when hovered while collapsed
-  const isExpanded = !isCollapsed || isHovered;
+  const isExpanded = !isCollapsed || isHovered || isMobileOpen;
 
   const toggleCollapse = () => {
     setIsCollapsed((prev) => {
@@ -163,7 +163,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
         <div
           id="sidebar-mobile-backdrop"
           onClick={() => setIsMobileOpen(false)}
-          className="fixed inset-0 z-40 bg-slate-950/70 backdrop-blur-xs lg:hidden"
+          className="fixed inset-0 z-[68] bg-slate-950/70 backdrop-blur-xs lg:hidden"
         />
       )}
 
@@ -176,7 +176,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
         onMouseLeave={() => {
           if (isCollapsed) setIsHovered(false);
         }}
-        className={`fixed top-0 bottom-0 left-0 z-50 flex shrink-0 flex-col bg-slate-900 border-r border-slate-800 text-slate-300 transition-all duration-300 ease-in-out lg:static lg:translate-x-0 ${
+        className={`fixed top-0 bottom-0 left-0 z-[70] flex shrink-0 flex-col bg-slate-900 border-r border-slate-800 text-slate-300 transition-all duration-300 ease-in-out lg:static lg:translate-x-0 ${
           isMobileOpen ? 'translate-x-0' : '-translate-x-full'
         } ${
           isExpanded ? 'w-64' : 'w-[72px]'
@@ -243,7 +243,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
                       setIsMobileOpen(false);
                     }}
                     className={`flex w-full items-center rounded-lg text-xs transition-colors relative group overflow-hidden ${
-                      isExpanded ? 'justify-between px-3 py-2 gap-3' : 'justify-center p-2.5'
+                      isExpanded ? 'justify-between px-3 py-3 lg:py-2 gap-3 text-sm lg:text-xs' : 'justify-center p-2.5'
                     } ${
                       isActive
                         ? 'text-blue-400 font-bold'
@@ -259,7 +259,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
                     )}
                     <div className="flex items-center gap-3 min-w-0 z-10">
                       <Icon
-                        className={`h-4 w-4 shrink-0 transition-colors ${
+                        className={`h-5 w-5 lg:h-4 lg:w-4 shrink-0 transition-colors ${
                           isActive ? 'text-blue-400' : 'text-slate-400 group-hover:text-slate-200'
                         }`}
                       />
@@ -310,7 +310,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
                       setIsMobileOpen(false);
                     }}
                     className={`flex w-full items-center rounded-lg text-xs transition-colors relative group overflow-hidden ${
-                      isExpanded ? 'justify-between px-3 py-2 gap-3' : 'justify-center p-2.5'
+                      isExpanded ? 'justify-between px-3 py-3 lg:py-2 gap-3 text-sm lg:text-xs' : 'justify-center p-2.5'
                     } ${
                       isActive
                         ? 'text-blue-400 font-bold'
@@ -326,7 +326,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
                     )}
                     <div className="flex items-center gap-3 min-w-0 z-10">
                       <Icon
-                        className={`h-4 w-4 shrink-0 transition-colors ${
+                        className={`h-5 w-5 lg:h-4 lg:w-4 shrink-0 transition-colors ${
                           isActive ? 'text-blue-400' : 'text-slate-400 group-hover:text-slate-200'
                         }`}
                       />
@@ -374,7 +374,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
                       setIsMobileOpen(false);
                     }}
                     className={`flex w-full items-center rounded-lg text-xs transition-all group ${
-                      isExpanded ? 'justify-between px-3 py-2 gap-3' : 'justify-center p-2.5'
+                      isExpanded ? 'justify-between px-3 py-3 lg:py-2 gap-3 text-sm lg:text-xs' : 'justify-center p-2.5'
                     } ${
                       isActive
                         ? isGemini
