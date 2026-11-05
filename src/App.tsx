@@ -463,7 +463,7 @@ const AppContent: React.FC = () => {
             <div className="relative shrink-0">
               <div
                 className={`w-8 h-8 rounded-full bg-blue-950 overflow-hidden transition-transform group-hover:scale-105 ${
-                  isOwnerAccount ? 'owner-gold-frame owner-gold-frame--sm' : 'border border-slate-700'
+                  isOwnerAccount ? 'owner-gold-frame owner-gold-frame--sm' : 'user-blue-frame user-blue-frame--sm'
                 }`}
               >
                 <img

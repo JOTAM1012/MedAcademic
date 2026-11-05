@@ -245,8 +245,33 @@
 }
 .owner-gold-frame--sm > img { border-radius: 9999px; }
 @keyframes owner-frame-spin { to { transform: rotate(360deg); } }
+
+/* Moldura azul brilhante: padrão de todos os usuários (o Dono usa a dourada) */
+.user-blue-frame {
+  position: relative;
+  padding: 4px;
+  isolation: isolate;
+  box-shadow: 0 0 18px rgba(14, 165, 233, 0.45), 0 0 42px rgba(37, 99, 235, 0.18);
+}
+.user-blue-frame::before {
+  content: '';
+  position: absolute;
+  inset: -40%;
+  z-index: -1;
+  background: conic-gradient(from 0deg, #1e3a8a, #0284c7, #7dd3fc, #e0f2fe, #7dd3fc, #0284c7, #1e3a8a, #0284c7, #7dd3fc, #1e3a8a);
+  animation: owner-frame-spin 5s linear infinite;
+}
+.user-blue-frame > img {
+  position: relative;
+  border-radius: calc(1.5rem - 4px);
+}
+.user-blue-frame--sm {
+  padding: 2px;
+  box-shadow: 0 0 10px rgba(14, 165, 233, 0.55);
+}
+.user-blue-frame--sm > img { border-radius: 9999px; }
 @media (prefers-reduced-motion: reduce) {
-  .owner-gold-frame::before { animation: none; }
+  .owner-gold-frame::before, .user-blue-frame::before { animation: none; }
 }
 
 

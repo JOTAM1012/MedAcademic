@@ -24,10 +24,10 @@ export const OwnerName: React.FC<OwnerNameProps> = ({ name, className = '', badg
       {badge && (
         <span
           className={`shrink-0 text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-md border ${
-            isOwner ? 'owner-gold-badge' : 'bg-violet-500/15 text-violet-300 border-violet-500/40'
+            isOwner ? 'owner-gold-badge inline-flex items-center' : 'bg-violet-500/15 text-violet-300 border-violet-500/40'
           }`}
         >
-          {isOwner ? 'Dono' : 'Moderador'}
+          {isOwner ? <Crown className="h-3.5 w-3.5" aria-label="Dono" /> : 'Moderador'}
         </span>
       )}
     </span>

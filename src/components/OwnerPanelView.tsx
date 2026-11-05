@@ -318,12 +318,11 @@ export const OwnerPanelView: React.FC = () => {
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className={`text-sm font-black truncate ${u.role === 'owner' ? 'owner-gold-name' : 'text-slate-900 dark:text-white'}`}>
-                          {u.role === 'owner' && '👑 '}
-                          {u.name || 'Sem nome'}
+                                                    {u.name || 'Sem nome'}
                         </span>
                         {u.role && (
                           <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded-md border ${u.role === 'owner' ? 'owner-gold-badge' : 'bg-violet-500/15 text-violet-300 border-violet-500/40'}`}>
-                            {u.role === 'owner' ? 'Dono' : 'Moderador'}
+                            {u.role === 'owner' ? <Crown className="h-3 w-3" aria-label="Dono" /> : 'Moderador'}
                           </span>
                         )}
                         {u.lifetime && <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded-md bg-amber-500/15 text-amber-600 dark:text-amber-300 border border-amber-500/30">Vitalício</span>}

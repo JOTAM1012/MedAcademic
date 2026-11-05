@@ -36,6 +36,7 @@ import { useAuth } from '../context/AuthContext';
 import { CARTOON_AVATARS } from '../data/avatars';
 import { fileToAvatarDataUrl, avatarErrorMessage } from '../data/avatarImage';
 import { OwnerName } from './OwnerName';
+import { ChangePhotoModal } from './modals/ChangePhotoModal';
 import { SemesterSwitcher } from './SemesterSwitcher';
 import { GoalsEditor } from './dashboard/DashboardInsights';
 import { useAccess } from '../context/AccessContext';
@@ -101,6 +102,7 @@ export const ProfileView: React.FC = () => {
   const [isDeleteAccountModalOpen, setIsDeleteAccountModalOpen] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
 
   const handleCustomPhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -359,7 +361,15 @@ export const ProfileView: React.FC = () => {
           </p>
         </div>
         {!isEditing ? (
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              id="profile-change-photo-btn"
+              onClick={() => setIsPhotoModalOpen(true)}
+              className="shrink-0 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-sky-50 dark:bg-sky-950/40 hover:bg-sky-100 dark:hover:bg-sky-900/50 text-sky-700 dark:text-sky-300 font-bold text-xs border border-sky-200 dark:border-sky-800/60 shadow-xs transition-colors cursor-pointer"
+            >
+              <Camera className="h-4 w-4" />
+              <span>Trocar foto</span>
+            </button>
             <button
               onClick={() => setIsEditingProfileSetup(true)}
               className="shrink-0 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer"
@@ -388,19 +398,31 @@ export const ProfileView: React.FC = () => {
         )}
       </div>
 
+      {isPhotoModalOpen && <ChangePhotoModal onClose={() => setIsPhotoModalOpen(false)} />}
       {!isEditing ? (
         // --- DASHBOARD VIEW ---
         <div className="space-y-6 animate-in fade-in zoom-in-95 duration-200">
           
           {/* Identity & Main Info Card */}
           <div className="relative overflow-hidden rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs flex flex-col md:flex-row items-center gap-6 p-6">
-            <div
-              id="profile-avatar-frame"
-              className={`shrink-0 w-24 h-24 sm:w-32 sm:h-32 rounded-3xl overflow-hidden shadow-md ${
-                access.isOwner ? 'owner-gold-frame' : 'border-4 border-white dark:border-slate-800'
-              }`}
-            >
-              <img src={userProfile.avatarUrl || CARTOON_AVATARS[0].url} alt="Avatar" className="w-full h-full object-cover rounded-[inherit]" />
+            <div className="relative shrink-0">
+              <div
+                id="profile-avatar-frame"
+                className={`w-24 h-24 sm:w-32 sm:h-32 rounded-3xl overflow-hidden shadow-md ${
+                  access.isOwner ? 'owner-gold-frame' : 'user-blue-frame'
+                }`}
+              >
+                <img src={userProfile.avatarUrl || CARTOON_AVATARS[0].url} alt="Avatar" className="w-full h-full object-cover rounded-[inherit]" />
+              </div>
+              <button
+                id="profile-avatar-camera-btn"
+                onClick={() => setIsPhotoModalOpen(true)}
+                title="Trocar foto"
+                aria-label="Trocar foto do perfil"
+                className={`absolute -bottom-2 -right-2 h-9 w-9 rounded-full ${access.isOwner ? "bg-gradient-to-br from-amber-300 to-amber-600 text-slate-950" : "bg-sky-600 hover:bg-sky-500 text-white"} flex items-center justify-center shadow-lg ring-4 ring-white dark:ring-slate-900 transition-transform hover:scale-105`}
+              >
+                <Camera className="h-4 w-4" />
+              </button>
             </div>
             <div className="text-center md:text-left flex-1">
               <h2 className="text-2xl font-black text-slate-900 dark:text-white mb-1">
