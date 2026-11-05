@@ -134,7 +134,12 @@ export const DashboardView: React.FC = () => {
               </div>
               <div>
                 <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
-                  {isReturning ? `Seja ${welcome} novamente, ${firstName} 🩺` : `Seja ${welcome} ao MedAcademic, ${firstName} 🩺`}
+                  Seja {welcome} {isReturning ? 'novamente' : 'ao MedAcademic'}, <OwnerName name={firstName} />{' '}
+                  {isOwnerAccount ? (
+                    <Crown className="inline h-[1em] w-[1em] -mt-1 text-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.8)]" aria-label="Dono" />
+                  ) : (
+                    '🩺'
+                  )}
                 </h2>
                 <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 max-w-2xl">
                   {isReturning

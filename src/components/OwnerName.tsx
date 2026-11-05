@@ -10,10 +10,11 @@ interface OwnerNameProps {
   crown?: boolean;
 }
 
-// Nome do usuário: dourado e brilhando para o Dono do site
+// Nome do usuário: dourado para o Dono, violeta para Moderador, azul brilhante para os demais
 export const OwnerName: React.FC<OwnerNameProps> = ({ name, className = '', badge = false, crown = false }) => {
   const { isOwner, role } = useAccess();
-  if (!role) return <span className={className}>{name}</span>;
+  // Usuário comum: nome azul brilhante
+  if (!role) return <span className={`user-blue-name ${className}`}>{name}</span>;
   return (
     <span className={`inline-flex items-center min-w-0 align-baseline ${badge || (crown && isOwner) ? 'gap-1.5' : ''}`}>
       {crown && isOwner && <Crown className="h-[0.9em] w-[0.9em] shrink-0 text-amber-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.8)]" />}

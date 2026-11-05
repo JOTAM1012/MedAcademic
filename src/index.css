@@ -129,8 +129,20 @@
 @keyframes owner-gold-shine {
   to { background-position: -250% center; }
 }
+/* Nome do usuário comum: azul brilhante na paleta do site */
+.user-blue-name {
+  background: linear-gradient(100deg, #0284c7 0%, #38bdf8 30%, #7dd3fc 44%, #bae6fd 50%, #7dd3fc 56%, #38bdf8 70%, #0284c7 100%);
+  background-size: 250% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent !important;
+  -webkit-text-fill-color: transparent;
+  animation: owner-gold-shine 4s linear infinite;
+  filter: drop-shadow(0 0 6px rgba(14, 165, 233, 0.45));
+  font-weight: 900;
+}
 @media (prefers-reduced-motion: reduce) {
-  .owner-gold-name { animation: none; }
+  .owner-gold-name, .user-blue-name { animation: none; }
 }
 
 /* ---------- Placa "NO AR" de estúdio / manutenção ---------- */
