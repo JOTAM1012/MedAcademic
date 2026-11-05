@@ -347,7 +347,7 @@ export const SpacedRepetitionView: React.FC<SpacedRepetitionViewProps> = () => {
         <div className="p-4 rounded-2xl border border-emerald-200 dark:border-emerald-900/40 bg-emerald-50/50 dark:bg-emerald-950/20">
           <div className="text-[11px] font-bold text-emerald-900 dark:text-emerald-300 uppercase tracking-wider">Blocos Dominados</div>
           <div className="text-2xl font-black text-emerald-700 dark:text-emerald-400 mt-1">{masteredBlocks.length}</div>
-          <div className="text-[10px] text-emerald-700/70 dark:text-emerald-400/70">Retenção consolidada</div>
+          <div className="text-[10px] text-emerald-700/70 dark:text-emerald-400/70">1 ciclo de 4 revisões ou mais</div>
         </div>
       </div>
 

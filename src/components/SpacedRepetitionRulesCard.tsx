@@ -110,8 +110,8 @@ export const SpacedRepetitionRulesCard: React.FC<SpacedRepetitionRulesCardProps>
           <div className="flex items-start sm:items-center gap-2.5 rounded-xl bg-sky-950/40 border border-sky-300/20 px-3.5 py-2.5 text-xs sm:text-sm text-sky-100 font-medium leading-relaxed backdrop-blur-xs">
             <span className="text-base shrink-0">📅</span>
             <p className="text-sky-100/95 font-medium">
-              Cada revisão agendada aparece no <strong className="text-white font-bold">Planner</strong>. Depois da 4ª revisão o bloco fica{' '}
-              <strong className="text-white font-bold">Dominado</strong>.
+              Cada revisão agendada aparece no <strong className="text-white font-bold">Planner</strong>. As revisões seguem em ciclos de 4 (R1–R4, R5–R8…): a cada ciclo completo o bloco ganha um{' '}
+              <strong className="text-white font-bold">🏆 ciclo</strong> e continua sendo revisado.
             </p>
           </div>
         </div>

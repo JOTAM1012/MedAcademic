@@ -14,11 +14,16 @@ import {
   Smartphone,
   Compass,
   Zap,
+  Cloud,
 } from 'lucide-react';
 
 export interface TourStep {
   id: string;
   targetSelector: string; // CSS Selector for highlighting target element
+  /** alvo no celular/tablet (menu lateral fica escondido abaixo de 1024px) */
+  mobileTargetSelector?: string;
+  /** texto alternativo para celular/tablet */
+  mobileDescription?: string;
   title: string;
   description: string;
   badgeText?: string;
@@ -39,7 +44,7 @@ const TOUR_STEPS: TourStep[] = [
     id: 'welcome',
     targetSelector: '#tour-welcome',
     title: 'Bem-vindo ao MedAcademic!',
-    description: 'Sua plataforma inteligente de gestão acadêmica e revisões espaçadas médica. Vamos fazer um tour rápido de 1 minuto para explorar as principais ferramentas.',
+    description: 'Sua plataforma para organizar a vida acadêmica e os estudos. Faça este tour rápido para conhecer as principais ferramentas.',
     badgeText: 'Introdução 🚀',
     icon: <Sparkles className="w-5 h-5 text-amber-400" />,
     position: 'center',
@@ -47,18 +52,22 @@ const TOUR_STEPS: TourStep[] = [
   {
     id: 'sidebar',
     targetSelector: '#tour-sidebar',
-    title: 'Navegação Principal (Sidebar)',
-    description: 'Navegue entre Dashboard, Planner, Grade de Semestre (provas e notas), Grade de Horários, Disciplinas & Assuntos, Revisões, Pomodoro, Checklist e Perfil.',
-    badgeText: 'Menu Lateral 📍',
+    mobileTargetSelector: '#mobile-tab-bar',
+    title: 'Navegação principal',
+    description:
+      'Acesse o Dashboard, o Planner, a Grade do Semestre (provas e notas), a Grade de Horários, as Disciplinas, as Revisões, o Pomodoro, o Checklist e o Perfil.',
+    mobileDescription:
+      'Use a barra de abas aqui embaixo: Início, Planner, Revisões e Pomodoro. Em “Mais” estão a Grade do Semestre (provas e notas), a Grade de Horários, as Disciplinas, o Checklist e o Perfil.',
+    badgeText: 'Navegação 📍',
     icon: <Compass className="w-5 h-5 text-cyan-400" />,
     position: 'right',
   },
   {
     id: 'dashboard',
     targetSelector: '#tour-dashboard',
-    title: 'Dashboard de Desempenho',
-    description: 'Acompanhe seu progresso real: horas estudadas no mês, taxa de acerto nas revisões, dias de consistência (streak) e gráficos de evolução de aprendizado.',
-    badgeText: 'Visão Geral 📊',
+    title: 'Acompanhe seu desempenho',
+    description: 'Veja suas horas de estudo, a taxa de acertos nas revisões, sua sequência de dias de estudo e os gráficos da sua evolução.',
+    badgeText: 'Desempenho 📊',
     icon: <LayoutDashboard className="w-5 h-5 text-emerald-400" />,
     tabToNavigate: 'dashboard',
     position: 'bottom',
@@ -66,28 +75,29 @@ const TOUR_STEPS: TourStep[] = [
   {
     id: 'spaced-repetition',
     targetSelector: '#tour-spaced-repetition',
-    title: 'Algoritmo de Revisão Espaçada MED',
-    description: 'Agende e cumpra suas revisões no ciclo científico (1d, 7d, 14d, 30d e 60d) para garantir retenção máxima e vencer a Curva do Esquecimento.',
-    badgeText: 'Repetição Espaçada 🧠',
+    title: 'Revisão espaçada',
+    description:
+      'Agende e acompanhe suas revisões com o método de repetição espaçada. Ao retomar os conteúdos em intervalos planejados, você fortalece a retenção e apoia sua aprendizagem.',
+    badgeText: 'Revisões 🧠',
     icon: <Brain className="w-5 h-5 text-violet-400" />,
     tabToNavigate: 'spaced_repetition',
     position: 'bottom',
   },
   {
-    id: 'topbar',
-    targetSelector: '#tour-topbar',
-    title: 'Sincronização & Perfil Acadêmico',
-    description: 'Seus dados são salvos offline no dispositivo e sincronizados na nuvem em tempo real. Veja seu nível, XP acumulado e relance este tour a qualquer momento.',
-    badgeText: 'Sincronização & XP 🎓',
-    icon: <GraduationCap className="w-5 h-5 text-blue-400" />,
+    id: 'sync',
+    targetSelector: '#topbar-cloud-sync-btn',
+    title: 'Sincronização dos dados',
+    description: 'Seus dados ficam salvos no dispositivo e são sincronizados com a nuvem em tempo real.',
+    badgeText: 'Sincronização ☁️',
+    icon: <Cloud className="w-5 h-5 text-blue-400" />,
     position: 'bottom',
   },
   {
     id: 'install',
     targetSelector: '#topbar-install-btn',
-    title: 'Instale no celular 📱',
+    title: 'Instale no celular',
     description:
-      'Toque em "Instalar app" para usar o MedAcademic como aplicativo: ícone na tela inicial, tela cheia e funcionamento offline. No Android use o Chrome (menu ⋮ → Instalar app); no iPhone use o Safari (Compartilhar → Adicionar à Tela de Início).',
+      'Toque em “Instalar app” para adicionar o MedAcademic à tela inicial e usá-lo em tela cheia, inclusive offline. A instalação está disponível para Android e iOS.',
     badgeText: 'Aplicativo 📲',
     icon: <Smartphone className="w-5 h-5 text-sky-400" />,
     position: 'bottom',
@@ -113,13 +123,12 @@ export const GuidedTour: React.FC<GuidedTourProps> = ({
       return;
     }
 
-    const el = document.querySelector(currentStep.targetSelector);
-    if (el) {
-      const rect = el.getBoundingClientRect();
-      setTargetRect(rect);
-    } else {
-      setTargetRect(null);
-    }
+    const narrow = window.innerWidth < 1024;
+    const selector = narrow && currentStep.mobileTargetSelector ? currentStep.mobileTargetSelector : currentStep.targetSelector;
+    const el = document.querySelector(selector);
+    const rect = el?.getBoundingClientRect();
+    // elemento escondido (ex.: botão de instalar quando o app já está instalado) → cartão no centro
+    setTargetRect(rect && rect.width > 0 && rect.height > 0 ? rect : null);
   }, [isOpen, currentStep]);
 
   // Navigate tab if step specifies one
@@ -311,7 +320,7 @@ export const GuidedTour: React.FC<GuidedTourProps> = ({
 
           {/* Body Description */}
           <p className="text-xs md:text-sm text-slate-300 leading-relaxed font-normal">
-            {currentStep.description}
+            {typeof window !== "undefined" && window.innerWidth < 1024 && currentStep.mobileDescription ? currentStep.mobileDescription : currentStep.description}
           </p>
 
           {/* Progress & Controls */}
