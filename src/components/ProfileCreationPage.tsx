@@ -60,7 +60,7 @@ export interface MedicalCycleConfig {
   semesters: SemesterOption[];
 }
 
-const MEDICAL_CYCLES: MedicalCycleConfig[] = [
+export const MEDICAL_CYCLES: MedicalCycleConfig[] = [
   {
     id: 'ciclo_basico',
     title: 'Ciclo Básico',
@@ -105,7 +105,7 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
     userProfile,
     subjects,
     updateUserProfile,
-    clearAllData,
+    semesters,
     updateSemester,
     addXp,
     triggerConfetti,
@@ -285,14 +285,13 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
       return;
     }
 
-    // Only initialize blank data if user has no existing subjects
-    if (subjects.length === 0) {
-      clearAllData();
+    // Nunca apaga dados. Na 1ª configuração só dá nome ao semestre inicial
+    // (para trocar de semestre depois, use "Ciclo acadêmico e semestre" no Perfil).
+    if (!isEditingProfileSetup && semesters.length <= 1) {
       const chosenSemesterName = semesterName.trim() || `${selectedSemesterNum}º Semestre - ${activeCycleConfig.title}`;
-      const chosenSemesterCode = semesterCode.trim() || `SEM${selectedSemesterNum}`;
-      updateSemester('sem-1', {
+      const firstId = semesters[0]?.id || 'sem-1';
+      updateSemester(firstId, {
         name: chosenSemesterName,
-        code: chosenSemesterCode,
         targetHoursWeekly: Number(weeklyTargetHours),
         description: `${activeCycleConfig.title} • ${chosenSemesterName}`,
       });
@@ -310,7 +309,6 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
       targetAverageGrade: Number(targetAverageGrade),
       avatarUrl: selectedAvatarUrl,
       onboardingCompleted: true,
-      currentSemesterId: 'sem-1',
     };
 
     updateUserProfile(updated);
@@ -421,7 +419,7 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
                 {step === 1 && 'Identidade & Foto'}
                 {step === 2 && 'Faculdade & Ciclo'}
                 {step === 3 && 'Residência R1'}
-                {step === 4 && (signupMode ? 'E-mail & Senha' : 'Iniciar Painel')}
+                {step === 4 && (signupMode ? 'E-mail & Senha' : isEditingProfileSetup ? 'Salvar' : 'Concluir')}
               </span>
             </div>
           ))}
@@ -973,13 +971,15 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
                 <div>
                   <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-500/10 text-purple-400 text-xs font-bold border border-purple-500/20 mb-2">
                     <Sparkles className="h-3.5 w-3.5" />
-                    <span>Passo 4 de 4: Inicialização do Painel</span>
+                    <span>Passo 4 de 4: {isEditingProfileSetup ? 'Salvar alterações' : 'Tudo pronto'}</span>
                   </div>
                   <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
-                    Painel 100% Zerado & Pronto para Usar
+                    {isEditingProfileSetup ? 'Salvar seu perfil' : 'Tudo pronto para começar'}
                   </h2>
                   <p className="text-xs sm:text-sm text-slate-400 mt-1">
-                    Seu ambiente acadêmico será iniciado totalmente limpo para você cadastrar suas próprias matérias e notas.
+                    {isEditingProfileSetup
+                      ? 'Só o seu perfil (nome, foto, faculdade e metas) será atualizado. Suas disciplinas, revisões, provas e horas de estudo continuam exatamente como estão.'
+                      : 'Seu painel está pronto para você cadastrar as disciplinas da sua faculdade, montar as revisões e registrar suas horas de estudo.'}
                   </p>
                 </div>
 
@@ -989,9 +989,11 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
                       <CheckCircle2 className="h-5 w-5" />
                     </div>
                     <div>
-                      <h4 className="text-sm font-black text-white">Ambiente Limpo e Estruturado</h4>
+                      <h4 className="text-sm font-black text-white">{isEditingProfileSetup ? 'Seus dados estão seguros' : 'Painel estruturado'}</h4>
                       <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                        Tudo pronto para você adicionar as disciplinas da sua faculdade, montar seus ciclos de repetição espaçada e registrar suas horas de estudo.
+                        {isEditingProfileSetup
+                          ? 'Nada é apagado ao editar o perfil. Para estudar outro semestre, troque em Perfil → Ciclo acadêmico e semestre.'
+                          : 'Adicione as disciplinas da sua faculdade, monte os blocos de revisão e registre suas horas de estudo.'}
                       </p>
                     </div>
                   </div>
@@ -999,19 +1001,19 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 text-center text-xs">
                     <div className="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800">
                       <div className="text-[10px] text-slate-500 font-bold uppercase">Matérias</div>
-                      <div className="text-sm font-black text-slate-200 mt-0.5">0 Cadastradas</div>
+                      <div className="text-sm font-black text-slate-200 mt-0.5">{subjects.length} cadastradas</div>
                     </div>
                     <div className="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800">
-                      <div className="text-[10px] text-slate-500 font-bold uppercase">Repetições</div>
-                      <div className="text-sm font-black text-slate-200 mt-0.5">0 Tópicos</div>
+                      <div className="text-[10px] text-slate-500 font-bold uppercase">Semestre</div>
+                      <div className="text-sm font-black text-slate-200 mt-0.5 truncate">{semesters.find((s) => s.isCurrent)?.name.split(' - ')[0] || `${selectedSemesterNum}º`}</div>
                     </div>
                     <div className="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800">
                       <div className="text-[10px] text-slate-500 font-bold uppercase">Provas</div>
-                      <div className="text-sm font-black text-slate-200 mt-0.5">0 Agendadas</div>
+                      <div className="text-sm font-black text-slate-200 mt-0.5">{isEditingProfileSetup ? 'Mantidas' : '0 agendadas'}</div>
                     </div>
                     <div className="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800">
-                      <div className="text-[10px] text-slate-500 font-bold uppercase">XP de Início</div>
-                      <div className="text-sm font-black text-emerald-400 mt-0.5">+150 XP</div>
+                      <div className="text-[10px] text-slate-500 font-bold uppercase">{isEditingProfileSetup ? 'Dados' : 'XP de início'}</div>
+                      <div className="text-sm font-black text-emerald-400 mt-0.5">{isEditingProfileSetup ? 'Preservados' : '+150 XP'}</div>
                     </div>
                   </div>
                 </div>
@@ -1075,7 +1077,9 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
                       ? isSubmitting
                         ? 'Criando conta...'
                         : 'Criar Conta e Acessar'
-                      : 'Concluir Perfil e Iniciar Painel Zerado'}
+                      : isEditingProfileSetup
+                      ? 'Salvar perfil'
+                      : 'Concluir perfil'}
                   </span>
                 </button>
               )}

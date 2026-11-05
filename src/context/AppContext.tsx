@@ -124,6 +124,9 @@ interface AppContextType {
   startNextSemester: () => void;
   updateSemester: (id: string, sem: Partial<Semester>) => void;
   deleteSemester: (id: string) => void;
+  resetCurrentSemester: () => void;
+  undoSemesterReset: () => void;
+  semesterResetBackup: { semesterId: string; semesterName: string; at: string } | null;
 
   // Subjects
   subjects: Subject[];
@@ -1376,6 +1379,91 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showNotification('Semestre removido.', 'info');
   };
 
+  // ---------- Zerar só o semestre atual (semestres passados e suas estatísticas ficam intactos) ----------
+  type SemesterBackup = {
+    semesterId: string;
+    semesterName: string;
+    at: string;
+    subjects: Subject[];
+    topics: Topic[];
+    topicBlocks: TopicBlock[];
+    exams: Exam[];
+    schedule: ScheduleClass[];
+    questionLogs: QuestionLog[];
+    studySessions: StudySession[];
+  };
+  const backupKey = () => getUserKey('semester_reset_backup', activeUserId);
+  const readBackup = (): SemesterBackup | null => {
+    try {
+      const raw = localStorage.getItem(backupKey());
+      if (!raw) return null;
+      const b = JSON.parse(raw) as SemesterBackup;
+      // o "desfazer" fica disponível por 7 dias
+      if (Date.now() - new Date(b.at).getTime() > 7 * 86400000) return null;
+      return b;
+    } catch {
+      return null;
+    }
+  };
+  const [semesterResetBackupInfo, setSemesterResetBackupInfo] = useState<{ semesterId: string; semesterName: string; at: string } | null>(null);
+  useEffect(() => {
+    const b = activeUserId ? readBackup() : null;
+    setSemesterResetBackupInfo(b ? { semesterId: b.semesterId, semesterName: b.semesterName, at: b.at } : null);
+  }, [activeUserId]);
+
+  const resetCurrentSemester = () => {
+    const sem = semesters.find((s) => s.id === userProfile.currentSemesterId) || semesters[0];
+    if (!sem) return;
+    const subIds = new Set(subjects.filter((s) => s.semesterId === sem.id).map((s) => s.id));
+    const backup: SemesterBackup = {
+      semesterId: sem.id,
+      semesterName: sem.name,
+      at: new Date().toISOString(),
+      subjects: subjects.filter((s) => subIds.has(s.id)),
+      topics: topics.filter((t) => subIds.has(t.subjectId)),
+      topicBlocks: topicBlocks.filter((b) => subIds.has(b.subjectId)),
+      exams: exams.filter((e) => e.semesterId === sem.id),
+      schedule: schedule.filter((c) => c.semesterId === sem.id),
+      questionLogs: questionLogs.filter((q) => q.semesterId === sem.id || (q.subjectId && subIds.has(q.subjectId))),
+      studySessions: studySessions.filter((x) => x.subjectId && subIds.has(x.subjectId)),
+    };
+    try {
+      localStorage.setItem(backupKey(), JSON.stringify(backup));
+    } catch {}
+    const qIds = new Set(backup.questionLogs.map((q) => q.id));
+    const sIds = new Set(backup.studySessions.map((x) => x.id));
+    setSubjects((prev) => prev.filter((s) => !subIds.has(s.id)));
+    setTopics((prev) => prev.filter((t) => !subIds.has(t.subjectId)));
+    setTopicBlocks((prev) => prev.filter((b) => !subIds.has(b.subjectId)));
+    setExams((prev) => prev.filter((e) => e.semesterId !== sem.id));
+    setSchedule((prev) => prev.filter((c) => c.semesterId !== sem.id));
+    setQuestionLogs((prev) => prev.filter((q) => !qIds.has(q.id)));
+    setStudySessions((prev) => prev.filter((x) => !sIds.has(x.id)));
+    setSemesterResetBackupInfo({ semesterId: sem.id, semesterName: sem.name, at: backup.at });
+    showNotification(`"${sem.name}" foi zerado. Os outros semestres não foram alterados. Você pode desfazer em até 7 dias no Perfil.`, 'success');
+  };
+
+  const undoSemesterReset = () => {
+    const b = readBackup();
+    if (!b) {
+      setSemesterResetBackupInfo(null);
+      return;
+    }
+    const merge = <T extends { id: string }>(prev: T[], add: T[]) => [...prev, ...add.filter((x) => !prev.some((p) => p.id === x.id))];
+    setSubjects((prev) => merge(prev, b.subjects));
+    setTopics((prev) => merge(prev, b.topics));
+    setTopicBlocks((prev) => merge(prev, b.topicBlocks));
+    setExams((prev) => merge(prev, b.exams));
+    setSchedule((prev) => merge(prev, b.schedule));
+    setQuestionLogs((prev) => merge(prev, b.questionLogs));
+    setStudySessions((prev) => merge(prev, b.studySessions));
+    try {
+      localStorage.removeItem(backupKey());
+    } catch {}
+    setSemesterResetBackupInfo(null);
+    showNotification(`↩ "${b.semesterName}" foi restaurado com todas as disciplinas, revisões, provas e questões.`, 'success');
+  };
+
   const addSubject = (sub: Omit<Subject, 'id'>) => {
     const newSub: Subject = { ...sub, id: 'sub-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6) };
     setSubjects((prev) => [...prev, newSub]);
@@ -2086,6 +2174,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addSemester,
         updateSemester,
         deleteSemester,
+        resetCurrentSemester,
+        undoSemesterReset,
+        semesterResetBackup: semesterResetBackupInfo,
         startNextSemester,
         subjects,
         addSubject,

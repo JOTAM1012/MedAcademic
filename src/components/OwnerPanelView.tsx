@@ -23,6 +23,7 @@ import { supabase } from '../lib/supabase';
 import { useAccess } from '../context/AccessContext';
 import { useApp } from '../context/AppContext';
 import type { Announcement } from './AnnouncementBanner';
+import { OnAirSign } from './OnAirSign';
 
 interface AdminUser {
   id: string;
@@ -164,7 +165,20 @@ export const OwnerPanelView: React.FC = () => {
     showNotification(on ? 'Modo manutenção ATIVADO.' : 'Modo manutenção desativado.', on ? 'warning' : 'success');
   };
 
-  const maxWeek = Math.max(1, ...(stats?.signups_by_week || []).map((w) => w.n));
+  // Últimas 8 semanas completas (semanas sem cadastro = 0), começando na segunda-feira
+  const weeks = (() => {
+    const counts = new Map<string, number>((stats?.signups_by_week || []).map((w) => [String(w.week).slice(0, 10), Number(w.n)] as [string, number]));
+    const now = new Date();
+    const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - ((now.getDay() + 6) % 7));
+    return Array.from({ length: 8 }, (_, i) => {
+      const d = new Date(monday);
+      d.setDate(d.getDate() - (7 - i) * 7 + 7);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      return { key, label: key.slice(8, 10) + '/' + key.slice(5, 7), n: counts.get(key) || 0, current: i === 7 };
+    });
+  })();
+  const maxWeek = Math.max(1, ...weeks.map((w) => w.n));
+  const weeksTotal = weeks.reduce((a, w) => a + w.n, 0);
   const card = 'rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4';
 
   return (
@@ -183,13 +197,16 @@ export const OwnerPanelView: React.FC = () => {
                   <InfinityIcon className="h-3.5 w-3.5 text-amber-300" /> Acesso vitalício ·{' '}
                 </>
               )}
-              {access.maintenance ? <span className="text-amber-300 font-bold">⚠ Site em manutenção</span> : 'Site no ar'}
+              {access.isOwner ? 'Dono do MedAcademic' : 'Equipe MedAcademic'}
             </p>
           </div>
         </div>
-        <button onClick={load} className="flex items-center gap-1.5 self-start sm:self-auto px-3 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-xs font-bold text-white">
+        <div className="flex items-center gap-3 self-start sm:self-auto flex-wrap">
+        <OnAirSign maintenance={access.maintenance} onClick={() => setTab('site')} />
+        <button onClick={load} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-xs font-bold text-white">
           <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} /> Atualizar
         </button>
+        </div>
       </div>
 
       {/* Abas */}
@@ -237,20 +254,45 @@ export const OwnerPanelView: React.FC = () => {
             ))}
           </div>
           <div className={card}>
-            <p className="text-xs font-black uppercase tracking-wider text-slate-500 mb-3">Cadastros por semana (últimas 8)</p>
-            {stats.signups_by_week.length === 0 ? (
-              <p className="text-xs text-slate-400">Nenhum cadastro nas últimas 8 semanas.</p>
-            ) : (
-              <div className="flex items-end gap-2 h-32">
-                {stats.signups_by_week.map((w) => (
-                  <div key={w.week} className="flex-1 flex flex-col items-center gap-1 min-w-0">
-                    <span className="text-[10px] font-bold text-slate-600 dark:text-slate-300">{w.n}</span>
-                    <div className="w-full max-w-10 rounded-t-lg bg-gradient-to-t from-amber-600 to-amber-300" style={{ height: `${(w.n / maxWeek) * 100}%`, minHeight: 4 }} />
-                    <span className="text-[9px] text-slate-400 truncate">{fmtDate(w.week).slice(0, 5)}</span>
+            <div className="flex items-baseline justify-between gap-2 mb-4">
+              <p className="text-xs font-black uppercase tracking-wider text-slate-500">Cadastros por semana</p>
+              <p className="text-xs text-slate-500">
+                <strong className="text-slate-900 dark:text-white text-base">{weeksTotal}</strong> nas últimas 8 semanas
+              </p>
+            </div>
+            <div id="owner-signups-chart" className="relative">
+              {/* linhas de referência */}
+              <div className="absolute inset-x-0 top-0 h-36 flex flex-col justify-between pointer-events-none">
+                {[maxWeek, Math.round(maxWeek / 2), 0].map((v, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <span className="w-4 text-right text-[9px] text-slate-400">{v}</span>
+                    <div className="flex-1 border-t border-dashed border-slate-200 dark:border-slate-800" />
                   </div>
                 ))}
               </div>
-            )}
+              <div className="relative h-36 pl-6 flex items-end gap-1.5 sm:gap-3">
+                {weeks.map((w) => (
+                  <div key={w.key} className="flex-1 h-full flex flex-col justify-end items-center min-w-0 group" title={`Semana de ${w.label}: ${w.n} cadastro${w.n === 1 ? '' : 's'}`}>
+                    <span className={`text-[11px] font-black mb-1 ${w.n ? 'text-slate-800 dark:text-white' : 'text-slate-400'}`}>{w.n}</span>
+                    <div
+                      className={`w-full max-w-12 rounded-t-lg transition-all ${
+                        w.n
+                          ? 'bg-gradient-to-t from-amber-600 to-amber-300 shadow-[0_0_12px_rgba(245,158,11,0.35)] group-hover:from-amber-500 group-hover:to-amber-200'
+                          : 'bg-slate-200 dark:bg-slate-800'
+                      }`}
+                      style={{ height: w.n ? `${Math.max(8, (w.n / maxWeek) * 112)}px` : '3px' }}
+                    />
+                  </div>
+                ))}
+              </div>
+              <div className="pl-6 mt-1.5 flex gap-1.5 sm:gap-3">
+                {weeks.map((w) => (
+                  <span key={w.key} className={`flex-1 text-center text-[9px] sm:text-[10px] truncate ${w.current ? 'font-black text-amber-500' : 'text-slate-400'}`}>
+                    {w.current ? 'Esta' : w.label}
+                  </span>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -407,9 +449,7 @@ export const OwnerPanelView: React.FC = () => {
             className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-sm"
           />
           <div className="flex items-center justify-between gap-2 flex-wrap">
-            <span className={`text-xs font-black ${access.maintenance ? 'text-amber-500' : 'text-emerald-500'}`}>
-              {access.maintenance ? '● Em manutenção' : '● No ar'}
-            </span>
+            <OnAirSign maintenance={access.maintenance} />
             {access.isOwner && (
               <button
                 onClick={() => setMaintenance(!access.maintenance)}

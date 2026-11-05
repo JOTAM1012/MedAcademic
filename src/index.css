@@ -132,3 +132,76 @@
 @media (prefers-reduced-motion: reduce) {
   .owner-gold-name { animation: none; }
 }
+
+/* ---------- Placa "NO AR" de estúdio / manutenção ---------- */
+.onair-sign {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.7rem 1.25rem;
+  border-radius: 0.9rem;
+  border: 2px solid;
+  font-family: inherit;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+  overflow: hidden;
+}
+.onair-sign:hover { transform: translateY(-1px) scale(1.02); }
+.onair-sign::after {
+  /* reflexo de vidro */
+  content: '';
+  position: absolute;
+  inset: 0 0 55% 0;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.14), transparent);
+  pointer-events: none;
+}
+.onair-screws i {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.35);
+}
+.onair-screws i:nth-child(1) { top: 5px; left: 6px; }
+.onair-screws i:nth-child(2) { top: 5px; right: 6px; }
+.onair-screws i:nth-child(3) { bottom: 5px; left: 6px; }
+.onair-screws i:nth-child(4) { bottom: 5px; right: 6px; }
+.onair-text { font-weight: 900; letter-spacing: 0.18em; }
+
+.onair-sign--live {
+  background: radial-gradient(120% 140% at 50% 0%, #dc2626 0%, #7f1d1d 75%);
+  border-color: #fca5a5;
+  color: #fff1f2;
+  animation: onair-glow 2.4s ease-in-out infinite;
+}
+.onair-sign--live .onair-text { text-shadow: 0 0 6px #fff, 0 0 14px #fecaca, 0 0 26px #ef4444; }
+.onair-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 9999px;
+  background: #fff;
+  box-shadow: 0 0 6px #fff, 0 0 14px #fca5a5, 0 0 24px #ef4444;
+  animation: onair-blink 1.2s steps(1, end) infinite;
+}
+@keyframes onair-glow {
+  0%, 100% { box-shadow: 0 0 14px rgba(239, 68, 68, 0.55), 0 0 40px rgba(239, 68, 68, 0.25), inset 0 0 18px rgba(255, 255, 255, 0.12); }
+  50% { box-shadow: 0 0 22px rgba(239, 68, 68, 0.85), 0 0 60px rgba(239, 68, 68, 0.4), inset 0 0 24px rgba(255, 255, 255, 0.2); }
+}
+@keyframes onair-blink { 50% { opacity: 0.25; } }
+
+.onair-sign--maint {
+  background:
+    repeating-linear-gradient(135deg, rgba(0, 0, 0, 0.18) 0 10px, transparent 10px 20px),
+    radial-gradient(120% 140% at 50% 0%, #f59e0b 0%, #78350f 80%);
+  border-color: #fcd34d;
+  color: #fffbeb;
+  box-shadow: 0 0 16px rgba(245, 158, 11, 0.45), inset 0 0 18px rgba(255, 255, 255, 0.1);
+}
+.onair-sign--maint .onair-text { text-shadow: 0 0 6px rgba(255, 255, 255, 0.8), 0 0 16px #fbbf24; }
+.onair-gear { color: #fffbeb; filter: drop-shadow(0 0 4px #fbbf24); animation: onair-spin 3.5s linear infinite; }
+.onair-gear--rev { animation-direction: reverse; animation-duration: 2.3s; }
+@keyframes onair-spin { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .onair-sign--live, .onair-dot, .onair-gear { animation: none; }
+}

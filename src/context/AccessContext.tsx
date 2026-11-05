@@ -42,7 +42,7 @@ export const AccessProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (!supabase || !cloudUserId) {
       // Só no desenvolvimento local: pré-visualizar a interface do Dono (o servidor nunca é afetado)
       if (import.meta.env.DEV && localStorage.getItem('medacademic_dev_role') === 'owner') {
-        setState({ ...DEFAULT, loaded: true, role: 'owner', isOwner: true, isAdmin: true, plan: 'vitalicio', lifetime: true });
+        setState({ ...DEFAULT, loaded: true, role: 'owner', isOwner: true, isAdmin: true, plan: 'vitalicio', lifetime: true, maintenance: localStorage.getItem('medacademic_dev_maint') === '1' });
         return;
       }
       setState({ ...DEFAULT, loaded: true });
