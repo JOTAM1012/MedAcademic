@@ -24,6 +24,7 @@ import {
 import { useApp } from '../context/AppContext';
 import { OwnerName } from './OwnerName';
 import { useAccess } from '../context/AccessContext';
+import { CARTOON_AVATARS } from '../data/avatars';
 import { getActivityCategory, getExamKind, getExamSubjectName, occursOn, toYMD } from '../data/planning';
 import { isBlockDue } from '../data/blockReview';
 import { InstallAppBanner } from './InstallAppGuide';
@@ -45,6 +46,7 @@ export const DashboardView: React.FC = () => {
     setTimerMode,
     startTimer,
     setIsOnboardingOpen,
+    updateUserProfile,
   } = useApp();
 
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -111,7 +113,11 @@ export const DashboardView: React.FC = () => {
 
   const { isOwner: isOwnerAccount } = useAccess();
   const isReturning = userProfile.onboardingCompleted;
-  const welcome = userProfile.greetingGender === 'feminino' ? 'bem-vinda' : userProfile.greetingGender === 'masculino' ? 'bem-vindo' : 'bem-vindo(a)';
+  // Tratamento automático: escolha do perfil → avatar escolhido (médico/médica) → pergunta rápida
+  const avatarGender = CARTOON_AVATARS.find((a) => a.url === userProfile.avatarUrl)?.gender;
+  const greetingGender = userProfile.greetingGender || (avatarGender === 'female' ? 'feminino' : avatarGender === 'male' ? 'masculino' : undefined);
+  const welcome = greetingGender === 'feminino' ? 'bem-vinda' : greetingGender === 'masculino' ? 'bem-vindo' : 'bem-vindo(a)';
+  const askGreeting = !greetingGender;
   const firstName = userProfile.name.split(' ')[0];
   const GREETING_SUBTITLE = 'Cada dia de estudo é um passo a mais rumo ao profissional que você deseja ser.';
 
@@ -128,7 +134,7 @@ export const DashboardView: React.FC = () => {
               </div>
               <div>
                 <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
-                  {isReturning ? `Seja ${welcome} novamente, ${firstName}! 🩺` : `Seja ${welcome} ao MedAcademic, ${firstName}! 🩺`}
+                  {isReturning ? `Seja ${welcome} novamente, ${firstName} 🩺` : `Seja ${welcome} ao MedAcademic, ${firstName} 🩺`}
                 </h2>
                 <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 max-w-2xl">
                   {isReturning
@@ -163,7 +169,7 @@ export const DashboardView: React.FC = () => {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
           <div>
             <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white leading-snug">
-              Seja {welcome} novamente, <OwnerName name={firstName} />!{' '}
+              Seja {welcome} novamente, <OwnerName name={firstName} />{' '}
               {isOwnerAccount ? (
                 <Crown
                   id="greeting-owner-crown"
@@ -177,6 +183,25 @@ export const DashboardView: React.FC = () => {
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
               {GREETING_SUBTITLE}
             </p>
+            {askGreeting && (
+              <div id="greeting-quick-choice" className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px]">
+                <span className="text-slate-500">Como prefere ser saudado(a)?</span>
+                <button
+                  id="greeting-quick-masculino"
+                  onClick={() => updateUserProfile({ greetingGender: 'masculino' })}
+                  className="px-2.5 py-1 rounded-lg font-bold bg-sky-500/10 text-sky-600 dark:text-sky-300 border border-sky-500/30 hover:bg-sky-500/20"
+                >
+                  Bem-vindo
+                </button>
+                <button
+                  id="greeting-quick-feminino"
+                  onClick={() => updateUserProfile({ greetingGender: 'feminino' })}
+                  className="px-2.5 py-1 rounded-lg font-bold bg-pink-500/10 text-pink-600 dark:text-pink-300 border border-pink-500/30 hover:bg-pink-500/20"
+                >
+                  Bem-vinda
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
