@@ -21,6 +21,7 @@ import {
 import { useApp } from '../context/AppContext';
 import { Exam } from '../types';
 import { AddExamModal } from './modals/AddExamModal';
+import { TutoriaGradesSection, moduleTutoriaAverage } from './TutoriaGradesSection';
 import { EXAM_KINDS, examFormat, getExamKind, getExamShift, getExamSubjectName, toYMD } from '../data/planning';
 
 const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
@@ -87,7 +88,28 @@ export const SemesterGridView: React.FC = () => {
     return true;
   });
 
-  const releasedAvg = weightedAverage(semesterExams, (e) => e.grade);
+  const examReleasedAvg = weightedAverage(semesterExams, (e) => e.grade);
+  // Tutorias (Básico/Clínico): cada módulo entra na média lançada com a média das suas tutorias (0–10)
+  const tutoriaModules = subjects.filter(
+    (s) => s.format === 'tutoria' && (s.tutorials || []).length > 0 && (!s.semesterId || !currentSemester || s.semesterId === currentSemester.id)
+  );
+  const tutoriaAverages = tutoriaModules.map(moduleTutoriaAverage).filter((v): v is number => v !== undefined);
+  const tutoriaAvg = tutoriaAverages.length ? tutoriaAverages.reduce((a, b) => a + b, 0) / tutoriaAverages.length : undefined;
+  const releasedAvg = (() => {
+    let sum = 0;
+    let w = 0;
+    semesterExams.forEach((e) => {
+      if (e.grade === undefined) return;
+      const wt = e.weight > 0 ? e.weight : 1;
+      sum += to10(e.grade, e.maxGrade || 10) * wt;
+      w += wt;
+    });
+    tutoriaAverages.forEach((v) => {
+      sum += v;
+      w += 1;
+    });
+    return w > 0 ? sum / w : undefined;
+  })();
   const expectedAvg = weightedAverage(semesterExams, (e) => e.expectedGrade);
   const gradedCount = semesterExams.filter((e) => e.grade !== undefined).length;
   // provas que já aconteceram (ou são hoje) e ainda não têm resultado
@@ -340,7 +362,7 @@ export const SemesterGridView: React.FC = () => {
     );
   };
 
-  const avgDelta = releasedAvg !== undefined && expectedAvg !== undefined ? releasedAvg - expectedAvg : undefined;
+  const avgDelta = examReleasedAvg !== undefined && expectedAvg !== undefined ? examReleasedAvg - expectedAvg : undefined;
 
   return (
     <div className="space-y-5 pb-12 max-w-6xl mx-auto">
@@ -415,7 +437,11 @@ export const SemesterGridView: React.FC = () => {
               avgDelta === undefined ? 'text-slate-500' : avgDelta >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
             }`}
           >
-            {avgDelta === undefined ? (
+            {tutoriaAvg !== undefined ? (
+              <span id="released-breakdown" className="text-slate-500">
+                Provas {fmt(examReleasedAvg)} · Tutorias {fmt(tutoriaAvg)}
+              </span>
+            ) : avgDelta === undefined ? (
               'Lance notas para comparar'
             ) : (
               <>
@@ -462,6 +488,8 @@ export const SemesterGridView: React.FC = () => {
           </div>
         </div>
       )}
+
+      <TutoriaGradesSection modules={tutoriaModules} />
 
       {/* Filtros */}
       <div className="flex flex-col xl:flex-row xl:items-start justify-between gap-3">

@@ -6,6 +6,7 @@ import { EditSubjectModal } from './modals/EditSubjectModal';
 import { SubjectBlocksPanel } from './SubjectBlocksPanel';
 import { SubjectChecklistPanel } from './SubjectChecklistPanel';
 import { TutoriaPanel } from './TutoriaPanel';
+import { FOCUS_SUBJECT_KEY } from './TutoriaGradesSection';
 import { CYCLE_INFO, FORMAT_ORDER, getSubjectFormat, subjectFormatOf, subjectOrganization } from '../data/subjectFormats';
 import { formatDM, isTopicPending, isTopicSeen, ymd } from '../data/blockReview';
 
@@ -33,7 +34,16 @@ const Ring: React.FC<{ pct: number; color: string; size?: number }> = ({ pct, co
 export const CycleStructureView: React.FC<Props> = ({ cycle, subjects, onOpenAddSubject }) => {
   const { topics, deleteSubject, setCurrentTab } = useApp();
   const [formatFilter, setFormatFilter] = useState<string>('all');
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  // vindo de Avaliações (seta do módulo): abre direto naquele módulo
+  const [selectedId, setSelectedId] = useState<string | null>(() => {
+    try {
+      const id = sessionStorage.getItem(FOCUS_SUBJECT_KEY);
+      sessionStorage.removeItem(FOCUS_SUBJECT_KEY);
+      return id;
+    } catch {
+      return null;
+    }
+  });
   const [editing, setEditing] = useState<Subject | null>(null);
   const todayStr = ymd(new Date());
   const cycleInfo = CYCLE_INFO[cycle];
