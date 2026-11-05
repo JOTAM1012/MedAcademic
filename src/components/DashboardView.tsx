@@ -23,12 +23,10 @@ import {
 import { useApp } from '../context/AppContext';
 import { OwnerName } from './OwnerName';
 import { getActivityCategory, getExamKind, getExamSubjectName, occursOn, toYMD } from '../data/planning';
-import { WeeklyStatsCard } from './WeeklyStatsCard';
 import { isBlockDue } from '../data/blockReview';
 import { InstallAppBanner } from './InstallAppGuide';
-import { QuestionStatsCard } from './QuestionStatsCard';
 import { SemesterStatusCard } from './SemesterStatusCard';
-import { MonthlyPerformanceChart } from './MonthlyPerformanceChart';
+import { DashboardInsights } from './dashboard/DashboardInsights';
 
 export const DashboardView: React.FC = () => {
   const {
@@ -160,7 +158,7 @@ export const DashboardView: React.FC = () => {
       {subjects.length > 0 && (
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white leading-snug">
               Seja bem-vindo(a) novamente, <OwnerName name={userProfile.name.split(' ')[0]} />! 🩺
             </h1>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
@@ -181,215 +179,22 @@ export const DashboardView: React.FC = () => {
         </div>
       )}
 
-      {/* 4-Metric Grid with Entrance & Hover Animations */}
-      <motion.div
-        initial="hidden"
-        animate="visible"
-        variants={{
-          hidden: { opacity: 0 },
-          visible: { opacity: 1, transition: { staggerChildren: 0.08 } },
-        }}
-        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
-      >
-        {/* Metric 1: Hours Studied */}
-        <motion.div
-          variants={{
-            hidden: { opacity: 0, y: 16 },
-            visible: { opacity: 1, y: 0, transition: { duration: 0.35, ease: 'easeOut' } },
-          }}
-          whileHover={{ y: -3, transition: { duration: 0.15 } }}
-          className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs hover:border-blue-400/50 dark:hover:border-blue-500/40 transition-colors"
-        >
-          <span className="text-slate-400 dark:text-slate-500 text-xs font-medium mb-1 block uppercase tracking-tight">
-            Horas Estudadas (Semana)
-          </span>
-          <div className="flex items-baseline justify-between">
-            <h3 className="text-2xl font-bold text-slate-900 dark:text-white">
-              {totalHoursStudiedWeek}h
-            </h3>
-            <span className="text-xs font-bold text-blue-600 dark:text-blue-400">
-              {weeklyGoalPercentage}% de {weeklyTarget}h
-            </span>
-          </div>
-          <div className="mt-2 w-full h-1 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-blue-500 rounded-full transition-all duration-500"
-              style={{ width: `${weeklyGoalPercentage}%` }}
-            />
-          </div>
-        </motion.div>
+      {/* Novo painel: filtros, métricas reais, hoje, evolução, áreas, horas, tabela e constância */}
+      <DashboardInsights />
 
-        {/* Metric 2: Active Streak */}
-        <motion.div
-          variants={{
-            hidden: { opacity: 0, y: 16 },
-            visible: { opacity: 1, y: 0, transition: { duration: 0.35, ease: 'easeOut' } },
-          }}
-          whileHover={{ y: -3, transition: { duration: 0.15 } }}
-          className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs hover:border-amber-400/50 dark:hover:border-amber-500/40 transition-colors"
-        >
-          <span className="text-slate-400 dark:text-slate-500 text-xs font-medium mb-1 block uppercase tracking-tight">
-            Sessões Consecutivas
-          </span>
-          <div className="flex items-baseline justify-between">
-            <h3 className="text-2xl font-bold text-slate-900 dark:text-white">
-              {userProfile.currentStreakDays} Dias
-            </h3>
-            <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-              <Flame className="w-3.5 h-3.5 fill-amber-500 text-amber-500 animate-bounce" />
-              Nv. {userProfile.level}
-            </span>
-          </div>
-          <p className="text-[11px] text-slate-400 mt-1">Consistência diária inabalável</p>
-        </motion.div>
-
-        {/* Metric 3: Topics Due */}
-        <motion.div
-          variants={{
-            hidden: { opacity: 0, y: 16 },
-            visible: { opacity: 1, y: 0, transition: { duration: 0.35, ease: 'easeOut' } },
-          }}
-          whileHover={{ y: -3, transition: { duration: 0.15 } }}
-          className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs hover:border-amber-400/50 dark:hover:border-amber-500/40 transition-colors"
-        >
-          <span className="text-slate-400 dark:text-slate-500 text-xs font-medium mb-1 block uppercase tracking-tight">
-            Revisões Para Hoje
-          </span>
-          <div className="flex items-baseline justify-between">
-            <h3 className="text-2xl font-bold text-slate-900 dark:text-white">
-              {dueTopics.length} {dueTopics.length === 1 ? 'Bloco' : 'Blocos'}
-            </h3>
-            <span className="text-xs font-bold text-amber-600 dark:text-amber-400">
-              Ciclo Adaptativo
-            </span>
-          </div>
-          <p className="text-[11px] text-slate-400 mt-1">Prontos para repetição espaçada</p>
-        </motion.div>
-
-        {/* Metric 4: Topics Mastery */}
-        <motion.div
-          variants={{
-            hidden: { opacity: 0, y: 16 },
-            visible: { opacity: 1, y: 0, transition: { duration: 0.35, ease: 'easeOut' } },
-          }}
-          whileHover={{ y: -3, transition: { duration: 0.15 } }}
-          className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs hover:border-emerald-400/50 dark:hover:border-emerald-500/40 transition-colors"
-        >
-          <span className="text-slate-400 dark:text-slate-500 text-xs font-medium mb-1 block uppercase tracking-tight">
-            Domínio de Tópicos
-          </span>
-          <div className="flex items-baseline justify-between">
-            <h3 className="text-2xl font-bold text-slate-900 dark:text-white">
-              {masteryPercentage}%
-            </h3>
-            <span className="text-xs font-bold text-blue-600 dark:text-blue-400">
-              {masteredTopics}/{totalTopics} Blocos
-            </span>
-          </div>
-          <div className="mt-2 w-full h-1 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-emerald-500 rounded-full transition-all duration-500"
-              style={{ width: `${masteryPercentage}%` }}
-            />
-          </div>
-        </motion.div>
-      </motion.div>
-
-      {/* Semestre atual e questões do semestre */}
       <SemesterStatusCard />
-      <QuestionStatsCard />
 
-      {/* Main Grid: Left Column & Right Column */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left 2 Cols: Recharts Weekly Performance + Monthly Performance + Schedule + Structure Breakdown */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Recharts Monthly Performance & Pomodoro Consistency Chart */}
-          <MonthlyPerformanceChart />
-
-          {/* Recharts Weekly Stats & Retention Rate Card */}
-          <WeeklyStatsCard />
-
-          {/* Today's Schedule (Grade Horária de Hoje) - Sleek List */}
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs p-5 sm:p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="font-bold text-slate-900 dark:text-white text-base">
-                  Hoje na sua grade
-                </h3>
-                <p className="text-xs text-slate-400">
-                  Grade sincronizada para o dia letivo ({currentSemester?.name})
-                </p>
-              </div>
-              <button
-                onClick={() => setCurrentTab('schedule')}
-                className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
-              >
-                <span>Grade de horários</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
-
-            {todaysClasses.length === 0 ? (
-              <div className="text-center py-8 rounded-xl bg-slate-50 dark:bg-slate-950/40 border border-slate-100 dark:border-slate-800/80">
-                <Calendar className="w-8 h-8 text-slate-300 dark:text-slate-700 mx-auto mb-2" />
-                <p className="text-xs text-slate-500 font-medium">
-                  Sem aulas hoje. Dia excelente para adiantar as revisões e os estudos do Planner!
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {todaysClasses.map((item) => {
-                  const subject = getSubject(item.subjectId);
-                  const cat = getActivityCategory(item);
-                  const color = item.color || subject?.color || cat.color;
-                  const place = item.location || item.room;
-                  return (
-                    <div
-                      key={item.id}
-                      className="group flex items-center justify-between gap-3 p-3.5 rounded-xl border border-slate-100 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-950/40 hover:border-slate-200 dark:hover:border-slate-700 transition-all"
-                    >
-                      <div className="flex items-center gap-3.5 min-w-0">
-                        <div
-                          className="w-10 h-10 rounded-lg flex items-center justify-center text-base shrink-0"
-                          style={{ backgroundColor: `${color}18`, color }}
-                        >
-                          {cat.emoji}
-                        </div>
-                        <div className="min-w-0">
-                          <h4 className="text-xs font-bold text-slate-900 dark:text-white truncate">
-                            {item.title || subject?.name || cat.label}
-                          </h4>
-                          <p className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-2 mt-0.5 min-w-0">
-                            <span className="font-semibold shrink-0" style={{ color }}>{cat.label}</span>
-                            {place && (
-                              <>
-                                <span>•</span>
-                                <span className="truncate">{place}</span>
-                              </>
-                            )}
-                          </p>
-                        </div>
-                      </div>
-
-                      <span className="font-mono text-xs font-bold text-slate-800 dark:text-slate-200 shrink-0">
-                        {item.startTime} - {item.endTime}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
+        <div className="lg:col-span-2">
           {/* Academic Structure Mastery Breakdown */}
           <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs p-5 sm:p-6">
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className="font-bold text-slate-900 dark:text-white text-base">
-                  Disciplinas & Domínio de Tópicos
+                  Disciplinas & progresso
                 </h3>
                 <p className="text-xs text-slate-400">
-                  Acompanhamento por cadeira curricular médica
+                  Tópicos vistos e blocos concluídos de cada disciplina
                 </p>
               </div>
               <button
@@ -404,8 +209,10 @@ export const DashboardView: React.FC = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {subjects.filter((s) => !s.semesterId || s.semesterId === currentSemester?.id).map((sub) => {
                 const subTopics = topics.filter((t) => t.subjectId === sub.id);
-                const subMastered = subTopics.filter((t) => t.status === 'dominado').length;
-                const subPercentage = subTopics.length > 0 ? Math.round((subMastered / subTopics.length) * 100) : 0;
+                const subSeen = subTopics.filter((t) => t.status !== 'nao_iniciado').length;
+                const subBlocks = topicBlocks.filter((b) => b.subjectId === sub.id);
+                const subBlocksDone = subBlocks.filter((b) => b.reviewStatus !== 'estudando').length;
+                const subPercentage = subTopics.length > 0 ? Math.round((subSeen / subTopics.length) * 100) : 0;
                 return (
                   <div
                     key={sub.id}
@@ -419,11 +226,16 @@ export const DashboardView: React.FC = () => {
                       </span>
                     </div>
                     <div className="flex items-center justify-between text-[11px] text-slate-500 mb-1.5">
-                      <span>Domínio:</span>
+                      <span>{subTopics.length ? `${subSeen}/${subTopics.length} tópicos vistos` : 'Sem tópicos'}</span>
                       <span className="font-semibold text-slate-700 dark:text-slate-300">
-                        {subMastered}/{subTopics.length} tópicos ({subPercentage}%)
+                        {subPercentage}%
                       </span>
                     </div>
+                    {subBlocks.length > 0 && (
+                      <div className="text-[10px] text-slate-400 mb-1.5">
+                        {subBlocksDone}/{subBlocks.length} blocos concluídos (em revisão)
+                      </div>
+                    )}
                     <div className="w-full bg-slate-200 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
                       <div
                         className="h-full rounded-full"
@@ -435,127 +247,9 @@ export const DashboardView: React.FC = () => {
               })}
             </div>
           </div>
+
         </div>
-
-        {/* Right 1 Col: Hero Countdown Card + Spaced Repetition Action + Achievements */}
-        <div className="space-y-6">
-          {/* Next Exam Hero Countdown Card (from Sleek Interface design) */}
-          <div className="bg-gradient-to-br from-blue-600 to-indigo-700 p-6 rounded-2xl text-white shadow-lg shadow-blue-200/50 dark:shadow-none relative overflow-hidden">
-            <div className="relative z-10">
-              <span className="bg-white/20 text-white text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider">
-                Próxima Grande Avaliação
-              </span>
-
-              {primaryNextExam ? (
-                <>
-                  <h2 className="text-xl font-bold mt-2 leading-tight">
-                    {primaryNextExam.title}
-                  </h2>
-                  <p className="text-blue-100 text-xs mt-0.5">
-                    {getExamSubjectName(primaryNextExam, subjects)} • {getExamKind(primaryNextExam.type).id}
-                  </p>
-
-                  <div className="mt-5 flex gap-2">
-                    <div className="bg-white/20 backdrop-blur-md rounded-lg p-2.5 text-center flex-1">
-                      <span className="block text-xl font-black">
-                        {primaryCountdown?.days || 0}
-                      </span>
-                      <span className="text-[9px] uppercase tracking-tighter text-blue-100">
-                        Dias
-                      </span>
-                    </div>
-                    <div className="bg-white/20 backdrop-blur-md rounded-lg p-2.5 text-center flex-1">
-                      <span className="block text-xl font-black">
-                        {primaryCountdown?.hours || 0}
-                      </span>
-                      <span className="text-[9px] uppercase tracking-tighter text-blue-100">
-                        Horas
-                      </span>
-                    </div>
-                    <div className="bg-white/20 backdrop-blur-md rounded-lg p-2.5 text-center flex-1">
-                      <span className="block text-xl font-black">
-                        {primaryCountdown?.minutes || 0}
-                      </span>
-                      <span className="text-[9px] uppercase tracking-tighter text-blue-100">
-                        Minutos
-                      </span>
-                    </div>
-                    <div className="bg-white/20 backdrop-blur-md rounded-lg p-2.5 text-center flex-1">
-                      <span className="block text-xl font-black">
-                        {primaryCountdown?.seconds || 0}
-                      </span>
-                      <span className="text-[9px] uppercase tracking-tighter text-blue-100">
-                        Segundos
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 pt-3 border-t border-white/15 flex items-center justify-between text-xs text-blue-100">
-                    <span className="flex items-center gap-1 text-[11px]">
-                      <Calendar className="w-3.5 h-3.5" />
-                      {primaryNextExam.date} às {primaryNextExam.time || '08:00'}
-                    </span>
-                    <button
-                      onClick={() => setCurrentTab('grades')}
-                      className="font-bold underline hover:text-white"
-                    >
-                      Ver detalhes
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <div className="py-6 text-center">
-                  <p className="text-xs text-blue-100">Nenhuma prova pendente agendada.</p>
-                  <button
-                    onClick={() => setCurrentTab('grades')}
-                    className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white text-blue-800 font-bold text-xs"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    Agendar Avaliação
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* Background Medical Illustration Decor */}
-            <div className="absolute -right-6 -bottom-6 opacity-10 pointer-events-none">
-              <Stethoscope className="w-48 h-48" />
-            </div>
-          </div>
-
-          {/* Spaced Repetition Action Box */}
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-xs">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-950/50 flex items-center justify-center text-blue-600 dark:text-blue-400">
-                  <Repeat className="w-4 h-4" />
-                </div>
-                <div>
-                  <h4 className="text-xs font-bold text-slate-900 dark:text-white">
-                    Repetição Espaçada de Assuntos
-                  </h4>
-                  <p className="text-[11px] text-slate-400">Curva do Esquecimento</p>
-                </div>
-              </div>
-              <span className="px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/50 text-[10px] font-bold text-blue-700 dark:text-blue-300">
-                {dueTopics.length} Pendentes
-              </span>
-            </div>
-
-            <p className="text-xs text-slate-500 dark:text-slate-400 mb-4 leading-relaxed">
-              Consolide a memória de longo prazo com ciclos adaptativos (Disciplina → Matéria → Assunto) para diagnósticos e condutas.
-            </p>
-
-            <button
-              id="dashboard-start-spaced-review-btn"
-              onClick={() => setCurrentTab('spaced_repetition')}
-              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs transition-colors shadow-xs"
-            >
-              <Repeat className="w-4 h-4" />
-              <span>Iniciar Sessão de Revisão</span>
-            </button>
-          </div>
-
+        <div>
           {/* Gamification & Badges Showcase */}
           <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-xs">
             <div className="flex items-center justify-between mb-3">

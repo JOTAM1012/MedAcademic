@@ -230,6 +230,9 @@ export interface UserProfile {
   currentSemesterId: string;
   weeklyTargetHours: number;
   targetAverageGrade: number;
+  /** Metas de acertos do mês (%) — Dashboard */
+  goalExamPct?: number;
+  goalReviewPct?: number;
   dreamSpecialty: string; // e.g. "Cardiologia Intervencionista", "Neurocirurgia"
   targetExam?: string; // e.g. "ENARE", "USP-SP"
   googleSyncEnabled?: boolean;

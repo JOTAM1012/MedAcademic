@@ -36,6 +36,7 @@ import { useAuth } from '../context/AuthContext';
 import { CARTOON_AVATARS } from '../data/avatars';
 import { OwnerName } from './OwnerName';
 import { SemesterSwitcher } from './SemesterSwitcher';
+import { GoalsEditor } from './dashboard/DashboardInsights';
 import { useAccess } from '../context/AccessContext';
 import { getMedicalArea, getSpecialty } from '../data/areas';
 import { ymd } from '../data/blockReview';
@@ -436,6 +437,14 @@ export const ProfileView: React.FC = () => {
           </div>
 
           <SemesterSwitcher />
+
+          <div id="profile-goals-card" className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-xs space-y-3">
+            <div>
+              <h3 className="text-sm font-black text-slate-900 dark:text-white">🎯 Metas de acertos do mês</h3>
+              <p className="text-xs text-slate-500">Usadas nos cartões e gráficos do Dashboard (linha verde da meta). Padrão: 70%.</p>
+            </div>
+            <GoalsEditor />
+          </div>
 
           <div className="grid grid-cols-1 gap-6">
             {/* Study Metrics (cloud sync is automatic; its status lives in the top bar) */}
