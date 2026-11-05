@@ -27,6 +27,7 @@ import { useAuth } from '../context/AuthContext';
 import { UserProfile, Semester } from '../types';
 import { INITIAL_USER_PROFILE, INITIAL_SEMESTERS } from '../mockData';
 import { CARTOON_AVATARS } from '../data/avatars';
+import { fileToAvatarDataUrl, avatarErrorMessage } from '../data/avatarImage';
 
 const SPECIALTIES_R1 = [
   'Clínica Médica',
@@ -171,7 +172,11 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
   const [selectedAvatarUrl, setSelectedAvatarUrl] = useState<string>(
     userProfile.avatarUrl || CARTOON_AVATARS[0].url
   );
-  const [customAvatarUploaded, setCustomAvatarUploaded] = useState<boolean>(false);
+  // foto própria já salva aparece marcada no quadro de envio
+  const [customAvatarUploaded, setCustomAvatarUploaded] = useState<boolean>(
+    !signupMode && !!userProfile.avatarUrl && !CARTOON_AVATARS.some((a) => a.url === userProfile.avatarUrl)
+  );
+  const [avatarProcessing, setAvatarProcessing] = useState(false);
 
   const activeCycleConfig =
     MEDICAL_CYCLES.find((c) => c.id === selectedCycle) || MEDICAL_CYCLES[1];
@@ -203,16 +208,16 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const dataUrl = event.target?.result as string;
-      if (dataUrl) {
+    e.target.value = ''; // permite escolher a mesma foto de novo
+    setAvatarProcessing(true);
+    fileToAvatarDataUrl(file)
+      .then((dataUrl) => {
         setSelectedAvatarUrl(dataUrl);
         setCustomAvatarUploaded(true);
-        showNotification('Sua foto personalizada foi carregada com sucesso!', 'success');
-      }
-    };
-    reader.readAsDataURL(file);
+        showNotification('Sua foto foi carregada! Ela será salva ao concluir.', 'success');
+      })
+      .catch(() => showNotification(avatarErrorMessage, 'warning'))
+      .finally(() => setAvatarProcessing(false));
   };
 
   // Sign-up: creates the account with the profile built in the wizard
@@ -597,7 +602,7 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
                       {/* Custom Photo Upload Card */}
                       <button
                         type="button"
-                        onClick={() => fileInputRef.current?.click()}
+                        onClick={() => !avatarProcessing && fileInputRef.current?.click()}
                         title="Enviar foto personalizada"
                         aria-label="Enviar foto personalizada"
                         className={`relative rounded-2xl p-1.5 sm:p-2 flex items-center justify-center border-2 border-dashed transition-all group cursor-pointer aspect-square ${
@@ -606,7 +611,12 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
                             : 'border-slate-700 bg-slate-950/60 hover:border-sky-500 hover:bg-slate-900/80 text-slate-400 hover:text-sky-400'
                         }`}
                       >
-                        {customAvatarUploaded ? (
+                        {avatarProcessing ? (
+                          <div className="flex flex-col items-center justify-center gap-1 w-full h-full text-sky-400">
+                            <span className="h-6 w-6 rounded-full border-2 border-sky-400/30 border-t-sky-400 animate-spin" />
+                            <span className="text-[9px] font-bold">Carregando</span>
+                          </div>
+                        ) : customAvatarUploaded ? (
                           <>
                             <div className="w-full h-full rounded-xl overflow-hidden bg-slate-900 flex items-center justify-center">
                               <img

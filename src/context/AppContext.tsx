@@ -19,6 +19,7 @@ import {
   StudyTimePrompt,
 } from '../types';
 import { upgradeAvatarUrl } from '../data/avatars';
+import { shrinkAvatarDataUrl, AVATAR_MAX_DATAURL } from '../data/avatarImage';
 import {
   BLOCK_REVIEWS_TO_MASTER,
   FIRST_REVIEW_DAY,
@@ -724,7 +725,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   useEffect(() => {
     if (activeUserId && isInitialLoadComplete) {
-      localStorage.setItem(getUserKey('user_profile', activeUserId), JSON.stringify(userProfile));
+      try {
+        localStorage.setItem(getUserKey('user_profile', activeUserId), JSON.stringify(userProfile));
+      } catch (err) {
+        console.warn('Perfil não coube no armazenamento local; segue salvo no IndexedDB/nuvem.', err);
+      }
       setIDBData(`user_profile_${activeUserId}`, userProfile);
     }
   }, [userProfile, activeUserId, isInitialLoadComplete]);
@@ -1956,6 +1961,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     showNotification('Perfil atualizado com sucesso!', 'success');
   };
+
+  // Fotos de perfil antigas salvas em tamanho original: reduz para não pesar no armazenamento/sincronização
+  useEffect(() => {
+    const url = userProfile.avatarUrl;
+    if (!activeUserId || !isInitialLoadComplete || !url || !url.startsWith('data:') || url.length <= AVATAR_MAX_DATAURL) return;
+    let cancelled = false;
+    shrinkAvatarDataUrl(url)
+      .then((small) => {
+        if (!cancelled && small.length < url.length) setUserProfile((prev) => (prev.avatarUrl === url ? { ...prev, avatarUrl: small } : prev));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [userProfile.avatarUrl, activeUserId, isInitialLoadComplete]);
 
   const toggleDarkMode = () => {
     const root = document.documentElement;

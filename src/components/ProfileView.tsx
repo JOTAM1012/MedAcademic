@@ -34,6 +34,7 @@ import {
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { CARTOON_AVATARS } from '../data/avatars';
+import { fileToAvatarDataUrl, avatarErrorMessage } from '../data/avatarImage';
 import { OwnerName } from './OwnerName';
 import { SemesterSwitcher } from './SemesterSwitcher';
 import { GoalsEditor } from './dashboard/DashboardInsights';
@@ -111,16 +112,14 @@ export const ProfileView: React.FC = () => {
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const dataUrl = event.target?.result as string;
-      if (dataUrl) {
+    e.target.value = '';
+    fileToAvatarDataUrl(file)
+      .then((dataUrl) => {
         setAvatarUrl(dataUrl);
         setIsCustomPhoto(true);
         showNotification('Foto personalizada carregada!', 'success');
-      }
-    };
-    reader.readAsDataURL(file);
+      })
+      .catch(() => showNotification(avatarErrorMessage, 'warning'));
   };
 
   const handleSave = (e: React.FormEvent) => {

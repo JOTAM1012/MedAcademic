@@ -54,6 +54,14 @@ interface AuthContextType {
 }
 
 const ACCOUNTS_STORAGE_KEY = 'medacademic_registered_accounts_v6';
+// Grava a lista de contas sem derrubar o app se o armazenamento do navegador estiver cheio
+const saveAccountsLocal = (list: unknown) => {
+  try {
+    localStorage.setItem(ACCOUNTS_STORAGE_KEY, JSON.stringify(list));
+  } catch (err) {
+    console.warn('Lista de contas não coube no armazenamento local.', err);
+  }
+};
 const ACTIVE_USER_STORAGE_KEY = 'medacademic_active_user_id_v6';
 const ACTIVE_USER_OBJECT_STORAGE_KEY = 'medacademic_active_user_profile_v6';
 
@@ -199,7 +207,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const email = normalizeEmail(account.email);
     setAccounts((prev) => {
       const next = [...prev.filter((a) => a.email !== email), { ...account, id: email, email }];
-      localStorage.setItem(ACCOUNTS_STORAGE_KEY, JSON.stringify(next));
+      saveAccountsLocal(next);
       return next;
     });
     setActiveUserId(email);
@@ -348,7 +356,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const account: UserAccount = { ...profile, id: cleanEmail, email: cleanEmail, createdAt: now, lastLoginAt: now };
     setAccounts((prev) => {
       const next = [...prev.filter((a) => a.email !== cleanEmail), account];
-      localStorage.setItem(ACCOUNTS_STORAGE_KEY, JSON.stringify(next));
+      saveAccountsLocal(next);
       return next;
     });
 
@@ -384,7 +392,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const cleanId = normalizeEmail(userId);
     setAccounts((prev) => {
       const next = prev.map((a) => (a.email === cleanId ? { ...a, ...data } : a));
-      localStorage.setItem(ACCOUNTS_STORAGE_KEY, JSON.stringify(next));
+      saveAccountsLocal(next);
       return next;
     });
 
@@ -424,7 +432,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // 2. Local caches
       const updated = accounts.filter((a) => a.email !== targetId);
       setAccounts(updated);
-      localStorage.setItem(ACCOUNTS_STORAGE_KEY, JSON.stringify(updated));
+      saveAccountsLocal(updated);
 
       const suffixes = [
         'user_profile', 'semesters', 'subjects', 'topics', 'exams',
