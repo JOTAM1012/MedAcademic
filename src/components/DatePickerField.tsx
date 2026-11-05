@@ -1,4 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
 import { ymd } from '../data/blockReview';
 
@@ -29,6 +30,34 @@ export const DatePickerField: React.FC<DatePickerFieldProps> = ({ id, value, onC
   const [open, setOpen] = useState(false);
   const [view, setView] = useState(() => (value ? parse(value) : new Date()));
   const ref = useRef<HTMLDivElement>(null);
+  const popRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+
+  // O calendário abre por cima de tudo (fora de cartões que cortam o conteúdo) e cabe na tela
+  const place = () => {
+    const btn = ref.current?.getBoundingClientRect();
+    if (!btn) return;
+    const W = 288;
+    const H = popRef.current?.offsetHeight || 340;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const left = Math.min(Math.max(8, btn.left), vw - W - 8);
+    const below = btn.bottom + 6;
+    const top = below + H > vh - 8 && btn.top - H - 6 > 8 ? btn.top - H - 6 : Math.max(8, Math.min(below, vh - H - 8));
+    setPos({ top, left });
+  };
+  useLayoutEffect(() => {
+    if (!open) return;
+    place();
+    const raf = requestAnimationFrame(place);
+    window.addEventListener('resize', place);
+    window.addEventListener('scroll', place, true);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('resize', place);
+      window.removeEventListener('scroll', place, true);
+    };
+  }, [open]);
 
   useEffect(() => {
     if (open) setView(value ? parse(value) : new Date());
@@ -36,11 +65,20 @@ export const DatePickerField: React.FC<DatePickerFieldProps> = ({ id, value, onC
 
   useEffect(() => {
     if (!open) return;
-    const close = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    const close = (e: Event) => {
+      const t = e.target as Node;
+      if (ref.current?.contains(t) || popRef.current?.contains(t)) return;
+      setOpen(false);
     };
+    const esc = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
     document.addEventListener('mousedown', close);
-    return () => document.removeEventListener('mousedown', close);
+    document.addEventListener('touchstart', close);
+    document.addEventListener('keydown', esc);
+    return () => {
+      document.removeEventListener('mousedown', close);
+      document.removeEventListener('touchstart', close);
+      document.removeEventListener('keydown', esc);
+    };
   }, [open]);
 
   const today = ymd(new Date());
@@ -79,11 +117,14 @@ export const DatePickerField: React.FC<DatePickerFieldProps> = ({ id, value, onC
         <Calendar className="h-4 w-4 shrink-0 text-sky-500" />
       </button>
 
-      {open && (
+      {open && createPortal(
         <div
+          ref={popRef}
           role="dialog"
           aria-label="Calendário"
-          className="absolute z-[70] left-0 mt-1.5 w-72 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-2xl p-3"
+          onClick={(e) => e.stopPropagation()}
+          style={{ top: pos?.top ?? -9999, left: pos?.left ?? -9999 }}
+          className="fixed z-[120] w-72 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-2xl p-3 animate-in fade-in"
         >
           <div className="flex gap-1 mb-2.5">
             {[
@@ -145,7 +186,8 @@ export const DatePickerField: React.FC<DatePickerFieldProps> = ({ id, value, onC
               Limpar data
             </button>
           )}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
