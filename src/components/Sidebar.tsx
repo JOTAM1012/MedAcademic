@@ -231,8 +231,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
 
         {/* Navigation Items */}
         <nav className={`flex-1 overflow-y-auto overflow-x-hidden py-4 space-y-4 ${isExpanded ? 'px-3' : 'px-2'}`}>
-          {/* First Section */}
+          {/* Rotina */}
           <div>
+            {isExpanded && (
+              <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider px-2 mb-1.5 animate-in fade-in duration-150">Rotina</div>
+            )}
             <div className="space-y-1">
               {academicItems.map((item) => {
                 const Icon = item.icon;
@@ -295,7 +298,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
           <div>
             {isExpanded ? (
               <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider px-2 mb-1.5 animate-in fade-in duration-150">
-                Estudos &amp; rotina
+                Ferramentas de estudo
               </div>
             ) : (
               <div className="w-8 mx-auto border-t border-slate-800/80 my-2" />
@@ -359,7 +362,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
           {/* AI & Profile Section */}
           <div>
             {isExpanded ? (
-              <div className="w-full" />
+              <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider px-2 mb-1.5 animate-in fade-in duration-150">Configurações</div>
             ) : (
               <div className="w-8 mx-auto border-t border-slate-800/80 my-2" />
             )}
