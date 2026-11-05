@@ -1472,7 +1472,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                     className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold transition-colors"
                   >
                     <GraduationCap className="h-3.5 w-3.5" />
-                    <span>Abrir Grade de Semestre</span>
+                    <span>Abrir Avaliações</span>
                   </button>
                 ) : (
                 <button

@@ -224,7 +224,7 @@ export const SemesterHistoryView: React.FC = () => {
             )}
           </div>
           {report.length === 0 ? (
-            <p className="text-xs text-slate-400">Sem provas neste semestre. Adicione provas e notas na Grade de Semestre para montar o boletim.</p>
+            <p className="text-xs text-slate-400">Sem provas neste semestre. Adicione provas e notas em Avaliações para montar o boletim.</p>
           ) : (
             <div className="space-y-3">
               {report.map((r) => (

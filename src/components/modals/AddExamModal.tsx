@@ -12,6 +12,8 @@ interface AddExamModalProps {
   editingExam?: Exam | null;
   defaultDate?: string;
   defaultSubjectName?: string;
+  /** abre já rolado até "Resultado (depois da prova)" */
+  focusResult?: boolean;
 }
 
 const inputCls =
@@ -30,6 +32,7 @@ export const AddExamModal: React.FC<AddExamModalProps> = ({
   editingExam,
   defaultDate,
   defaultSubjectName,
+  focusResult,
 }) => {
   const { exams, subjects, addExam, updateExam, addXp, showNotification, currentSemester } = useApp();
 
@@ -56,6 +59,16 @@ export const AddExamModal: React.FC<AddExamModalProps> = ({
   const [notes, setNotes] = useState('');
 
   // Preenche o formulário sempre que abre (nova prova ou edição)
+  useEffect(() => {
+    if (!isOpen || !focusResult) return;
+    const t = window.setTimeout(() => {
+      const sec = document.getElementById('exam-result-section');
+      sec?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      (sec?.querySelector('input') as HTMLInputElement | null)?.focus({ preventScroll: true });
+    }, 250);
+    return () => window.clearTimeout(t);
+  }, [isOpen, focusResult]);
+
   useEffect(() => {
     if (!isOpen) return;
     const ex = editingExam;
@@ -184,7 +197,7 @@ export const AddExamModal: React.FC<AddExamModalProps> = ({
               <h2 className="text-base font-bold text-slate-900 dark:text-white">
                 {editingExam ? 'Editar prova' : 'Nova prova'}
               </h2>
-              <p className="text-xs text-slate-500">Aparece na Grade de Semestre e no Planner</p>
+              <p className="text-xs text-slate-500">Aparece em Avaliações e no Planner</p>
             </div>
           </div>
           <button
@@ -409,7 +422,7 @@ export const AddExamModal: React.FC<AddExamModalProps> = ({
                 </div>
 
                 {/* Depois da prova */}
-                <div className="pt-3 border-t border-slate-200 dark:border-slate-800">
+                <div id="exam-result-section" className={`pt-3 border-t border-slate-200 dark:border-slate-800 ${focusResult ? 'rounded-2xl ring-2 ring-emerald-500/40 p-2 -mx-1 bg-emerald-500/5' : ''}`}>
                   <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 mb-2 flex items-center gap-1">
                     <Award className="h-3.5 w-3.5" /> Resultado (depois da prova)
                   </p>

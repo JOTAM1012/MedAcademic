@@ -838,7 +838,7 @@ export const ProfileView: React.FC = () => {
                 <p className="font-semibold text-amber-900 dark:text-amber-300 mb-1">Fica em branco (só neste semestre):</p>
                 <ul className="list-disc list-inside space-y-0.5 text-[11px] text-slate-600 dark:text-slate-400">
                   <li>Disciplinas, blocos, tópicos e revisões</li>
-                  <li>Provas e notas da Grade de semestre</li>
+                  <li>Provas e notas de Avaliações</li>
                   <li>Aulas e atividades da Grade de horários</li>
                   <li>Questões e horas registradas nas disciplinas deste semestre</li>
                 </ul>

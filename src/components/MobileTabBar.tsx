@@ -39,7 +39,7 @@ export const MobileTabBar: React.FC = () => {
   const all: NavItem[] = [
     { id: 'dashboard', label: 'Dashboard', short: 'Início', icon: LayoutDashboard, color: 'from-blue-500 to-blue-700' },
     { id: 'calendar', label: 'Planner', short: 'Planner', icon: Calendar, color: 'from-violet-500 to-violet-700' },
-    { id: 'grades', label: 'Grade de semestre', short: 'Provas', icon: GraduationCap, color: 'from-rose-500 to-rose-700', badge: upcomingExams ? String(upcomingExams) : null },
+    { id: 'grades', label: 'Avaliações', short: 'Avaliações', icon: GraduationCap, color: 'from-rose-500 to-rose-700', badge: upcomingExams ? String(upcomingExams) : null },
     { id: 'schedule', label: 'Grade de horários', short: 'Horários', icon: CalendarDays, color: 'from-cyan-500 to-cyan-700' },
     { id: 'structure', label: 'Disciplinas & assuntos', short: 'Disciplinas', icon: Layers, color: 'from-indigo-500 to-indigo-700' },
     { id: 'spaced_repetition', label: 'Revisões', short: 'Revisões', icon: Repeat, color: 'from-sky-500 to-sky-700', badge: dueCount ? String(dueCount) : null },

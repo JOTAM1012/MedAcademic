@@ -96,7 +96,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
     },
     {
       id: 'grades',
-      label: 'Grade de semestre',
+      label: 'Avaliações',
       icon: GraduationCap,
       badge: upcomingExamsCount > 0 ? `${upcomingExamsCount} próx.` : null,
       badgeColor: 'bg-rose-500/20 text-rose-300 border border-rose-400/30',

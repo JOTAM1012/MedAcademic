@@ -339,14 +339,14 @@ export const DashboardInsights: React.FC = () => {
                 ))}
               </div>
               <button onClick={() => setCurrentTab('grades')} className="mt-auto pt-3 text-[11px] font-bold underline text-left">
-                {formatDM(nextExam.date)} {nextExam.time ? `às ${nextExam.time}` : ''} · ver na Grade de semestre
+                {formatDM(nextExam.date)} {nextExam.time ? `às ${nextExam.time}` : ''} · ver em Avaliações
               </button>
             </>
           ) : (
             <p className="text-xs text-blue-100 mt-2 flex-1">
               Nenhuma prova marcada.{' '}
               <button onClick={() => setCurrentTab('grades')} className="underline font-bold">
-                Adicionar na Grade de semestre
+                Adicionar em Avaliações
               </button>
             </p>
           )}
@@ -418,7 +418,7 @@ export const DashboardInsights: React.FC = () => {
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
         {(
           [
-            ['exam', 'Evolução de acertos em provas', data.examEvolution, data.examHits, goals.exam, '#6366f1', 'Nenhuma prova com nota ainda. Lance as notas na Grade de semestre.'],
+            ['exam', 'Evolução de acertos em provas', data.examEvolution, data.examHits, goals.exam, '#6366f1', 'Nenhuma prova com nota ainda. Lance as notas em Avaliações.'],
             ['review', 'Evolução de acertos em revisões', data.reviewEvolution, data.reviewHits, goals.review, '#f59e0b', 'Registre questões nas revisões para ver sua evolução.'],
           ] as const
         ).map(([id, title, series, h, goal, color, empty]) => (

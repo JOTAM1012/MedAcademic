@@ -1811,7 +1811,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const addExam = (ex: Omit<Exam, 'id'>) => {
     const newEx: Exam = { ...ex, id: 'exam-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6) };
     setExams((prev) => [...prev, newEx]);
-    showNotification(`Prova "${ex.title}" adicionada à grade de semestre!`, 'success');
+    showNotification(`Prova "${ex.title}" adicionada em Avaliações!`, 'success');
     // XP is awarded by the calling modal
   };
 
@@ -1826,7 +1826,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const deleteExam = (id: string) => {
     setExams((prev) => prev.filter((e) => e.id !== id));
-    showNotification('Prova removida da grade de semestre.', 'info');
+    showNotification('Prova removida de Avaliações.', 'info');
   };
 
   const addScheduleClass = (sc: Omit<ScheduleClass, 'id'>) => {

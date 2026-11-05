@@ -14,6 +14,9 @@ import {
   TrendingUp,
   TrendingDown,
   ClipboardList,
+  PenLine,
+  CheckCircle2,
+  AlertCircle,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { Exam } from '../types';
@@ -24,7 +27,7 @@ const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Jul
 const MONTHS_SHORT = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
 const WEEKDAYS_SHORT = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
-type StatusFilter = 'todas' | 'proximas' | 'com_nota' | 'sem_nota';
+type StatusFilter = 'todas' | 'proximas' | 'com_nota' | 'sem_nota' | 'pendentes';
 
 const parseYMD = (ymd: string) => {
   const [y, m, d] = ymd.split('-').map(Number);
@@ -61,7 +64,7 @@ export const SemesterGridView: React.FC = () => {
   const [viewMode, setViewMode] = useState<'timeline' | 'subjects'>('timeline');
   const [kindFilter, setKindFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('todas');
-  const [modal, setModal] = useState<{ open: boolean; exam?: Exam | null; subjectName?: string }>({ open: false });
+  const [modal, setModal] = useState<{ open: boolean; exam?: Exam | null; subjectName?: string; focusResult?: boolean }>({ open: false });
   const [gradeDrafts, setGradeDrafts] = useState<Record<string, string>>({});
 
   const todayStr = toYMD(new Date());
@@ -80,12 +83,15 @@ export const SemesterGridView: React.FC = () => {
     if (statusFilter === 'proximas') return e.date >= todayStr && e.grade === undefined;
     if (statusFilter === 'com_nota') return e.grade !== undefined;
     if (statusFilter === 'sem_nota') return e.grade === undefined;
+    if (statusFilter === 'pendentes') return e.date <= todayStr && e.grade === undefined;
     return true;
   });
 
   const releasedAvg = weightedAverage(semesterExams, (e) => e.grade);
   const expectedAvg = weightedAverage(semesterExams, (e) => e.expectedGrade);
   const gradedCount = semesterExams.filter((e) => e.grade !== undefined).length;
+  // provas que já aconteceram (ou são hoje) e ainda não têm resultado
+  const pendingResults = semesterExams.filter((e) => e.date <= todayStr && e.grade === undefined);
   const nextExam = semesterExams.find((e) => e.date >= todayStr && e.grade === undefined);
 
   const kindCounts = useMemo(() => {
@@ -159,12 +165,18 @@ export const SemesterGridView: React.FC = () => {
         <div className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Esperada</div>
         <div className="text-sm font-black text-slate-700 dark:text-slate-200">{fmt(exam.expectedGrade)}</div>
       </div>
-      <label className="w-16 rounded-xl bg-slate-50 dark:bg-slate-950/70 border border-slate-200 dark:border-slate-800 px-2 py-1.5 text-center focus-within:border-sky-500 cursor-text">
+      <label
+        className={`w-16 rounded-xl px-2 py-1.5 text-center focus-within:border-sky-500 cursor-text border ${
+          exam.grade === undefined && exam.date <= todayStr
+            ? 'bg-amber-50 dark:bg-amber-500/10 border-dashed border-amber-400 dark:border-amber-500/60'
+            : 'bg-slate-50 dark:bg-slate-950/70 border-slate-200 dark:border-slate-800'
+        }`}
+      >
         <div className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Lançada</div>
         <input
           aria-label={`Nota lançada de ${exam.title}`}
           inputMode="decimal"
-          placeholder="—"
+          placeholder={exam.grade === undefined && exam.date <= todayStr ? 'Nota' : '—'}
           value={gradeDrafts[exam.id] ?? (exam.grade !== undefined ? String(exam.grade).replace('.', ',') : '')}
           onChange={(e) => setGradeDrafts((d) => ({ ...d, [exam.id]: e.target.value }))}
           onBlur={() => commitGrade(exam)}
@@ -278,7 +290,30 @@ export const SemesterGridView: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex items-center justify-between sm:justify-end gap-2">
+        <div className="flex items-center justify-between sm:justify-end gap-2 flex-wrap">
+          {exam.grade === undefined ? (
+            <button
+              onClick={() => setModal({ open: true, exam, focusResult: true })}
+              className={`exam-result-cta shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition-all ${
+                diff <= 0
+                  ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-md shadow-amber-500/30 animate-[pulse_2.4s_ease-in-out_infinite]'
+                  : 'border border-sky-300 dark:border-sky-700/70 text-sky-700 dark:text-sky-300 bg-sky-50 dark:bg-sky-950/40 hover:bg-sky-100 dark:hover:bg-sky-900/50'
+              }`}
+              title="Lançar nota, questões e acertos"
+            >
+              <PenLine className="h-3.5 w-3.5" />
+              Lançar resultado
+            </button>
+          ) : (
+            <button
+              onClick={() => setModal({ open: true, exam, focusResult: true })}
+              className="shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[11px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 hover:bg-emerald-100 dark:hover:bg-emerald-900/50"
+              title="Ver ou editar o resultado"
+            >
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              Resultado lançado
+            </button>
+          )}
           {renderGradeBox(exam)}
           <div className="flex sm:flex-col gap-1">
             <button
@@ -313,7 +348,7 @@ export const SemesterGridView: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white">Grade de Semestre</h1>
+            <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white">Avaliações do semestre</h1>
             {currentSemester && (
               <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-sky-100 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800">
                 {currentSemester.name}
@@ -393,6 +428,41 @@ export const SemesterGridView: React.FC = () => {
         </div>
       </div>
 
+      {pendingResults.length > 0 && (
+        <div id="exam-pending-banner" className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-amber-300 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-500/10 p-4">
+          <div className="flex items-start gap-3">
+            <div className="h-10 w-10 shrink-0 rounded-xl bg-amber-500 text-slate-950 flex items-center justify-center">
+              <AlertCircle className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-sm font-black text-amber-900 dark:text-amber-200">
+                {pendingResults.length === 1 ? '1 avaliação aguardando resultado' : `${pendingResults.length} avaliações aguardando resultado`}
+              </p>
+              <p className="text-xs text-amber-800/80 dark:text-amber-200/70">
+                Lance a nota, as questões e os acertos para manter suas médias e gráficos em dia.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {statusFilter !== 'pendentes' && pendingResults.length > 1 && (
+              <button
+                onClick={() => setStatusFilter('pendentes')}
+                className="px-3 py-2 rounded-xl text-xs font-bold border border-amber-400/60 text-amber-800 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-500/20"
+              >
+                Ver pendentes
+              </button>
+            )}
+            <button
+              id="exam-pending-launch"
+              onClick={() => setModal({ open: true, exam: pendingResults[0], focusResult: true })}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black shadow-md shadow-amber-500/30"
+            >
+              <PenLine className="h-3.5 w-3.5" /> Lançar agora
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Filtros */}
       <div className="flex flex-col xl:flex-row xl:items-start justify-between gap-3">
         <div className="flex items-center gap-1.5 flex-wrap">
@@ -435,6 +505,7 @@ export const SemesterGridView: React.FC = () => {
           >
             <option value="todas">Todas</option>
             <option value="proximas">Próximas</option>
+            <option value="pendentes">Aguardando resultado</option>
             <option value="sem_nota">Sem nota</option>
             <option value="com_nota">Com nota</option>
           </select>
@@ -531,6 +602,7 @@ export const SemesterGridView: React.FC = () => {
         onClose={() => setModal({ open: false })}
         editingExam={modal.exam}
         defaultSubjectName={modal.subjectName}
+        focusResult={modal.focusResult}
       />
     </div>
   );
