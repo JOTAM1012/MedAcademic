@@ -132,8 +132,14 @@ export interface ErrorNote {
 export interface StudyPlanPrefs {
   /** Capacidade: blocos de foco (pomodoros) por dia de estudo */
   dailyPomodoros: number;
-  /** Formato padrão para tema novo: 50/10 (imersão) ou 25/5 */
-  focusMinutes: 25 | 50;
+  /** Bloco longo (tema novo / imersão): minutos de foco. Cada aluno escolhe (25, 45, 50, 60, 90...) */
+  focusMinutes: number;
+  /** Pausa depois do bloco longo (min) */
+  breakMinutes: number;
+  /** Bloco curto (revisões, questões, flashcards): minutos de foco */
+  shortFocusMinutes: number;
+  /** Pausa depois do bloco curto (min) */
+  shortBreakMinutes: number;
   /** Dia de descanso (0 = domingo … 6 = sábado); null = sem descanso fixo */
   restDay: number | null;
   /** Dia de questões misturadas + caderno de erros (6 = sábado); null = nenhum */

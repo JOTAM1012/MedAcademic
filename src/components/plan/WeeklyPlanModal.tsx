@@ -163,8 +163,8 @@ export const WeeklyPlanModal: React.FC<WeeklyPlanModalProps> = ({ open, onClose 
                         />
                       </div>
                       <div className="mt-1 flex items-center justify-between gap-2 text-[11px]">
-                        <span className="text-slate-500 dark:text-slate-400" title={`≈ ${blocksToHours(l.demand)} de foco previstos`}>
-                          {l.demand} bloco{l.demand === 1 ? '' : 's'} previsto{l.demand === 1 ? '' : 's'} · seu dia tem {l.capacity}
+                        <span className="text-slate-500 dark:text-slate-400" title={`${l.demand} × 25 min previstos`}>
+                          ≈ {blocksToHours(l.demand)} previstos · seu dia tem {blocksToHours(l.capacity)}
                         </span>
                         {l.overloaded && (
                           <span className="font-bold text-amber-700 dark:text-amber-300 flex items-center gap-1">

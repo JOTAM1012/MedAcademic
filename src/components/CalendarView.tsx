@@ -40,7 +40,7 @@ import { TodayPlanPanel } from './plan/TodayPlanPanel';
 import { DailyHabitsCard } from './plan/DailyHabitsCard';
 import { WeeklyPlanModal } from './plan/WeeklyPlanModal';
 import { StudyRoutineModal } from './plan/StudyRoutineModal';
-import { DAY_KIND_INFO, readLocal, userLocalKey, writeLocal } from './plan/planShared';
+import { DAY_KIND_INFO, blocksToHours, readLocal, userLocalKey, writeLocal } from './plan/planShared';
 
 interface CalendarViewProps {
   onOpenAddExam?: (date?: string) => void;
@@ -1313,7 +1313,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                         </span>
                       )}
                       {!past && (
-                        <div title={`Estudo previsto: ${load.demand} de ${load.capacity} blocos de 25 min · ${load.reviews} revisões · ${load.newTopics} temas novos`}>
+                        <div title={`Estudo previsto: ${blocksToHours(load.demand)} de ${blocksToHours(load.capacity)} · ${load.reviews} revisões · ${load.newTopics} temas novos`}>
                           <div className="h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
                             <div
                               className={`h-full rounded-full ${load.overloaded ? 'bg-amber-500' : 'bg-sky-500'}`}
@@ -1322,7 +1322,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                           </div>
                           <p className={`mt-0.5 text-[9px] font-bold ${load.overloaded ? 'text-amber-700 dark:text-amber-300' : 'text-slate-500 dark:text-slate-400'}`}>
                             {load.overloaded ? 'Dia cheio · ' : ''}
-                            {load.demand}/{load.capacity} blocos
+                            {blocksToHours(load.demand)}/{blocksToHours(load.capacity)}
                           </p>
                         </div>
                       )}

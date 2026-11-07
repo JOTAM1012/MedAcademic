@@ -94,7 +94,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClos
       color: 'bg-emerald-500 text-white',
       tag: 'Produtividade',
       description:
-        'Meça o tempo dedicado a cada disciplina com cronômetro livre ou nos modos Pomodoro (25/5 min ou 50/10 min). Inclui gerador de sons ambientes para máxima concentração.',
+        'Meça o tempo dedicado a cada disciplina com cronômetro livre ou no Pomodoro com o seu bloco (25/5, 50/10, 60/10, 45/15 ou o tempo que você quiser). Inclui gerador de sons ambientes para máxima concentração.',
       actionTip: '💡 Dica: Ao salvar cada sessão de estudos, suas horas e XP são contabilizados automaticamente!',
       bulletPoints: [
         'Vincule a sessão à matéria correspondente para gerar gráficos de rendimento.',

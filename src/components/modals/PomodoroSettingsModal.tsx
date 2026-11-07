@@ -29,7 +29,7 @@ export const PomodoroSettingsModal: React.FC<PomodoroSettingsModalProps> = ({
   const [mediumMins, setMediumMins] = useState(settings.mediumBreakMinutes);
   const [longMins, setLongMins] = useState(settings.longBreakMinutes);
 
-  // Sempre que abrir, mostra os valores atuais (podem ter mudado pelos atalhos 25/5 e 50/10)
+  // Sempre que abrir, mostra os valores atuais (podem ter mudado pelos atalhos dos blocos do aluno)
   useEffect(() => {
     if (!isOpen) return;
     setWorkMins(settings.workMinutes);

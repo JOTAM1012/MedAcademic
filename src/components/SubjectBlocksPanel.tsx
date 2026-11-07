@@ -132,6 +132,7 @@ export const SubjectBlocksPanel: React.FC<SubjectBlocksPanelProps> = ({ subject 
       blockId: block.id,
       steps: INITIAL_STEPS,
       minutes: studyPrefs.focusMinutes,
+      breakMinutes: studyPrefs.breakMinutes,
     });
 
   const renderStatus = (block: TopicBlock, seen: number, total: number) => {

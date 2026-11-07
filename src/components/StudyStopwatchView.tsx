@@ -32,7 +32,7 @@ import { sessionDate, weekStart } from '../data/studyMethod';
 import { todayYMD, useDayPlan } from '../hooks/useStudyPlan';
 import { notifyTimer, playTimerBeep } from '../lib/timerSound';
 
-type PresetId = '25' | '50' | 'free';
+type PresetId = 'short' | 'long' | 'free';
 
 const ALARM_OPTIONS: Array<number | null> = [null, 30, 60, 90, 120, 240];
 const ALARM_STORAGE_KEY = 'medacademic_free_alarm_min';
@@ -272,8 +272,12 @@ export const StudyStopwatchView: React.FC = () => {
   };
 
   // ---------- Formatos (presets) ----------
+  // Atalhos = os blocos que o aluno escolheu em Minha rotina (ex.: 60/10 e 25/5)
+  const longBlock = { work: studyPrefs.focusMinutes, rest: studyPrefs.breakMinutes };
+  const shortBlock = { work: studyPrefs.shortFocusMinutes, rest: studyPrefs.shortBreakMinutes };
+  const matches = (b: { work: number; rest: number }) => pomodoroSettings.workMinutes === b.work && pomodoroSettings.shortBreakMinutes === b.rest;
   const activePreset: PresetId | null =
-    timer.mode === 'stopwatch' ? 'free' : pomodoroSettings.workMinutes === 25 ? '25' : pomodoroSettings.workMinutes === 50 ? '50' : null;
+    timer.mode === 'stopwatch' ? 'free' : matches(longBlock) ? 'long' : matches(shortBlock) ? 'short' : null;
   const presetsLocked = timer.isRunning || !!cycle || (!!task && !taskFinished);
   const lockReason = cycle ? 'Ciclo em andamento' : task && !taskFinished ? 'O formato vem da tarefa' : timer.isRunning ? 'Pause para trocar o formato' : '';
 
@@ -283,11 +287,12 @@ export const StudyStopwatchView: React.FC = () => {
       setTimerMode('stopwatch');
       return;
     }
+    const b = id === 'long' ? longBlock : shortBlock;
     const next = {
-      workMinutes: id === '25' ? 25 : 50,
-      shortBreakMinutes: 5,
-      mediumBreakMinutes: 10,
-      longBreakMinutes: pomodoroSettings.longBreakMinutes,
+      workMinutes: b.work,
+      shortBreakMinutes: b.rest,
+      mediumBreakMinutes: b.rest,
+      longBreakMinutes: Math.max(pomodoroSettings.longBreakMinutes, b.rest),
     };
     // Sem tarefa: volta ao modo foco (limpa duração da tarefa/ciclo); o ajuste abaixo acerta o tempo
     if (!task) setTimerMode('pomodoro');
@@ -295,8 +300,8 @@ export const StudyStopwatchView: React.FC = () => {
   };
 
   const presets: Array<{ id: PresetId; title: string; hint: string; icon: React.ReactNode }> = [
-    { id: '25', title: '25/5', hint: 'tarefa curta / dia difícil', icon: <Timer className="h-4 w-4" /> },
-    { id: '50', title: '50/10', hint: 'imersão (tema novo)', icon: <Zap className="h-4 w-4" /> },
+    { id: 'short', title: `${shortBlock.work}/${shortBlock.rest}`, hint: 'meu bloco curto (revisões)', icon: <Timer className="h-4 w-4" /> },
+    { id: 'long', title: `${longBlock.work}/${longBlock.rest}`, hint: 'meu bloco longo (tema novo)', icon: <Zap className="h-4 w-4" /> },
     { id: 'free', title: 'Livre', hint: 'com alarme (simulado)', icon: <BellRing className="h-4 w-4" /> },
   ];
 
@@ -305,7 +310,12 @@ export const StudyStopwatchView: React.FC = () => {
     if (!task) return;
     const { finished: _f, ...rest } = task;
     void _f;
-    startTask({ ...rest, minutes: task.kind === 'new_block' ? studyPrefs.focusMinutes : pomodoroSettings.workMinutes });
+    const long = task.kind === 'new_block' || task.kind === 'new_topics';
+    startTask({
+      ...rest,
+      minutes: long ? studyPrefs.focusMinutes : studyPrefs.shortFocusMinutes,
+      breakMinutes: long ? studyPrefs.breakMinutes : studyPrefs.shortBreakMinutes,
+    });
   };
 
   const primaryAction = (() => {
@@ -594,6 +604,14 @@ export const StudyStopwatchView: React.FC = () => {
           })}
         </div>
         {presetsLocked && lockReason && <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">{lockReason}.</p>}
+        <button
+          type="button"
+          id="pomo-edit-blocks"
+          onClick={() => openPlannerToday({ routine: true })}
+          className="mt-2 min-h-[36px] text-[11px] font-bold text-sky-700 dark:text-sky-400 hover:underline"
+        >
+          Mudar meus blocos (ex.: 60/10, 45/15)
+        </button>
 
         {/* Alarme do cronômetro livre */}
         {timer.mode === 'stopwatch' && (

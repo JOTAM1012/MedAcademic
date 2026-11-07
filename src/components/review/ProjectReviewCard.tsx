@@ -113,7 +113,7 @@ export const ProjectReviewCard: React.FC<ProjectReviewCardProps> = ({ project, i
           <button
             type="button"
             onClick={() =>
-              startTask({ title: `${tech.badge}: ${item.title}`, kind: 'project_review', projectId: project.id, itemId: item.id, steps: tech.steps, minutes: 25 })
+              startTask({ title: `${tech.badge}: ${item.title}`, kind: 'project_review', projectId: project.id, itemId: item.id, steps: tech.steps, minutes: studyPrefs.shortFocusMinutes, breakMinutes: studyPrefs.shortBreakMinutes })
             }
             className="inline-flex items-center justify-center gap-2 min-h-[44px] px-5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-sm font-black shadow-sm w-full sm:w-auto"
           >

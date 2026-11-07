@@ -374,7 +374,7 @@ export interface PhaseInfo {
   color: string;
   priority: string;
   tips: string[];
-  defaults: Pick<StudyPlanPrefs, 'focusMinutes' | 'newTopicsPerDay' | 'longTermGoal'>;
+  defaults: Pick<StudyPlanPrefs, 'focusMinutes' | 'breakMinutes' | 'shortFocusMinutes' | 'shortBreakMinutes' | 'newTopicsPerDay' | 'longTermGoal'>;
   /** Meta semanal sugerida para um estudo pessoal */
   projectWeekly: number;
 }
@@ -391,7 +391,7 @@ export const PHASE_INFO: Record<StudyPhase, PhaseInfo> = {
       'Anatomia e histologia: flashcards com imagem (oclusão) funcionam muito bem.',
       'Treine com as questões das provas da sua própria faculdade.',
     ],
-    defaults: { focusMinutes: 50, newTopicsPerDay: 1, longTermGoal: false },
+    defaults: { focusMinutes: 50, breakMinutes: 10, shortFocusMinutes: 25, shortBreakMinutes: 5, newTopicsPerDay: 1, longTermGoal: false },
     projectWeekly: 2,
   },
   ciclo_clinico: {
@@ -405,7 +405,7 @@ export const PHASE_INFO: Record<StudyPhase, PhaseInfo> = {
       'Flashcards de critérios diagnósticos e condutas.',
       'Feynman para fisiopatologia: explique por que cada sinal aparece.',
     ],
-    defaults: { focusMinutes: 50, newTopicsPerDay: 1, longTermGoal: false },
+    defaults: { focusMinutes: 50, breakMinutes: 10, shortFocusMinutes: 25, shortBreakMinutes: 5, newTopicsPerDay: 1, longTermGoal: false },
     projectWeekly: 2,
   },
   internato: {
@@ -419,7 +419,7 @@ export const PHASE_INFO: Record<StudyPhase, PhaseInfo> = {
       'Poucos cartões novos por dia, mas flashcards todo dia.',
       'Cada paciente vira gatilho para revisar o tema.',
     ],
-    defaults: { focusMinutes: 25, newTopicsPerDay: 1, longTermGoal: true },
+    defaults: { focusMinutes: 25, breakMinutes: 5, shortFocusMinutes: 25, shortBreakMinutes: 5, newTopicsPerDay: 1, longTermGoal: true },
     projectWeekly: 4,
   },
 };
@@ -459,6 +459,8 @@ export const resolvePrefs = (saved: Partial<StudyPlanPrefs> | undefined, phase: 
   (Object.keys(saved) as Array<keyof StudyPlanPrefs>).forEach((k) => {
     if (saved[k] !== undefined) (out as any)[k] = saved[k];
   });
+  // Preferência antiga (só o foco): pausa proporcional ao bloco
+  if (saved.focusMinutes !== undefined && saved.breakMinutes === undefined) out.breakMinutes = saved.focusMinutes >= 45 ? 10 : 5;
   return out;
 };
 
@@ -799,10 +801,12 @@ export interface PlanTask {
   /** Por que esta tarefa está aqui (texto curto para o aluno) */
   reason?: string;
   steps: string[];
-  /** Tamanho em blocos de 25 min (um bloco de 50 conta como 2) */
+  /** Tamanho em blocos de 25 min (unidade interna da capacidade; um bloco de 50 conta como 2) */
   pomodoros: number;
-  /** Formato do Pomodoro para "Começar" */
-  focus: 25 | 50;
+  /** Minutos de foco de cada bloco desta tarefa (bloco do aluno) */
+  focus: number;
+  /** Pausa depois de cada bloco (min) */
+  breakMin?: number;
   technique?: ReviewTechniqueId;
   reviewNumber?: number;
   /** Nº de questões sugerido (sugestão, não regra) */
@@ -875,7 +879,16 @@ export interface PlanInput {
 
 const subjectName = (subjects: Subject[], id?: string) => subjects.find((s) => s.id === id)?.name || '';
 const subjectColor = (subjects: Subject[], id?: string) => subjects.find((s) => s.id === id)?.color || '#0ea5e9';
-const units = (focus: 25 | 50, blocks: number) => (focus === 50 ? blocks * 2 : blocks);
+/** Tamanho em unidades de 25 min de N blocos de `focus` minutos */
+const units = (focus: number, blocks: number) => Math.max(1, Math.round((blocks * focus) / 25));
+/** Quantos blocos um tema novo pede (~75–100 min de estudo inicial) */
+export const newTopicBlocks = (focus: number) => Math.max(1, Math.round((focus >= 40 ? 100 : 75) / focus));
+/** Quantos blocos de `focus` min cabem numa tarefa de `pomodoros` unidades de 25 min */
+export const taskBlocks = (pomodoros: number, focus: number) => Math.max(1, Math.round((pomodoros * 25) / Math.max(5, focus)));
+/** "2 × 50 min" / "1 × 60 min" / "10 min" */
+export const formatTaskSize = (pomodoros: number, focus: number) => (pomodoros <= 0 ? '10 min' : `${taskBlocks(pomodoros, focus)} × ${focus} min`);
+/** Texto de um bloco: "60/10" */
+export const blockLabel = (focus: number, rest: number) => `${focus}/${rest}`;
 
 /** Dia com plantão/estágio na grade */
 export const isPlantaoDay = (schedule: ScheduleClass[], date: string) => {
@@ -922,13 +935,18 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
     if (lowEnergy) capacity = Math.min(capacity, Math.max(2, Math.round(prefs.dailyPomodoros / 3)));
     if (plantao) capacity = Math.min(capacity, 2);
   }
-  const shortFocus: 25 | 50 = 25;
-  const newFocus: 25 | 50 = lowEnergy || plantao ? 25 : prefs.focusMinutes;
+  // Blocos do aluno: curto para revisões/questões, longo para tema novo (no dia difícil/plantão, só o curto)
+  const shortFocus = prefs.shortFocusMinutes;
+  const newFocus = lowEnergy || plantao ? prefs.shortFocusMinutes : prefs.focusMinutes;
+  const breakFor = (focus: number) =>
+    focus === prefs.focusMinutes && !(lowEnergy || plantao) ? prefs.breakMinutes : focus === prefs.shortFocusMinutes ? prefs.shortBreakMinutes : Math.max(5, Math.round(focus / 5));
 
   const all: PlanTask[] = [];
-  const mk = (t: Omit<PlanTask, 'done' | 'skipped'> & { autoDone?: boolean }): PlanTask => {
-    const { autoDone, ...rest2 } = t;
-    return { ...rest2, done: !!autoDone || doneSet.has(t.id), skipped: skipSet.has(t.id) };
+  const mk = (t: Omit<PlanTask, 'done' | 'skipped'> & { autoDone?: boolean; sized?: boolean }): PlanTask => {
+    const { autoDone, sized, ...rest2 } = t;
+    // Tarefas do bloco curto vêm em "nº de blocos"; viram unidades de 25 min no tamanho do bloco do aluno
+    if (!sized && rest2.focus === shortFocus && rest2.pomodoros > 0) rest2.pomodoros = units(shortFocus, rest2.pomodoros);
+    return { ...rest2, breakMin: rest2.breakMin ?? breakFor(rest2.focus), done: !!autoDone || doneSet.has(t.id), skipped: skipSet.has(t.id) };
   };
 
   // 1. Flashcards do dia (no domingo/pós-plantão fica opcional)
@@ -1209,6 +1227,7 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
                     reason: 'Na tutoria, o conteúdo novo da semana são os objetivos da abertura.',
                     steps: TECHNIQUES.estudo_inicial.steps,
                     pomodoros: units(newFocus, Math.min(2, Math.max(1, Math.ceil(pending.length / 3)))),
+                    sized: true,
                     focus: newFocus,
                     subjectId: s.id,
                     topicIds: pending.map((t) => t.id),
@@ -1266,7 +1285,8 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
               subtitle: `${subjectName(subjects, b.subjectId)}${bt.length ? ` · ${seen}/${bt.length} tópicos vistos` : ''}`,
               reason: offFocus ? 'Véspera de prova: este tema pode esperar; foque na disciplina da prova.' : late > 0 ? `Remarcado: estava para ${late} dia${late > 1 ? 's' : ''} atrás.` : TECHNIQUES.estudo_inicial.why,
               steps: TECHNIQUES.estudo_inicial.steps,
-              pomodoros: units(newFocus, newFocus === 50 ? 2 : 3),
+              pomodoros: units(newFocus, newTopicBlocks(newFocus)),
+              sized: true,
               focus: newFocus,
               technique: 'estudo_inicial',
               subjectId: b.subjectId,
@@ -1305,6 +1325,7 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
             reason: TECHNIQUES.estudo_inicial.why,
             steps: TECHNIQUES.estudo_inicial.steps,
             pomodoros: units(newFocus, Math.min(2, Math.max(1, Math.ceil(list.length / 2)))),
+            sized: true,
             focus: newFocus,
             technique: 'estudo_inicial',
             subjectId: sid,
@@ -1333,7 +1354,8 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
               subtitle: subjectName(subjects, b.subjectId),
               reason: soon7.has(b.subjectId) ? 'Sugestão: tem prova desta disciplina em breve.' : 'Sugestão automática: é o tema em estudo mais antigo sem data.',
               steps: TECHNIQUES.estudo_inicial.steps,
-              pomodoros: units(newFocus, newFocus === 50 ? 2 : 3),
+              pomodoros: units(newFocus, newTopicBlocks(newFocus)),
+              sized: true,
               focus: newFocus,
               technique: 'estudo_inicial',
               subjectId: b.subjectId,
@@ -1369,6 +1391,7 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
             reason: `Meta da semana: ${doneWeek}/${p.weeklyPomodoros} blocos. Este bloco fica protegido nos dias que você escolheu.`,
             steps: item ? [`Estude: ${item.title}`, 'No fim, escreva de memória o que tirou daqui (folha em branco de 5 min)'] : ['Escolha o próximo passo do projeto'],
             pomodoros: Math.max(1, Math.min(2, Math.ceil(remaining / daysLeft))),
+            sized: true,
             focus: shortFocus,
             projectId: p.id,
             autoDone: doneToday,
@@ -1493,7 +1516,7 @@ export const buildWeekLoad = (input: Omit<PlanInput, 'date'>, dates: string[]) =
 export const autoDistributeNewTopics = (input: Omit<PlanInput, 'date'>, blockIds: string[], fromDate: string, days = 7) => {
   const result: Record<string, string> = {};
   const queue = [...blockIds];
-  const per = units(input.prefs.focusMinutes, input.prefs.focusMinutes === 50 ? 2 : 3);
+  const per = units(input.prefs.focusMinutes, newTopicBlocks(input.prefs.focusMinutes));
   for (let i = 0; i < days && queue.length > 0; i++) {
     const date = addDaysYMD(i, fromDate);
     const dow = parseYMD(date).getDay();

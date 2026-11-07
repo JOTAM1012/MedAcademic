@@ -121,7 +121,7 @@ export const ProjectReviews: React.FC<{ projects: PersonalProject[]; today: stri
                       kind: 'project_review',
                       projectId: p.id,
                       itemId: item.id,
-                      minutes: 25,
+                      minutes: studyPrefs.shortFocusMinutes, breakMinutes: studyPrefs.shortBreakMinutes,
                       steps: tech.steps,
                     })
                   }

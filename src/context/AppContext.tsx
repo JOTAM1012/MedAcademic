@@ -121,6 +121,8 @@ export interface FocusTask {
   finished?: boolean;
   /** A revisão do bloco já foi registrada com este foco ainda rodando (o tempo entra quando ele acabar) */
   reviewed?: boolean;
+  /** Pausa do bloco desta tarefa (bloco que o aluno escolheu, ex.: 60/10) */
+  breakMinutes?: number;
 }
 
 const TIMER_STORAGE_KEY = 'medacademic_timer_v1';
@@ -1368,8 +1370,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const count = timer.totalPomodorosCompleted + 1;
       const longBreak = count % 4 === 0;
       const breakMode: TimerState['mode'] = longBreak ? 'long_break' : focusMinutes >= 45 ? 'medium_break' : 'short_break';
+      // Tarefa do plano: usa a pausa do bloco do aluno (ex.: 60/10, 45/15); a pausa longa a cada 4 continua
+      const taskBreak = timer.task?.breakMinutes;
       const breakMins =
-        breakMode === 'long_break' ? pomodoroSettings.longBreakMinutes : breakMode === 'medium_break' ? pomodoroSettings.mediumBreakMinutes : pomodoroSettings.shortBreakMinutes;
+        breakMode === 'long_break'
+          ? Math.max(pomodoroSettings.longBreakMinutes, taskBreak || 0)
+          : taskBreak
+            ? taskBreak
+            : breakMode === 'medium_break'
+              ? pomodoroSettings.mediumBreakMinutes
+              : pomodoroSettings.shortBreakMinutes;
       if (longBreak) showNotification(`☕ ${count} blocos de foco! Hora de uma pausa longa (${pomodoroSettings.longBreakMinutes} min).`, 'success');
       setTimer((prev) => ({
         ...prev,

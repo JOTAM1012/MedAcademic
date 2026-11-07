@@ -523,6 +523,13 @@ export const GUIDE_STEPS: GuideStep[] = [
             <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5 leading-relaxed">Imersão: tema novo, caso clínico longo.</p>
           </div>
         </div>
+        <div id="guide-my-block" className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50 p-3">
+          <p className="text-sm font-black text-slate-900 dark:text-white">Seu bloco, do seu jeito</p>
+          <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5 leading-relaxed">
+            25/5 e 50/10 são pontos de partida. Se 60/10 ou 45/15 funcionam melhor para você, escolha em Planner › Rotina (até um tempo personalizado). O plano do
+            dia, o Pomodoro e o ciclo de estudos passam a usar o seu bloco.
+          </p>
+        </div>
         <ul className="space-y-3">
           <Point emoji="🎯" color="#f97316" title="Cada bloco tem uma tarefa concreta">
             “Fazer 20 questões de asma” em vez de “estudar pneumo”.

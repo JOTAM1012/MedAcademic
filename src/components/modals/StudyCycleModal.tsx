@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { X, Play, RotateCcw, PhoneOff, Smartphone, Coffee, Plus, Trash2, BookOpen, ChevronRight, ChevronDown, Sparkles, BatteryLow, Timer } from 'lucide-react';
 import { Subject } from '../../types';
-import { StudyCycleStep } from '../../context/AppContext';
+import { StudyCycleStep, useApp } from '../../context/AppContext';
+import { useDayPlan } from '../../hooks/useStudyPlan';
+import { taskBlocks, type PlanTask } from '../../data/studyMethod';
+import { Minus, CalendarCheck, Repeat } from 'lucide-react';
 
 interface StudyCycleModalProps {
   isOpen: boolean;
@@ -102,6 +105,50 @@ const toRunStep = (s: CustomCycleStep): StudyCycleStep => ({
   phoneAllowed: s.phoneAllowed,
 });
 
+/** Monta um ciclo com N blocos iguais (o bloco do aluno, ex.: 60/10) */
+export const myBlockCycle = (focus: number, rest: number, count: number): CustomCycleStep[] =>
+  Array.from({ length: count }, (_, i) => {
+    const last = i === count - 1;
+    return {
+      id: 'my-' + i,
+      tag: !last && rest > 0 ? focus + "' - " + rest + "'" : focus + "'",
+      workMins: focus,
+      breakMins: last ? 0 : rest,
+      title: 'Bloco ' + (i + 1) + ' de ' + count,
+      description: focus + ' min de foco' + (!last && rest > 0 ? ' e ' + rest + ' min de pausa' : '') + '.',
+      phoneAllowed: false,
+      phoneNote: last ? 'Último bloco.' : 'Pausa de verdade: levante, beba água, olhe longe.',
+    };
+  });
+
+/** Transforma as tarefas pendentes do plano de hoje em etapas de ciclo, no bloco de cada tarefa */
+export const planCycle = (tasks: PlanTask[]): CustomCycleStep[] => {
+  const out: CustomCycleStep[] = [];
+  tasks
+    .filter((t) => !t.done && !t.skipped && t.kind !== 'weekly_planning')
+    .forEach((t) => {
+      const n = t.pomodoros > 0 ? taskBlocks(t.pomodoros, t.focus) : 1;
+      const work = t.pomodoros > 0 ? t.focus : 10;
+      const rest = t.pomodoros > 0 ? t.breakMin ?? 5 : 0;
+      for (let k = 0; k < n; k++)
+        out.push({
+          id: 'plan-' + t.id + '-' + k,
+          tag: rest > 0 ? work + "' - " + rest + "'" : work + "'",
+          workMins: work,
+          breakMins: rest,
+          title: n > 1 ? t.title + ' (' + (k + 1) + '/' + n + ')' : t.title,
+          description: t.subtitle || t.reason || '',
+          phoneAllowed: false,
+          phoneNote: 'Pausa de verdade: levante, beba água, olhe longe.',
+        });
+    });
+  if (out.length) {
+    const last = out[out.length - 1];
+    out[out.length - 1] = { ...last, breakMins: 0, tag: last.workMins + "'" };
+  }
+  return out;
+};
+
 const formatTotal = (mins: number) => {
   const h = Math.floor(mins / 60);
   const m = mins % 60;
@@ -173,6 +220,12 @@ const StepList: React.FC<{ steps: CustomCycleStep[]; onStart: (index: number) =>
 );
 
 export const StudyCycleModal: React.FC<StudyCycleModalProps> = ({ isOpen, onClose, subjects, defaultSubjectId, onStartCycle }) => {
+  const { studyPrefs, openPlannerToday } = useApp();
+  const plan = useDayPlan();
+  const suggestedCount = Math.min(12, Math.max(1, Math.round((studyPrefs.dailyPomodoros * 25) / studyPrefs.focusMinutes)));
+  const [myCount, setMyCount] = useState(suggestedCount);
+  const mySteps = myBlockCycle(studyPrefs.focusMinutes, studyPrefs.breakMinutes, myCount);
+  const todaySteps = planCycle(plan.tasks);
   const [customSteps, setCustomSteps] = useState<CustomCycleStep[]>(() => {
     try {
       const saved = localStorage.getItem('medacademic_custom_cycles_v1');
@@ -185,7 +238,7 @@ export const StudyCycleModal: React.FC<StudyCycleModalProps> = ({ isOpen, onClos
 
   const [subjectId, setSubjectId] = useState<string>(defaultSubjectId || '');
   const [isCreating, setIsCreating] = useState(false);
-  const [expanded, setExpanded] = useState<'typical' | 'hard' | 'classic' | null>(null);
+  const [expanded, setExpanded] = useState<'typical' | 'hard' | 'classic' | 'mine' | 'today' | null>(null);
   const [newTitle, setNewTitle] = useState('');
   const [newWorkMins, setNewWorkMins] = useState(45);
   const [newBreakMins, setNewBreakMins] = useState(10);
@@ -205,6 +258,9 @@ export const StudyCycleModal: React.FC<StudyCycleModalProps> = ({ isOpen, onClos
     if (isOpen) {
       setSubjectId(defaultSubjectId || '');
       setExpanded(null);
+      setMyCount(suggestedCount);
+      setNewWorkMins(studyPrefs.focusMinutes);
+      setNewBreakMins(studyPrefs.breakMinutes);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
@@ -322,10 +378,120 @@ export const StudyCycleModal: React.FC<StudyCycleModalProps> = ({ isOpen, onClos
           </div>
         </section>
 
-        {/* 2. Guide cycles */}
+        {/* 2. Com o meu bloco */}
+        <section id="cycle-mine-section" className="space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="text-[11px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-wider">2. Com o meu bloco</h3>
+            <button
+              type="button"
+              id="cycle-edit-blocks"
+              onClick={() => {
+                onClose();
+                openPlannerToday({ routine: true });
+              }}
+              className="min-h-[32px] text-[11px] font-bold text-amber-700 dark:text-amber-400 hover:underline"
+            >
+              Mudar meu bloco
+            </button>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {/* Meu bloco em sequência */}
+            <div id="cycle-mine" className="rounded-2xl border p-4 space-y-3 flex flex-col border-amber-500/30 bg-amber-500/5">
+              <div className="flex items-start gap-2.5">
+                <span className="p-2 rounded-xl border shrink-0 text-amber-700 dark:text-amber-300 bg-amber-500/10 border-amber-500/30">
+                  <Repeat className="h-4 w-4" />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-sm font-black text-slate-900 dark:text-white">
+                    Meu bloco {studyPrefs.focusMinutes}/{studyPrefs.breakMinutes}
+                  </p>
+                  <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-snug">Blocos iguais em sequência, no tempo que funciona para você.</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  aria-label="Menos um bloco"
+                  onClick={() => setMyCount((c) => Math.max(1, c - 1))}
+                  className="h-10 w-10 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 flex items-center justify-center text-slate-700 dark:text-slate-200 hover:border-amber-500"
+                >
+                  <Minus className="h-4 w-4" />
+                </button>
+                <p id="cycle-mine-count" className="flex-1 text-center text-xs font-bold text-slate-700 dark:text-slate-200">
+                  <span className="text-lg font-black text-slate-900 dark:text-white">{myCount}</span> bloco{myCount > 1 ? 's' : ''} · {formatTotal(totalOf(mySteps))}
+                </p>
+                <button
+                  type="button"
+                  aria-label="Mais um bloco"
+                  onClick={() => setMyCount((c) => Math.min(12, c + 1))}
+                  className="h-10 w-10 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 flex items-center justify-center text-slate-700 dark:text-slate-200 hover:border-amber-500"
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
+              </div>
+              <Timeline steps={mySteps} tone="amber" />
+              <button
+                type="button"
+                id="cycle-mine-start"
+                onClick={() => start(mySteps, 0)}
+                className="mt-auto min-h-[40px] flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-xs shadow-md transition-all cursor-pointer"
+              >
+                <Play className="h-3.5 w-3.5 fill-slate-950" /> Iniciar
+              </button>
+            </div>
+
+            {/* Plano de hoje como ciclo */}
+            <div id="cycle-today" className={`rounded-2xl border p-4 space-y-3 flex flex-col ${expanded === 'today' ? 'sm:col-span-2' : ''} border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60`}>
+              <div className="flex items-start gap-2.5">
+                <span className="p-2 rounded-xl border shrink-0 text-sky-700 dark:text-sky-300 bg-sky-500/10 border-sky-500/30">
+                  <CalendarCheck className="h-4 w-4" />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-sm font-black text-slate-900 dark:text-white">Meu plano de hoje</p>
+                  <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-snug">
+                    {todaySteps.length > 0
+                      ? 'As tarefas que faltam no Planner, na ordem certa, cada uma no seu bloco.'
+                      : 'Nada pendente no plano de hoje. Use o seu bloco ao lado.'}
+                  </p>
+                  {todaySteps.length > 0 && (
+                    <p className="mt-1 text-[10px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                      <Timer className="h-3 w-3" /> {todaySteps.length} blocos · {formatTotal(totalOf(todaySteps))}
+                    </p>
+                  )}
+                </div>
+              </div>
+              {todaySteps.length > 0 && (
+                <>
+                  <Timeline steps={todaySteps} tone="sky" />
+                  <div className="flex gap-2 mt-auto">
+                    <button
+                      type="button"
+                      id="cycle-today-start"
+                      onClick={() => start(todaySteps, 0)}
+                      className="flex-1 min-h-[40px] flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-black text-xs shadow-md transition-all cursor-pointer"
+                    >
+                      <Play className="h-3.5 w-3.5 fill-current" /> Iniciar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setExpanded(expanded === 'today' ? null : 'today')}
+                      aria-expanded={expanded === 'today'}
+                      className="min-h-[40px] flex items-center gap-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-[11px] font-bold text-slate-700 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                    >
+                      Etapas <ChevronDown className={`h-3.5 w-3.5 transition-transform ${expanded === 'today' ? 'rotate-180' : ''}`} />
+                    </button>
+                  </div>
+                  {expanded === 'today' && <StepList steps={todaySteps} onStart={(i) => start(todaySteps, i)} numbered />}
+                </>
+              )}
+            </div>
+          </div>
+        </section>
+
+        {/* 3. Guide cycles */}
         <section className="space-y-3">
           <div className="flex items-center justify-between gap-2">
-            <h3 className="text-[11px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-wider">2. Prontos do guia</h3>
+            <h3 className="text-[11px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-wider">3. Prontos do guia</h3>
             <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">Modelos para adaptar, não regras fixas</span>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
@@ -377,7 +543,7 @@ export const StudyCycleModal: React.FC<StudyCycleModalProps> = ({ isOpen, onClos
         {/* 3. Classic cycle */}
         <section className="space-y-3">
           <h3 className="text-[11px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-wider">
-            3. Ciclo clássico · {DEFAULT_STUDY_CYCLE_STEPS.length} etapas · {formatTotal(totalOf(DEFAULT_STUDY_CYCLE_STEPS))}
+            4. Ciclo clássico · {DEFAULT_STUDY_CYCLE_STEPS.length} etapas · {formatTotal(totalOf(DEFAULT_STUDY_CYCLE_STEPS))}
           </h3>
 
           <div className="rounded-2xl border border-amber-500/30 bg-slate-50 dark:bg-slate-950/80 p-4 space-y-4">
@@ -408,7 +574,7 @@ export const StudyCycleModal: React.FC<StudyCycleModalProps> = ({ isOpen, onClos
         {/* 4. Custom cycles */}
         <section className="space-y-3">
           <div className="flex items-center justify-between gap-3">
-            <h3 className="text-[11px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-wider">4. Meus ciclos personalizados</h3>
+            <h3 className="text-[11px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-wider">5. Meus ciclos personalizados</h3>
             <button
               type="button"
               onClick={() => setIsCreating(!isCreating)}

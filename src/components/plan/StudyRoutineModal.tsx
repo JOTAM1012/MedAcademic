@@ -7,6 +7,7 @@ import { useApp } from '../../context/AppContext';
 import { PHASE_INFO, ROUTINE_DISCLAIMER, WEEKDAY_NAMES, WEEKDAY_SHORT } from '../../data/studyMethod';
 import type { StudyPlanPrefs } from '../../types';
 import { OptionChip, PlanModal, blocksToHours } from './planShared';
+import { BlockPicker } from './BlockPicker';
 
 interface StudyRoutineModalProps {
   open: boolean;
@@ -16,11 +17,11 @@ interface StudyRoutineModalProps {
 }
 
 const HOURS_OPTIONS = [
-  { label: '1 hora', hint: '2 blocos de foco', blocks: 2 },
-  { label: '2 horas', hint: '4 blocos', blocks: 4 },
-  { label: '3 horas', hint: '6 blocos', blocks: 6 },
-  { label: '4 horas', hint: '8 blocos', blocks: 8 },
-  { label: '5 h ou mais', hint: '10 blocos', blocks: 10 },
+  { label: '1 hora', hint: '≈ 50 min de foco', blocks: 2 },
+  { label: '2 horas', hint: '≈ 1h40 de foco', blocks: 4 },
+  { label: '3 horas', hint: '≈ 2h30 de foco', blocks: 6 },
+  { label: '4 horas', hint: '≈ 3h20 de foco', blocks: 8 },
+  { label: '5 h ou mais', hint: '≈ 4h10 de foco', blocks: 10 },
 ];
 
 // Dias na ordem da semana brasileira (segunda primeiro)
@@ -109,7 +110,7 @@ export const StudyRoutineModal: React.FC<StudyRoutineModalProps> = ({ open, onCl
         onClose={firstTime ? skipFirstTime : onClose}
         icon={<Sparkles className="h-5 w-5" />}
         title="Vamos montar sua rotina?"
-        subtitle="3 perguntas rápidas. O site usa isso para dizer o que cabe no seu dia. Dá para mudar quando quiser."
+        subtitle="4 perguntas rápidas. O site usa isso para dizer o que cabe no seu dia. Dá para mudar quando quiser."
         footer={
           <>
             <button type="button" id="routine-skip" onClick={firstTime ? skipFirstTime : onClose} className="min-h-[40px] px-4 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">
@@ -148,11 +149,22 @@ export const StudyRoutineModal: React.FC<StudyRoutineModalProps> = ({ open, onCl
                 </button>
               ))}
             </div>
-            <p className="mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">Seja realista: é melhor cumprir 2 blocos todo dia do que planejar 8 e desanimar.</p>
+            <p className="mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">Seja realista: é melhor cumprir 1 hora todo dia do que planejar 4 e desanimar.</p>
           </section>
 
           <section>
-            <p className="text-sm font-black text-slate-900 dark:text-white mb-2">2. Qual dia é de descanso?</p>
+            <p className="text-sm font-black text-slate-900 dark:text-white mb-2">2. Qual bloco de foco funciona para você?</p>
+            <BlockPicker
+              idPrefix="routine-quick-long"
+              focus={draft.focusMinutes}
+              rest={draft.breakMinutes}
+              onChange={(fo, re) => setDraft((d) => ({ ...d, focusMinutes: fo, breakMinutes: re }))}
+            />
+            <p className="mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">Foco/pausa em minutos. Usado no tema novo; o bloco curto das revisões fica em Minha rotina.</p>
+          </section>
+
+          <section>
+            <p className="text-sm font-black text-slate-900 dark:text-white mb-2">3. Qual dia é de descanso?</p>
             <div className="flex flex-wrap gap-1.5">
               {WEEK_ORDER.map((d) => (
                 <OptionChip key={d} id={`routine-rest-${d}`} active={draft.restDay === d} onClick={() => set('restDay', d)} className="min-w-[48px]">
@@ -167,7 +179,7 @@ export const StudyRoutineModal: React.FC<StudyRoutineModalProps> = ({ open, onCl
           </section>
 
           <section>
-            <p className="text-sm font-black text-slate-900 dark:text-white mb-2">3. Você tem aula ou estágio no sábado?</p>
+            <p className="text-sm font-black text-slate-900 dark:text-white mb-2">4. Você tem aula ou estágio no sábado?</p>
             <div className="grid grid-cols-2 gap-2">
               <OptionChip id="routine-sat-yes" active={saturdayBusy === true} onClick={() => setSaturdayBusy(true)} className="min-h-[48px] text-sm">
                 Sim, tenho
@@ -199,7 +211,7 @@ export const StudyRoutineModal: React.FC<StudyRoutineModalProps> = ({ open, onCl
   }
 
   // ---------------------------------------------------------------- versão completa
-  const focusLabel = draft.focusMinutes === 50 ? '50/10' : '25/5';
+  const focusLabel = `${draft.focusMinutes}/${draft.breakMinutes}`;
   return (
     <PlanModal
       id="routine-modal"
@@ -235,7 +247,7 @@ export const StudyRoutineModal: React.FC<StudyRoutineModalProps> = ({ open, onCl
             </p>
             <p className="text-xs text-slate-700 dark:text-slate-200 mt-0.5">{phase.priority}.</p>
             <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-              Padrão da fase: foco {phase.defaults.focusMinutes === 50 ? '50/10' : '25/5'} para tema novo, {phase.defaults.newTopicsPerDay} tema novo por dia
+              Padrão da fase: bloco {phase.defaults.focusMinutes}/{phase.defaults.breakMinutes} para tema novo e {phase.defaults.shortFocusMinutes}/{phase.defaults.shortBreakMinutes} para revisões, {phase.defaults.newTopicsPerDay} tema novo por dia
               {phase.defaults.longTermGoal ? ', intervalos longos de manutenção' : ''}.
             </p>
           </div>
@@ -243,11 +255,11 @@ export const StudyRoutineModal: React.FC<StudyRoutineModalProps> = ({ open, onCl
 
         {/* Blocos por dia */}
         <section>
-          <SectionTitle hint="1 bloco = 25 min de foco + 5 de pausa. Conte blocos, não horas.">Blocos de foco por dia</SectionTitle>
+          <SectionTitle hint="Quanto tempo de foco cabe no seu dia (sem contar as pausas). Cada ponto = 25 min.">Tempo de foco por dia</SectionTitle>
           <div className="flex items-center gap-3">
             <button
               type="button"
-              aria-label="Menos um bloco"
+              aria-label="Menos 25 minutos"
               onClick={() => set('dailyPomodoros', Math.max(2, draft.dailyPomodoros - 1))}
               className="h-11 w-11 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950/60 flex items-center justify-center text-slate-700 dark:text-slate-200 hover:border-sky-400"
             >
@@ -255,15 +267,16 @@ export const StudyRoutineModal: React.FC<StudyRoutineModalProps> = ({ open, onCl
             </button>
             <div className="flex-1 text-center">
               <p id="routine-blocks-value" className="text-2xl font-black text-slate-900 dark:text-white leading-none">
-                {draft.dailyPomodoros} <span className="text-sm font-bold text-slate-500 dark:text-slate-400">blocos</span>
+                {blocksToHours(draft.dailyPomodoros)} <span className="text-sm font-bold text-slate-500 dark:text-slate-400">de foco</span>
               </p>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                ≈ {blocksToHours(draft.dailyPomodoros)} de foco · {blocksToHours(Math.round((draft.dailyPomodoros * 30) / 25))} com as pausas
+                ≈ {Math.max(1, Math.round((draft.dailyPomodoros * 25) / draft.focusMinutes))} bloco{Math.round((draft.dailyPomodoros * 25) / draft.focusMinutes) > 1 ? 's' : ''} de {draft.focusMinutes} min ·{' '}
+                {Math.max(1, Math.round((draft.dailyPomodoros * 25) / draft.shortFocusMinutes))} de {draft.shortFocusMinutes} min
               </p>
             </div>
             <button
               type="button"
-              aria-label="Mais um bloco"
+              aria-label="Mais 25 minutos"
               onClick={() => set('dailyPomodoros', Math.min(16, draft.dailyPomodoros + 1))}
               className="h-11 w-11 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950/60 flex items-center justify-center text-slate-700 dark:text-slate-200 hover:border-sky-400"
             >
@@ -272,20 +285,27 @@ export const StudyRoutineModal: React.FC<StudyRoutineModalProps> = ({ open, onCl
           </div>
         </section>
 
-        {/* Formato do tema novo */}
+        {/* Meus blocos de foco */}
+        <section id="routine-blocks-section">
+          <SectionTitle hint="Escolha o tempo que funciona para você. O plano, o Pomodoro e o ciclo de estudos usam estes blocos.">
+            Meu bloco longo (tema novo, imersão)
+          </SectionTitle>
+          <BlockPicker
+            idPrefix="routine-long"
+            focus={draft.focusMinutes}
+            rest={draft.breakMinutes}
+            onChange={(fo, re) => setDraft((d) => ({ ...d, focusMinutes: fo, breakMinutes: re }))}
+          />
+        </section>
         <section>
-          <SectionTitle hint="Revisões e questões usam blocos de 25 min. Aqui é o formato do tema novo.">Formato do foco no tema novo</SectionTitle>
-          <div className="grid grid-cols-2 gap-2">
-            <OptionChip id="routine-focus-25" active={draft.focusMinutes === 25} onClick={() => set('focusMinutes', 25)} className="min-h-[52px] text-left">
-              <span className="block text-sm">25 / 5</span>
-              <span className={`block text-[10px] font-semibold ${draft.focusMinutes === 25 ? 'text-sky-100' : 'text-slate-500 dark:text-slate-400'}`}>dias corridos, pouca energia</span>
-            </OptionChip>
-            <OptionChip id="routine-focus-50" active={draft.focusMinutes === 50} onClick={() => set('focusMinutes', 50)} className="min-h-[52px] text-left">
-              <span className="block text-sm">50 / 10</span>
-              <span className={`block text-[10px] font-semibold ${draft.focusMinutes === 50 ? 'text-sky-100' : 'text-slate-500 dark:text-slate-400'}`}>imersão em tema novo</span>
-            </OptionChip>
-          </div>
-          <span className="sr-only">Formato atual: {focusLabel}</span>
+          <SectionTitle hint="Revisões, questões e flashcards. No dia difícil e no plantão, o plano usa só este.">Meu bloco curto (revisões e questões)</SectionTitle>
+          <BlockPicker
+            idPrefix="routine-short"
+            focus={draft.shortFocusMinutes}
+            rest={draft.shortBreakMinutes}
+            onChange={(fo, re) => setDraft((d) => ({ ...d, shortFocusMinutes: fo, shortBreakMinutes: re }))}
+          />
+          <span className="sr-only">Blocos atuais: longo {focusLabel}, curto {draft.shortFocusMinutes}/{draft.shortBreakMinutes}</span>
         </section>
 
         {/* Descanso */}

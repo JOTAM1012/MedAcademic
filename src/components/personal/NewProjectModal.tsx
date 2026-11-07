@@ -26,7 +26,7 @@ const GOAL_MAX = 20;
 const NUMBERED_PREFIXES = ['Capítulo', 'Aula', 'Módulo', 'Semana'];
 
 export const NewProjectModal: React.FC<NewProjectModalProps> = ({ open, onClose, editing, preset }) => {
-  const { addProject, updateProject, startTask, userProfile, studyPhase, showNotification } = useApp();
+  const { addProject, updateProject, startTask, userProfile, studyPhase, showNotification, studyPrefs } = useApp();
   const phase = PHASE_INFO[studyPhase];
   const suggestedGoal = phase.projectWeekly;
 
@@ -146,7 +146,7 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({ open, onClose,
         title: first ? `${cleanTitle} — ${first}` : cleanTitle,
         kind: 'project',
         projectId: id,
-        minutes: 25,
+        minutes: studyPrefs.focusMinutes, breakMinutes: studyPrefs.breakMinutes,
         steps: projectFocusSteps(kind, first ? { title: first } : undefined),
       });
     }

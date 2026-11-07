@@ -539,7 +539,7 @@ export const TodayPlanPanel: React.FC<TodayPlanPanelProps> = ({ compact, onOpenW
           {plan.doneCount} de {plan.totalCount} tarefa{plan.totalCount === 1 ? '' : 's'}
         </span>
         <span className="text-slate-500 dark:text-slate-400">
-          {plan.planned} de {plan.capacity} bloco{plan.capacity === 1 ? '' : 's'} · ≈ {blocksToHours(plan.planned)}
+          ≈ {blocksToHours(plan.planned)} de {blocksToHours(plan.capacity)} de foco
         </span>
       </div>
       <div className="mt-1.5 h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">

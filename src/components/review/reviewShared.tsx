@@ -4,7 +4,7 @@ import { Minus, Plus } from 'lucide-react';
 import type { Subject, TopicDifficulty } from '../../types';
 import { getMedicalArea, getSpecialty } from '../../data/areas';
 import { daysBetween, formatDM, parseYMD } from '../../data/blockReview';
-import { WEEKDAY_SHORT } from '../../data/studyMethod';
+import { WEEKDAY_SHORT, formatTaskSize } from '../../data/studyMethod';
 
 /** Cor da disciplina (especialidade > área > cor própria) */
 export const subjectColor = (sub?: Subject) => {
@@ -138,5 +138,5 @@ export const StepList: React.FC<{ steps: string[]; color: string; done: Set<numb
 );
 
 /** Rótulo de formato de Pomodoro de um PlanTask (regra do contrato) */
-export const taskDuration = (t: { pomodoros: number; focus: 25 | 50 }) =>
-  t.pomodoros <= 0 ? '10 min' : t.focus === 50 ? `${Math.max(1, Math.round(t.pomodoros / 2))} × 50 min` : `${t.pomodoros} × 25 min`;
+export const taskDuration = (t: { pomodoros: number; focus: number }) =>
+  formatTaskSize(t.pomodoros, t.focus);

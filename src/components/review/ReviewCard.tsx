@@ -113,7 +113,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ block, expanded = true, 
   };
 
   const start = () =>
-    startTask({ title: `${tech.badge}: ${block.name}`, kind: 'review', subjectId: block.subjectId, blockId: block.id, steps: tech.steps, minutes: 25 });
+    startTask({ title: `${tech.badge}: ${block.name}`, kind: 'review', subjectId: block.subjectId, blockId: block.id, steps: tech.steps, minutes: studyPrefs.shortFocusMinutes, breakMinutes: studyPrefs.shortBreakMinutes });
 
   // ---- Status (texto neutro para atraso) ----
   const status = (() => {

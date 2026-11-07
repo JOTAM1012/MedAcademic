@@ -31,7 +31,7 @@ interface ProjectCardProps {
 }
 
 export const ProjectCard: React.FC<ProjectCardProps> = ({ project: p, today, weekDone, heavyWeek, onEdit }) => {
-  const { startTask, logProjectBlock, toggleProjectItem, startProjectItemReviews, addProjectItems, removeProjectItem, updateProject, deleteProject, showNotification } =
+  const { startTask, logProjectBlock, toggleProjectItem, startProjectItemReviews, addProjectItems, removeProjectItem, updateProject, deleteProject, showNotification, studyPrefs } =
     useApp();
 
   const [expanded, setExpanded] = useState(false);
@@ -59,7 +59,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project: p, today, wee
       kind: 'project',
       projectId: p.id,
       itemId: next?.id,
-      minutes: 25,
+      minutes: studyPrefs.focusMinutes, breakMinutes: studyPrefs.breakMinutes,
       steps: projectFocusSteps(p.kind, next),
     });
 
