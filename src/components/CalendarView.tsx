@@ -53,7 +53,8 @@ type ViewMode = 'today' | 'daily' | 'weekly' | 'monthly';
 const VIEW_KEY = 'medacademic_planner_view';
 const readView = (): ViewMode => {
   const v = readLocal(VIEW_KEY);
-  return v === 'daily' || v === 'weekly' || v === 'monthly' || v === 'today' ? v : 'today';
+  // A visão "Dia" saiu do Planner (Hoje / Semana / Mês); quem estava nela volta para Hoje
+  return v === 'weekly' || v === 'monthly' || v === 'today' ? v : 'today';
 };
 
 const MONTH_NAMES = [
@@ -282,9 +283,13 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     setCurrentWeekDate(new Date());
   };
 
+  // Tocar num dia do mês: hoje abre o plano do dia; outro dia abre a semana dele
   const openDay = (date: Date) => {
     setCurrentWeekDate(new Date(date));
-    setViewMode('daily');
+    const d = new Date(date);
+    const now = new Date();
+    const isToday = d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+    setViewMode(isToday ? 'today' : 'weekly');
   };
 
   // Period description header
@@ -1005,7 +1010,6 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 rounded-2xl p-1 shadow-inner">
             {([
               { mode: 'today', label: 'Hoje' },
-              { mode: 'daily', label: 'Dia' },
               { mode: 'weekly', label: 'Semana' },
               { mode: 'monthly', label: 'Mês' },
             ] as const).map(({ mode, label }) => (

@@ -39,7 +39,7 @@ export const AddScheduleModal: React.FC<AddScheduleModalProps> = ({
   editingItem,
   defaultCategory,
 }) => {
-  const { addScheduleClass, updateScheduleClass, addXp, showNotification } = useApp();
+  const { addScheduleClass, updateScheduleClass, showNotification } = useApp();
 
   const [category, setCategory] = useState<string>('aula');
   const [title, setTitle] = useState('');
@@ -126,10 +126,8 @@ export const AddScheduleModal: React.FC<AddScheduleModalProps> = ({
       });
     } else if (repeatMode === 'once') {
       addScheduleClass({ ...base, date, dayOfWeek: dayOfWeekFromDate(date) });
-      addXp(20, 'Atividade planejada');
     } else {
       days.forEach((d) => addScheduleClass({ ...base, dayOfWeek: d as ScheduleClass['dayOfWeek'] }));
-      addXp(20, 'Grade de horários atualizada');
     }
     onClose();
   };

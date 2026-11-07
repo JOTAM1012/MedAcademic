@@ -8,7 +8,7 @@ interface AddSemesterModalProps {
 }
 
 export const AddSemesterModal: React.FC<AddSemesterModalProps> = ({ isOpen, onClose }) => {
-  const { addSemester, addXp, triggerConfetti } = useApp();
+  const { addSemester, triggerConfetti } = useApp();
 
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
@@ -30,7 +30,6 @@ export const AddSemesterModal: React.FC<AddSemesterModalProps> = ({ isOpen, onCl
       isCurrent,
     });
 
-    addXp(100, 'Novo Semestre Acadêmico Criado');
     triggerConfetti();
     onClose();
   };

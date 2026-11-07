@@ -1,5 +1,5 @@
 import React from 'react';
-import { Crown, Flame, Award, Sparkles, ArrowRight, Plus, Stethoscope, HelpCircle } from 'lucide-react';
+import { Crown, Sparkles, ArrowRight, Plus, Stethoscope, HelpCircle } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { OwnerName } from './OwnerName';
 import { useAccess } from '../context/AccessContext';
@@ -15,7 +15,6 @@ export const DashboardView: React.FC = () => {
     subjects,
     topics,
     topicBlocks,
-    achievements,
     userProfile,
     setCurrentTab,
     setIsOnboardingOpen,
@@ -150,132 +149,65 @@ export const DashboardView: React.FC = () => {
 
       <SemesterStatusCard />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
-          {/* Academic Structure Mastery Breakdown */}
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs p-5 sm:p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="font-bold text-slate-900 dark:text-white text-base">
-                  Disciplinas & progresso
-                </h3>
-                <p className="text-xs text-slate-400">
-                  Tópicos vistos e blocos concluídos de cada disciplina
-                </p>
-              </div>
-              <button
-                onClick={() => setCurrentTab('structure')}
-                className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
-              >
-                <span>Ver Disciplinas</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {subjects.filter((s) => !s.semesterId || s.semesterId === currentSemester?.id).map((sub) => {
-                const subTopics = topics.filter((t) => t.subjectId === sub.id);
-                const subSeen = subTopics.filter((t) => t.status !== 'nao_iniciado').length;
-                const subBlocks = topicBlocks.filter((b) => b.subjectId === sub.id);
-                const subBlocksDone = subBlocks.filter((b) => b.reviewStatus !== 'estudando').length;
-                const subPercentage = subTopics.length > 0 ? Math.round((subSeen / subTopics.length) * 100) : 0;
-                return (
-                  <div
-                    key={sub.id}
-                    onClick={() => setCurrentTab('structure')}
-                    className="p-3 rounded-xl border border-slate-100 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-950/30 hover:border-blue-300 dark:hover:border-blue-800 cursor-pointer transition-all"
-                  >
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: sub.color }} />
-                      <span className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">
-                        {sub.universitySubject || sub.name}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between text-[11px] text-slate-500 mb-1.5">
-                      <span>{subTopics.length ? `${subSeen}/${subTopics.length} tópicos vistos` : 'Sem tópicos'}</span>
-                      <span className="font-semibold text-slate-700 dark:text-slate-300">
-                        {subPercentage}%
-                      </span>
-                    </div>
-                    {subBlocks.length > 0 && (
-                      <div className="text-[10px] text-slate-400 mb-1.5">
-                        {subBlocksDone}/{subBlocks.length} blocos concluídos (em revisão)
-                      </div>
-                    )}
-                    <div className="w-full bg-slate-200 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                      <div
-                        className="h-full rounded-full"
-                        style={{ backgroundColor: sub.color, width: `${subPercentage}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+      {/* Academic Structure Mastery Breakdown */}
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs p-5 sm:p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="font-bold text-slate-900 dark:text-white text-base">
+              Disciplinas & progresso
+            </h3>
+            <p className="text-xs text-slate-400">
+              Tópicos vistos e blocos concluídos de cada disciplina
+            </p>
           </div>
-
+          <button
+            onClick={() => setCurrentTab('structure')}
+            className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+          >
+            <span>Ver Disciplinas</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
         </div>
-        <div>
-          {/* Gamification & Badges Showcase */}
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-xs">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
-                  <Award className="w-4 h-4" />
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+          {subjects.filter((s) => !s.semesterId || s.semesterId === currentSemester?.id).map((sub) => {
+            const subTopics = topics.filter((t) => t.subjectId === sub.id);
+            const subSeen = subTopics.filter((t) => t.status !== 'nao_iniciado').length;
+            const subBlocks = topicBlocks.filter((b) => b.subjectId === sub.id);
+            const subBlocksDone = subBlocks.filter((b) => b.reviewStatus !== 'estudando').length;
+            const subPercentage = subTopics.length > 0 ? Math.round((subSeen / subTopics.length) * 100) : 0;
+            return (
+              <div
+                key={sub.id}
+                onClick={() => setCurrentTab('structure')}
+                className="p-3 rounded-xl border border-slate-100 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-950/30 hover:border-blue-300 dark:hover:border-blue-800 cursor-pointer transition-all"
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: sub.color }} />
+                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">
+                    {sub.universitySubject || sub.name}
+                  </span>
                 </div>
-                <div>
-                  <h4 className="text-xs font-bold text-slate-900 dark:text-white">
-                    Conquistas & Gamificação
-                  </h4>
-                  <p className="text-[11px] text-slate-400">
-                    {achievements.filter((a) => a.unlockedAt).length} de {achievements.length} badges
-                  </p>
+                <div className="flex items-center justify-between text-[11px] text-slate-500 mb-1.5">
+                  <span>{subTopics.length ? `${subSeen}/${subTopics.length} tópicos vistos` : 'Sem tópicos'}</span>
+                  <span className="font-semibold text-slate-700 dark:text-slate-300">
+                    {subPercentage}%
+                  </span>
+                </div>
+                {subBlocks.length > 0 && (
+                  <div className="text-[10px] text-slate-400 mb-1.5">
+                    {subBlocksDone}/{subBlocks.length} blocos concluídos (em revisão)
+                  </div>
+                )}
+                <div className="w-full bg-slate-200 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full"
+                    style={{ backgroundColor: sub.color, width: `${subPercentage}%` }}
+                  />
                 </div>
               </div>
-              <span className="text-xs font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1">
-                <Flame className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
-                {userProfile.totalXp} XP
-              </span>
-            </div>
-
-            <div className="space-y-2.5">
-              {achievements.slice(0, 3).map((ach) => {
-                const isUnlocked = !!ach.unlockedAt;
-                return (
-                  <div
-                    key={ach.id}
-                    className={`flex items-center justify-between p-2.5 rounded-xl border transition-all ${
-                      isUnlocked
-                        ? 'border-emerald-200 dark:border-emerald-900/40 bg-emerald-50/40 dark:bg-emerald-950/20'
-                        : 'border-slate-100 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-950/20 opacity-80'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div
-                        className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs shrink-0 ${
-                          isUnlocked
-                            ? 'bg-emerald-500 text-white'
-                            : 'bg-slate-200 dark:bg-slate-800 text-slate-500'
-                        }`}
-                      >
-                        <Award className="w-3.5 h-3.5" />
-                      </div>
-                      <div className="min-w-0">
-                        <div className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">
-                          {ach.title}
-                        </div>
-                        <div className="text-[10px] text-slate-400 truncate">{ach.description}</div>
-                      </div>
-                    </div>
-
-                    <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 shrink-0 ml-2">
-                      +{ach.xpReward} XP
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+            );
+          })}
         </div>
       </div>
     </div>

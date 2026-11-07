@@ -37,7 +37,7 @@ export const AddStudyTopicModal: React.FC<AddStudyTopicModalProps> = ({
   onClose,
   defaultSubjectId,
 }) => {
-  const { subjects, addSubject, addTopic, addXp, triggerConfetti, showNotification } = useApp();
+  const { subjects, addSubject, addTopic, triggerConfetti, showNotification } = useApp();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Hierarchy state
@@ -168,7 +168,6 @@ export const AddStudyTopicModal: React.FC<AddStudyTopicModalProps> = ({
       tags: [chosenSpecialty || currentSubject?.name || 'Geral', ...preferredMethods],
     });
 
-    addXp(60, 'Novo Assunto Cadastrado');
     triggerConfetti();
     onClose();
   };

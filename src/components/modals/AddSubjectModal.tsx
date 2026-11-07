@@ -18,7 +18,7 @@ const inputCls =
 const labelCls = 'block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1';
 
 export const AddSubjectModal: React.FC<AddSubjectModalProps> = ({ isOpen, onClose }) => {
-  const { currentSemester, addSubject, addXp, triggerConfetti } = useApp();
+  const { currentSemester, addSubject, triggerConfetti } = useApp();
 
   const [name, setName] = useState('');
   const [area, setArea] = useState<string | null>(null);
@@ -84,7 +84,6 @@ export const AddSubjectModal: React.FC<AddSubjectModalProps> = ({ isOpen, onClos
         targetGrade: 7.0,
         semesterId: currentSemester?.id,
       });
-      addXp(50, 'Nova Disciplina Cadastrada');
       triggerConfetti();
       handleClose();
       return;
@@ -103,7 +102,6 @@ export const AddSubjectModal: React.FC<AddSubjectModalProps> = ({ isOpen, onClos
       universitySubject: name.trim(),
     });
 
-    addXp(50, 'Nova Disciplina Cadastrada');
     triggerConfetti();
     handleClose();
   };

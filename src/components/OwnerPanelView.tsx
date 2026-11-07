@@ -331,7 +331,6 @@ export const OwnerPanelView: React.FC = () => {
                       <p className="text-xs text-slate-500 truncate">{u.email}{u.university ? ` · ${u.university.toUpperCase()}` : ''}</p>
                       <p className="text-[11px] text-slate-400 mt-1">
                         Cadastro {fmtDate(u.created_at)} · último acesso {ago(u.last_sign_in_at)} · ativo {ago(u.last_activity)}
-                        {u.level ? ` · Nv. ${u.level}` : ''}
                       </p>
                       <p className="text-[11px] text-slate-500 mt-0.5 flex items-center gap-3">
                         <span className="flex items-center gap-1"><FileCheck className="h-3 w-3" /> {u.questions} questões{pct !== null ? ` (${pct}%)` : ''}</span>

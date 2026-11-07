@@ -34,7 +34,7 @@ export const PersonalStudiesView: React.FC = () => {
   const weekDates = useMemo(() => Array.from({ length: 7 }, (_, i) => addDaysYMD(i, monday)), [monday]);
   const weekLoad = useWeekLoad(weekDates);
   const heavyWeek = useMemo(
-    () => weekLoad.filter((d) => d.overloaded || d.dayKind === 'low_energy' || d.dayKind === 'plantao' || d.dayKind === 'pos_plantao').length >= 2,
+    () => weekLoad.filter((d) => d.overloaded || d.dayKind === 'low_energy' || d.dayKind === 'plantao' || d.dayKind === 'pos_plantao' || d.dayKind === 'prova' || d.dayKind === 'pos_prova').length >= 2,
     [weekLoad]
   );
 
@@ -91,7 +91,7 @@ export const PersonalStudiesView: React.FC = () => {
         <section id="personal-empty" className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 sm:p-7">
           <div className="flex flex-col sm:flex-row sm:items-center gap-4">
             <div className="flex -space-x-2 shrink-0" aria-hidden="true">
-              {['🎯', '🎓', '🌎'].map((e, i) => (
+              {['🏫', '🎯', '✨'].map((e, i) => (
                 <span
                   key={e}
                   className="h-12 w-12 rounded-2xl flex items-center justify-center text-2xl border-2 border-white dark:border-slate-900 bg-slate-100 dark:bg-slate-800"
@@ -104,7 +104,7 @@ export const PersonalStudiesView: React.FC = () => {
             <div className="min-w-0">
               <h2 className="text-lg font-black text-slate-900 dark:text-white">Que tal começar com algo pequeno?</h2>
               <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                Residência, liga, inglês, um curso de ECG, um livro… Escolha uma meta de poucos blocos por semana. O site lembra você nos dias certos.
+                Faculdade, residência ou outro estudo seu (curso, inglês, liga, um livro…). Escolha uma meta de poucos blocos por semana. O site lembra você nos dias certos.
               </p>
             </div>
           </div>

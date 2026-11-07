@@ -57,7 +57,6 @@ export const StudyStopwatchView: React.FC = () => {
     currentSubjectIds,
     studySessions,
     logStudySession,
-    addXp,
     triggerConfetti,
     pomodoroSettings,
     updatePomodoroSettings,
@@ -250,7 +249,6 @@ export const StudyStopwatchView: React.FC = () => {
   const handleStopwatchFinish = () => {
     if (timer.elapsedSeconds < 60) return;
     const durationMins = Math.max(1, Math.round(timer.elapsedSeconds / 60));
-    const xp = durationMins * 5;
 
     logStudySession({
       subjectId: timer.selectedSubjectId || task?.subjectId,
@@ -258,13 +256,12 @@ export const StudyStopwatchView: React.FC = () => {
       durationMinutes: durationMins,
       type: 'stopwatch',
       notes: sessionNotes || (task ? `Cronômetro livre • ${task.title}` : 'Sessão de Cronômetro Livre'),
-      xpEarned: xp,
+      xpEarned: 0,
       blockId: task?.blockId,
       projectId: task?.projectId,
       activity: task?.kind,
     });
 
-    addXp(xp, 'Sessão de Foco Livre');
     triggerConfetti();
     resetTimer();
     setSessionNotes('');

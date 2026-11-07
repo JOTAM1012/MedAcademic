@@ -19,19 +19,16 @@ export interface ProjectPreset {
 }
 
 export const SUGGESTED_PRESETS: ProjectPreset[] = [
+  { kind: 'faculdade', blurb: 'Prova, trabalho ou matéria que precisa de reforço' },
   { kind: 'residencia', blurb: 'Questões como eixo, um pouco por dia' },
-  {
-    kind: 'curso',
-    title: 'Curso de ECG',
-    items: ['Ritmo e frequência', 'Eixo elétrico', 'Ondas e intervalos', 'Sobrecargas', 'Bloqueios', 'Isquemia e infarto', 'Arritmias'],
-    blurb: 'Um tema por bloco, com traçados de memória',
-  },
-  { kind: 'idioma', title: 'Inglês médico', blurb: '25 min, 3 vezes por semana' },
+  { kind: 'outro', blurb: 'Curso, idioma, leitura, liga: o que você quiser' },
 ];
 
 /** Título sugerido pelo tipo */
 export const suggestedTitle = (kind: PersonalProjectKind, targetExam?: string) => {
   switch (kind) {
+    case 'faculdade':
+      return 'Faculdade: ';
     case 'residencia':
       return targetExam?.trim() ? `Residência · ${targetExam.trim()}` : 'Preparação para a residência';
     case 'liga':

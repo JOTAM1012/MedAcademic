@@ -132,6 +132,12 @@ export const CYCLE_INFO: Record<CycleId, { label: string; color: string }> = {
   internato: { label: 'Internato', color: '#8b5cf6' },
 };
 
+/** Número do semestre pelo nome ("6º Semestre" → 6); undefined se não tiver número */
+export const semesterNumberOf = (sem?: Pick<Semester, 'name'> | null): number | undefined => {
+  const n = Number((sem?.name || '').match(/^\s*(\d{1,2})/)?.[1]);
+  return n >= 1 && n <= 14 ? n : undefined;
+};
+
 /** Ciclo pelo número do semestre: 1º–4º Básico, 5º–8º Clínico, 9º–12º Internato */
 export const cycleOfSemester = (sem?: Pick<Semester, 'name'> | null): CycleId => {
   const name = sem?.name || '';

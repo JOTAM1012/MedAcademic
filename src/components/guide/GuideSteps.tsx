@@ -336,7 +336,7 @@ export const GUIDE_STEPS: GuideStep[] = [
         <SectionTitle>Um dia típico do guia</SectionTitle>
         <ol className="relative space-y-1.5 pl-1">
           {[
-            ['🃏', 'Flashcards do dia', '1 bloco'],
+            ['🃏', 'Flashcards ou resumo do dia', '1 bloco'],
             ['🌱', 'Tema novo: pré-teste, mapa geral e Feynman', '2–3 blocos'],
             ['✍️', 'Criar flashcards do tema novo', '1 bloco'],
             ['🎯', 'Questões das revisões de 24 h, 7 e 30 dias', '2 blocos'],

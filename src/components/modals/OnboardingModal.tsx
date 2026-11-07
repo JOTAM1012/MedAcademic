@@ -24,7 +24,7 @@ interface OnboardingModalProps {
 }
 
 export const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClose }) => {
-  const { addXp, triggerConfetti, openMethodGuide } = useApp();
+  const { triggerConfetti, openMethodGuide } = useApp();
   const [currentStep, setCurrentStep] = useState(0);
 
   // Ao reabrir, o guia sempre começa do 1º passo
@@ -95,7 +95,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClos
       tag: 'Produtividade',
       description:
         'Meça o tempo dedicado a cada disciplina com cronômetro livre ou no Pomodoro com o seu bloco (25/5, 50/10, 60/10, 45/15 ou o tempo que você quiser). Inclui gerador de sons ambientes para máxima concentração.',
-      actionTip: '💡 Dica: Ao salvar cada sessão de estudos, suas horas e XP são contabilizados automaticamente!',
+      actionTip: '💡 Dica: Ao salvar cada sessão de estudos, suas horas são contabilizadas automaticamente!',
       bulletPoints: [
         'Vincule a sessão à matéria correspondente para gerar gráficos de rendimento.',
         'Ative sons de Fundo: Chuva Suave, Cafeteria ou Ondas Alpha Binaurais.',
@@ -123,7 +123,6 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClos
     if (currentStep < steps.length - 1) {
       setCurrentStep(currentStep + 1);
     } else {
-      addXp(100, 'Tutorial Concluído com Sucesso');
       triggerConfetti();
       onClose();
     }
@@ -252,7 +251,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClos
             onClick={handleNext}
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs shadow-md transition-all hover:scale-102 cursor-pointer"
           >
-            <span>{currentStep === steps.length - 1 ? 'Concluir Tutorial (+100 XP) 🩺' : 'Próximo Passo'}</span>
+            <span>{currentStep === steps.length - 1 ? 'Concluir Tutorial 🩺' : 'Próximo Passo'}</span>
             <ArrowRight className="h-4 w-4" />
           </button>
         </div>

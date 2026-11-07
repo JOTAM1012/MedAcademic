@@ -34,7 +34,7 @@ export const AddExamModal: React.FC<AddExamModalProps> = ({
   defaultSubjectName,
   focusResult,
 }) => {
-  const { exams, subjects, addExam, updateExam, addXp, showNotification, currentSemester } = useApp();
+  const { exams, subjects, addExam, updateExam, showNotification, currentSemester } = useApp();
 
   const [subjectName, setSubjectName] = useState('');
   const [type, setType] = useState<string>(EXAM_KINDS[0].id);
@@ -180,7 +180,6 @@ export const AddExamModal: React.FC<AddExamModalProps> = ({
       showNotification('Prova atualizada!', 'success');
     } else {
       addExam({ ...payload, semesterId: currentSemester?.id, topicsCovered: [] });
-      addXp(40, 'Prova adicionada à grade');
     }
     onClose();
   };

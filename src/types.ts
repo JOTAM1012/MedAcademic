@@ -63,6 +63,8 @@ export interface TopicBlock {
   nextReviewDate?: string; // YYYY-MM-DD
   lastReviewDate?: string;
   difficulty?: TopicDifficulty; // última avaliação: define o plano sugerido da próxima revisão
+  /** Fora da rotina: o plano não sugere, não programa e não cobra revisões deste tema */
+  paused?: boolean;
   reviewLog?: Array<{
     date: string;
     difficulty: TopicDifficulty;
@@ -148,6 +150,8 @@ export interface StudyPlanPrefs {
   newTopicsPerDay: 1 | 2 | 3;
   /** Usa flashcards/Anki todo dia */
   usesFlashcards: boolean;
+  /** Conteúdo novo: 'auto' = o plano escolhe entre os temas ativos; 'manual' = só os que você programar */
+  topicMode?: 'auto' | 'manual';
   /** Meta de longo prazo (internato/residência): intervalos de manutenção mais longos */
   longTermGoal: boolean;
 }
@@ -165,11 +169,17 @@ export interface DayPlanState {
   skipped?: string[];
   custom?: PlanCustomTask[];
   lowEnergy?: boolean;
-  /** Internato: dia de plantão (só o essencial) ou pós-plantão (dia leve) */
-  shift?: 'plantao' | 'pos_plantao' | 'normal';
+  /** Dia especial: prova / pós-prova (1º–10º semestre), plantão / pós-plantão (11º–12º). 'normal' desliga o automático */
+  shift?: 'plantao' | 'pos_plantao' | 'prova' | 'pos_prova' | 'normal';
+  /** "Planejar dia": tempo de foco de hoje (em unidades de 25 min), no lugar do padrão da rotina */
+  capacity?: number;
+  /** "Planejar dia": ordem escolhida pelo aluno (ids das tarefas) */
+  order?: string[];
+  /** "Planejar dia": tarefas que o aluno quer hoje mesmo se não couberem */
+  pinned?: string[];
 }
 
-export type PersonalProjectKind = 'residencia' | 'liga' | 'idioma' | 'curso' | 'leitura' | 'pesquisa' | 'outro';
+export type PersonalProjectKind = 'faculdade' | 'residencia' | 'liga' | 'idioma' | 'curso' | 'leitura' | 'pesquisa' | 'outro';
 
 export interface PersonalProjectItem {
   id: string;

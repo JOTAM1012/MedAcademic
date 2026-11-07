@@ -533,7 +533,7 @@ export const pruneStudyMethod = (s: StudyMethodState, today = ymd(new Date()), k
 /** Blocos que contam para revisões: os da disciplina que ainda existe (de qualquer semestre) */
 export const reviewableBlocks = (topicBlocks: TopicBlock[], subjects: Subject[]) => {
   const ids = new Set(subjects.map((s) => s.id));
-  return topicBlocks.filter((b) => ids.has(b.subjectId));
+  return topicBlocks.filter((b) => ids.has(b.subjectId) && !b.paused);
 };
 
 /** Revisões vencidas (hoje + atrasadas), na ordem do guia: mais atrasada, ⭐ cai muito, prova perto, pior % */
@@ -680,6 +680,15 @@ export interface ProjectKindInfo {
 }
 
 export const PROJECT_KINDS: Record<PersonalProjectKind, ProjectKindInfo> = {
+  faculdade: {
+    id: 'faculdade',
+    label: 'Faculdade',
+    emoji: '🏫',
+    color: '#0ea5e9',
+    hint: 'Matérias da faculdade: prova, trabalho, seminário, reforço',
+    template: ['Revisar a matéria da próxima prova', 'Fazer as questões de provas antigas', 'Preparar o seminário'],
+    days: [1, 2, 3, 4, 5],
+  },
   residencia: {
     id: 'residencia',
     label: 'Residência',
@@ -718,7 +727,7 @@ export const PROJECT_KINDS: Record<PersonalProjectKind, ProjectKindInfo> = {
   },
   outro: { id: 'outro', label: 'Outro', emoji: '✨', color: '#64748b', hint: 'Qualquer estudo seu', template: [] },
 };
-export const PROJECT_KIND_ORDER: PersonalProjectKind[] = ['residencia', 'liga', 'idioma', 'curso', 'leitura', 'pesquisa', 'outro'];
+export const PROJECT_KIND_ORDER: PersonalProjectKind[] = ['faculdade', 'residencia', 'outro', 'liga', 'idioma', 'curso', 'leitura', 'pesquisa'];
 
 export const newProjectId = () => 'proj-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
 export const newItemId = () => 'pit-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
@@ -829,7 +838,7 @@ export interface PlanTask {
   movable?: 'review' | 'new_block' | 'new_topics' | 'custom' | 'project_review';
 }
 
-export type DayKind = 'normal' | 'mixed' | 'rest' | 'low_energy' | 'plantao' | 'pos_plantao';
+export type DayKind = 'normal' | 'mixed' | 'rest' | 'low_energy' | 'plantao' | 'pos_plantao' | 'prova' | 'pos_prova';
 
 export interface DayPlan {
   date: string;
@@ -915,11 +924,31 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
   const residencyPrep = !!input.residencyPrep;
 
   const lowEnergy = !!state.lowEnergy;
-  const posPlantao = state.shift === 'pos_plantao';
-  const plantao = state.shift === 'plantao' || (!state.shift && isPlantaoDay(schedule, date));
+  // Dias especiais: plantão/pós-plantão (internato final) e prova/pós-prova (demais semestres)
+  const posPlantaoDay = state.shift === 'pos_plantao';
+  const plantaoDay = state.shift === 'plantao' || (!state.shift && isPlantaoDay(schedule, date));
+  const examToday = exams.find((e) => e.grade === undefined && e.date === date);
+  const provaDay = !plantaoDay && (state.shift === 'prova' || (!state.shift && !!examToday));
+  const posProva = state.shift === 'pos_prova';
+  const posPlantao = posPlantaoDay || posProva; // descanso depois do plantão ou da prova
+  const plantao = plantaoDay || provaDay; // só o essencial
   const rest = prefs.restDay === dow || posPlantao;
   const mixed = prefs.mixedDay === dow && !rest && !plantao;
-  const dayKind: DayKind = lowEnergy ? 'low_energy' : posPlantao ? 'pos_plantao' : rest ? 'rest' : plantao ? 'plantao' : mixed ? 'mixed' : 'normal';
+  const dayKind: DayKind = lowEnergy
+    ? 'low_energy'
+    : posProva
+      ? 'pos_prova'
+      : posPlantaoDay
+        ? 'pos_plantao'
+        : rest
+          ? 'rest'
+          : provaDay
+            ? 'prova'
+            : plantaoDay
+              ? 'plantao'
+              : mixed
+                ? 'mixed'
+                : 'normal';
 
   // Prova: disciplinas com prova em até 7 dias sobem; nos 2 dias antes, conteúdo novo de outras disciplinas sai
   const soon7 = subjectsWithExamWithin(exams, subjects, date, 7);
@@ -928,12 +957,12 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
     .filter((e) => e.grade === undefined && e.date >= date && daysBetween(date, e.date) <= 1)
     .sort((a, b) => a.date.localeCompare(b.date))[0];
 
-  let capacity = prefs.dailyPomodoros;
-  if (rest) capacity = 1;
+  let capacity = state.capacity && state.capacity > 0 ? state.capacity : prefs.dailyPomodoros;
+  if (rest && !state.capacity) capacity = 1;
   else {
     // Dia difícil e plantão: vale o menor dos dois
-    if (lowEnergy) capacity = Math.min(capacity, Math.max(2, Math.round(prefs.dailyPomodoros / 3)));
-    if (plantao) capacity = Math.min(capacity, 2);
+    if (lowEnergy && !state.capacity) capacity = Math.min(capacity, Math.max(2, Math.round(prefs.dailyPomodoros / 3)));
+    if (plantao && !state.capacity) capacity = Math.min(capacity, 2);
   }
   // Blocos do aluno: curto para revisões/questões, longo para tema novo (no dia difícil/plantão, só o curto)
   const shortFocus = prefs.shortFocusMinutes;
@@ -958,10 +987,14 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
         priority: 1,
         emoji: '🃏',
         color: '#14b8a6',
-        title: 'Flashcards do dia',
-        subtitle: 'Comece o dia por aqui (Anki ou seus cartões)',
-        reason: 'Fazer os cartões todo dia evita a avalanche de atrasados.',
-        steps: ['Faça as revisões do dia no Anki ou nos seus cartões', 'Seja honesto nos botões: errei, difícil, bom, fácil', 'Poucos cartões novos por dia'],
+        title: 'Flashcards ou resumo do dia',
+        subtitle: 'Comece por aqui: seus cartões (Anki) ou a leitura ativa do seu resumo',
+        reason: 'Rever um pouco todo dia evita a avalanche de atrasados. Flashcard e resumo são formas de revisar o mesmo conteúdo.',
+        steps: [
+          'Faça os cartões do dia no Anki ou nos seus flashcards, sendo honesto nos botões',
+          'Ou leia seu resumo de forma ativa: tampe um trecho e tente lembrar antes de ler',
+          'No fim, diga em voz alta 3 pontos que ficaram',
+        ],
         pomodoros: 1,
         focus: shortFocus,
         optional: rest,
@@ -1264,6 +1297,7 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
       const plannedBlocks = blocks.filter(
         (b) =>
           currentIds.has(b.subjectId) &&
+          !b.paused &&
           // Programado para o dia, ou concluído no dia (inclusive a sugestão que o aluno aceitou e terminou)
           ((b.reviewStatus === 'estudando' && !!b.plannedDate && (isToday ? b.plannedDate <= today : b.plannedDate === date)) || b.completedDate === date)
       );
@@ -1337,9 +1371,9 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
         );
       });
       const newCount = plannedBlocks.length + bySubject.size;
-      if (isToday && !lowEnergy && newCount < prefs.newTopicsPerDay) {
+      if (isToday && !lowEnergy && prefs.topicMode !== 'manual' && newCount < prefs.newTopicsPerDay) {
         const candidates = blocks
-          .filter((b) => currentIds.has(b.subjectId) && b.reviewStatus === 'estudando' && !b.plannedDate)
+          .filter((b) => currentIds.has(b.subjectId) && b.reviewStatus === 'estudando' && !b.plannedDate && !b.paused)
           .sort((a, b) => Number(soon7.has(b.subjectId)) - Number(soon7.has(a.subjectId)) || a.createdAt.localeCompare(b.createdAt))
           .slice(0, prefs.newTopicsPerDay - newCount);
         candidates.forEach((b) =>
@@ -1424,9 +1458,13 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
         priority: 2,
         emoji: posPlantao ? '😴' : '🗓️',
         color: '#0ea5e9',
-        title: posPlantao ? 'Pós-plantão: descanse' : 'Planejar a semana (20 min)',
+        title: posProva ? 'Pós-prova: descanse' : posPlantao ? 'Pós-plantão: descanse' : 'Planejar a semana (20 min)',
         subtitle: posPlantao ? 'Só o essencial, se der vontade' : 'Temas novos, revisões que vencem e pontos fracos',
-        reason: posPlantao ? 'Depois do plantão o corpo precisa recuperar. Dormir bem também é estudar.' : 'Domingo é descanso de verdade, com 20 minutos para planejar a semana.',
+        reason: posProva
+          ? 'Depois da prova a cabeça precisa descansar. Amanhã o plano volta ao normal.'
+          : posPlantao
+            ? 'Depois do plantão o corpo precisa recuperar. Dormir bem também é estudar.'
+            : 'Domingo é descanso de verdade, com 20 minutos para planejar a semana.',
         steps: posPlantao ? ['Durma e coma bem', 'Se quiser, faça só os flashcards do dia'] : ['Abra "Planejar semana" no Planner', 'Distribua os temas novos nos dias', 'Veja as revisões e provas da semana'],
         pomodoros: posPlantao ? 0 : 1,
         focus: shortFocus,
@@ -1434,12 +1472,21 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
     );
   }
 
+  // "Planejar dia": a ordem escolhida pelo aluno vem antes da prioridade calculada
+  if (state.order?.length) {
+    const pos = new Map(state.order.map((id, i) => [id, i]));
+    const idx = new Map(all.map((t, i) => [t.id, i]));
+    all.sort((a, b) => (pos.get(a.id) ?? 1000 + (idx.get(a.id) || 0)) - (pos.get(b.id) ?? 1000 + (idx.get(b.id) || 0)));
+  }
+  const pinnedSet = new Set(state.pinned || []);
   // Encaixa pela capacidade (a ordem acima já é a prioridade). Uma revisão sempre entra.
   const tasks: PlanTask[] = [];
   const overflow: PlanTask[] = [];
   let used = 0;
   let reviewsIn = 0;
-  for (const t of all) {
+  for (const t0 of all) {
+    // Fixada pelo aluno no "Planejar dia" deixa de ser opcional
+    const t = pinnedSet.has(t0.id) && t0.optional ? { ...t0, optional: false, reason: 'Você fixou esta tarefa para hoje no Planejar dia.' } : t0;
     if (t.skipped) {
       overflow.push(t);
       continue;
@@ -1449,7 +1496,7 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
       continue;
     }
     const isReview = t.kind === 'review' || t.kind === 'project_review';
-    const always = t.done || t.kind === 'blank_page' || t.kind === 'custom' || t.kind === 'weekly_planning' || (isReview && reviewsIn === 0);
+    const always = t.done || pinnedSet.has(t.id) || t.kind === 'blank_page' || t.kind === 'custom' || t.kind === 'weekly_planning' || (isReview && reviewsIn === 0);
     const protectedProject = t.kind === 'project' && !lowEnergy && !plantao && !examEve && !overflow.some((o) => o.kind === 'project');
     if (always || used + t.pomodoros <= capacity || (protectedProject && t.pomodoros <= 1)) {
       tasks.push(t);
@@ -1469,8 +1516,11 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
 
   let message: string | undefined;
   if (lowEnergy) message = 'Dia difícil? Tudo bem. Faça só o essencial, em blocos curtos de 25 minutos. Um passo pequeno ainda conta.';
+  else if (posProva) message = 'Pós-prova: dia de descanso. Você merece. Se der vontade, só os flashcards ou o resumo.';
   else if (posPlantao) message = 'Pós-plantão: dia de descanso. Descanse; se der, faça só os flashcards.';
   else if (rest) message = 'Hoje é dia de descanso de verdade. Separe só 20 minutos para planejar a semana.';
+  else if (provaDay)
+    message = `Dia de prova${examToday ? `: ${examToday.title}` : ''}. Só uma revisão leve antes (resumo ou flashcards), nada de conteúdo novo. Boa prova!`;
   else if (plantao) message = 'Dia de plantão: só o essencial. Use os pacientes como gatilho para revisar temas.';
   else if (examEve) message = `Prova ${examEve.date === date ? 'hoje' : 'amanhã'}: ${examEve.title}. Não passe da conta e durma no horário de sempre.`;
   else if (overflowReviews > 0) message = `+${overflowReviews} revisão${overflowReviews > 1 ? 'ões' : ''} na fila que não coube${overflowReviews > 1 ? 'ram' : ''} hoje. Use "Replanejar" para espalhar pelos próximos dias.`;
@@ -1523,7 +1573,7 @@ export const autoDistributeNewTopics = (input: Omit<PlanInput, 'date'>, blockIds
     if (dow === input.prefs.restDay || dow === input.prefs.mixedDay) continue;
     const p = buildDayPlan({ ...input, date, today: fromDate });
     // Plantão, pós-plantão e descanso não recebem conteúdo novo
-    if (p.dayKind === 'plantao' || p.dayKind === 'pos_plantao' || p.dayKind === 'rest') continue;
+    if (p.dayKind === 'plantao' || p.dayKind === 'pos_plantao' || p.dayKind === 'rest' || p.dayKind === 'prova' || p.dayKind === 'pos_prova') continue;
     const every = [...p.tasks, ...p.overflow];
     const already = every.filter((t) => (t.kind === 'new_block' || t.kind === 'new_topics') && !t.suggested).length + Object.values(result).filter((d) => d === date).length;
     const load = every.filter((t) => !t.optional && t.kind !== 'new_block' && t.kind !== 'new_topics').reduce((a, t) => a + t.pomodoros, 0);

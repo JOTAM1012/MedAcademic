@@ -287,7 +287,7 @@ export const QuickPriorityArt: React.FC = () => (
 export const QuickNextStepArt: React.FC = () => (
   <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 space-y-1.5" aria-hidden>
     {[
-      { t: 'Flashcards do dia', done: true },
+      { t: 'Flashcards ou resumo', done: true },
       { t: 'R1 · Folha em branco: Insuficiência cardíaca', done: true },
       { t: 'R2 · Questões do tema: Asma', now: true },
       { t: 'Tema novo: Pneumonias' },

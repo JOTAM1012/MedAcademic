@@ -556,11 +556,13 @@ const AppContent: React.FC = () => {
                 <OwnerName name={userProfile.name.split(' ')[0]} crown={false} />
               </span>
               <div className="flex items-center gap-1.5 whitespace-nowrap">
-                <span className="text-[10px] text-emerald-400 font-medium">
-                  Nv. {userProfile.level} • {userProfile.currentStreakDays}d
-                </span>
+                {userProfile.currentStreakDays > 0 && (
+                  <span className="text-[10px] text-emerald-400 font-medium" title="Dias seguidos de estudo">
+                    {userProfile.currentStreakDays} {userProfile.currentStreakDays === 1 ? 'dia' : 'dias'}
+                  </span>
+                )}
                 <span
-                  className={`text-[9px] font-semibold px-1 rounded-sm ${
+                  className={`text-[9px] font-semibold rounded-sm ${userProfile.currentStreakDays > 0 ? 'px-1' : ''} ${
                     cloudSyncStatus === 'synced'
                       ? 'text-emerald-400/90'
                       : cloudSyncStatus === 'syncing'
@@ -568,7 +570,7 @@ const AppContent: React.FC = () => {
                       : 'text-rose-400/90'
                   }`}
                 >
-                  {cloudSyncStatus === 'synced' ? '• Online' : cloudSyncStatus === 'syncing' ? '• Sync...' : '• Offline'}
+                  {userProfile.currentStreakDays > 0 ? '• ' : ''}{cloudSyncStatus === 'synced' ? 'Online' : cloudSyncStatus === 'syncing' ? 'Sync...' : 'Offline'}
                 </span>
               </div>
             </div>

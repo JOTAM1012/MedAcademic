@@ -1282,7 +1282,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         if (isLast) {
           notifyTimer('🏁 Ciclo de estudos concluído!', 'Excelente trabalho. Hora de descansar.');
-          showNotification('🏁 Ciclo de estudos concluído! Excelente trabalho. +100 XP', 'success');
+          showNotification('🏁 Ciclo de estudos concluído! Excelente trabalho.', 'success');
           setTimer((prev) => ({
             ...prev,
             mode: 'pomodoro',
@@ -1293,7 +1293,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           }));
         } else if (step.breakMins > 0) {
           notifyTimer('⏰ Etapa concluída!', `Pausa de ${step.breakMins} min iniciada.`);
-          showNotification(`🎉 Etapa concluída! Pausa de ${step.breakMins} min iniciada. +100 XP`, 'success');
+          showNotification(`🎉 Etapa concluída! Pausa de ${step.breakMins} min iniciada.`, 'success');
           // A pausa conta a partir do fim real do estudo (mesmo se o app estava em segundo plano)
           const breakEndsAt = finishedAt + step.breakMins * 60 * 1000;
           setTimer((prev) => ({
@@ -1309,7 +1309,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         } else {
           const next = steps[index + 1];
           notifyTimer('⏰ Etapa concluída!', `Próxima: ${next.title}.`);
-          showNotification(`🎉 Etapa concluída! Próxima: ${next.title}. +100 XP`, 'success');
+          showNotification(`🎉 Etapa concluída! Próxima: ${next.title}.`, 'success');
           setTimer((prev) => ({
             ...prev,
             mode: 'pomodoro',
@@ -1338,7 +1338,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const focusMinutes = Math.round((timer.customDurationSeconds || pomodoroSettings.workMinutes * 60) / 60);
       triggerConfetti();
       notifyTimer('🎉 Pomodoro concluído!', 'Hora da pausa.');
-      showNotification('🎉 Ciclo Pomodoro concluído com sucesso! +100 XP', 'success');
+      showNotification('🎉 Ciclo Pomodoro concluído! Hora da pausa.', 'success');
       addXp(100, 'Pomodoro Concluído');
       const focusSessionId = logStudySession({
         subjectId: timer.selectedSubjectId,
@@ -1423,20 +1423,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // State updaters must stay pure (React may run them twice), so the level-up side effects are
   // decided from the ref instead of inside setUserProfile.
-  const addXp = (amount: number, _reason?: string) => {
-    const prev = userProfileRef.current;
-    const newXp = prev.totalXp + amount;
-    const newLevel = Math.floor(newXp / 800) + 1;
-    userProfileRef.current = { ...prev, totalXp: newXp, level: newLevel };
-    if (newLevel > prev.level) {
-      showNotification(`🏆 Parabéns! Você subiu para o Nível ${newLevel}!`, 'success');
-      triggerConfetti();
-    }
-    setUserProfile((p) => {
-      const xp = p.totalXp + amount;
-      return { ...p, totalXp: xp, level: Math.floor(xp / 800) + 1 };
-    });
-  };
+  // Nível e XP saíram do site (deixá-lo mais leve). A função fica como no-op para as chamadas antigas.
+  const addXp = (_amount: number, _reason?: string) => {};
 
   const logStudySession = (session: Omit<StudySession, 'id' | 'timestamp'>) => {
     const newSession: StudySession = {

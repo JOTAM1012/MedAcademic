@@ -12,6 +12,7 @@ import {
   CloudRain,
   CornerDownRight,
   ExternalLink,
+  FileText,
   HeartHandshake,
   Hospital,
   Lightbulb,
@@ -20,6 +21,7 @@ import {
   Plus,
   RefreshCw,
   SkipForward,
+  SlidersHorizontal,
   Sparkles,
   Stethoscope,
   Timer,
@@ -34,6 +36,8 @@ import { useDayPlan } from '../../hooks/useStudyPlan';
 import { AUTO_KINDS, DAY_KIND_INFO, blocksToHours, isRealTask, readLocal, startPlanTask, taskSizeLabel, userLocalKey, writeLocal } from './planShared';
 import { QuickThemeModal } from './QuickThemeModal';
 import { WeeklyPlanModal } from './WeeklyPlanModal';
+import { DayPlanModal } from './DayPlanModal';
+import { semesterNumberOf } from '../../data/subjectFormats';
 
 interface TodayPlanPanelProps {
   /** Versão do Painel: só "Agora" + progresso + 3 próximas + "Abrir meu plano" */
@@ -71,6 +75,7 @@ export const TodayPlanPanel: React.FC<TodayPlanPanelProps> = ({ compact, onOpenW
     removeCustomTask,
     showNotification,
     openPlannerToday,
+    currentSemester,
   } = app;
   const plan = useDayPlan();
   const date = plan.date;
@@ -92,6 +97,7 @@ export const TodayPlanPanel: React.FC<TodayPlanPanelProps> = ({ compact, onOpenW
   const [customBlocks, setCustomBlocks] = useState(1);
   const [quickOpen, setQuickOpen] = useState(false);
   const [weekOpen, setWeekOpen] = useState(false);
+  const [dayPlanOpen, setDayPlanOpen] = useState(false);
   const tipKey = userLocalKey('plan_tip_hidden', userProfile.email);
   const [tipHidden, setTipHidden] = useState(() => readLocal(tipKey) === date);
 
@@ -106,7 +112,7 @@ export const TodayPlanPanel: React.FC<TodayPlanPanelProps> = ({ compact, onOpenW
   const next = plan.next;
   const pending = plan.tasks.filter((t) => !t.done && t.id !== next?.id);
   const realCount = plan.tasks.filter(isRealTask).length;
-  const lightDay = plan.dayKind === 'rest' || plan.dayKind === 'pos_plantao';
+  const lightDay = plan.dayKind === 'rest' || plan.dayKind === 'pos_plantao' || plan.dayKind === 'pos_prova';
   const showEmpty = realCount < 2 && !lightDay;
   const pct = plan.totalCount > 0 ? Math.round((plan.doneCount / plan.totalCount) * 100) : 0;
   const allDone = plan.totalCount > 0 && plan.doneCount >= plan.totalCount;
@@ -120,7 +126,7 @@ export const TodayPlanPanel: React.FC<TodayPlanPanelProps> = ({ compact, onOpenW
   }, [date, phase]);
 
   // ---------------------------------------------------------------- ações
-  const isPosRest = (t: PlanTask) => t.kind === 'weekly_planning' && plan.dayKind === 'pos_plantao';
+  const isPosRest = (t: PlanTask) => t.kind === 'weekly_planning' && (plan.dayKind === 'pos_plantao' || plan.dayKind === 'pos_prova');
 
   const start = (t: PlanTask, free?: boolean) => startPlanTask(t, { startTask }, { free });
 
@@ -592,6 +598,7 @@ export const TodayPlanPanel: React.FC<TodayPlanPanelProps> = ({ compact, onOpenW
     <>
       <QuickThemeModal open={quickOpen} onClose={() => setQuickOpen(false)} />
       {!onOpenWeekPlan && <WeeklyPlanModal open={weekOpen} onClose={() => setWeekOpen(false)} />}
+      <DayPlanModal open={dayPlanOpen} onClose={() => setDayPlanOpen(false)} />
     </>
   );
 
@@ -647,6 +654,10 @@ export const TodayPlanPanel: React.FC<TodayPlanPanelProps> = ({ compact, onOpenW
 
   // ================================================================= versão completa (Planner → Hoje)
   const plantaoAuto = plan.dayKind === 'plantao' && !dayState.shift;
+  const provaAuto = plan.dayKind === 'prova' && !dayState.shift;
+  // Plantão só no 11º e 12º semestre; prova / pós-prova do 1º ao 10º
+  const semNumber = semesterNumberOf(currentSemester);
+  const showPlantao = semNumber ? semNumber >= 11 : isInternato;
   const ctrl = (active: boolean) =>
     `min-h-[40px] px-3 rounded-xl border text-xs font-bold inline-flex items-center gap-1.5 transition-colors ${
       active
@@ -716,7 +727,33 @@ export const TodayPlanPanel: React.FC<TodayPlanPanelProps> = ({ compact, onOpenW
         <button type="button" id="today-low-energy-btn" aria-pressed={!!dayState.lowEnergy} onClick={() => setLowEnergy(date, !dayState.lowEnergy)} className={ctrl(!!dayState.lowEnergy)}>
           <CloudRain className="h-3.5 w-3.5" /> Dia difícil
         </button>
-        {isInternato && (
+        <button type="button" id="today-plan-day-btn" onClick={() => setDayPlanOpen(true)} className={`${ctrl(false)} !border-sky-400 dark:!border-sky-600 !text-sky-700 dark:!text-sky-300`}>
+          <SlidersHorizontal className="h-3.5 w-3.5" /> Planejar dia
+        </button>
+        {!showPlantao && (
+          <>
+            <button
+              type="button"
+              id="today-shift-prova"
+              aria-pressed={plan.dayKind === 'prova'}
+              title={provaAuto ? 'Você tem prova marcada hoje (toque para desligar)' : undefined}
+              onClick={() => setDayShift(date, plan.dayKind === 'prova' ? (provaAuto ? 'normal' : undefined) : 'prova')}
+              className={ctrl(plan.dayKind === 'prova')}
+            >
+              <FileText className="h-3.5 w-3.5" /> Prova hoje
+            </button>
+            <button
+              type="button"
+              id="today-shift-pos-prova"
+              aria-pressed={dayState.shift === 'pos_prova'}
+              onClick={() => setDayShift(date, dayState.shift === 'pos_prova' ? undefined : 'pos_prova')}
+              className={ctrl(dayState.shift === 'pos_prova')}
+            >
+              <BedDouble className="h-3.5 w-3.5" /> Pós-prova
+            </button>
+          </>
+        )}
+        {showPlantao && (
           <>
             <button
               type="button"

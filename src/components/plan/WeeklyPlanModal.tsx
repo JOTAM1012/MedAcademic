@@ -1,7 +1,8 @@
 // "Planejar semana": os próximos 7 dias (tipo do dia, revisões previstas, temas novos, se cabe
 // no dia, provas) + temas em estudo sem data, com dia por tema e "Distribuir automaticamente".
 import React, { useMemo, useState } from 'react';
-import { AlertTriangle, CalendarRange, GraduationCap, Plus, Repeat, Sparkles, Sprout, Wand2 } from 'lucide-react';
+import { AlertTriangle, CalendarRange, GraduationCap, Layers, Plus, Repeat, Sparkles, Sprout, Wand2 } from 'lucide-react';
+import { StudyContentModal } from './StudyContentModal';
 import { useApp } from '../../context/AppContext';
 import { addDaysYMD, formatDM, parseYMD } from '../../data/blockReview';
 import { WEEKDAY_NAMES, WEEKDAY_SHORT, autoDistributeNewTopics } from '../../data/studyMethod';
@@ -21,13 +22,14 @@ export const WeeklyPlanModal: React.FC<WeeklyPlanModalProps> = ({ open, onClose 
   const dates = useMemo(() => Array.from({ length: 7 }, (_, i) => addDaysYMD(i, today)), [today]);
   const load = useWeekLoad(open ? dates : []);
   const [quickOpen, setQuickOpen] = useState(false);
+  const [contentOpen, setContentOpen] = useState(false);
   const [quickDate, setQuickDate] = useState<string | undefined>(undefined);
 
   const subjectOf = (id: string) => subjects.find((s) => s.id === id);
   const unscheduled = useMemo(
     () =>
       topicBlocks
-        .filter((b) => b.reviewStatus === 'estudando' && !b.plannedDate && currentSubjectIds.includes(b.subjectId))
+        .filter((b) => b.reviewStatus === 'estudando' && !b.paused && !b.plannedDate && currentSubjectIds.includes(b.subjectId))
         .sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
     [topicBlocks, currentSubjectIds]
   );
@@ -35,7 +37,7 @@ export const WeeklyPlanModal: React.FC<WeeklyPlanModalProps> = ({ open, onClose 
   const scheduledThisWeek = useMemo(
     () =>
       topicBlocks
-        .filter((b) => b.reviewStatus === 'estudando' && b.plannedDate && b.plannedDate >= today && b.plannedDate <= dates[6] && currentSubjectIds.includes(b.subjectId))
+        .filter((b) => b.reviewStatus === 'estudando' && !b.paused && b.plannedDate && b.plannedDate >= today && b.plannedDate <= dates[6] && currentSubjectIds.includes(b.subjectId))
         .sort((a, b) => (a.plannedDate || '').localeCompare(b.plannedDate || '')),
     [topicBlocks, currentSubjectIds, today, dates]
   );
@@ -258,6 +260,15 @@ export const WeeklyPlanModal: React.FC<WeeklyPlanModalProps> = ({ open, onClose 
             </section>
           )}
 
+          <button
+            type="button"
+            id="weekly-plan-content"
+            onClick={() => setContentOpen(true)}
+            className="w-full min-h-[44px] rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950/50 text-xs font-bold text-slate-700 dark:text-slate-200 hover:border-sky-400 flex items-center justify-center gap-1.5"
+          >
+            <Layers className="h-4 w-4" /> Meus conteúdos: ligar ou desligar temas na rotina
+          </button>
+
           {scheduledThisWeek.length + unscheduled.length > 0 && (
             <button
               type="button"
@@ -274,6 +285,7 @@ export const WeeklyPlanModal: React.FC<WeeklyPlanModalProps> = ({ open, onClose 
         </div>
       </PlanModal>
       <QuickThemeModal open={open && quickOpen} onClose={() => setQuickOpen(false)} defaultDate={quickDate} stacked />
+      <StudyContentModal open={open && contentOpen} onClose={() => setContentOpen(false)} stacked />
     </>
   );
 };

@@ -55,6 +55,8 @@ export const DAY_KIND_INFO: Record<DayKind, { label: string; emoji: string; cls:
   low_energy: { label: 'Dia difícil', emoji: '🌧️', cls: 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-500/10 dark:text-indigo-300 dark:border-indigo-500/30' },
   plantao: { label: 'Plantão', emoji: '🏥', cls: 'bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-500/10 dark:text-violet-300 dark:border-violet-500/30' },
   pos_plantao: { label: 'Pós-plantão', emoji: '😴', cls: 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-500/10 dark:text-sky-300 dark:border-sky-500/30' },
+  prova: { label: 'Prova hoje', emoji: '📝', cls: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-500/30' },
+  pos_prova: { label: 'Pós-prova', emoji: '🛋️', cls: 'bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-500/10 dark:text-teal-300 dark:border-teal-500/30' },
 };
 
 /** Blocos de 25 min → "1h40" (tempo de foco) */

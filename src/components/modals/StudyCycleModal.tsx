@@ -40,7 +40,7 @@ const guideStep = (id: string, title: string, workMins: number, breakMins: numbe
 
 /** "Dia típico" do Guia Científico de Estudo (modelo para adaptar, não regra fixa) */
 export const GUIDE_TYPICAL_DAY: CustomCycleStep[] = [
-  guideStep('g1', 'Flashcards do dia', 25, 5, 'Faça os cartões do dia no Anki ou nos seus flashcards. Comece o dia por aqui.'),
+  guideStep('g1', 'Flashcards ou resumo do dia', 25, 5, 'Faça os cartões do dia (Anki ou flashcards) ou leia seu resumo tentando lembrar antes de ler. Comece o dia por aqui.'),
   guideStep('g2', 'Tema novo: pré-teste, mapa e Feynman', 50, 10, 'Tente questões antes de ler, monte o mapa geral do tema e explique de memória em voz alta.'),
   guideStep('g3', 'Tema novo: continuar e fechar lacunas', 25, 5, 'Volte à fonte só nos pontos em que travou e explique de novo.'),
   guideStep('g4', 'Criar flashcards do tema novo', 25, 5, 'Crie cartões só do que você já entendeu.'),
@@ -51,7 +51,7 @@ export const GUIDE_TYPICAL_DAY: CustomCycleStep[] = [
 
 /** Dia difícil: o mínimo que mantém o ritmo */
 export const GUIDE_HARD_DAY: CustomCycleStep[] = [
-  guideStep('h1', 'Flashcards do dia', 25, 5, 'Só os cartões do dia. Um passo pequeno ainda conta.'),
+  guideStep('h1', 'Flashcards ou resumo', 25, 5, 'Só os cartões do dia ou uma leitura do resumo. Um passo pequeno ainda conta.'),
   guideStep('h2', 'Revisão mais atrasada', 25, 5, 'Faça a revisão que está há mais tempo esperando (veja em Revisões › Hoje).'),
 ];
 

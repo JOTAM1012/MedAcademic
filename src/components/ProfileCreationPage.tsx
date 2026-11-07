@@ -120,7 +120,6 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
     updateUserProfile,
     semesters,
     updateSemester,
-    addXp,
     triggerConfetti,
     showNotification,
     setIsOnboardingOpen,
@@ -266,7 +265,7 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
       targetAverageGrade: Number(targetAverageGrade),
       avatarUrl: selectedAvatarUrl,
       currentSemesterId: 'sem-1',
-      totalXp: 150, // welcome reward
+      totalXp: 0,
       level: 1,
       onboardingCompleted: true,
     };
@@ -375,7 +374,6 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
       });
     }
     if (!isEditingProfileSetup) {
-      addXp(150, 'Perfil Médico Configurado com Sucesso!');
       triggerConfetti();
     }
     
@@ -1141,8 +1139,8 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
                       <div className="text-sm font-black text-slate-200 mt-0.5">{isEditingProfileSetup ? 'Mantidas' : '0 agendadas'}</div>
                     </div>
                     <div className="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800">
-                      <div className="text-[10px] text-slate-500 font-bold uppercase">{isEditingProfileSetup ? 'Dados' : 'XP de início'}</div>
-                      <div className="text-sm font-black text-emerald-400 mt-0.5">{isEditingProfileSetup ? 'Preservados' : '+150 XP'}</div>
+                      <div className="text-[10px] text-slate-500 font-bold uppercase">{isEditingProfileSetup ? 'Dados' : 'Meta semanal'}</div>
+                      <div className="text-sm font-black text-emerald-400 mt-0.5">{isEditingProfileSetup ? 'Preservados' : `${weeklyTargetHours}h`}</div>
                     </div>
                   </div>
                 </div>
@@ -1254,9 +1252,8 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
                   </p>
                   <div className="flex items-center gap-1.5 text-[10px] text-slate-400 mt-1">
                     <span className="px-1.5 py-0.5 rounded-md bg-slate-800 text-slate-300 font-medium">
-                      Nível 1
+                      {selectedSemesterNum}º semestre
                     </span>
-                    <span>• 0 XP Inicial</span>
                   </div>
                 </div>
               </div>
@@ -1311,7 +1308,7 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
               </div>
 
               <div className="p-3.5 rounded-2xl bg-sky-950/30 border border-sky-900/40 text-[11px] text-sky-300 leading-relaxed">
-                ✨ <strong>Recompensa de Boas-Vindas:</strong> Ao concluir seu perfil, você desbloqueará o <strong>Tutorial de Boas-Vindas</strong> e ganhará <strong>+150 XP</strong>.
+                ✨ <strong>Boas-vindas:</strong> ao concluir seu perfil, você desbloqueará o <strong>Tutorial de Boas-Vindas</strong>.
               </div>
             </div>
           </div>

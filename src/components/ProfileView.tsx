@@ -847,7 +847,7 @@ export const ProfileView: React.FC = () => {
                 <p className="font-semibold text-emerald-700 dark:text-emerald-400 mb-1">Não muda:</p>
                 <ul className="list-disc list-inside space-y-0.5 text-[11px] text-slate-600 dark:text-slate-400">
                   <li>Semestres passados e o Histórico com as estatísticas deles</li>
-                  <li>Seu perfil, XP, nível, sequência de dias e checklist</li>
+                  <li>Seu perfil, sequência de dias e checklist</li>
                 </ul>
               </div>
             </div>
