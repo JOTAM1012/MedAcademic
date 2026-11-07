@@ -17,7 +17,36 @@ import {
   TopicDifficulty,
   QuestionLog,
   StudyTimePrompt,
+  StudyMethodState,
+  StudyPlanPrefs,
+  DayPlanState,
+  ErrorNote,
+  ErrorType,
+  Certainty,
+  PersonalProject,
+  PersonalProjectItem,
 } from '../types';
+import {
+  EMPTY_STUDY_METHOD,
+  type PlanTask,
+  type StudyPhase,
+  applyErrorRedo,
+  isResidencyPrep,
+  makeErrorNote,
+  mergeStudyMethod,
+  newItemId,
+  newProjectId,
+  normalizeStudyMethod,
+  pruneStudyMethod,
+  resolvePrefs,
+  reviewProjectItemResult,
+  reviewTechnique,
+  sessionDate,
+  spreadOverdueReviews,
+  techniqueIdForReview,
+  startItemReviews,
+  studyPhaseOf,
+} from '../data/studyMethod';
 import { upgradeAvatarUrl } from '../data/avatars';
 import { matchSchool, schoolByCode } from '../data/medicalSchools';
 import { shrinkAvatarDataUrl, AVATAR_MAX_DATAURL } from '../data/avatarImage';
@@ -27,6 +56,8 @@ import {
   addDaysYMD,
   isTopicResolved,
   nextIntervalDays,
+  scheduleReviewDate,
+  formatDM,
   ymd,
 } from '../data/blockReview';
 import {
@@ -70,6 +101,26 @@ interface TimerState {
   endsAt?: number; // epoch ms em que a contagem regressiva termina (enquanto roda)
   startedAt?: number; // cronômetro livre: epoch ms do último "iniciar"
   elapsedBase?: number; // cronômetro livre: segundos acumulados antes do último "iniciar"
+  /** Tarefa do plano ligada a este foco (o que fazer, de qual bloco/projeto) */
+  task?: FocusTask;
+}
+
+/** Tarefa ligada ao Pomodoro ("Começar" no plano do dia, nas Revisões ou nos Estudos pessoais) */
+export interface FocusTask {
+  title: string;
+  /** Tipo da tarefa do plano: review, new_block, project, flashcards, phase_questions... */
+  kind?: string;
+  subjectId?: string;
+  topicId?: string;
+  blockId?: string;
+  projectId?: string;
+  itemId?: string;
+  /** Passos curtos para mostrar durante o foco */
+  steps?: string[];
+  /** Foco terminou (mostra "Registrar revisão" / próximo passo) */
+  finished?: boolean;
+  /** A revisão do bloco já foi registrada com este foco ainda rodando (o tempo entra quando ele acabar) */
+  reviewed?: boolean;
 }
 
 const TIMER_STORAGE_KEY = 'medacademic_timer_v1';
@@ -167,7 +218,11 @@ interface AppContextType {
   convertChecklistToBlocks: (subjectId: string) => void;
   renameTopicBlock: (id: string, name: string) => void;
   deleteTopicBlock: (id: string) => void;
-  reviewTopicBlock: (id: string, difficulty: TopicDifficulty, result?: { questions?: number; correct?: number }) => void;
+  reviewTopicBlock: (
+    id: string,
+    difficulty: TopicDifficulty,
+    result?: { questions?: number; correct?: number; certainty?: Partial<Record<Certainty, number>>; errors?: Partial<Record<ErrorType, number>> }
+  ) => void;
   /** Recomeça as revisões do bloco (volta para "Em estudo" se algum tópico não estiver visto) */
   restartBlockReviews: (id: string) => void;
   undoBlockReview: (id: string) => void;
@@ -260,6 +315,76 @@ interface AppContextType {
   toggleChecklistItem: (id: string) => void;
   deleteChecklistItem: (id: string) => void;
   clearCompletedChecklist: (blockId?: string) => void;
+
+  // ===== Método de estudo (Guia Científico) =====
+  studyMethod: StudyMethodState;
+  /** Preferências efetivas da rotina (padrões da fase + o que o aluno escolheu) */
+  studyPrefs: StudyPlanPrefs;
+  /** Fase do curso pelo semestre atual: ciclo_basico | ciclo_clinico | internato */
+  studyPhase: StudyPhase;
+  /** Preparação para residência (internato com prova-alvo ou projeto de Residência) */
+  residencyPrep: boolean;
+  /** Ids das disciplinas do semestre atual */
+  currentSubjectIds: string[];
+  /** Salva só o que o aluno mudou; null volta aos padrões da fase */
+  updateStudyPrefs: (changes: Partial<StudyPlanPrefs> | null) => void;
+  // Plano do dia (estado manual; o resto é calculado por buildDayPlan / useDayPlan)
+  setDayPlanState: (date: string, updater: (s: DayPlanState) => DayPlanState) => void;
+  toggleTaskDone: (date: string, taskId: string) => void;
+  skipTask: (date: string, taskId: string, skip?: boolean) => void;
+  addCustomTask: (date: string, title: string, pomodoros?: number) => void;
+  removeCustomTask: (date: string, customId: string) => void;
+  setLowEnergy: (date: string, on: boolean) => void;
+  /** 'normal' desliga o plantão que vem da grade nesse dia */
+  setDayShift: (date: string, shift?: 'plantao' | 'pos_plantao' | 'normal') => void;
+  /** "Passar para amanhã": muda a data do próprio bloco/tema/item/tarefa */
+  moveTaskToTomorrow: (task: PlanTask) => void;
+  /** "Bem-vindo de volta": espalha as revisões atrasadas pelos próximos dias; devolve quantas mudou */
+  replanOverdueReviews: () => number;
+  // Checklist diário
+  toggleHabit: (date: string, habitId: string, autoOn?: boolean) => void;
+  // Caderno de erros
+  addErrorNote: (data: Pick<ErrorNote, 'theme' | 'type' | 'rule'> & Partial<Pick<ErrorNote, 'subjectId' | 'blockId' | 'certainty' | 'why' | 'flashcard'>>) => string;
+  updateErrorNote: (id: string, changes: Partial<ErrorNote>) => void;
+  deleteErrorNote: (id: string) => void;
+  /** Refez o erro: acertou (2 acertos = resolvido) ou errou de novo (volta em 7/30 dias) */
+  redoErrorNote: (id: string, gotItRight: boolean) => void;
+  // Estudos pessoais
+  addProject: (p: Omit<PersonalProject, 'id' | 'createdAt' | 'items'> & { items?: string[] }) => string;
+  updateProject: (id: string, changes: Partial<PersonalProject>) => void;
+  deleteProject: (id: string) => void;
+  addProjectItems: (projectId: string, titles: string[]) => void;
+  updateProjectItem: (projectId: string, itemId: string, changes: Partial<PersonalProjectItem>) => void;
+  toggleProjectItem: (projectId: string, itemId: string) => void;
+  removeProjectItem: (projectId: string, itemId: string) => void;
+  /** Item concluído entra nas revisões (R1 amanhã) */
+  startProjectItemReviews: (projectId: string, itemId: string) => void;
+  reviewProjectItem: (projectId: string, itemId: string, difficulty: TopicDifficulty) => void;
+  /** Soma um bloco de foco feito fora do site a um projeto */
+  logProjectBlock: (projectId: string, minutes?: number) => void;
+  // Blocos: ⭐ cai muito, passos do estudo inicial, tema rápido para uma data
+  setBlockStar: (blockId: string, star: boolean) => void;
+  toggleInitialStep: (blockId: string, step: string) => void;
+  /** Cria um tema para estudar numa data (bloco planejado ou tópico de 1º contato, conforme a disciplina) */
+  createPlannedTheme: (subjectId: string, name: string, date: string) => void;
+  // Pomodoro ligado a uma tarefa
+  /** Inicia um foco já ligado à tarefa e abre a aba Pomodoro. `free` = sem tempo fixo (cronômetro com alarme) */
+  startTask: (task: FocusTask & { minutes?: number; free?: boolean }) => void;
+  clearFocusTask: () => void;
+  // Guia do método e navegação com foco
+  methodGuide: { open: boolean; step: number };
+  openMethodGuide: (step?: number) => void;
+  closeMethodGuide: () => void;
+  methodGuideSeen: boolean;
+  markMethodGuideSeen: () => void;
+  /** Abre a aba Revisões já num bloco ou sub-aba ("hoje" | "agenda" | "todos" | "erros") */
+  openReviews: (focus?: { blockId?: string; tab?: string }) => void;
+  reviewFocus: { blockId?: string; tab?: string } | null;
+  clearReviewFocus: () => void;
+  /** Abre o Planner já na visão Hoje (e, se pedir, a janela Minha rotina) */
+  openPlannerToday: (opts?: { routine?: boolean }) => void;
+  plannerRequest: { routine?: boolean; at: number } | null;
+  clearPlannerRequest: () => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -301,6 +426,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [checklistBlocks, setChecklistBlocks] = useState<ChecklistBlock[]>([]);
   const [topicBlocks, setTopicBlocks] = useState<TopicBlock[]>([]);
   const [questionLogs, setQuestionLogs] = useState<QuestionLog[]>([]);
+  const [studyMethod, setStudyMethod] = useState<StudyMethodState>(EMPTY_STUDY_METHOD);
+  const [methodGuide, setMethodGuide] = useState<{ open: boolean; step: number }>({ open: false, step: 0 });
+  const [reviewFocus, setReviewFocus] = useState<{ blockId?: string; tab?: string } | null>(null);
+  const [plannerRequest, setPlannerRequest] = useState<{ routine?: boolean; at: number } | null>(null);
+  const studySessionsRef = useRef<StudySession[]>([]);
   const userProfileRef = useRef(userProfile);
   userProfileRef.current = userProfile;
 
@@ -360,6 +490,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setChecklistBlocks([]);
       setTopicBlocks([]);
       setQuestionLogs([]);
+      setStudyMethod(EMPTY_STUDY_METHOD);
+      setMethodGuide({ open: false, step: 0 });
+      setReviewFocus(null);
+      setTimer((prev) => (prev.task ? { ...prev, task: undefined } : prev));
       setIsInitialLoadComplete(false);
       setCloudSyncStatus('synced');
       setLastCloudSync(null);
@@ -460,6 +594,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (savedTopicBlocks) {
       try { setTopicBlocks(JSON.parse(savedTopicBlocks)); } catch (e) {}
     }
+    const savedStudyMethod = localStorage.getItem(getUserKey('study_method', activeUserId));
+    setStudyMethod(EMPTY_STUDY_METHOD);
+    if (savedStudyMethod) {
+      try { setStudyMethod(normalizeStudyMethod(JSON.parse(savedStudyMethod))); } catch (e) {}
+    }
 
     let isSubscribed = true;
 
@@ -468,7 +607,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       try {
         const [
           idbMed, idbSess, idbTop, idbSub, idbEx,
-          idbSem, idbProf, idbSch, idbAch, idbPomo, idbTut
+          idbSem, idbProf, idbSch, idbAch, idbPomo, idbTut, idbMethod
         ] = await Promise.all([
           getIDBData<MedRevisionTopic[]>(`med_revisions_${uid}`),
           getIDBData<StudySession[]>(`study_sessions_${uid}`),
@@ -481,7 +620,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           getIDBData<Achievement[]>(`achievements_${uid}`),
           getIDBData<any>(`pomodoro_settings_${uid}`),
           getIDBData<ChatMessage[]>(`tutor_messages_${uid}`),
+          getIDBData<StudyMethodState>(`study_method_${uid}`),
         ]);
+        if (idbMethod && typeof idbMethod === 'object') setStudyMethod(normalizeStudyMethod(idbMethod));
         if (idbMed && Array.isArray(idbMed) && idbMed.length > 0) setMedRevisions(idbMed);
         if (idbSess && Array.isArray(idbSess) && idbSess.length > 0) setStudySessions(idbSess);
         if (idbTop && Array.isArray(idbTop) && idbTop.length > 0) setTopics(idbTop);
@@ -570,6 +711,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (Array.isArray(cloudData.checklistBlocks)) {
         setChecklistBlocks(cloudData.checklistBlocks);
       }
+      // Método de estudo: objeto (não array); junta por dia/id com o que está neste aparelho
+      if (cloudData.studyMethod && typeof cloudData.studyMethod === 'object') {
+        setStudyMethod((prev) => mergeStudyMethod(prev, cloudData.studyMethod));
+      }
     };
 
     // First cloud save of a new account: built from what is cached on this device
@@ -610,6 +755,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         checklistBlocks: parse<ChecklistBlock[]>(savedChecklistBlocks, []),
         topicBlocks: parse<TopicBlock[]>(savedTopicBlocks, []),
         questionLogs: parse<QuestionLog[]>(savedQuestionLogs, []),
+        studyMethod: normalizeStudyMethod(parse<any>(savedStudyMethod, null)),
         updatedAt: new Date().toISOString(),
       };
     };
@@ -786,6 +932,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [questionLogs, activeUserId, isInitialLoadComplete]);
 
+  useEffect(() => {
+    if (activeUserId && isInitialLoadComplete) {
+      try {
+        localStorage.setItem(getUserKey('study_method', activeUserId), JSON.stringify(studyMethod));
+      } catch {
+        /* sem espaço: segue no IndexedDB e na nuvem */
+      }
+      setIDBData(`study_method_${activeUserId}`, studyMethod);
+    }
+  }, [studyMethod, activeUserId, isInitialLoadComplete]);
+
+  studySessionsRef.current = studySessions;
+
   // Migração: tópicos sem bloco viram um bloco com o nome da disciplina (ex.: "NEONATOLOGIA 1").
   // O id é fixo por disciplina, então dois aparelhos migrando ao mesmo tempo geram o mesmo bloco.
   useEffect(() => {
@@ -883,6 +1042,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     checklistBlocks,
     topicBlocks,
     questionLogs,
+    studyMethod,
     updatedAt: new Date().toISOString(),
   });
 
@@ -948,6 +1108,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     checklistBlocks,
     topicBlocks,
     questionLogs,
+    studyMethod,
   ]);
 
   // Force Cloud Sync manually
@@ -1086,7 +1247,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch {
       /* armazenamento indisponível */
     }
-  }, [timer.isRunning, timer.endsAt, timer.startedAt, timer.mode, timer.cycle]);
+  }, [timer.isRunning, timer.endsAt, timer.startedAt, timer.mode, timer.cycle, timer.task]);
 
   // Countdown completion: award XP, log the session and switch to the next phase
   useEffect(() => {
@@ -1112,6 +1273,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           type: 'pomodoro',
           xpEarned: 100,
           notes: `Ciclo de Estudos • ${step.title}`,
+          blockId: timer.task?.blockId,
+          projectId: timer.task?.projectId,
+          activity: timer.task?.kind,
         });
 
         if (isLast) {
@@ -1174,19 +1338,46 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       notifyTimer('🎉 Pomodoro concluído!', 'Hora da pausa.');
       showNotification('🎉 Ciclo Pomodoro concluído com sucesso! +100 XP', 'success');
       addXp(100, 'Pomodoro Concluído');
-      logStudySession({
+      const focusSessionId = logStudySession({
         subjectId: timer.selectedSubjectId,
+        topicId: timer.selectedTopicId,
         durationMinutes: focusMinutes,
         type: 'pomodoro',
         xpEarned: 100,
-        notes: 'Sessão Pomodoro de Foco Médico',
+        notes: timer.task ? `Foco • ${timer.task.title}` : 'Sessão Pomodoro de Foco Médico',
+        blockId: timer.task?.blockId,
+        projectId: timer.task?.projectId,
+        activity: timer.task?.kind,
       });
+      // Revisão registrada no meio deste foco: o tempo do foco entra nela agora
+      const reviewedBlock = timer.task?.reviewed ? timer.task.blockId : undefined;
+      if (reviewedBlock) {
+        const todayStr = ymd(new Date());
+        setTopicBlocks((prev) =>
+          prev.map((bk) => {
+            if (bk.id !== reviewedBlock || !bk.reviewLog?.length) return bk;
+            const log = [...bk.reviewLog];
+            const last = log[log.length - 1];
+            if (last.date !== todayStr || last.minutes) return bk;
+            log[log.length - 1] = { ...last, minutes: focusMinutes, sessionId: focusSessionId };
+            return { ...bk, reviewLog: log };
+          })
+        );
+      }
+      // Pausa longa a cada 4 blocos de foco (Cirillo); pausa de 10 min depois de um bloco de 50
+      const count = timer.totalPomodorosCompleted + 1;
+      const longBreak = count % 4 === 0;
+      const breakMode: TimerState['mode'] = longBreak ? 'long_break' : focusMinutes >= 45 ? 'medium_break' : 'short_break';
+      const breakMins =
+        breakMode === 'long_break' ? pomodoroSettings.longBreakMinutes : breakMode === 'medium_break' ? pomodoroSettings.mediumBreakMinutes : pomodoroSettings.shortBreakMinutes;
+      if (longBreak) showNotification(`☕ ${count} blocos de foco! Hora de uma pausa longa (${pomodoroSettings.longBreakMinutes} min).`, 'success');
       setTimer((prev) => ({
         ...prev,
-        mode: 'short_break',
-        timeLeftSeconds: pomodoroSettings.shortBreakMinutes * 60,
+        mode: breakMode,
+        timeLeftSeconds: breakMins * 60,
         customDurationSeconds: undefined,
         totalPomodorosCompleted: prev.totalPomodorosCompleted + 1,
+        task: prev.task ? { ...prev.task, finished: true } : prev.task,
       }));
     } else {
       notifyTimer('⏰ Pausa finalizada!', 'Hora de retomar o foco.');
@@ -1245,8 +1436,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
     setStudySessions((prev) => [newSession, ...prev]);
 
-    // Check & update streak and achievements
-    const today = new Date().toISOString().split('T')[0];
+    // Check & update streak and achievements (data local: estudo depois das 21h conta para hoje)
+    const today = ymd(new Date());
     setUserProfile((prev) => {
       const lastDate = prev.lastStudyDate;
       let newStreak = prev.currentStreakDays;
@@ -1320,6 +1511,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Current Semester
   const currentSemester = semesters.find((s) => s.id === userProfile.currentSemesterId) || semesters[0];
+
+  // Método de estudo: fase do curso e preferências efetivas (padrões da fase + escolhas do aluno)
+  const studyPhase = studyPhaseOf(currentSemester);
+  const studyPrefs = resolvePrefs(studyMethod.prefs, studyPhase, userProfile.weeklyTargetHours);
+  const residencyPrep = isResidencyPrep(studyPhase, userProfile, studyMethod.projects);
+  const currentSubjectIds = subjects.filter((s) => !s.semesterId || s.semesterId === currentSemester?.id).map((s) => s.id);
+  /** Próxima revisão: N dias a partir de hoje, pulando o dia de descanso */
+  const reviewDateIn = (days: number, from?: string) => scheduleReviewDate(days, { from, restDay: studyPrefs.restDay });
 
   // Grade de horários do semestre atual (as de semestres anteriores ficam guardadas no histórico)
   const currentSchedule = schedule.filter((s) => !s.semesterId || !currentSemester || s.semesterId === currentSemester.id);
@@ -1566,6 +1765,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const list = nextTopics.filter((t) => t.blockId === blockId);
     const allSeen = list.length > 0 && list.every(isTopicResolved);
     if (block.reviewStatus === 'estudando' && allSeen) {
+      const r1 = reviewDateIn(FIRST_REVIEW_DAY);
       setTopicBlocks((prev) =>
         prev.map((bk) =>
           bk.id === blockId
@@ -1574,7 +1774,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 reviewStatus: 'revisao',
                 reviewsDone: 0,
                 completedDate: ymd(new Date()),
-                nextReviewDate: addDaysYMD(FIRST_REVIEW_DAY),
+                nextReviewDate: r1,
                 difficulty: undefined,
               }
             : bk
@@ -1582,8 +1782,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       );
       addXp(50, 'Bloco concluído');
       triggerConfetti();
-      setStudyTimePrompt({ kind: 'block', blockId, subjectId: block.subjectId, name: block.name });
-      showNotification(`✅ Bloco "${block.name}" concluído hoje (Dia 0)! 1ª revisão no Dia 7, em ${addDaysYMD(FIRST_REVIEW_DAY).split('-').reverse().slice(0, 2).join('/')}.`, 'success');
+      if (!focusedTodayOn(blockId)) setStudyTimePrompt({ kind: 'block', blockId, subjectId: block.subjectId, name: block.name });
+      showNotification(`✅ "${block.name}" estudado hoje (Dia 0)! 1ª revisão: folha em branco ${r1 === addDaysYMD(1) ? 'amanhã' : 'em ' + formatDM(r1)} (24 h).`, 'success');
     } else if (block.reviewStatus === 'revisao' && block.reviewsDone === 0 && !allSeen) {
       setTopicBlocks((prev) =>
         prev.map((bk) => (bk.id === blockId ? { ...bk, reviewStatus: 'estudando', nextReviewDate: undefined, completedDate: undefined } : bk))
@@ -1669,6 +1869,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (list.length === 0) return;
     const id = 'blk-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
     const today = ymd(new Date());
+    const r1 = reviewDateIn(FIRST_REVIEW_DAY);
     setTopicBlocks((prev) => [
       ...prev,
       {
@@ -1679,7 +1880,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         reviewStatus: 'revisao',
         reviewsDone: 0,
         completedDate: today,
-        nextReviewDate: addDaysYMD(FIRST_REVIEW_DAY),
+        nextReviewDate: r1,
       },
     ]);
     const ids = new Set(list.map((t) => t.id));
@@ -1687,7 +1888,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     addXp(50, 'Matéria enviada para as revisões');
     triggerConfetti();
     setStudyTimePrompt({ kind: 'block', blockId: id, subjectId, name: moduleName });
-    showNotification(`🔁 "${moduleName}" entrou nas Revisões! 1ª revisão no Dia 7, em ${addDaysYMD(FIRST_REVIEW_DAY).split('-').reverse().slice(0, 2).join('/')}.`, 'success');
+    showNotification(`🔁 "${moduleName}" entrou nas Revisões! 1ª revisão: folha em branco ${r1 === addDaysYMD(1) ? 'amanhã' : 'em ' + formatDM(r1)} (24 h).`, 'success');
   };
 
   const convertChecklistToBlocks = (subjectId: string) => {
@@ -1727,33 +1928,69 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showNotification('Bloco removido.', 'info');
   };
 
-  const reviewTopicBlock = (id: string, difficulty: TopicDifficulty, result?: { questions?: number; correct?: number }) => {
+  /** Já houve foco (Pomodoro ligado a este bloco) hoje? Então o tempo já está registrado. */
+  const focusedTodayOn = (blockId: string) =>
+    studySessionsRef.current.some((s) => s.blockId === blockId && s.type === 'pomodoro' && sessionDate(s) === ymd(new Date()));
+
+  const reviewTopicBlock: AppContextType['reviewTopicBlock'] = (id, difficulty, result) => {
     const block = topicBlocks.find((bk) => bk.id === id);
     if (!block || block.reviewStatus === 'estudando') return;
     const done = block.reviewsDone + 1;
     const todayStr = ymd(new Date());
     const prevState = { nextReviewDate: block.nextReviewDate, lastReviewDate: block.lastReviewDate, difficulty: block.difficulty };
-    const log = [...(block.reviewLog || []), { date: todayStr, difficulty, ...result, prev: prevState }];
-    const intervalDays = nextIntervalDays(difficulty, done);
+    const clean = <T extends Record<string, number | undefined>>(o?: T) => {
+      if (!o) return undefined;
+      const out: Record<string, number> = {};
+      Object.keys(o).forEach((k) => {
+        const v = o[k];
+        if (v && v > 0) out[k] = v;
+      });
+      return Object.keys(out).length ? (out as Partial<T>) : undefined;
+    };
+    const certainty = clean(result?.certainty);
+    const errors = clean(result?.errors);
+    // Tempo: se o aluno fez Pomodoro ligado a este bloco hoje, ele já conta (não pergunta de novo)
+    const focusSessions = studySessionsRef.current.filter((s) => s.blockId === id && s.type === 'pomodoro' && sessionDate(s) === todayStr);
+    const focusMinutes = focusSessions.reduce((a, s) => a + s.durationMinutes, 0);
+    // Foco ligado a este bloco ainda rodando: o tempo entra quando ele terminar (não pergunta agora)
+    const focusRunning = timer.isRunning && timer.mode === 'pomodoro' && !timer.cycle && timer.task?.blockId === id;
+    const xp = done === BLOCK_REVIEWS_TO_MASTER ? 150 : difficulty === 'facil' ? 60 : difficulty === 'medio' ? 45 : 30;
+    const entry = {
+      stage: techniqueIdForReview(done),
+      xp,
+      date: todayStr,
+      difficulty,
+      ...(result?.questions ? { questions: result.questions } : {}),
+      ...(result?.questions && result?.correct !== undefined ? { correct: result.correct } : {}),
+      ...(certainty ? { certainty } : {}),
+      ...(errors ? { errors } : {}),
+      ...(focusMinutes > 0 ? { minutes: focusMinutes, sessionId: focusSessions[0].id } : {}),
+      prev: prevState,
+    };
+    const log = [...(block.reviewLog || []), entry];
+    const intervalDays = nextIntervalDays(difficulty, done, studyPrefs.longTermGoal);
+    const nextDate = reviewDateIn(intervalDays);
     setTopicBlocks((prev) =>
       prev.map((bk) =>
-        bk.id === id
-          ? { ...bk, reviewStatus: 'revisao', reviewsDone: done, difficulty, lastReviewDate: todayStr, nextReviewDate: addDaysYMD(intervalDays), reviewLog: log }
-          : bk
+        bk.id === id ? { ...bk, reviewStatus: 'revisao', reviewsDone: done, difficulty, lastReviewDate: todayStr, nextReviewDate: nextDate, reviewLog: log } : bk
       )
     );
-    setStudyTimePrompt({ kind: 'review', blockId: id, subjectId: block.subjectId, name: block.name, reviewNumber: done });
-    if (done % BLOCK_REVIEWS_TO_MASTER === 0) {
-      addXp(150, `Ciclo de revisões R${done - 3}–R${done} concluído`);
+    if (focusMinutes === 0 && !focusRunning) setStudyTimePrompt({ kind: 'review', blockId: id, subjectId: block.subjectId, name: block.name, reviewNumber: done });
+    if (focusRunning) setTimer((p) => (p.task ? { ...p, task: { ...p.task, reviewed: true } } : p));
+    else if (timer.task?.blockId === id) setTimer((p) => ({ ...p, task: undefined }));
+    const nextTech = reviewTechnique({ reviewsDone: done, difficulty, reviewLog: log });
+    const when = nextDate === addDaysYMD(1) ? 'amanhã' : `em ${formatDM(nextDate)}`;
+    if (done === BLOCK_REVIEWS_TO_MASTER) {
+      addXp(xp, `R1–R4 concluídas`);
       triggerConfetti();
-      showNotification(
-        `🏆 R${done - 3}–R${done} concluídas em "${block.name}"! O ciclo continua: R${done + 1} em ${intervalDays} dias.`,
-        'success'
-      );
+      showNotification(`🏆 R1–R4 de "${block.name}" concluídas! Tema consolidado: agora é manutenção (${nextTech.badge} ${when}).`, 'success');
       return;
     }
-    addXp(difficulty === 'facil' ? 60 : difficulty === 'medio' ? 45 : 30, `Revisão R${done} do bloco`);
-    showNotification(`R${done} de "${block.name}" registrada. Próxima em ${intervalDays} dia${intervalDays > 1 ? 's' : ''}.`, 'success');
+    addXp(xp, `Revisão R${done} do bloco`);
+    showNotification(
+      `R${done} de "${block.name}" registrada. Próxima: ${nextTech.badge} ${when}${difficulty === 'dificil' ? ' (intervalo encurtado)' : difficulty === 'facil' ? ' (intervalo alongado)' : ''}.`,
+      'success'
+    );
   };
 
   const updateTopicBlock = (id: string, changes: Partial<TopicBlock>) => {
@@ -1791,8 +2028,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           : bk
       )
     );
-    if (last.sessionId) setStudySessions((ss) => ss.filter((x) => x.id !== last.sessionId));
+    // remove só a sessão criada pelo "quanto tempo durou" (o Pomodoro feito de verdade continua contando)
+    if (last.sessionId) setStudySessions((ss) => ss.filter((x) => !(x.id === last.sessionId && x.type !== 'pomodoro')));
     if (studyTimePrompt?.blockId === id && studyTimePrompt.kind === 'review') setStudyTimePrompt(null);
+    // devolve o XP da revisão (e das questões registradas junto)
+    const refund = (last.xp || 0) + (last.questions && last.correct !== undefined ? Math.min(60, Math.round(last.questions / 2)) : 0);
+    if (refund > 0) addXp(-Math.min(refund, userProfileRef.current.totalXp), 'Revisão desfeita');
     // remove as questões que entraram junto com essa revisão
     if (last.questions && last.correct !== undefined) {
       setQuestionLogs((qs) => {
@@ -1820,7 +2061,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               difficulty: undefined,
               reviewLog: [],
               completedDate: allSeen ? ymd(new Date()) : undefined,
-              nextReviewDate: allSeen ? addDaysYMD(FIRST_REVIEW_DAY) : undefined,
+              nextReviewDate: allSeen ? reviewDateIn(FIRST_REVIEW_DAY) : undefined,
             }
           : bk
       )
@@ -2090,6 +2331,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     setSemesters([blankSemester]);
     setSubjects([]);
+    setTopicBlocks([]);
+    setQuestionLogs([]);
+    setStudyMethod(EMPTY_STUDY_METHOD);
     setTopics([]);
     setExams([]);
     setSchedule([]);
@@ -2152,6 +2396,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setSemesters(INITIAL_SEMESTERS);
     setSubjects([]);
     setTopics([]);
+    setTopicBlocks([]);
+    setQuestionLogs([]);
+    setStudyMethod(EMPTY_STUDY_METHOD);
     setExams([]);
     setSchedule([]);
     setAchievements(INITIAL_ACHIEVEMENTS);
@@ -2195,7 +2442,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setTimer((prev) =>
       prev.mode === 'stopwatch'
         ? { ...prev, isRunning: true, startedAt: now, elapsedBase: prev.elapsedSeconds }
-        : { ...prev, isRunning: true, endsAt: now + prev.timeLeftSeconds * 1000 }
+        : {
+            ...prev,
+            isRunning: true,
+            endsAt: now + prev.timeLeftSeconds * 1000,
+            // Novo foco depois de uma tarefa concluída: a tarefa antiga sai (senão o tempo iria para ela)
+            task: prev.mode === 'pomodoro' && prev.task?.finished ? undefined : prev.task,
+          }
     );
     announceStart();
   };
@@ -2254,6 +2507,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       customDurationSeconds: customSeconds,
       selectedSubjectId: subjectId || prev.selectedSubjectId,
       selectedTopicId: topicId || prev.selectedTopicId,
+      task: undefined, // escolher o modo à mão desliga a tarefa do plano
       cycle: undefined, // choosing a mode manually leaves any running study cycle
       endsAt: undefined,
       startedAt: undefined,
@@ -2276,6 +2530,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       elapsedSeconds: 0,
       selectedSubjectId: subjectId ?? prev.selectedSubjectId,
       cycle: { steps, index, phase: 'work' },
+      task: undefined, // o ciclo não herda a tarefa do plano
     }));
     announceStart();
     showNotification(`Ciclo iniciado: ${steps[index].title} (${steps[index].workMins} min)`, 'info');
@@ -2302,6 +2557,293 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       selectedTopicId: topicId,
     }));
   };
+
+  // ============================================================================================
+  // Método de estudo (Guia Científico): plano do dia, caderno de erros, estudos pessoais
+  // Nada aqui dá XP (marcar/desmarcar não pode virar fonte de pontos).
+  // ============================================================================================
+  const patchMethod = (fn: (s: StudyMethodState) => StudyMethodState) => setStudyMethod((prev) => pruneStudyMethod(fn(prev)));
+
+  const updateStudyPrefs = (changes: Partial<StudyPlanPrefs> | null) => {
+    patchMethod((s) => ({ ...s, prefs: changes === null ? undefined : { ...(s.prefs || {}), ...changes } }));
+    showNotification(changes === null ? 'Rotina voltou aos padrões da sua fase.' : 'Rotina atualizada.', 'success');
+  };
+
+  const setDayPlanState = (date: string, updater: (s: DayPlanState) => DayPlanState) =>
+    patchMethod((s) => ({ ...s, dayPlans: { ...s.dayPlans, [date]: updater(s.dayPlans[date] || {}) } }));
+
+  const toggleIn = (list: string[] | undefined, id: string) => (list || []).includes(id) ? (list || []).filter((x) => x !== id) : [...(list || []), id];
+
+  const toggleTaskDone = (date: string, taskId: string) => setDayPlanState(date, (d) => ({ ...d, done: toggleIn(d.done, taskId) }));
+  const skipTask = (date: string, taskId: string, skip = true) =>
+    setDayPlanState(date, (d) => ({ ...d, skipped: skip ? Array.from(new Set([...(d.skipped || []), taskId])) : (d.skipped || []).filter((x) => x !== taskId) }));
+  const addCustomTask = (date: string, title: string, pomodoros = 1) => {
+    if (!title.trim()) return;
+    const id = 'ct-' + Date.now() + '-' + Math.random().toString(36).slice(2, 5);
+    setDayPlanState(date, (d) => ({ ...d, custom: [...(d.custom || []), { id, title: title.trim(), pomodoros: Math.max(0, Math.min(8, pomodoros)) }] }));
+  };
+  const removeCustomTask = (date: string, customId: string) => setDayPlanState(date, (d) => ({ ...d, custom: (d.custom || []).filter((c) => c.id !== customId) }));
+  const setLowEnergy = (date: string, on: boolean) => setDayPlanState(date, (d) => ({ ...d, lowEnergy: on || undefined }));
+  const setDayShift = (date: string, shift?: 'plantao' | 'pos_plantao' | 'normal') => setDayPlanState(date, (d) => ({ ...d, shift }));
+
+  const moveTaskToTomorrow = (task: PlanTask) => {
+    const today = ymd(new Date());
+    // "Amanhã" pula o dia de descanso
+    const tomorrow = reviewDateIn(1, today);
+    if (task.movable === 'review' && task.blockId) updateTopicBlock(task.blockId, { nextReviewDate: tomorrow });
+    else if (task.movable === 'new_block' && task.blockId) updateTopicBlock(task.blockId, { plannedDate: tomorrow });
+    else if (task.movable === 'new_topics' && task.topicIds?.length) {
+      const ids = new Set(task.topicIds);
+      setTopics((prev) => prev.map((t) => (ids.has(t.id) ? { ...t, firstContactDate: tomorrow, scheduleFirstContact: true } : t)));
+    } else if (task.movable === 'project_review' && task.projectId && task.itemId) updateProjectItem(task.projectId, task.itemId, { nextReviewDate: tomorrow });
+    else if (task.movable === 'custom' && task.customId) {
+      const c = (studyMethod.dayPlans[today]?.custom || []).find((x) => x.id === task.customId);
+      if (c)
+        patchMethod((s) => ({
+          ...s,
+          dayPlans: {
+            ...s.dayPlans,
+            [today]: { ...(s.dayPlans[today] || {}), custom: (s.dayPlans[today]?.custom || []).filter((x) => x.id !== c.id) },
+            [tomorrow]: { ...(s.dayPlans[tomorrow] || {}), custom: [...(s.dayPlans[tomorrow]?.custom || []), { ...c, done: false }] },
+          },
+        }));
+    } else {
+      skipTask(today, task.id);
+      return;
+    }
+    showNotification(`"${task.title}" foi para ${tomorrow === addDaysYMD(1, today) ? 'amanhã' : formatDM(tomorrow)}.`, 'info');
+  };
+
+  const replanOverdueReviews = () => {
+    const today = ymd(new Date());
+    // Espaço de revisão por dia = capacidade do dia menos o bloco dos flashcards
+    const perDay = Math.max(2, studyPrefs.dailyPomodoros - (studyPrefs.usesFlashcards ? 1 : 0));
+    const { blocks: map, items } = spreadOverdueReviews(topicBlocks, subjects, today, perDay, studyPrefs.restDay, studyMethod.projects);
+    const n = Object.keys(map).length + Object.keys(items).length;
+    if (n === 0) {
+      showNotification('As revisões de hoje já cabem no seu dia. Nada precisou mudar de data.', 'info');
+      return 0;
+    }
+    if (Object.keys(map).length) setTopicBlocks((prev) => prev.map((b) => (map[b.id] ? { ...b, nextReviewDate: map[b.id] } : b)));
+    if (Object.keys(items).length)
+      patchMethod((st) => ({
+        ...st,
+        projects: st.projects.map((p) => ({
+          ...p,
+          items: p.items.map((it) => (items[`${p.id}:${it.id}`] ? { ...it, nextReviewDate: items[`${p.id}:${it.id}`] } : it)),
+        })),
+      }));
+    showNotification(`Pronto! ${n} revis${n > 1 ? 'ões foram espalhadas' : 'ão foi para outro dia'} pelos próximos dias. As mais importantes ficaram para hoje.`, 'success');
+    return n;
+  };
+
+  /**
+   * Checklist: guarda o que o aluno marcou à mão (id) e o que ele desmarcou de um item automático
+   * ("off:id"). Assim um item marcado à mão não desmarca quando o site detecta o mesmo hábito.
+   */
+  const toggleHabit = (date: string, habitId: string, autoOn = false) =>
+    patchMethod((s) => {
+      const list = new Set(s.habits[date] || []);
+      const off = `off:${habitId}`;
+      const visible = (autoOn && !list.has(off)) || list.has(habitId);
+      if (visible) {
+        list.delete(habitId);
+        if (autoOn) list.add(off);
+      } else {
+        list.delete(off);
+        if (!autoOn) list.add(habitId);
+      }
+      return { ...s, habits: { ...s.habits, [date]: [...list] } };
+    });
+  const tombstone = (st: StudyMethodState, id: string): Record<string, string> => ({ ...(st.deleted || {}), [id]: ymd(new Date()) });
+
+  const addErrorNote: AppContextType['addErrorNote'] = (data) => {
+    const note = makeErrorNote(data);
+    patchMethod((s) => ({ ...s, errorNotes: [note, ...s.errorNotes] }));
+    showNotification('Erro anotado no caderno. Ele volta para você refazer.', 'success');
+    return note.id;
+  };
+  const updateErrorNote = (id: string, changes: Partial<ErrorNote>) =>
+    patchMethod((s) => ({ ...s, errorNotes: s.errorNotes.map((n) => (n.id === id ? { ...n, ...changes } : n)) }));
+  const deleteErrorNote = (id: string) => patchMethod((s) => ({ ...s, errorNotes: s.errorNotes.filter((n) => n.id !== id), deleted: tombstone(s, id) }));
+  const redoErrorNote = (id: string, gotItRight: boolean) => {
+    patchMethod((s) => ({ ...s, errorNotes: s.errorNotes.map((n) => (n.id === id ? applyErrorRedo(n, gotItRight) : n)) }));
+  };
+
+  const addProject: AppContextType['addProject'] = (p) => {
+    const id = newProjectId();
+    const { items, ...rest } = p;
+    const project: PersonalProject = {
+      ...rest,
+      id,
+      createdAt: new Date().toISOString(),
+      items: (items || []).filter((t) => t.trim()).map((t, i) => ({ id: newItemId() + i, title: t.trim(), done: false })),
+    };
+    patchMethod((s) => ({ ...s, projects: [...s.projects, project] }));
+    showNotification(`Estudo pessoal "${project.title}" criado.`, 'success');
+    return id;
+  };
+  const updateProject = (id: string, changes: Partial<PersonalProject>) =>
+    patchMethod((s) => ({ ...s, projects: s.projects.map((p) => (p.id === id ? { ...p, ...changes } : p)) }));
+  const deleteProject = (id: string) => patchMethod((s) => ({ ...s, projects: s.projects.filter((p) => p.id !== id), deleted: tombstone(s, id) }));
+  const mapItems = (projectId: string, fn: (items: PersonalProjectItem[]) => PersonalProjectItem[]) =>
+    patchMethod((s) => ({ ...s, projects: s.projects.map((p) => (p.id === projectId ? { ...p, items: fn(p.items) } : p)) }));
+  const addProjectItems = (projectId: string, titles: string[]) =>
+    mapItems(projectId, (items) => [...items, ...titles.filter((t) => t.trim()).map((t, i) => ({ id: newItemId() + i, title: t.trim(), done: false }))]);
+  const updateProjectItem = (projectId: string, itemId: string, changes: Partial<PersonalProjectItem>) =>
+    mapItems(projectId, (items) => items.map((it) => (it.id === itemId ? { ...it, ...changes } : it)));
+  const toggleProjectItem = (projectId: string, itemId: string) =>
+    mapItems(projectId, (items) =>
+      items.map((it) =>
+        it.id === itemId
+          ? it.done
+            ? { ...it, done: false, doneAt: undefined, inReview: undefined, nextReviewDate: undefined }
+            : { ...it, done: true, doneAt: ymd(new Date()) }
+          : it
+      )
+    );
+  const removeProjectItem = (projectId: string, itemId: string) => mapItems(projectId, (items) => items.filter((it) => it.id !== itemId));
+  const startProjectItemReviews = (projectId: string, itemId: string) => {
+    const first = reviewDateIn(1);
+    mapItems(projectId, (items) =>
+      items.map((it) => (it.id === itemId ? { ...startItemReviews({ ...it, done: true, doneAt: it.doneAt || ymd(new Date()) }), nextReviewDate: first } : it))
+    );
+    showNotification(`Item nas revisões: a 1ª é ${first === addDaysYMD(1) ? 'amanhã' : formatDM(first)} (folha em branco).`, 'success');
+  };
+  const reviewProjectItem = (projectId: string, itemId: string, difficulty: TopicDifficulty) => {
+    mapItems(projectId, (items) =>
+      items.map((it) => (it.id === itemId ? reviewProjectItemResult(it, difficulty, { restDay: studyPrefs.restDay, longTerm: studyPrefs.longTermGoal }) : it))
+    );
+    showNotification('Revisão registrada.', 'success');
+  };
+  const logProjectBlock = (projectId: string, minutes = 25) => {
+    const p = studyMethod.projects.find((x) => x.id === projectId);
+    logStudySession({ durationMinutes: minutes, type: 'stopwatch', xpEarned: 0, projectId, activity: 'project', notes: `Estudo pessoal • ${p?.title || ''}` });
+    showNotification('Bloco somado à meta da semana.', 'success');
+  };
+
+  const setBlockStar = (blockId: string, star: boolean) => updateTopicBlock(blockId, { star: star || undefined });
+  const toggleInitialStep = (blockId: string, step: string) =>
+    setTopicBlocks((prev) => prev.map((b) => (b.id === blockId ? { ...b, initialSteps: toggleIn(b.initialSteps, step) } : b)));
+
+  const createPlannedTheme = (subjectId: string, name: string, date: string) => {
+    const sub = subjects.find((s) => s.id === subjectId);
+    const title = name.trim();
+    if (!sub || !title) return;
+    if (sub.organization === 'checklist') {
+      const moduleName = sub.checklistModules?.[0] || 'Temas';
+      addTopicsBulk([
+        { subjectId, title, moduleName, status: 'nao_iniciado', priority: 'media', scheduleFirstContact: true, firstContactDate: date },
+      ]);
+      if (!(sub.checklistModules || []).includes(moduleName)) updateSubject(subjectId, { checklistModules: [...(sub.checklistModules || []), moduleName] }, { silent: true });
+    } else {
+      const id = 'blk-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
+      setTopicBlocks((prev) => [...prev, { id, subjectId, name: title, createdAt: new Date().toISOString(), reviewStatus: 'estudando', reviewsDone: 0, plannedDate: date }]);
+      // Um tópico com o mesmo nome: marcar como visto fecha o tema e manda para as revisões
+      const stamp = Date.now();
+      setTopics((prev) => [
+        ...prev,
+        { id: `top-${stamp}-0-${Math.random().toString(36).slice(2, 6)}`, subjectId, blockId: id, title, status: 'nao_iniciado', priority: 'media' },
+      ]);
+      showNotification(`Tema "${title}" programado para ${date === ymd(new Date()) ? 'hoje' : formatDM(date)}.`, 'success');
+    }
+  };
+
+  const startTask: AppContextType['startTask'] = (task) => {
+    const { minutes, free, ...info } = task;
+    const now = Date.now();
+    const focusTask: FocusTask = { ...info, finished: false };
+    // Trocar de tarefa no meio de um foco: o tempo já feito fica salvo na tarefa anterior
+    if (timer.isRunning && timer.mode === 'pomodoro' && !timer.cycle && timer.endsAt) {
+      const total = timer.customDurationSeconds || pomodoroSettings.workMinutes * 60;
+      const doneMin = Math.floor((total - remainingSeconds(timer.endsAt)) / 60);
+      if (doneMin >= 1) {
+        logStudySession({
+          subjectId: timer.selectedSubjectId,
+          topicId: timer.selectedTopicId,
+          durationMinutes: doneMin,
+          type: 'pomodoro',
+          xpEarned: 0,
+          notes: timer.task ? `Foco (interrompido) • ${timer.task.title}` : 'Foco interrompido',
+          blockId: timer.task?.blockId,
+          projectId: timer.task?.projectId,
+          activity: timer.task?.kind,
+        });
+        showNotification(`${doneMin} min do foco anterior ficaram salvos.`, 'info');
+      }
+    }
+    if (free) {
+      setTimer((prev) => ({
+        ...prev,
+        mode: 'stopwatch',
+        isRunning: true,
+        startedAt: now,
+        elapsedBase: 0,
+        elapsedSeconds: 0,
+        endsAt: undefined,
+        cycle: undefined,
+        customDurationSeconds: undefined,
+        selectedSubjectId: info.subjectId || '',
+        selectedTopicId: info.topicId,
+        task: focusTask,
+      }));
+    } else {
+      const secs = Math.max(1, minutes || pomodoroSettings.workMinutes) * 60;
+      setTimer((prev) => ({
+        ...prev,
+        mode: 'pomodoro',
+        isRunning: true,
+        timeLeftSeconds: secs,
+        customDurationSeconds: secs,
+        endsAt: now + secs * 1000,
+        elapsedSeconds: 0,
+        startedAt: undefined,
+        elapsedBase: undefined,
+        cycle: undefined,
+        selectedSubjectId: info.subjectId || '',
+        selectedTopicId: info.topicId,
+        task: focusTask,
+      }));
+    }
+    announceStart();
+    setCurrentTab('stopwatch');
+    showNotification(`Foco iniciado: ${info.title}`, 'info');
+  };
+  const clearFocusTask = () => setTimer((prev) => ({ ...prev, task: undefined }));
+
+  const guideSeenKey = activeUserId ? `medacademic_method_guide_seen_${activeUserId}` : '';
+  const methodGuideSeen =
+    !!studyMethod.guideSeen ||
+    (() => {
+      try {
+        return !!guideSeenKey && localStorage.getItem(guideSeenKey) === '1';
+      } catch {
+        return false;
+      }
+    })();
+  const markMethodGuideSeen = () => {
+    try {
+      if (guideSeenKey) localStorage.setItem(guideSeenKey, '1');
+    } catch {
+      /* sem armazenamento */
+    }
+    if (!studyMethod.guideSeen) patchMethod((s) => ({ ...s, guideSeen: true }));
+  };
+  const openMethodGuide = (step = 0) => setMethodGuide({ open: true, step });
+  const closeMethodGuide = () => {
+    setMethodGuide((m) => ({ ...m, open: false }));
+    markMethodGuideSeen();
+  };
+  const openReviews = (focus?: { blockId?: string; tab?: string }) => {
+    setReviewFocus(focus || null);
+    setCurrentTab('spaced_repetition');
+  };
+  const clearReviewFocus = () => setReviewFocus(null);
+  const openPlannerToday = (opts?: { routine?: boolean }) => {
+    setPlannerRequest({ routine: !!opts?.routine, at: Date.now() });
+    setCurrentTab('calendar');
+  };
+  const clearPlannerRequest = () => setPlannerRequest(null);
 
   return (
     <AppContext.Provider
@@ -2403,6 +2945,52 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         toggleChecklistItem,
         deleteChecklistItem,
         clearCompletedChecklist,
+        studyMethod,
+        studyPrefs,
+        studyPhase,
+        residencyPrep,
+        currentSubjectIds,
+        updateStudyPrefs,
+        setDayPlanState,
+        toggleTaskDone,
+        skipTask,
+        addCustomTask,
+        removeCustomTask,
+        setLowEnergy,
+        setDayShift,
+        moveTaskToTomorrow,
+        replanOverdueReviews,
+        toggleHabit,
+        addErrorNote,
+        updateErrorNote,
+        deleteErrorNote,
+        redoErrorNote,
+        addProject,
+        updateProject,
+        deleteProject,
+        addProjectItems,
+        updateProjectItem,
+        toggleProjectItem,
+        removeProjectItem,
+        startProjectItemReviews,
+        reviewProjectItem,
+        logProjectBlock,
+        setBlockStar,
+        toggleInitialStep,
+        createPlannedTheme,
+        startTask,
+        clearFocusTask,
+        methodGuide,
+        openMethodGuide,
+        closeMethodGuide,
+        methodGuideSeen,
+        markMethodGuideSeen,
+        openReviews,
+        reviewFocus,
+        clearReviewFocus,
+        openPlannerToday,
+        plannerRequest,
+        clearPlannerRequest,
       }}
     >
       {children}

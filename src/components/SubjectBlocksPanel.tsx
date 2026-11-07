@@ -1,10 +1,21 @@
 import React, { useMemo, useState } from 'react';
-import { Plus, Search, ChevronDown, Check, Trash2, Clock3, MoreHorizontal, Pencil, RotateCcw, Repeat, Trophy, Layers, X } from 'lucide-react';
+import { Plus, Search, ChevronDown, Check, Trash2, Clock3, MoreHorizontal, Pencil, RotateCcw, Repeat, Trophy, Layers, X, Star, Play, Lightbulb } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { Subject, Topic, TopicBlock } from '../types';
 import { DatePickerField } from './DatePickerField';
 import { SPECIALTY_BLOCK_SUGGESTIONS, getMedicalArea, getSpecialty } from '../data/areas';
-import { BLOCK_REVIEWS_TO_MASTER, cycleDay, formatDM, isBlockDue, isTopicPending, isTopicResolved, isTopicSeen, suggestedPlan, ymd } from '../data/blockReview';
+import { BLOCK_REVIEWS_TO_MASTER, cycleDay, formatDM, isBlockDue, isTopicPending, isTopicResolved, isTopicSeen, ymd } from '../data/blockReview';
+import { TECHNIQUES, reviewTechnique } from '../data/studyMethod';
+
+/** Índice do passo "Feynman" no checklist do estudo inicial */
+const FEYNMAN_STEP = '2';
+const INITIAL_STEPS = TECHNIQUES.estudo_inicial.steps;
+
+/** "Pré-teste: tente 3 a 5..." → ["Pré-teste", "tente 3 a 5..."] */
+const splitStep = (s: string): [string, string] => {
+  const i = s.indexOf(':');
+  return i > 0 && i < 24 ? [s.slice(0, i), s.slice(i + 1).trim()] : [s, ''];
+};
 
 interface SubjectBlocksPanelProps {
   subject: Subject;
@@ -30,11 +41,18 @@ export const SubjectBlocksPanel: React.FC<SubjectBlocksPanelProps> = ({ subject 
     renameTopicBlock,
     deleteTopicBlock,
     restartBlockReviews,
-    setCurrentTab,
     updateTopicBlock,
+    toggleInitialStep,
+    setBlockStar,
+    startTask,
+    studyPrefs,
+    openReviews,
   } = useApp();
 
   const [search, setSearch] = useState('');
+  const [stepsOpen, setStepsOpen] = useState<Record<string, boolean>>({});
+  // Tema fechado (último tópico marcado) sem o passo Feynman: aviso leve, não bloqueia
+  const [closedNoFeynman, setClosedNoFeynman] = useState<Record<string, boolean>>({});
   const [newBlockOpen, setNewBlockOpen] = useState(false);
   const [newBlockName, setNewBlockName] = useState('');
   const [drafts, setDrafts] = useState<Record<string, string>>({});
@@ -83,35 +101,67 @@ export const SubjectBlocksPanel: React.FC<SubjectBlocksPanelProps> = ({ subject 
   };
 
   // Concluído (verde) e Ver depois (vermelho): clicar de novo no ativo volta para "não iniciado"
-  const toggleSeen = (t: Topic) => (isTopicSeen(t) ? resetTopicProgress(t.id) : markTopicSeen(t.id));
-  const togglePending = (t: Topic) => (isTopicPending(t) ? resetTopicProgress(t.id) : markTopicPending(t.id));
+  // Se este clique fecha o tema (último tópico) e o Feynman não foi feito, mostra um aviso leve
+  const willCloseBlock = (t: Topic) => {
+    const block = blocks.find((b) => b.id === t.blockId);
+    if (!block || block.reviewStatus !== 'estudando') return undefined;
+    const list = subjectTopics.filter((x) => x.blockId === block.id);
+    const others = list.filter((x) => x.id !== t.id);
+    return others.every(isTopicResolved) ? block : undefined;
+  };
+  const noteClosing = (t: Topic) => {
+    const block = willCloseBlock(t);
+    if (block && !(block.initialSteps || []).includes(FEYNMAN_STEP)) setClosedNoFeynman((c) => ({ ...c, [block.id]: true }));
+  };
+  const toggleSeen = (t: Topic) => {
+    if (isTopicSeen(t)) return resetTopicProgress(t.id);
+    noteClosing(t);
+    markTopicSeen(t.id);
+  };
+  const togglePending = (t: Topic) => {
+    if (isTopicPending(t)) return resetTopicProgress(t.id);
+    noteClosing(t);
+    markTopicPending(t.id);
+  };
+
+  const startInitialStudy = (block: TopicBlock) =>
+    startTask({
+      title: `Tema novo: ${block.name}`,
+      kind: 'new_block',
+      subjectId: subject.id,
+      blockId: block.id,
+      steps: INITIAL_STEPS,
+      minutes: studyPrefs.focusMinutes,
+    });
 
   const renderStatus = (block: TopicBlock, seen: number, total: number) => {
     if (block.reviewStatus === 'dominado') {
       return (
-        <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+        <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-400">
           <Trophy className="h-3 w-3" /> Dominado
         </span>
       );
     }
     if (block.reviewStatus === 'revisao') {
       const due = isBlockDue(block, todayStr);
-      const plan = suggestedPlan(block);
+      const tech = reviewTechnique(block, subject.format);
+      const late = due && !!block.nextReviewDate && block.nextReviewDate < todayStr;
       return (
         <span
-          className={`flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${
-            due ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400' : 'bg-sky-500/15 text-sky-600 dark:text-sky-400'
-          }`}
-          title={plan ? `Sugestão: ${plan.steps.join(' + ')}` : 'Revisão do Dia 7: avalie a dificuldade ao terminar'}
+          className="flex items-center gap-1 min-w-0 max-w-full text-[10px] font-bold px-2 py-0.5 rounded-full border"
+          style={{ color: tech.color, backgroundColor: `${tech.color}14`, borderColor: `${tech.color}40` }}
+          title={`${tech.label}: ${tech.steps.join(' · ')}`}
         >
-          <Repeat className="h-3 w-3" />
-          R{block.reviewsDone + 1} ·{' '}
-          {due ? (block.nextReviewDate! < todayStr ? 'atrasada' : 'hoje') : formatShort(block.nextReviewDate)}
+          <span aria-hidden>{tech.emoji}</span>
+          <span className="truncate">{tech.badge}</span>
+          <span className="shrink-0 text-slate-600 dark:text-slate-300 font-semibold">
+            · {due ? (late ? `desde ${formatShort(block.nextReviewDate)}` : 'hoje') : formatShort(block.nextReviewDate)}
+          </span>
         </span>
       );
     }
     return (
-      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500">
+      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
         Em estudo · {seen}/{total}
       </span>
     );
@@ -197,7 +247,7 @@ export const SubjectBlocksPanel: React.FC<SubjectBlocksPanelProps> = ({ subject 
           )}
           {blocks.length === 0 && (
             <p className="text-[11px] text-slate-500">
-              Organize a disciplina em blocos e coloque os tópicos dentro deles. Quando todos os tópicos de um bloco forem vistos, o bloco entra nas Revisões.
+              Organize a disciplina em blocos (temas) e coloque os tópicos dentro deles. Quando todos os tópicos de um bloco forem vistos, ele entra nas Revisões: a 1ª é amanhã (24 h).
             </p>
           )}
         </div>
@@ -250,8 +300,8 @@ export const SubjectBlocksPanel: React.FC<SubjectBlocksPanelProps> = ({ subject 
                   <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: accent }} />
                 </div>
                 {block.completedDate && (
-                  <p className="text-[10px] text-slate-500 mt-1">
-                    Concluído em <strong className="text-slate-700 dark:text-slate-300">{formatDM(block.completedDate)}</strong> (Dia 0)
+                  <p className="text-[10px] text-slate-600 dark:text-slate-400 mt-1">
+                    Estudado em <strong className="text-slate-700 dark:text-slate-300">{formatDM(block.completedDate)}</strong> (Dia 0)
                     {block.reviewStatus === 'revisao' && block.nextReviewDate && (
                       <>
                         {' '}· próxima: <strong className="text-slate-700 dark:text-slate-300">R{block.reviewsDone + 1} em {formatDM(block.nextReviewDate)}</strong> (Dia{' '}
@@ -260,29 +310,47 @@ export const SubjectBlocksPanel: React.FC<SubjectBlocksPanelProps> = ({ subject 
                     )}
                   </p>
                 )}
+                <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
+                  {renderStatus(block, seen, list.length)}
+                  {block.star && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300">⭐ cai muito</span>
+                  )}
+                  {due && (
+                    <button
+                      id={`block-review-btn-${block.id}`}
+                      onClick={() => openReviews({ blockId: block.id, tab: 'hoje' })}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-bold"
+                    >
+                      <Repeat className="h-3 w-3" /> Revisar
+                    </button>
+                  )}
+                </div>
               </div>
-              {renderStatus(block, seen, list.length)}
-              {due && (
-                <button
-                  onClick={() => setCurrentTab('spaced_repetition')}
-                  className="hidden sm:inline-flex shrink-0 items-center gap-1 px-2 py-1 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-bold"
-                >
-                  Revisar
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => setBlockStar(block.id, !block.star)}
+                aria-pressed={!!block.star}
+                aria-label={block.star ? `Tirar "${block.name}" de cai muito` : `Marcar "${block.name}" como tema que cai muito`}
+                title={block.star ? 'Cai muito na prova (sobe na fila de revisões)' : 'Marcar como tema que cai muito na prova'}
+                className={`shrink-0 h-8 w-8 flex items-center justify-center rounded-lg transition-colors ${
+                  block.star ? 'text-amber-500 bg-amber-500/10' : 'text-slate-400 hover:text-amber-500 hover:bg-slate-100 dark:hover:bg-slate-800'
+                }`}
+              >
+                <Star className={`h-4 w-4 ${block.star ? 'fill-current' : ''}`} />
+              </button>
               <div className="relative shrink-0">
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     setMenuFor(menuFor === block.id ? null : block.id);
                   }}
-                  className="p-1 rounded-md text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+                  className="h-8 w-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
                   aria-label={`Opções do bloco ${block.name}`}
                 >
                   <MoreHorizontal className="h-4 w-4" />
                 </button>
                 {menuFor === block.id && (
-                  <div onClick={(e) => e.stopPropagation()} className="absolute right-0 top-7 z-20 w-48 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-xl p-1.5">
+                  <div onClick={(e) => e.stopPropagation()} className="absolute right-0 top-9 z-20 w-48 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-xl p-1.5">
                     <button
                       onClick={() => {
                         setRenaming(block.id);
@@ -319,6 +387,113 @@ export const SubjectBlocksPanel: React.FC<SubjectBlocksPanelProps> = ({ subject 
 
             {!isCollapsed && (
               <div className="px-3 pb-3">
+                {block.reviewStatus === 'estudando' && (() => {
+                  const done = new Set(block.initialSteps || []);
+                  const doneCount = INITIAL_STEPS.filter((_, i) => done.has(String(i))).length;
+                  const open = stepsOpen[block.id] ?? false;
+                  const left = list.length - resolved;
+                  const feynmanDone = done.has(FEYNMAN_STEP);
+                  return (
+                    <>
+                      <div
+                        id={`block-initial-steps-${block.id}`}
+                        className="mb-2 rounded-xl border border-emerald-500/25 bg-emerald-50/60 dark:bg-emerald-950/15"
+                      >
+                        <div className="flex items-center gap-2 px-2.5 py-2">
+                          <button
+                            type="button"
+                            onClick={() => setStepsOpen((s) => ({ ...s, [block.id]: !open }))}
+                            aria-expanded={open}
+                            className="flex-1 min-w-0 flex items-center gap-2 text-left min-h-[32px]"
+                          >
+                            <span aria-hidden className="text-sm">🌱</span>
+                            <span className="min-w-0">
+                              <span className="block text-[11px] font-black text-emerald-800 dark:text-emerald-300 truncate">
+                                Estudo inicial · {doneCount}/{INITIAL_STEPS.length} passos
+                              </span>
+                              <span className="flex gap-0.5 mt-1" aria-hidden>
+                                {INITIAL_STEPS.map((_, i) => (
+                                  <span key={i} className={`h-1 w-5 rounded-full ${done.has(String(i)) ? 'bg-emerald-500' : 'bg-emerald-500/20'}`} />
+                                ))}
+                              </span>
+                            </span>
+                            <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-emerald-700 dark:text-emerald-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+                          </button>
+                          <button
+                            type="button"
+                            id={`block-start-btn-${block.id}`}
+                            onClick={() => startInitialStudy(block)}
+                            className="shrink-0 inline-flex items-center gap-1 px-3 py-2 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-[11px] font-bold"
+                            title={`Abre o Pomodoro de ${studyPrefs.focusMinutes} min com os passos deste tema`}
+                          >
+                            <Play className="h-3 w-3 fill-current" /> Começar
+                          </button>
+                        </div>
+                        {open && (
+                          <ol className="px-2.5 pb-2.5 space-y-1">
+                            {INITIAL_STEPS.map((s, i) => {
+                              const checked = done.has(String(i));
+                              const [head, rest] = splitStep(s);
+                              return (
+                                <li key={i}>
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleInitialStep(block.id, String(i))}
+                                    aria-pressed={checked}
+                                    className={`w-full flex items-start gap-2 rounded-lg px-2 py-1.5 text-left border transition-colors ${
+                                      checked
+                                        ? 'border-emerald-500/30 bg-emerald-500/10'
+                                        : 'border-transparent bg-white/70 dark:bg-slate-900/60 hover:border-emerald-500/30'
+                                    }`}
+                                  >
+                                    <span
+                                      className={`mt-0.5 h-4 w-4 shrink-0 rounded-md border-2 flex items-center justify-center ${
+                                        checked ? 'bg-emerald-500 border-emerald-500' : 'border-slate-300 dark:border-slate-600'
+                                      }`}
+                                      aria-hidden
+                                    >
+                                      {checked && <Check className="h-2.5 w-2.5 text-white" strokeWidth={4} />}
+                                    </span>
+                                    <span className={`text-[11px] leading-snug ${checked ? 'text-slate-500 dark:text-slate-400' : 'text-slate-700 dark:text-slate-200'}`}>
+                                      <strong className={checked ? 'line-through' : 'text-slate-900 dark:text-white'}>
+                                        {i + 1}. {head}
+                                      </strong>
+                                      {rest && <span>: {rest}</span>}
+                                    </span>
+                                  </button>
+                                </li>
+                              );
+                            })}
+                          </ol>
+                        )}
+                      </div>
+                      {list.length > 0 && left > 0 && left <= 2 && !feynmanDone && (
+                        <p className="mb-2 flex items-start gap-1.5 px-1 text-[11px] text-slate-600 dark:text-slate-300">
+                          <Lightbulb className="h-3.5 w-3.5 shrink-0 text-amber-500 mt-px" />
+                          <span>
+                            Antes de fechar o tema, explique de memória em voz alta (Feynman) e marque onde travou. É o passo 3 do estudo inicial.
+                          </span>
+                        </p>
+                      )}
+                    </>
+                  );
+                })()}
+                {closedNoFeynman[block.id] && block.reviewStatus !== 'estudando' && (
+                  <div className="mb-2 flex items-start gap-2 rounded-xl border border-amber-500/30 bg-amber-50 dark:bg-amber-950/20 px-2.5 py-2 text-[11px] text-amber-900 dark:text-amber-200">
+                    <Lightbulb className="h-3.5 w-3.5 shrink-0 mt-px text-amber-500" />
+                    <span className="flex-1">
+                      Tema fechado sem o Feynman. Tudo bem: na 1ª revisão (amanhã), comece explicando o tema em voz alta, sem consultar.
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setClosedNoFeynman((c) => ({ ...c, [block.id]: false }))}
+                      className="p-1 -m-1 rounded text-amber-700 dark:text-amber-300 hover:bg-amber-500/10"
+                      aria-label="Dispensar aviso"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                )}
                 {shown.length === 0 && !q && (
                   <p className="text-[11px] text-slate-400 px-1 pb-1">Nenhum tópico ainda. Adicione abaixo.</p>
                 )}
@@ -426,8 +601,8 @@ export const SubjectBlocksPanel: React.FC<SubjectBlocksPanelProps> = ({ subject 
                   </div>
                 )}
                 {block.reviewStatus === 'estudando' && list.length > 0 && resolved < list.length && (
-                  <p className="text-[10px] text-slate-500 mt-1.5 px-1">
-                    Faltam {list.length - resolved} tópico{list.length - resolved > 1 ? 's' : ''} para o bloco entrar nas revisões (marque como concluído ou ver depois).
+                  <p className="text-[10px] text-slate-600 dark:text-slate-400 mt-1.5 px-1">
+                    Faltam {list.length - resolved} tópico{list.length - resolved > 1 ? 's' : ''} para o tema entrar nas revisões (marque como concluído ou ver depois). A 1ª revisão é em 24 h.
                   </p>
                 )}
               </div>

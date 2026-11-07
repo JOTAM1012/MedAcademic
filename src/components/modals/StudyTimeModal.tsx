@@ -36,11 +36,11 @@ export const StudyTimeModal: React.FC = () => {
   const num = Number(value.replace(',', '.'));
   const minutes = num > 0 ? Math.round(unit === 'h' ? num * 60 : num) : 0;
 
-  const title = p.kind === 'block' ? 'Bloco concluído! 🎉' : `Revisão R${p.reviewNumber} concluída! ✅`;
+  const title = p.kind === 'block' ? 'Tema estudado! 🎉' : `Revisão R${p.reviewNumber} concluída! ✅`;
   const subtitle =
     p.kind === 'block'
-      ? 'Hoje é o Dia 0 deste bloco. Quanto tempo você estudou para fechá-lo?'
-      : 'Quanto tempo durou esta revisão?';
+      ? 'Hoje é o Dia 0: a 1ª revisão (folha em branco) é amanhã. Quanto tempo você estudou este tema?'
+      : 'Quanto tempo durou esta revisão? A próxima já está agendada nas Revisões.';
 
   return (
     <div className="app-modal fixed inset-0 z-[90] flex items-end sm:items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in">
@@ -53,7 +53,7 @@ export const StudyTimeModal: React.FC = () => {
             <div>
               <p className="text-[10px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Conclusão · {p.name}</p>
               <h2 className="text-base font-black text-slate-900 dark:text-white">{title}</h2>
-              <p className="text-xs text-slate-500 mt-0.5">{subtitle}</p>
+              <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">{subtitle}</p>
             </div>
           </div>
           <button onClick={() => completeStudyTimePrompt(0)} className="p-1 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Fechar">
@@ -117,7 +117,7 @@ export const StudyTimeModal: React.FC = () => {
             ))}
           </div>
           {minutes > 0 && (
-            <p className="text-[11px] text-slate-500">
+            <p className="text-[11px] text-slate-600 dark:text-slate-400">
               Vai entrar nas suas horas de estudo: <strong className="text-slate-800 dark:text-slate-100">{formatMinutes(minutes)}</strong>
             </p>
           )}

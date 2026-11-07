@@ -12,10 +12,12 @@ import {
   History,
   User,
   LayoutGrid,
+  Rocket,
   X,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { isBlockDue } from '../data/blockReview';
+import { daysBetween } from '../data/blockReview';
+import { todayYMD, useDayPlan, useDueReviewCount } from '../hooks/useStudyPlan';
 import { useAccess } from '../context/AccessContext';
 import { Crown } from 'lucide-react';
 
@@ -23,26 +25,31 @@ type NavItem = { id: string; label: string; short: string; icon: React.ElementTy
 
 // Barra de abas fixa no rodapé (celular / app instalado) + painel "Mais" com todas as funções
 export const MobileTabBar: React.FC = () => {
-  const { currentTab, setCurrentTab, topicBlocks, exams, checklist } = useApp();
+  const { currentTab, setCurrentTab, openPlannerToday, exams, checklist } = useApp();
   const [isMoreOpen, setIsMoreOpen] = useState(false);
   const { isAdmin } = useAccess();
 
-  const todayStr = new Date().toISOString().split('T')[0];
-  const dueCount = topicBlocks.filter((b) => isBlockDue(b, todayStr)).length;
+  const todayStr = todayYMD();
+  // Mesma contagem da aba Revisões (data local, só disciplinas que existem)
+  const dueCount = useDueReviewCount();
+  // Tarefas do plano de hoje que faltam
+  const dayPlan = useDayPlan();
+  const planLeft = Math.max(0, dayPlan.totalCount - dayPlan.doneCount);
   const pendingChecklist = checklist.filter((i) => !i.done).length;
   const upcomingExams = exams.filter((e) => {
     if (!e.date || e.grade !== undefined) return false;
-    const diff = (new Date(e.date).getTime() - Date.now()) / 86400000;
+    const diff = daysBetween(todayStr, e.date);
     return diff >= 0 && diff <= 14;
   }).length;
 
   const all: NavItem[] = [
     { id: 'dashboard', label: 'Dashboard', short: 'Início', icon: LayoutDashboard, color: 'from-blue-500 to-blue-700' },
-    { id: 'calendar', label: 'Planner', short: 'Planner', icon: Calendar, color: 'from-violet-500 to-violet-700' },
+    { id: 'calendar', label: 'Planner', short: 'Planner', icon: Calendar, color: 'from-violet-500 to-violet-700', badge: planLeft ? String(planLeft) : null },
     { id: 'grades', label: 'Avaliações', short: 'Avaliações', icon: GraduationCap, color: 'from-rose-500 to-rose-700', badge: upcomingExams ? String(upcomingExams) : null },
     { id: 'schedule', label: 'Grade de horários', short: 'Horários', icon: CalendarDays, color: 'from-cyan-500 to-cyan-700' },
     { id: 'structure', label: 'Disciplinas & assuntos', short: 'Disciplinas', icon: Layers, color: 'from-indigo-500 to-indigo-700' },
     { id: 'spaced_repetition', label: 'Revisões', short: 'Revisões', icon: Repeat, color: 'from-sky-500 to-sky-700', badge: dueCount ? String(dueCount) : null },
+    { id: 'personal', label: 'Estudos pessoais', short: 'Pessoais', icon: Rocket, color: 'from-fuchsia-500 to-fuchsia-700' },
     { id: 'stopwatch', label: 'Pomodoro', short: 'Pomodoro', icon: Timer, color: 'from-orange-500 to-orange-700' },
     { id: 'checklist', label: 'Checklist', short: 'Checklist', icon: ListChecks, color: 'from-emerald-500 to-emerald-700', badge: pendingChecklist ? String(pendingChecklist) : null },
     { id: 'history', label: 'Histórico', short: 'Histórico', icon: History, color: 'from-amber-500 to-amber-700' },
@@ -62,7 +69,9 @@ export const MobileTabBar: React.FC = () => {
   }, [isMoreOpen]);
 
   const go = (id: string) => {
-    setCurrentTab(id);
+    // Com tarefas pendentes, o Planner abre direto no Hoje
+    if (id === 'calendar' && planLeft > 0) openPlannerToday();
+    else setCurrentTab(id);
     setIsMoreOpen(false);
   };
 

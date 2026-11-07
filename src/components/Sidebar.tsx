@@ -16,10 +16,13 @@ import {
   PanelLeftOpen,
   ListChecks,
   Crown,
+  Rocket,
 } from 'lucide-react';
 import { useAccess } from '../context/AccessContext';
 import { useApp } from '../context/AppContext';
-import { isBlockDue } from '../data/blockReview';
+import { daysBetween } from '../data/blockReview';
+import { sessionDate, weekStart } from '../data/studyMethod';
+import { todayYMD, useDayPlan, useDueReviewCount } from '../hooks/useStudyPlan';
 
 interface SidebarProps {
   isMobileOpen: boolean;
@@ -30,8 +33,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
   const {
     currentTab,
     setCurrentTab,
+    openPlannerToday,
     userProfile,
-    topicBlocks,
     exams,
     studySessions,
     checklist,
@@ -62,16 +65,26 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
     });
   };
 
-  // Due topics count for spaced repetition
-  const todayStr = new Date().toISOString().split('T')[0];
-  const dueTopicsCount = topicBlocks.filter((b) => isBlockDue(b, todayStr)).length;
+  // Revisões vencidas (mesma regra da aba Revisões, data local)
+  const todayStr = todayYMD();
+  const dueTopicsCount = useDueReviewCount();
+
+  // Tarefas do plano de hoje que ainda faltam
+  const dayPlan = useDayPlan();
+  const planLeft = Math.max(0, dayPlan.totalCount - dayPlan.doneCount);
+  // Com tarefas pendentes (selo ativo), o Planner abre direto no Hoje
+  const navTo = (id: string) => (id === 'calendar' && planLeft > 0 ? openPlannerToday() : setCurrentTab(id));
 
   // Upcoming exams in 14 days
   const upcomingExamsCount = exams.filter((e) => {
     if (!e.date || e.grade !== undefined) return false;
-    const diff = (new Date(e.date).getTime() - new Date().getTime()) / (1000 * 3600 * 24);
+    const diff = daysBetween(todayStr, e.date);
     return diff >= 0 && diff <= 14;
   }).length;
+
+  // Blocos de foco (Pomodoro) desta semana, de segunda a hoje: contar blocos, não só horas
+  const weekFrom = weekStart(todayStr);
+  const focusBlocksWeek = studySessions.filter((s) => s.type === 'pomodoro' && sessionDate(s) >= weekFrom && sessionDate(s) <= todayStr).length;
 
   // Study hours this week
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 3600 * 1000);
@@ -92,7 +105,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
       id: 'calendar',
       label: 'Planner',
       icon: Calendar,
-      badge: null,
+      badge: planLeft > 0 ? `faltam ${planLeft}` : null,
+      badgeColor: 'bg-violet-500/20 text-violet-300 border border-violet-400/30',
     },
     {
       id: 'grades',
@@ -122,6 +136,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
       icon: Repeat,
       badge: dueTopicsCount > 0 ? `${dueTopicsCount} hoje` : null,
       badgeColor: 'bg-blue-500/20 text-blue-300 border border-blue-400/30',
+    },
+    {
+      id: 'personal',
+      label: 'Estudos pessoais',
+      icon: Rocket,
+      badge: null,
     },
     {
       id: 'stopwatch',
@@ -246,7 +266,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
                     id={`sidebar-nav-${item.id}`}
                     title={!isExpanded ? item.label : undefined}
                     onClick={() => {
-                      setCurrentTab(item.id);
+                      navTo(item.id);
                       setIsMobileOpen(false);
                     }}
                     className={`flex w-full items-center rounded-lg text-xs transition-colors relative group overflow-hidden ${
@@ -313,7 +333,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
                     id={`sidebar-nav-${item.id}`}
                     title={!isExpanded ? item.label : undefined}
                     onClick={() => {
-                      setCurrentTab(item.id);
+                      navTo(item.id);
                       setIsMobileOpen(false);
                     }}
                     className={`flex w-full items-center rounded-lg text-xs transition-colors relative group overflow-hidden ${
@@ -377,7 +397,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
                     id={`sidebar-nav-${item.id}`}
                     title={!isExpanded ? item.label : undefined}
                     onClick={() => {
-                      setCurrentTab(item.id);
+                      navTo(item.id);
                       setIsMobileOpen(false);
                     }}
                     className={`flex w-full items-center rounded-lg text-xs transition-all group ${
@@ -440,11 +460,18 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
               <span>{totalHoursStudiedWeek}h estudados</span>
               <span>meta de {weeklyGoalTarget}h</span>
             </div>
+            <div id="sidebar-week-focus-blocks" className="mt-2 pt-2 border-t border-slate-700/50 flex items-center justify-between gap-2 text-[10px]">
+              <span className="text-slate-300 flex items-center gap-1.5 min-w-0">
+                <Timer className="h-3 w-3 text-orange-400 shrink-0" />
+                <span className="truncate">blocos de foco na semana</span>
+              </span>
+              <span className="font-black text-orange-300 shrink-0">{focusBlocksWeek}</span>
+            </div>
           </div>
         ) : (
           <div
             className="mt-auto p-2 mx-2 mb-3 bg-slate-800/40 rounded-lg border border-slate-700/50 flex flex-col items-center justify-center cursor-pointer hover:bg-slate-800/80 transition-colors"
-            title={`Meta Semanal: ${weeklyGoalPercent}% (${totalHoursStudiedWeek}h de ${weeklyGoalTarget}h)`}
+            title={`Meta Semanal: ${weeklyGoalPercent}% (${totalHoursStudiedWeek}h de ${weeklyGoalTarget}h) · ${focusBlocksWeek} blocos de foco na semana`}
             onClick={() => setIsHovered(true)}
           >
             <span className="text-[10px] font-bold text-blue-400">{weeklyGoalPercent}%</span>

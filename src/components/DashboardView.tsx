@@ -1,35 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { motion } from 'motion/react';
-import {
-  Crown,
-  Clock,
-  Flame,
-  Award,
-  GraduationCap,
-  Calendar,
-  Sparkles,
-  Play,
-  Repeat,
-  CheckCircle2,
-  BookOpen,
-  ArrowRight,
-  Plus,
-  Stethoscope,
-  TrendingUp,
-  AlertCircle,
-  Activity,
-  Check,
-  ChevronRight,
-} from 'lucide-react';
+import React from 'react';
+import { Crown, Flame, Award, Sparkles, ArrowRight, Plus, Stethoscope, HelpCircle } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { OwnerName } from './OwnerName';
 import { useAccess } from '../context/AccessContext';
 import { CARTOON_AVATARS } from '../data/avatars';
-import { getActivityCategory, getExamKind, getExamSubjectName, occursOn, toYMD } from '../data/planning';
-import { isBlockDue } from '../data/blockReview';
 import { InstallAppBanner } from './InstallAppGuide';
 import { SemesterStatusCard } from './SemesterStatusCard';
 import { DashboardInsights } from './dashboard/DashboardInsights';
+import { DailyHabitsCard } from './plan/DailyHabitsCard';
 
 export const DashboardView: React.FC = () => {
   const {
@@ -37,79 +15,13 @@ export const DashboardView: React.FC = () => {
     subjects,
     topics,
     topicBlocks,
-    exams,
-    schedule,
     achievements,
     userProfile,
-    studySessions,
     setCurrentTab,
-    setTimerMode,
-    startTimer,
     setIsOnboardingOpen,
     updateUserProfile,
+    openMethodGuide,
   } = useApp();
-
-  const [currentTime, setCurrentTime] = useState(new Date());
-
-  useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  // Compute Weekly study hours
-  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 3600 * 1000);
-  const recentSessions = studySessions.filter((s) => new Date(s.timestamp) >= sevenDaysAgo);
-  const totalMinutesStudiedWeek = recentSessions.reduce((acc, s) => acc + s.durationMinutes, 0);
-  const totalHoursStudiedWeek = (totalMinutesStudiedWeek / 60).toFixed(1);
-  const weeklyTarget = userProfile.weeklyTargetHours || 30;
-  const weeklyGoalPercentage = Math.min(100, Math.round((Number(totalHoursStudiedWeek) / weeklyTarget) * 100));
-
-  // Compute Topics Mastery
-  // Domínio = blocos com as 4 revisões concluídas
-  const masteredTopics = topicBlocks.filter((b) => b.reviewStatus !== 'estudando' && b.reviewsDone >= 4).length;
-  const totalTopics = topicBlocks.length;
-  const masteryPercentage = totalTopics > 0 ? Math.round((masteredTopics / totalTopics) * 100) : 0;
-
-  // Topics due for spaced repetition review today
-  const todayStr = new Date().toISOString().split('T')[0];
-  const dueTopics = topicBlocks.filter((b) => isBlockDue(b, todayStr));
-
-  // Next Exams with Live Countdown
-  const upcomingExams = exams
-    .filter((e) => e.date && e.grade === undefined && new Date(e.date).getTime() >= new Date().setHours(0, 0, 0, 0))
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
-  const primaryNextExam = upcomingExams[0];
-
-  // Today's classes from schedule (1 = Mon, ..., 6 = Sat)
-  const currentDayOfWeek = currentTime.getDay() === 0 ? 7 : (currentTime.getDay() as 1 | 2 | 3 | 4 | 5 | 6);
-  const todaysClasses = schedule
-    .filter((sc) => occursOn(sc, toYMD(currentTime), currentDayOfWeek))
-    .sort((a, b) => a.startTime.localeCompare(b.startTime));
-
-  // Countdown Calculator helper
-  const getExamCountdown = (examDateStr: string, examTimeStr?: string) => {
-    const targetDate = new Date(`${examDateStr}T${examTimeStr || '08:00'}:00`);
-    const diffMs = targetDate.getTime() - currentTime.getTime();
-
-    if (diffMs <= 0) {
-      return { days: 0, hours: 0, minutes: 0, seconds: 0, isToday: true };
-    }
-
-    const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-    const hours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-    const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-    const seconds = Math.floor((diffMs % (1000 * 60)) / 1000);
-
-    return { days, hours, minutes, seconds, isToday: days === 0 };
-  };
-
-  const getSubject = (subjectId: string) => subjects.find((s) => s.id === subjectId);
-
-  const primaryCountdown = primaryNextExam
-    ? getExamCountdown(primaryNextExam.date, primaryNextExam.time)
-    : null;
-  const primarySubject = primaryNextExam ? getSubject(primaryNextExam.subjectId) : null;
 
   const { isOwner: isOwnerAccount } = useAccess();
   const isReturning = userProfile.onboardingCompleted;
@@ -209,7 +121,15 @@ export const DashboardView: React.FC = () => {
             )}
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            <button
+              id="dashboard-method-btn"
+              onClick={() => openMethodGuide(0)}
+              className="flex items-center gap-1.5 px-3.5 py-2 min-h-[40px] rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:border-sky-400 dark:hover:border-sky-600 text-xs font-bold transition-all shadow-xs cursor-pointer"
+            >
+              <HelpCircle className="w-4 h-4 text-sky-500" />
+              <span>Como funciona o método?</span>
+            </button>
             <button
               id="dashboard-how-to-use-btn"
               onClick={() => setIsOnboardingOpen(true)}
@@ -222,7 +142,10 @@ export const DashboardView: React.FC = () => {
         </div>
       )}
 
-      {/* Novo painel: filtros, métricas reais, hoje, evolução, áreas, horas, tabela e constância */}
+      {/* Checklist do dia (7 hábitos do guia), tocável aqui mesmo */}
+      {subjects.length > 0 && <DailyHabitsCard compact />}
+
+      {/* Novo painel: filtros, métricas reais, plano de hoje, evolução, áreas, horas, tabela e constância */}
       <DashboardInsights />
 
       <SemesterStatusCard />

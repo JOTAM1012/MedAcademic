@@ -73,7 +73,19 @@ export interface TopicBlock {
     /** Tempo de estudo informado na conclusão da revisão */
     minutes?: number;
     sessionId?: string;
+    /** Técnica usada nesta revisão (folha em branco, questões do tema...) */
+    stage?: ReviewTechniqueId;
+    /** XP dado nesta revisão (devolvido ao desfazer) */
+    xp?: number;
+    /** Certeza marcada antes de conferir as questões */
+    certainty?: Partial<Record<Certainty, number>>;
+    /** Erros por tipo (lacuna, raciocínio, leitura, pressa) */
+    errors?: Partial<Record<ErrorType, number>>;
   }>;
+  /** ⭐ Tema que cai muito na prova: sobe na fila de revisões */
+  star?: boolean;
+  /** Passos do estudo inicial (Dia 0) já feitos: pré-teste, mapa, Feynman, flashcards, questões */
+  initialSteps?: string[];
 }
 
 // Questões registradas (por bloco ou por tópico), somadas no semestre
@@ -87,6 +99,116 @@ export interface QuestionLog {
   topicId?: string;
   total: number;
   correct: number;
+  /** Tipo do bloco de questões (do tema, misturadas, simulado, pré-teste, refazer erros) */
+  mode?: QuestionMode;
+  errors?: Partial<Record<ErrorType, number>>;
+}
+
+// ===== Método de estudo (Guia Científico): revisões por etapa, caderno de erros, plano do dia =====
+export type ReviewTechniqueId = 'estudo_inicial' | 'folha_branco' | 'questoes_tema' | 'questoes_novas' | 'misturadas';
+export type ErrorType = 'lacuna' | 'raciocinio' | 'leitura' | 'pressa';
+export type Certainty = 'chute' | 'duvida' | 'certeza';
+export type QuestionMode = 'tema' | 'misturadas' | 'simulado' | 'pre_teste' | 'erros';
+
+/** Caderno de erros: tema, por que errou e a regra correta em 1 linha; volta em 7 e 30 dias */
+export interface ErrorNote {
+  id: string;
+  createdAt: string; // YYYY-MM-DD
+  subjectId?: string;
+  blockId?: string;
+  theme: string;
+  type: ErrorType;
+  certainty?: Certainty;
+  why?: string;
+  rule: string;
+  status: 'aberto' | 'resolvido';
+  /** Datas para refazer (criação +7 e +30; reinicia se errar de novo) */
+  redoDates: string[];
+  redoneCount: number;
+  lastRedo?: string;
+  flashcard?: boolean;
+}
+
+export interface StudyPlanPrefs {
+  /** Capacidade: blocos de foco (pomodoros) por dia de estudo */
+  dailyPomodoros: number;
+  /** Formato padrão para tema novo: 50/10 (imersão) ou 25/5 */
+  focusMinutes: 25 | 50;
+  /** Dia de descanso (0 = domingo … 6 = sábado); null = sem descanso fixo */
+  restDay: number | null;
+  /** Dia de questões misturadas + caderno de erros (6 = sábado); null = nenhum */
+  mixedDay: number | null;
+  /** Temas novos por dia */
+  newTopicsPerDay: 1 | 2 | 3;
+  /** Usa flashcards/Anki todo dia */
+  usesFlashcards: boolean;
+  /** Meta de longo prazo (internato/residência): intervalos de manutenção mais longos */
+  longTermGoal: boolean;
+}
+
+export interface PlanCustomTask {
+  id: string;
+  title: string;
+  pomodoros: number;
+  done?: boolean;
+}
+
+/** Estado manual de um dia do plano (o resto é calculado) */
+export interface DayPlanState {
+  done?: string[];
+  skipped?: string[];
+  custom?: PlanCustomTask[];
+  lowEnergy?: boolean;
+  /** Internato: dia de plantão (só o essencial) ou pós-plantão (dia leve) */
+  shift?: 'plantao' | 'pos_plantao' | 'normal';
+}
+
+export type PersonalProjectKind = 'residencia' | 'liga' | 'idioma' | 'curso' | 'leitura' | 'pesquisa' | 'outro';
+
+export interface PersonalProjectItem {
+  id: string;
+  title: string;
+  done: boolean;
+  doneAt?: string;
+  /** Revisões do item (mesmo motor R1–R4; técnica: folha em branco / explicar / flashcards) */
+  inReview?: boolean;
+  reviewsDone?: number;
+  nextReviewDate?: string;
+  lastReviewDate?: string;
+  difficulty?: TopicDifficulty;
+}
+
+/** Estudos pessoais: projetos fora da grade (residência, liga, idioma, curso, leitura, pesquisa) */
+export interface PersonalProject {
+  id: string;
+  title: string;
+  kind: PersonalProjectKind;
+  emoji: string;
+  color: string;
+  /** Meta semanal em blocos de foco */
+  weeklyPomodoros: number;
+  /** Dias da semana preferidos (0 = domingo … 6 = sábado); vazio = qualquer dia */
+  days?: number[];
+  deadline?: string;
+  items: PersonalProjectItem[];
+  createdAt: string;
+  archived?: boolean;
+}
+
+/** Tudo do método num objeto só (salvo local + nuvem como `studyMethod`) */
+export interface StudyMethodState {
+  version: 1;
+  /** Só o que o aluno escolheu; o resto vem dos padrões da fase (resolvePrefs) */
+  prefs?: Partial<StudyPlanPrefs>;
+  errorNotes: ErrorNote[];
+  /** Checklist diário: data → ids marcados à mão */
+  habits: Record<string, string[]>;
+  /** Plano do dia: data → estado manual */
+  dayPlans: Record<string, DayPlanState>;
+  projects: PersonalProject[];
+  guideSeen?: boolean;
+  /** Erros/projetos excluídos (id → data), para a exclusão valer em todos os aparelhos */
+  deleted?: Record<string, string>;
 }
 
 export interface Subject {
@@ -199,6 +321,12 @@ export interface StudySession {
   type: 'pomodoro' | 'stopwatch' | 'spaced_repetition' | 'tutor_ai';
   notes?: string;
   xpEarned: number;
+  /** Bloco de revisão ligado ao foco */
+  blockId?: string;
+  /** Projeto de Estudos pessoais ligado ao foco */
+  projectId?: string;
+  /** Tipo de tarefa do plano (review, new_topic, flashcards, ...) */
+  activity?: string;
 }
 
 export interface Achievement {

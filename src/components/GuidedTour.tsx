@@ -16,6 +16,9 @@ import {
   Zap,
   Cloud,
   BookOpen,
+  CalendarCheck,
+  NotebookPen,
+  FolderHeart,
 } from 'lucide-react';
 
 export interface TourStep {
@@ -56,9 +59,9 @@ const TOUR_STEPS: TourStep[] = [
     mobileTargetSelector: '#mobile-tab-bar',
     title: 'Navegação principal',
     description:
-      'Acesse o Dashboard, o Planner, a Grade do Semestre (provas e notas), a Grade de Horários, as Disciplinas, as Revisões, o Pomodoro, o Checklist e o Perfil.',
+      'Acesse o Dashboard, o Planner, as Avaliações (provas e notas), a Grade de horários, as Disciplinas, as Revisões, o Pomodoro, os Estudos pessoais, o Checklist e o Perfil.',
     mobileDescription:
-      'Use a barra de abas aqui embaixo: Início, Planner, Revisões e Pomodoro. Em “Mais” estão a Grade do Semestre (provas e notas), a Grade de Horários, as Disciplinas, o Checklist e o Perfil.',
+      'Use a barra de abas aqui embaixo: Início, Planner, Revisões e Pomodoro. Em “Mais” estão as Avaliações (provas e notas), a Grade de horários, as Disciplinas, os Estudos pessoais, o Checklist e o Perfil.',
     badgeText: 'Navegação 📍',
     icon: <Compass className="w-5 h-5 text-cyan-400" />,
     position: 'right',
@@ -74,15 +77,48 @@ const TOUR_STEPS: TourStep[] = [
     position: 'bottom',
   },
   {
+    id: 'planner-today',
+    targetSelector: '#calendar-view-today',
+    title: 'Seu plano do dia',
+    description:
+      'Todo dia o site monta o que estudar, na ordem certa: primeiro as revisões, depois questões e por fim o conteúdo novo, do tamanho do seu tempo. Você só aperta “Começar” no próximo passo.',
+    badgeText: 'Planner › Hoje ☀️',
+    icon: <CalendarCheck className="w-5 h-5 text-emerald-400" />,
+    tabToNavigate: 'calendar',
+    position: 'bottom',
+  },
+  {
     id: 'spaced-repetition',
     targetSelector: '#tour-spaced-repetition',
-    title: 'Revisão espaçada',
+    title: 'Revisões do jeito certo',
     description:
-      'Agende e acompanhe suas revisões com o método de repetição espaçada. Ao retomar os conteúdos em intervalos planejados, você fortalece a retenção e apoia sua aprendizagem.',
+      'Cada tema volta em 24 h, 7 dias, 30 dias e depois em intervalos maiores. Em cada volta você tenta lembrar antes de olhar: folha em branco, questões do tema, questões novas e, por fim, questões misturadas. Foi mal? A próxima vem mais cedo.',
     badgeText: 'Revisões 🧠',
     icon: <Brain className="w-5 h-5 text-violet-400" />,
     tabToNavigate: 'spaced_repetition',
     position: 'bottom',
+  },
+  {
+    id: 'error-notebook',
+    targetSelector: '#review-tab-erros',
+    title: 'Caderno de erros',
+    description:
+      'Anote cada erro em 1 linha: o tema, por que errou e a regra certa. O erro volta para você refazer na próxima revisão do tema (ou em 7 e 30 dias). Acertou duas vezes seguidas? Resolvido.',
+    badgeText: 'Caderno de erros 📒',
+    icon: <NotebookPen className="w-5 h-5 text-amber-400" />,
+    tabToNavigate: 'spaced_repetition',
+    position: 'bottom',
+  },
+  {
+    id: 'personal-studies',
+    targetSelector: '#personal-studies-view',
+    title: 'Estudos pessoais',
+    description:
+      'Residência, liga acadêmica, idioma, um curso ou um livro: crie um projeto com meta semanal de blocos de foco. Ele entra no seu plano do dia nos dias que você escolher.',
+    badgeText: 'Projetos seus ✨',
+    icon: <FolderHeart className="w-5 h-5 text-rose-400" />,
+    tabToNavigate: 'personal',
+    position: 'center',
   },
   {
     id: 'sync',
@@ -108,7 +144,7 @@ const TOUR_STEPS: TourStep[] = [
     targetSelector: '#dashboard-how-to-use-btn, #dashboard-tutorial-btn',
     title: 'Como usar a plataforma',
     description:
-      'Este botão no Dashboard abre o guia “Como Usar a Plataforma”, que explica passo a passo como funciona cada ferramenta. Volte a ele sempre que tiver dúvida. Na primeira vez, ele abre sozinho logo depois deste tour (dá para pular).',
+      'Este botão no Dashboard abre o guia “Como Usar a Plataforma”, que explica passo a passo como funciona cada ferramenta. Volte a ele sempre que tiver dúvida. Na primeira vez, ele abre sozinho logo depois deste tour (dá para pular). O porquê de cada revisão está em “Como funciona?”, no guia do Método.',
     badgeText: 'Guia das ferramentas 📘',
     icon: <BookOpen className="w-5 h-5 text-sky-400" />,
     tabToNavigate: 'dashboard',
@@ -126,22 +162,49 @@ export const GuidedTour: React.FC<GuidedTourProps> = ({
 
   const currentStep = TOUR_STEPS[currentStepIndex];
 
+  // Ao reabrir, o tour sempre recomeça do passo 0 (zera ao fechar, para a troca de aba
+  // do passo antigo não disparar no momento em que ele abre de novo)
+  useEffect(() => {
+    if (!isOpen) {
+      setCurrentStepIndex(0);
+      setTargetRect(null);
+    }
+  }, [isOpen]);
+
+  const findTarget = useCallback((): Element | null => {
+    if (!currentStep || currentStep.position === 'center' || currentStep.targetSelector === '#tour-welcome') return null;
+    const narrow = window.innerWidth < 1024;
+    const selector = narrow && currentStep.mobileTargetSelector ? currentStep.mobileTargetSelector : currentStep.targetSelector;
+    return document.querySelector(selector);
+  }, [currentStep]);
+
   // Update rect position for highlight spotlight
   const updateTargetPosition = useCallback(() => {
     if (!isOpen || !currentStep) return;
-
-    if (currentStep.position === 'center' || currentStep.targetSelector === '#tour-welcome') {
-      setTargetRect(null);
-      return;
-    }
-
-    const narrow = window.innerWidth < 1024;
-    const selector = narrow && currentStep.mobileTargetSelector ? currentStep.mobileTargetSelector : currentStep.targetSelector;
-    const el = document.querySelector(selector);
+    const el = findTarget();
     const rect = el?.getBoundingClientRect();
-    // elemento escondido (ex.: botão de instalar quando o app já está instalado) → cartão no centro
+    // alvo que não existe ou está escondido (ex.: botão de instalar com o app já instalado) → cartão no centro
     setTargetRect(rect && rect.width > 0 && rect.height > 0 ? rect : null);
-  }, [isOpen, currentStep]);
+  }, [isOpen, currentStep, findTarget]);
+
+  /** Traz o alvo para a tela quando ele está fora da área visível */
+  const scrollTargetIntoView = useCallback(() => {
+    const el = findTarget();
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return;
+    // dentro da área que rola, o limite de cima é o topo dela (abaixo da barra do topo);
+    // no celular a barra de abas cobre o rodapé
+    const main = document.querySelector('main');
+    const topSafe = main && main.contains(el) ? Math.max(0, main.getBoundingClientRect().top) : 0;
+    const bottomSafe = window.innerWidth < 1024 ? 96 : 16;
+    const viewH = window.innerHeight;
+    const fullyVisible = rect.top >= topSafe && rect.bottom <= viewH - bottomSafe;
+    const tall = rect.height > viewH - topSafe - bottomSafe;
+    // alvo maior que a tela: basta o começo dele estar visível
+    if (fullyVisible || (tall && rect.top >= topSafe && rect.top < viewH * 0.5)) return;
+    el.scrollIntoView({ block: tall ? 'start' : 'center', behavior: 'smooth' });
+  }, [findTarget]);
 
   // Navigate tab if step specifies one
   useEffect(() => {
@@ -154,20 +217,29 @@ export const GuidedTour: React.FC<GuidedTourProps> = ({
   useLayoutEffect(() => {
     if (!isOpen) return;
 
-    // Small delay to allow tab transitions/DOM rendering
-    const timer = setTimeout(() => {
-      updateTargetPosition();
-    }, 150);
+    // A troca de aba tem animação: procura o alvo algumas vezes, rola até ele e recalcula
+    const timers = [
+      setTimeout(updateTargetPosition, 150),
+      setTimeout(() => {
+        scrollTargetIntoView();
+        updateTargetPosition();
+      }, 450),
+      setTimeout(updateTargetPosition, 900),
+      setTimeout(() => {
+        scrollTargetIntoView();
+        updateTargetPosition();
+      }, 1400),
+    ];
 
     window.addEventListener('resize', updateTargetPosition);
     window.addEventListener('scroll', updateTargetPosition, true);
 
     return () => {
-      clearTimeout(timer);
+      timers.forEach(clearTimeout);
       window.removeEventListener('resize', updateTargetPosition);
       window.removeEventListener('scroll', updateTargetPosition, true);
     };
-  }, [isOpen, currentStepIndex, updateTargetPosition]);
+  }, [isOpen, currentStepIndex, updateTargetPosition, scrollTargetIntoView]);
 
   // Keyboard navigation
   useEffect(() => {

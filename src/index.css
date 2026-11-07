@@ -377,3 +377,11 @@ html.theme-anim, html.theme-anim *, html.theme-anim *::before, html.theme-anim *
   :where(html:not(.dark)) :is(main, .app-modal-panel) .text-lime-400:where(:not(.dark *)) { color: #65a30d; }
   :where(html:not(.dark)) :is(main, .app-modal-panel) .text-lime-300:where(:not(.dark *)) { color: #4d7c0f; }
 }
+
+/* Texto na cor de destaque (técnica, tipo de erro, fase, projeto): use className="ink" e
+   style={{ '--ink': cor }}. No claro a cor escurece para ter contraste; no escuro fica a cor-base.
+   Fundos, bordas e ícones continuam usando a cor-base direto. */
+@layer utilities {
+  .ink { color: color-mix(in srgb, var(--ink, currentColor) 62%, #0f172a); }
+  .dark .ink { color: var(--ink, currentColor); }
+}

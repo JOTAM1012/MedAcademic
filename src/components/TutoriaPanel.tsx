@@ -5,6 +5,7 @@ import type { Subject, Topic, TutorialSession } from '../types';
 import { DatePickerField } from './DatePickerField';
 import { formatDM, isBlockDue, isTopicPending, isTopicResolved, isTopicSeen, ymd } from '../data/blockReview';
 import { subjectFormatOf } from '../data/subjectFormats';
+import { reviewTechnique } from '../data/studyMethod';
 
 interface Props {
   subject: Subject;
@@ -41,7 +42,7 @@ export const TutoriaPanel: React.FC<Props> = ({ subject }) => {
     resetTopicProgress,
     updateSubject,
     sendModuleToReview,
-    setCurrentTab,
+    openReviews,
   } = useApp();
   const accent = subjectFormatOf(subject).color;
   const todayStr = ymd(new Date());
@@ -388,25 +389,35 @@ export const TutoriaPanel: React.FC<Props> = ({ subject }) => {
                       <Trophy className="h-3 w-3" /> Dominado
                     </span>
                   ) : (
-                    <button
-                      type="button"
-                      onClick={() => setCurrentTab('spaced_repetition')}
-                      className={`hidden sm:flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        isBlockDue(block, todayStr) ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400' : 'bg-sky-500/15 text-sky-600 dark:text-sky-400'
-                      }`}
-                    >
-                      <Repeat className="h-3 w-3" /> R{block.reviewsDone + 1} · {formatDM(block.nextReviewDate)}
-                    </button>
+                    (() => {
+                      const tech = reviewTechnique(block, subject.format);
+                      const due = isBlockDue(block, todayStr);
+                      return (
+                        <button
+                          type="button"
+                          onClick={() => openReviews({ blockId: block.id, tab: 'hoje' })}
+                          className="hidden sm:flex items-center gap-1 min-w-0 text-[10px] font-bold px-2 py-0.5 rounded-full border"
+                          style={{ color: tech.color, backgroundColor: `${tech.color}14`, borderColor: `${tech.color}40` }}
+                          title={`Abrir Revisões · ${tech.label}`}
+                        >
+                          <span aria-hidden>{tech.emoji}</span>
+                          <span className="truncate">{tech.badge}</span>
+                          <span className="shrink-0 text-slate-600 dark:text-slate-300 font-semibold">· {due ? 'hoje' : formatDM(block.nextReviewDate)}</span>
+                        </button>
+                      );
+                    })()
                   )
                 ) : (
                   done && (
                     <button
                       type="button"
                       onClick={() => sendModuleToReview(subject.id, tut.name)}
-                      className="flex items-center gap-1 text-[10px] font-black px-2.5 py-1 rounded-full bg-emerald-500 text-white hover:bg-emerald-400"
-                      title="Leva os objetivos desta tutoria para as revisões espaçadas"
+                      className="flex items-center gap-1 text-[10px] font-black px-2.5 py-1 rounded-full bg-emerald-600 text-white hover:bg-emerald-500"
+                      title="Estudei: enviar para as revisões (1ª amanhã)"
                     >
-                      <Repeat className="h-3 w-3" /> Revisões
+                      <Repeat className="h-3 w-3 shrink-0" />
+                      <span className="sm:hidden">Estudei · revisar</span>
+                      <span className="hidden sm:inline">Estudei: enviar para as revisões (1ª amanhã)</span>
                     </button>
                   )
                 )}

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   X,
   Stethoscope,
@@ -24,10 +24,20 @@ interface OnboardingModalProps {
 }
 
 export const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClose }) => {
-  const { addXp, triggerConfetti, setCurrentTab } = useApp();
+  const { addXp, triggerConfetti, openMethodGuide } = useApp();
   const [currentStep, setCurrentStep] = useState(0);
 
+  // Ao reabrir, o guia sempre começa do 1º passo
+  useEffect(() => {
+    if (isOpen) setCurrentStep(0);
+  }, [isOpen]);
+
   if (!isOpen) return null;
+
+  const openFullMethodGuide = () => {
+    onClose();
+    openMethodGuide(0);
+  };
 
   const steps = [
     {
@@ -62,16 +72,19 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClos
     },
     {
       title: '3. Repetição Espaçada 🧠',
-      subtitle: 'Método SM-2 para nunca mais esquecer condutas e critérios.',
+      subtitle: 'Cada tema volta no dia certo, e você tenta lembrar antes de olhar.',
       icon: Repeat,
       color: 'bg-amber-500 text-white',
       tag: 'Fixação',
       description:
-        'A revisão é feita por bloco, com plano sugerido: Fácil (15 questões), Médio (resumo + 20 questões) ou Difícil (resumo + videoaula + 30 questões).',
-      actionTip: '💡 Dica: Estude os tópicos e anexe imagens/esquemas.',
+        'Quando você termina de estudar um tema, ele entra nas Revisões. Em cada volta você usa uma técnica de recuperação ativa (nada de só reler):',
+      actionTip:
+        '💡 Dica: ao terminar cada revisão, diga como foi. Foi mal? A próxima vem mais cedo. Foi bem? O intervalo fica mais longo. Revisões vêm antes do conteúdo novo.',
       bulletPoints: [
-        'Ao terminar, avalie como foi: isso define quando o bloco volta e o plano da próxima vez.',
-        'Filtre tópicos por disciplina ou estude tudo o que está agendado para hoje.',
+        'R1 em 24 h: folha em branco. Escreva tudo o que lembra, sem consultar, e depois confira.',
+        'R2 em 7 dias: bloco de questões só desse tema, marcando sua certeza e lendo os comentários.',
+        'R3 em 30 dias: questões novas + refazer os erros do caderno de erros.',
+        'R4 em diante (60–90 dias e depois a cada poucos meses): questões misturadas com outros temas.',
       ],
     },
     {
@@ -194,6 +207,26 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClos
         <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-700 dark:text-amber-300 font-medium mb-6">
           {active.actionTip}
         </div>
+
+        {/* Guia completo do Método (no passo das revisões e no fim) */}
+        {(currentStep === steps.length - 1 || active.tag === 'Fixação') && (
+          <button
+            id={currentStep === steps.length - 1 ? 'onboarding-method-guide-btn' : 'onboarding-method-guide-link'}
+            onClick={openFullMethodGuide}
+            className="group w-full mb-6 flex items-center gap-3 rounded-2xl border border-sky-500/30 bg-gradient-to-r from-sky-500/10 to-transparent hover:from-sky-500/15 p-3.5 text-left transition-colors cursor-pointer min-h-[56px]"
+          >
+            <span className="h-10 w-10 shrink-0 rounded-xl bg-sky-600 text-white grid place-items-center shadow-md shadow-sky-500/20">
+              <GraduationCap className="h-5 w-5" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-black text-slate-900 dark:text-white">Ver o guia completo do método</span>
+              <span className="block text-[11px] text-slate-500 dark:text-slate-400 leading-snug">
+                Curva do esquecimento, revisões, questões, plano do dia e cada fase do curso.
+              </span>
+            </span>
+            <ArrowRight className="h-4 w-4 shrink-0 text-sky-500 group-hover:translate-x-0.5 transition-transform" />
+          </button>
+        )}
 
         {/* Footer Actions */}
         <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-800">

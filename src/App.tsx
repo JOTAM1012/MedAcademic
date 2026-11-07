@@ -26,6 +26,8 @@ import { ProfileView } from './components/ProfileView';
 import { ChecklistView } from './components/ChecklistView';
 import { ProfileCreationPage } from './components/ProfileCreationPage';
 import { GuidedTour } from './components/GuidedTour';
+import { MethodGuideModal } from './components/guide/MethodGuideModal';
+import { PersonalStudiesView } from './components/PersonalStudiesView';
 import { InstallAppModal } from './components/InstallAppGuide';
 import { OPEN_INSTALL_EVENT } from './lib/pwaInstall';
 
@@ -52,6 +54,9 @@ const AppContent: React.FC = () => {
     isInitialLoadComplete,
     cloudSyncStatus,
     forceCloudSync,
+    methodGuide,
+    openMethodGuide,
+    methodGuideSeen,
   } = useApp();
 
   // Mobile menu state
@@ -80,6 +85,9 @@ const AppContent: React.FC = () => {
 
   // Conta nova: tour primeiro; ao terminar ou pular, o app "aperta" o botão "Como Usar a Plataforma"
   const newUserFlowRef = useRef(false);
+  // Enquanto o fluxo de conta nova está entre uma janela e outra (tour → "Como usar"),
+  // o guia rápido do método não pode abrir no meio
+  const [isShellFlowBusy, setIsShellFlowBusy] = useState(false);
   useEffect(() => {
     const start = () => {
       let pending = false;
@@ -89,6 +97,7 @@ const AppContent: React.FC = () => {
       } catch {}
       if (!pending) return;
       newUserFlowRef.current = true;
+      setIsShellFlowBusy(true);
       setCurrentTab('dashboard');
       setTimeout(() => setIsTourOpen(true), 400);
     };
@@ -98,6 +107,7 @@ const AppContent: React.FC = () => {
   }, []);
 
   const pressHowToUse = () => {
+    setIsShellFlowBusy(true);
     setCurrentTab('dashboard');
     setTimeout(() => {
       const btn = document.getElementById('dashboard-how-to-use-btn') || document.getElementById('dashboard-tutorial-btn');
@@ -106,7 +116,10 @@ const AppContent: React.FC = () => {
         btn.classList.add('how-to-press');
         setTimeout(() => btn.classList.remove('how-to-press'), 1200);
       }
-      setTimeout(() => setIsOnboardingOpen(true), btn ? 700 : 0);
+      setTimeout(() => {
+        setIsOnboardingOpen(true);
+        setIsShellFlowBusy(false);
+      }, btn ? 700 : 0);
     }, 350);
   };
 
@@ -116,8 +129,41 @@ const AppContent: React.FC = () => {
     if (newUserFlowRef.current) {
       newUserFlowRef.current = false;
       pressHowToUse();
+    } else {
+      setIsShellFlowBusy(false);
     }
   };
+
+  // Guia rápido do Método (3 telas): abre sozinho UMA vez para quem ainda não viu — inclusive
+  // usuários antigos —, só depois de carregar a nuvem e sem tour, "Como usar" ou criação de perfil
+  // abertos. Na conta nova ele vem por último: tour → "Como usar a plataforma" → guia rápido.
+  const isSetupDone =
+    userProfile.onboardingCompleted || Boolean(activeUser && activeUser.onboardingCompleted) || subjects.length > 0;
+  const autoGuideUserRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!activeUserId || autoGuideUserRef.current === activeUserId) return;
+    if (methodGuideSeen || methodGuide.open) return;
+    if (!isInitialLoadComplete || cloudSyncStatus === 'syncing') return;
+    if (isTourOpen || isOnboardingOpen || isEditingProfileSetup || !isSetupDone || isShellFlowBusy) return;
+    // pequena espera: deixa a tela assentar e evita abrir no meio de uma troca de janela
+    const t = setTimeout(() => {
+      autoGuideUserRef.current = activeUserId;
+      openMethodGuide(-1);
+    }, 1200);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    activeUserId,
+    methodGuideSeen,
+    methodGuide.open,
+    isInitialLoadComplete,
+    cloudSyncStatus,
+    isTourOpen,
+    isOnboardingOpen,
+    isEditingProfileSetup,
+    isSetupDone,
+    isShellFlowBusy,
+  ]);
 
   // Modals state
   const [isAddSubjectOpen, setIsAddSubjectOpen] = useState(false);
@@ -302,6 +348,8 @@ const AppContent: React.FC = () => {
         return <ProfileView />;
       case 'checklist':
         return <ChecklistView />;
+      case 'personal':
+        return <PersonalStudiesView />;
       default:
         return <DashboardView />;
     }
@@ -386,6 +434,9 @@ const AppContent: React.FC = () => {
       />
 
       <AuthModal />
+
+      {/* Guia "Como funciona o Método MedAcademic" (completo ou modo rápido do 1º acesso) */}
+      <MethodGuideModal />
 
       {/* Floating Bottom-Right Container with User Status Dock & Toast */}
       <div className="fixed bottom-[calc(84px+env(safe-area-inset-bottom,0px))] lg:bottom-4 right-3 lg:right-4 z-40 flex flex-col items-end gap-2.5 max-w-[340px]">

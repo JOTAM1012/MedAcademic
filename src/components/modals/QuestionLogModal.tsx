@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { X, ClipboardCheck, Trash2 } from 'lucide-react';
+import { X, ClipboardCheck, NotebookPen, Trash2 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { formatDM } from '../../data/blockReview';
+import type { QuestionMode } from '../../types';
+import { ErrorNoteModal } from '../review/ErrorNoteModal';
 
 interface QuestionLogModalProps {
   isOpen: boolean;
@@ -12,6 +14,15 @@ interface QuestionLogModalProps {
 const inputCls =
   'w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-2.5 text-sm font-bold text-slate-900 dark:text-white focus:outline-hidden focus:border-sky-500';
 
+// Tipo do bloco de questões (método de questões do guia)
+const MODES: Array<{ id: QuestionMode; label: string; emoji: string; hint: string }> = [
+  { id: 'tema', label: 'Do tema', emoji: '🎯', hint: 'Questões só de um tema' },
+  { id: 'misturadas', label: 'Misturadas', emoji: '🔀', hint: 'Vários temas juntos' },
+  { id: 'simulado', label: 'Simulado', emoji: '⏱️', hint: 'Com tempo, como na prova' },
+  { id: 'pre_teste', label: 'Pré-teste', emoji: '🌱', hint: 'Antes de estudar (errar é normal)' },
+];
+const MODE_LABEL: Record<QuestionMode, string> = { tema: 'Do tema', misturadas: 'Misturadas', simulado: 'Simulado', pre_teste: 'Pré-teste', erros: 'Refazer erros' };
+
 // Registro de questões feitas: por bloco ou por tópico. Soma no Dashboard (semestre).
 export const QuestionLogModal: React.FC<QuestionLogModalProps> = ({ isOpen, onClose, defaultBlockId }) => {
   const { topicBlocks, topics, subjects, questionLogs, addQuestionLog, deleteQuestionLog } = useApp();
@@ -20,6 +31,10 @@ export const QuestionLogModal: React.FC<QuestionLogModalProps> = ({ isOpen, onCl
   const [topicId, setTopicId] = useState('');
   const [total, setTotal] = useState('');
   const [correct, setCorrect] = useState('');
+  const [mode, setMode] = useState<QuestionMode>('tema');
+  /** Depois de salvar com erros: atalho para anotar no caderno */
+  const [savedErrors, setSavedErrors] = useState<{ count: number; blockId?: string; subjectId?: string } | null>(null);
+  const [noteOpen, setNoteOpen] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -28,6 +43,9 @@ export const QuestionLogModal: React.FC<QuestionLogModalProps> = ({ isOpen, onCl
     setTopicId('');
     setTotal('');
     setCorrect('');
+    setMode('tema');
+    setSavedErrors(null);
+    setNoteOpen(false);
   }, [isOpen, defaultBlockId]);
 
   const subjectName = (id?: string) => {
@@ -57,24 +75,34 @@ export const QuestionLogModal: React.FC<QuestionLogModalProps> = ({ isOpen, onCl
   const c = Math.min(Number(correct) || 0, t);
   const pct = t > 0 && correct !== '' ? Math.round((c / t) * 100) : undefined;
   const target = kind === 'block' ? blockId : topicId;
-  const canSave = !!target && t > 0 && correct !== '' && Number(correct) <= t;
+  // Misturadas e simulado podem não ter um tema só
+  const targetOptional = mode === 'misturadas' || mode === 'simulado';
+  const canSave = (!!target || targetOptional) && t > 0 && correct !== '' && Number(correct) <= t;
 
   const save = (e: React.FormEvent) => {
     e.preventDefault();
     if (!canSave) return;
+    let linkBlock: string | undefined;
+    let linkSubject: string | undefined;
     if (kind === 'block') {
       const b = topicBlocks.find((x) => x.id === blockId);
-      addQuestionLog({ kind, blockId, subjectId: b?.subjectId, total: t, correct: c });
+      linkBlock = b?.id;
+      linkSubject = b?.subjectId;
+      addQuestionLog({ kind, blockId: blockId || undefined, subjectId: b?.subjectId, total: t, correct: c, mode });
     } else {
       const tp = topics.find((x) => x.id === topicId);
-      addQuestionLog({ kind, topicId, blockId: tp?.blockId, subjectId: tp?.subjectId, total: t, correct: c });
+      linkBlock = tp?.blockId;
+      linkSubject = tp?.subjectId;
+      addQuestionLog({ kind, topicId: topicId || undefined, blockId: tp?.blockId, subjectId: tp?.subjectId, total: t, correct: c, mode });
     }
+    setSavedErrors(t - c > 0 ? { count: t - c, blockId: linkBlock, subjectId: linkSubject } : null);
     setTotal('');
     setCorrect('');
   };
 
-  const labelOf = (logBlockId?: string, logTopicId?: string, logKind?: string) => {
-    if (logKind === 'topic') return topics.find((x) => x.id === logTopicId)?.title || 'Tópico removido';
+  const labelOf = (logBlockId?: string, logTopicId?: string, logKind?: string, logMode?: QuestionMode) => {
+    if (logKind === 'topic') return topics.find((x) => x.id === logTopicId)?.title || (logTopicId ? 'Tópico removido' : 'Questões');
+    if (!logBlockId) return logMode ? `Questões · ${MODE_LABEL[logMode]}` : 'Questões';
     return topicBlocks.find((x) => x.id === logBlockId)?.name || 'Bloco removido';
   };
 
@@ -103,6 +131,34 @@ export const QuestionLogModal: React.FC<QuestionLogModalProps> = ({ isOpen, onCl
         </div>
 
         <form onSubmit={save} className="space-y-3">
+          <div>
+            <span className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1.5">Tipo de bloco</span>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5" role="radiogroup" aria-label="Tipo de bloco">
+              {MODES.map((m) => (
+                <button
+                  key={m.id}
+                  id={`question-log-mode-${m.id}`}
+                  type="button"
+                  role="radio"
+                  aria-checked={mode === m.id}
+                  onClick={() => setMode(m.id)}
+                  title={m.hint}
+                  className={`min-h-[40px] px-2 py-1.5 rounded-xl border text-xs font-bold transition-colors ${
+                    mode === m.id
+                      ? 'border-sky-500 bg-sky-50 dark:bg-sky-950/50 text-sky-700 dark:text-sky-300'
+                      : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60'
+                  }`}
+                >
+                  {m.emoji} {m.label}
+                </button>
+              ))}
+            </div>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+              {MODES.find((m) => m.id === mode)?.hint}
+              {targetOptional ? ' · escolher o tema é opcional' : ''}
+            </p>
+          </div>
+
           <div className="grid grid-cols-2 gap-1 rounded-xl bg-slate-100 dark:bg-slate-950/70 p-1">
             {(['block', 'topic'] as const).map((k) => (
               <button
@@ -120,7 +176,7 @@ export const QuestionLogModal: React.FC<QuestionLogModalProps> = ({ isOpen, onCl
 
           {kind === 'block' ? (
             <select id="question-log-block" value={blockId} onChange={(e) => setBlockId(e.target.value)} className={inputCls} aria-label="Bloco">
-              <option value="">Escolha o bloco...</option>
+              <option value="">{targetOptional ? 'Vários temas (opcional)' : 'Escolha o bloco...'}</option>
               {blockGroups.map((g) => (
                 <optgroup key={g.label} label={g.label}>
                   {g.items.map((b) => (
@@ -133,7 +189,7 @@ export const QuestionLogModal: React.FC<QuestionLogModalProps> = ({ isOpen, onCl
             </select>
           ) : (
             <select id="question-log-topic" value={topicId} onChange={(e) => setTopicId(e.target.value)} className={inputCls} aria-label="Tópico">
-              <option value="">Escolha o tópico...</option>
+              <option value="">{targetOptional ? 'Vários tópicos (opcional)' : 'Escolha o tópico...'}</option>
               {topicGroups.map((g) => (
                 <optgroup key={g.label} label={g.label}>
                   {g.items.map((tp) => (
@@ -171,6 +227,27 @@ export const QuestionLogModal: React.FC<QuestionLogModalProps> = ({ isOpen, onCl
           </button>
         </form>
 
+        {savedErrors && (
+          <div id="question-log-errors-hint" className="rounded-2xl border border-amber-200 dark:border-amber-900/50 bg-amber-50/70 dark:bg-amber-950/20 p-3.5 space-y-2">
+            <p className="text-xs text-slate-700 dark:text-slate-200">
+              Salvo! Foram <strong>{savedErrors.count} erro{savedErrors.count > 1 ? 's' : ''}</strong>. Anote no caderno enquanto está fresco: o tipo do erro e a regra certa em 1 linha.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                id="question-log-add-error"
+                type="button"
+                onClick={() => setNoteOpen(true)}
+                className="inline-flex items-center gap-1.5 min-h-[40px] px-3.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black"
+              >
+                <NotebookPen className="h-4 w-4" /> Anotar erro no caderno
+              </button>
+              <button type="button" onClick={() => setSavedErrors(null)} className="min-h-[40px] px-3 rounded-xl text-xs font-bold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200">
+                Agora não
+              </button>
+            </div>
+          </div>
+        )}
+
         {questionLogs.length > 0 && (
           <div className="pt-3 border-t border-slate-100 dark:border-slate-800">
             <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-2">Últimos registros</p>
@@ -181,7 +258,8 @@ export const QuestionLogModal: React.FC<QuestionLogModalProps> = ({ isOpen, onCl
                   <li key={q.id} className="group flex items-center gap-2 text-xs">
                     <span className="text-[10px] font-bold text-slate-400 w-10 shrink-0">{formatDM(q.date)}</span>
                     <span className="flex-1 min-w-0 truncate font-semibold text-slate-700 dark:text-slate-200">
-                      {labelOf(q.blockId, q.topicId, q.kind)}
+                      {labelOf(q.blockId, q.topicId, q.kind, q.mode)}
+                      {q.mode && q.mode !== 'tema' && q.blockId && <span className="ml-1 text-[10px] font-bold text-slate-400">· {MODE_LABEL[q.mode]}</span>}
                     </span>
                     <span className="shrink-0 text-slate-500">
                       {q.correct}/{q.total}
@@ -200,6 +278,9 @@ export const QuestionLogModal: React.FC<QuestionLogModalProps> = ({ isOpen, onCl
             </ul>
           </div>
         )}
+      </div>
+      <div onClick={(e) => e.stopPropagation()}>
+        <ErrorNoteModal isOpen={noteOpen} onClose={() => setNoteOpen(false)} defaultBlockId={savedErrors?.blockId} defaultSubjectId={savedErrors?.subjectId} />
       </div>
     </div>
   );

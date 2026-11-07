@@ -37,8 +37,9 @@ import {
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { AREA_OPTIONS, PERIOD_OPTIONS, PeriodFilter, buildDashboard } from '../../data/dashboardMetrics';
-import { formatDM, isBlockDue, ymd } from '../../data/blockReview';
+import { formatDM, ymd } from '../../data/blockReview';
 import { getActivityCategory, getExamKind, getExamSubjectName, occursOn, toYMD } from '../../data/planning';
+import { TodayPlanPanel } from '../plan/TodayPlanPanel';
 
 const card = 'rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs';
 const fmtPct = (v?: number) => (v === undefined ? '—' : `${(Math.round(v * 10) / 10).toString().replace('.', ',')}%`);
@@ -117,6 +118,32 @@ const GoalRing: React.FC<{ value?: number; goal: number; label: string }> = ({ v
   );
 };
 
+// Contador da próxima prova: só este pedaço atualiza a cada segundo
+const ExamCountdown: React.FC<{ target: string }> = ({ target }) => {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(t);
+  }, []);
+  const ms = Math.max(0, new Date(target).getTime() - now);
+  const parts: Array<[number, string]> = [
+    [Math.floor(ms / 86400000), 'dias'],
+    [Math.floor((ms % 86400000) / 3600000), 'horas'],
+    [Math.floor((ms % 3600000) / 60000), 'min'],
+    [Math.floor((ms % 60000) / 1000), 'seg'],
+  ];
+  return (
+    <div className="grid grid-cols-4 gap-1.5 mt-3">
+      {parts.map(([v, l]) => (
+        <div key={l} className="rounded-xl bg-white/15 py-2 text-center">
+          <div className="text-lg font-black leading-none">{v}</div>
+          <div className="text-[9px] uppercase tracking-wide text-blue-100 mt-1">{l}</div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
 export const DashboardInsights: React.FC = () => {
   const app = useApp();
   const { subjects, topicBlocks, questionLogs, exams, studySessions, currentSemester, userProfile, isDarkMode, setCurrentTab, schedule } = app;
@@ -130,8 +157,9 @@ export const DashboardInsights: React.FC = () => {
       localStorage.setItem(FILTER_KEY, JSON.stringify({ period, area }));
     } catch {}
   }, [period, area]);
+  // Lista de provas/aulas atualiza a cada minuto; os segundos ficam só no contador (ExamCountdown)
   useEffect(() => {
-    const t = window.setInterval(() => setNow(new Date()), 1000);
+    const t = window.setInterval(() => setNow(new Date()), 60000);
     return () => window.clearInterval(t);
   }, []);
 
@@ -155,16 +183,9 @@ export const DashboardInsights: React.FC = () => {
 
   // ---------- Hoje ----------
   const todayStr = ymd(new Date());
-  const dueBlocks = topicBlocks.filter((b) => isBlockDue(b, todayStr)).slice(0, 4);
-  const dueCount = topicBlocks.filter((b) => isBlockDue(b, todayStr)).length;
   const nextExam = exams
     .filter((e) => e.date && e.grade === undefined && new Date(`${e.date}T${e.time || '08:00'}:00`).getTime() >= now.getTime() - 3 * 3600000)
     .sort((a, b) => `${a.date}${a.time || ''}`.localeCompare(`${b.date}${b.time || ''}`))[0];
-  const countdown = (() => {
-    if (!nextExam) return null;
-    const ms = Math.max(0, new Date(`${nextExam.date}T${nextExam.time || '08:00'}:00`).getTime() - now.getTime());
-    return { d: Math.floor(ms / 86400000), h: Math.floor((ms % 86400000) / 3600000), m: Math.floor((ms % 3600000) / 60000), s: Math.floor((ms % 60000) / 1000) };
-  })();
   const dow = now.getDay() === 0 ? 7 : now.getDay();
   const todaysClasses = schedule.filter((sc) => occursOn(sc, toYMD(now), dow as any)).sort((a, b) => a.startTime.localeCompare(b.startTime));
 
@@ -285,59 +306,22 @@ export const DashboardInsights: React.FC = () => {
 
       {/* ---------- Hoje ---------- */}
       <div id="dashboard-today" className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className={`${card} p-4 flex flex-col`}>
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
-              <Repeat className="h-4 w-4 text-sky-500" /> Revisões de hoje
-            </p>
-            <span className={`text-[11px] font-black px-2 py-0.5 rounded-md ${dueCount ? 'bg-rose-500/15 text-rose-600 dark:text-rose-300' : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-300'}`}>
-              {dueCount ? `${dueCount} pendente${dueCount > 1 ? 's' : ''}` : 'Em dia ✓'}
-            </span>
-          </div>
-          {dueBlocks.length === 0 ? (
-            <p className="text-xs text-slate-500 flex-1">Nenhum bloco para revisar hoje. Bom trabalho! 🎉</p>
-          ) : (
-            <ul className="space-y-1.5 flex-1">
-              {dueBlocks.map((b) => (
-                <li key={b.id} className="flex items-center justify-between gap-2 text-xs">
-                  <span className="font-bold text-slate-700 dark:text-slate-200 truncate">{b.name}</span>
-                  <span className="shrink-0 text-[10px] font-black px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-700 dark:text-amber-300">
-                    R{b.reviewsDone + 1}
-                    {b.nextReviewDate && b.nextReviewDate < todayStr ? ' · atrasada' : ''}
-                  </span>
-                </li>
-              ))}
-              {dueCount > dueBlocks.length && <li className="text-[11px] text-slate-400">+{dueCount - dueBlocks.length} blocos</li>}
-            </ul>
-          )}
-          <button onClick={() => setCurrentTab('spaced_repetition')} className="mt-3 w-full flex items-center justify-center gap-1.5 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold">
-            <Repeat className="h-3.5 w-3.5" /> {dueCount ? 'Revisar agora' : 'Abrir revisões'}
-          </button>
+        {/* Seu plano de hoje: próximo passo grande com "Começar" + progresso + próximas tarefas */}
+        <div id="dashboard-today-plan" className="min-w-0 lg:row-span-1">
+          <TodayPlanPanel compact />
         </div>
 
         <div className="rounded-2xl p-4 text-white bg-gradient-to-br from-blue-600 to-indigo-700 shadow-lg shadow-blue-900/20 flex flex-col">
           <p className="text-[10px] font-black uppercase tracking-widest text-blue-100/90 flex items-center gap-1.5">
             <GraduationCap className="h-3.5 w-3.5" /> Próxima avaliação
           </p>
-          {nextExam && countdown ? (
+          {nextExam ? (
             <>
               <p className="text-lg font-black mt-1 truncate">{nextExam.title || getExamSubjectName(nextExam, subjects)}</p>
               <p className="text-xs text-blue-100 truncate">
                 {getExamSubjectName(nextExam, subjects)} · {getExamKind(nextExam.type).short}
               </p>
-              <div className="grid grid-cols-4 gap-1.5 mt-3">
-                {[
-                  [countdown.d, 'dias'],
-                  [countdown.h, 'horas'],
-                  [countdown.m, 'min'],
-                  [countdown.s, 'seg'],
-                ].map(([v, l]) => (
-                  <div key={l as string} className="rounded-xl bg-white/15 py-2 text-center">
-                    <div className="text-lg font-black leading-none">{v as number}</div>
-                    <div className="text-[9px] uppercase tracking-wide text-blue-100 mt-1">{l as string}</div>
-                  </div>
-                ))}
-              </div>
+              <ExamCountdown target={`${nextExam.date}T${nextExam.time || '08:00'}:00`} />
               <button onClick={() => setCurrentTab('grades')} className="mt-auto pt-3 text-[11px] font-bold underline text-left">
                 {formatDM(nextExam.date)} {nextExam.time ? `às ${nextExam.time}` : ''} · ver em Avaliações
               </button>

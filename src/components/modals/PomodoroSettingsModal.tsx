@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { X, Clock, Settings, Check } from 'lucide-react';
 
 interface PomodoroSettingsModalProps {
@@ -28,6 +28,15 @@ export const PomodoroSettingsModal: React.FC<PomodoroSettingsModalProps> = ({
   const [shortMins, setShortMins] = useState(settings.shortBreakMinutes);
   const [mediumMins, setMediumMins] = useState(settings.mediumBreakMinutes);
   const [longMins, setLongMins] = useState(settings.longBreakMinutes);
+
+  // Sempre que abrir, mostra os valores atuais (podem ter mudado pelos atalhos 25/5 e 50/10)
+  useEffect(() => {
+    if (!isOpen) return;
+    setWorkMins(settings.workMinutes);
+    setShortMins(settings.shortBreakMinutes);
+    setMediumMins(settings.mediumBreakMinutes);
+    setLongMins(settings.longBreakMinutes);
+  }, [isOpen, settings.workMinutes, settings.shortBreakMinutes, settings.mediumBreakMinutes, settings.longBreakMinutes]);
 
   if (!isOpen) return null;
 
@@ -64,7 +73,7 @@ export const PomodoroSettingsModal: React.FC<PomodoroSettingsModalProps> = ({
 
           <button
             onClick={onClose}
-            className="p-2 rounded-xl text-slate-500 dark:text-slate-400 hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+            className="p-2 rounded-xl text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
           >
             <X className="h-5 w-5" />
           </button>
@@ -132,7 +141,7 @@ export const PomodoroSettingsModal: React.FC<PomodoroSettingsModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              className="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
             >
               Cancelar
             </button>

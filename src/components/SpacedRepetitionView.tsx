@@ -1,99 +1,233 @@
-import React, { useState } from 'react';
-import { AlertCircle, Award, Calendar, Search, Timer, Zap, ArrowRight, BookmarkCheck, ClipboardCheck, Layers, ClipboardList,
-  Undo2,
-} from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { BookmarkCheck, CalendarDays, CheckCircle2, ClipboardCheck, HelpCircle, Play, Search, Sparkles, Undo2, X } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { TopicBlock, TopicDifficulty } from '../types';
+import type { TopicBlock } from '../types';
 import { SpacedRepetitionRulesCard } from './SpacedRepetitionRulesCard';
 import { QuestionLogModal } from './modals/QuestionLogModal';
-import { formatMinutes } from './modals/StudyTimeModal';
-import { getMedicalArea, getSpecialty } from '../data/areas';
-import {
-  BLOCK_REVIEWS_TO_MASTER,
-  completedCycles,
-  currentGroupStart,
-  isBlockMastered,
-  FIRST_REVIEW_DAY,
-  PLAN_ORDER,
-  REVIEW_PLANS,
-  addDaysYMD,
-  cycleDay,
-  difficultyFromScore,
-  formatDM,
-  isBlockDue,
-  isTopicPending,
-  nextIntervalDays,
-  suggestedPlan,
-  ymd,
-} from '../data/blockReview';
+import { BLOCK_REVIEWS_TO_MASTER, addDaysYMD, isBlockDue, isTopicPending } from '../data/blockReview';
+import { dueReviewQueue, isErrorDue, isItemReviewDue, reviewTechnique } from '../data/studyMethod';
+import { todayYMD, useDayPlan } from '../hooks/useStudyPlan';
+import { ReviewCard } from './review/ReviewCard';
+import { ProjectReviewCard, projectReviewKey } from './review/ProjectReviewCard';
+import { ReviewAgenda } from './review/ReviewAgenda';
+import { ErrorNotebook, type ErrorFilter } from './review/ErrorNotebook';
+import { GuidedReviewSession, guidedStorageKey, loadGuided, saveGuided, type GuidedState, type QueueEntry } from './review/GuidedReviewSession';
+import { subjectLabel, taskDuration } from './review/reviewShared';
+import { startPlanTask } from './plan/planShared';
 
 interface SpacedRepetitionViewProps {
   onOpenAddTopic?: () => void;
 }
 
-const RATING_STYLE: Record<TopicDifficulty, string> = {
-  dificil: 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 hover:bg-rose-100 border-rose-200 dark:border-rose-900/40',
-  medio: 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 hover:bg-amber-100 border-amber-200 dark:border-amber-900/40',
-  facil: 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 border-emerald-200 dark:border-emerald-900/40',
-};
+type ReviewTab = 'hoje' | 'agenda' | 'todos' | 'erros';
+const TABS: ReviewTab[] = ['hoje', 'agenda', 'todos', 'erros'];
+type AllFilter = 'all' | 'due' | 'upcoming' | 'star' | 'consolidated';
 
-// Repetição espaçada por BLOCO: Dia 0 = bloco concluído, 1ª revisão no Dia 7; a avaliação
-// (Difícil/Médio/Fácil) define a próxima data e a sugestão de estudo para esse dia.
+// Aba Revisões: o lugar onde o aluno faz cada revisão do jeito certo (técnica da etapa,
+// erros do caderno, registro em 1 toque), vê a agenda e treina o caderno de erros.
 export const SpacedRepetitionView: React.FC<SpacedRepetitionViewProps> = () => {
-  const { topicBlocks, topics, subjects, reviewTopicBlock, undoBlockReview, addQuestionLog, setCurrentTab, setTimerMode, addXp, triggerConfetti, markTopicSeen } = useApp();
-  // Ao terminar a revisão de um bloco com pendências, pergunta se os tópicos "ver depois" já foram vistos
+  const {
+    topicBlocks,
+    topics,
+    subjects,
+    exams,
+    studyMethod,
+    setCurrentTab,
+    markTopicSeen,
+    openMethodGuide,
+    reviewFocus,
+    clearReviewFocus,
+    replanOverdueReviews,
+    undoBlockReview,
+    startTask,
+    userProfile,
+  } = useApp();
+  const today = todayYMD();
+  const plan = useDayPlan();
+
+  const [tab, setTab] = useState<ReviewTab>('hoje');
+  const [errFilter, setErrFilter] = useState<{ f?: ErrorFilter; n: number }>({ n: 0 });
+  const [isQuestionLogOpen, setIsQuestionLogOpen] = useState(false);
+  // Sessão guiada: estado inicial (a fila em andamento fica salva na sessão do navegador)
+  const guidedKey = guidedStorageKey(userProfile.email);
+  const [session, setSession] = useState<{ initial: GuidedState; n: number } | null>(null);
+  const [savedSession, setSavedSession] = useState<GuidedState | null>(() => loadGuided(guidedKey));
+  const [highlightId, setHighlightId] = useState<string | null>(null);
+  /** Hoje: card aberto (undefined = o primeiro da fila; null = todos fechados) */
+  const [todayOpen, setTodayOpen] = useState<string | null | undefined>(undefined);
+  const [allOpen, setAllOpen] = useState<string | null>(null);
+  const [subjectFilter, setSubjectFilter] = useState('all');
+  const [allFilter, setAllFilter] = useState<AllFilter>('all');
+  const [search, setSearch] = useState('');
+  const [confirmUndo, setConfirmUndo] = useState<string | null>(null);
+
+  // Ao terminar a revisão de um tema com pendências, pergunta se os tópicos "ver depois" já foram vistos
   const [pendingPromptBlock, setPendingPromptBlock] = useState<string | null>(null);
   const [pendingAnswers, setPendingAnswers] = useState<Record<string, 'sim' | 'nao'>>({});
-  const askPendings = (blockId: string) => {
+  const handleReviewed = (blockId: string) => {
+    setTodayOpen(undefined);
     if (topics.some((t) => t.blockId === blockId && isTopicPending(t))) {
       setPendingAnswers({});
       setPendingPromptBlock(blockId);
     }
   };
 
-  const [selectedSubjectFilter, setSelectedSubjectFilter] = useState<string>('all');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'due' | 'upcoming' | 'mastered'>('all');
-  const [searchQuery, setSearchQuery] = useState<string>('');
-  const [isQuestionLogOpen, setIsQuestionLogOpen] = useState(false);
-  const [questionLogBlock, setQuestionLogBlock] = useState<string | undefined>();
+  // ---------------- Dados ----------------
+  const subjectIds = useMemo(() => new Set(subjects.map((s) => s.id)), [subjects]);
+  const cycleBlocks = useMemo(() => topicBlocks.filter((b) => b.reviewStatus !== 'estudando' && subjectIds.has(b.subjectId)), [topicBlocks, subjectIds]);
+  const studyingCount = topicBlocks.filter((b) => b.reviewStatus === 'estudando' && subjectIds.has(b.subjectId)).length;
+  const dueBlocks = useMemo(() => dueReviewQueue(topicBlocks, subjects, today, exams), [topicBlocks, subjects, today, exams]);
+  const projects = useMemo(() => (studyMethod.projects || []).filter((p) => !p.archived), [studyMethod.projects]);
+  const dueProjectItems = useMemo(
+    () =>
+      projects.flatMap((p) =>
+        p.items
+          .filter((it) => isItemReviewDue(it, today))
+          .sort((a, b) => (a.nextReviewDate || '').localeCompare(b.nextReviewDate || ''))
+          .map((it) => ({ project: p, item: it, key: projectReviewKey(p.id, it.id) }))
+      ),
+    [projects, today]
+  );
+  const todayQueue: QueueEntry[] = useMemo(
+    () => [
+      ...dueBlocks.map((b) => ({ key: b.id, blockId: b.id })),
+      ...dueProjectItems.map((x) => ({ key: x.key, projectId: x.project.id, itemId: x.item.id })),
+    ],
+    [dueBlocks, dueProjectItems]
+  );
+  const doneTodayBlocks = cycleBlocks.filter((b) => b.lastReviewDate === today);
+  const doneTodayItems = projects.reduce((a, p) => a + p.items.filter((it) => it.inReview && it.lastReviewDate === today).length, 0);
+  const doneToday = doneTodayBlocks.length + doneTodayItems;
 
-  // Sessão guiada
-  const [isStudySessionActive, setIsStudySessionActive] = useState(false);
-  const [sessionCurrentIndex, setSessionCurrentIndex] = useState(0);
-  const [reviewQuestions, setReviewQuestions] = useState<number | ''>('');
-  const [reviewCorrect, setReviewCorrect] = useState<number | ''>('');
-  const [reviewTimeMinutes, setReviewTimeMinutes] = useState<number | ''>('');
+  const in7 = addDaysYMD(7, today);
+  const next7 =
+    cycleBlocks.filter((b) => b.reviewStatus === 'revisao' && b.nextReviewDate && b.nextReviewDate > today && b.nextReviewDate <= in7).length +
+    projects.reduce((a, p) => a + p.items.filter((it) => it.inReview && it.nextReviewDate && it.nextReviewDate > today && it.nextReviewDate <= in7).length, 0);
+  const errorsDue = (studyMethod.errorNotes || []).filter((n) => isErrorDue(n, today, topicBlocks)).length;
+  const isConsolidated = (b: TopicBlock) => b.reviewStatus === 'dominado' || b.reviewsDone >= BLOCK_REVIEWS_TO_MASTER;
+  const consolidated = cycleBlocks.filter(isConsolidated).length;
 
-  const todayStr = ymd(new Date());
-  const subjectOf = (b: TopicBlock) => subjects.find((s) => s.id === b.subjectId);
-  const colorOf = (b: TopicBlock) => {
-    const sub = subjectOf(b);
-    return sub ? getSpecialty(sub.specialty)?.color || getMedicalArea(sub.majorArea).color : '#0284c7';
+  // ---------------- Sessão guiada: começar, retomar, encerrar ----------------
+  /** Marca como feitas as revisões registradas fora da sessão e põe o foco (se houver) como a atual */
+  const reconcile = (s: GuidedState, focusKey?: string): GuidedState => {
+    const doneSet = new Set(s.done);
+    s.order.forEach((e) => {
+      if (e.blockId) {
+        const b = topicBlocks.find((x) => x.id === e.blockId);
+        if (b && b.lastReviewDate === today && !isBlockDue(b, today)) doneSet.add(e.key);
+      } else {
+        const it = projects.find((p) => p.id === e.projectId)?.items.find((x) => x.id === e.itemId);
+        if (it && it.lastReviewDate === today && !isItemReviewDue(it, today)) doneSet.add(e.key);
+      }
+    });
+    const order = [...s.order];
+    let idx = Math.min(s.idx, order.length);
+    let skipped = s.skipped.filter((k) => !doneSet.has(k));
+    if (focusKey) {
+      const i = order.findIndex((e) => e.key === focusKey);
+      if (i >= 0 && !doneSet.has(focusKey)) {
+        const [e] = order.splice(i, 1);
+        if (i < idx) idx -= 1;
+        order.splice(idx, 0, e);
+        skipped = skipped.filter((k) => k !== focusKey);
+      }
+    }
+    while (idx < order.length && doneSet.has(order[idx].key)) idx += 1;
+    return { ...s, order, idx, done: [...doneSet], skipped };
   };
+  const remainingOf = (s: GuidedState | null) => {
+    if (!s) return 0;
+    const r = reconcile(s);
+    return r.order.filter((e) => !r.done.includes(e.key)).length;
+  };
+  const openSession = (s: GuidedState) => {
+    saveGuided(guidedKey, s);
+    setSavedSession(null);
+    setSession((cur) => ({ initial: s, n: (cur?.n || 0) + 1 }));
+    setTab('hoje');
+  };
+  const startSession = () => openSession({ date: today, order: todayQueue, idx: 0, done: [], skipped: [] });
+  const resumeSession = () => {
+    const s = loadGuided(guidedKey);
+    if (s) openSession(reconcile(s));
+    else setSavedSession(null);
+  };
+  const closeSession = () => {
+    saveGuided(guidedKey, null);
+    setSavedSession(null);
+    setSession(null);
+  };
+  const savedRemaining = !session ? remainingOf(savedSession) : 0;
+
+  // ---------------- Foco vindo de outra tela (openReviews) ----------------
+  useEffect(() => {
+    if (!reviewFocus) return;
+    const { tab: wanted, blockId } = reviewFocus;
+    // Voltou do Pomodoro com um tema da sessão guiada: a sessão continua dele
+    const saved = blockId ? loadGuided(guidedKey) : null;
+    if (blockId && saved) {
+      const r = reconcile(saved, blockId);
+      if (r.order.some((e) => e.key === blockId && !r.done.includes(e.key))) {
+        openSession(r);
+        clearReviewFocus();
+        return;
+      }
+    }
+    let next = TABS.includes(wanted as ReviewTab) ? (wanted as ReviewTab) : undefined;
+    if (blockId) {
+      const b = topicBlocks.find((x) => x.id === blockId);
+      const due = !!b && isBlockDue(b, today);
+      if (!next || next === 'agenda' || (next === 'hoje' && !due)) next = due ? 'hoje' : 'todos';
+      if (next === 'hoje') setTodayOpen(blockId);
+      else {
+        setAllFilter('all');
+        setSubjectFilter('all');
+        setSearch('');
+        setAllOpen(blockId);
+      }
+      setSession(null);
+      setSavedSession(loadGuided(guidedKey));
+      setHighlightId(blockId);
+    }
+    if (next) setTab(next);
+    clearReviewFocus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reviewFocus]);
+
+  useEffect(() => {
+    if (!highlightId) return;
+    const raf = requestAnimationFrame(() =>
+      setTimeout(() => document.getElementById(`review-card-${highlightId}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60)
+    );
+    const t = setTimeout(() => setHighlightId(null), 2800);
+    return () => {
+      cancelAnimationFrame(raf);
+      clearTimeout(t);
+    };
+  }, [highlightId, tab]);
+
+  const openBlockInAll = (blockId: string) => {
+    setAllFilter('all');
+    setSubjectFilter('all');
+    setSearch('');
+    setAllOpen(blockId);
+    setTab('todos');
+    setHighlightId(blockId);
+  };
+
+  // ---------------- Todos ----------------
   const blockTopicsOf = (b: TopicBlock) => topics.filter((t) => t.blockId === b.id);
-
-  // Só entram no ciclo os blocos concluídos (todos os tópicos vistos)
-  const cycleBlocks = topicBlocks.filter((b) => b.reviewStatus !== 'estudando' && subjects.some((s) => s.id === b.subjectId));
-  const studyingCount = topicBlocks.filter((b) => b.reviewStatus === 'estudando').length;
-  const dueBlocks = cycleBlocks.filter((b) => isBlockDue(b, todayStr)).sort((a, b) => (a.nextReviewDate || '').localeCompare(b.nextReviewDate || ''));
-  const masteredBlocks = cycleBlocks.filter(isBlockMastered);
-  const upcomingBlocks = cycleBlocks.filter((b) => b.reviewStatus === 'revisao' && !!b.nextReviewDate && b.nextReviewDate > todayStr);
-  const next7Count = upcomingBlocks.filter((b) => b.nextReviewDate! <= addDaysYMD(7)).length;
-
   const filteredBlocks = cycleBlocks
     .filter((b) => {
-      if (selectedSubjectFilter !== 'all' && b.subjectId !== selectedSubjectFilter) return false;
-      if (statusFilter === 'due' && !isBlockDue(b, todayStr)) return false;
-      if (statusFilter === 'upcoming' && !(b.reviewStatus === 'revisao' && b.nextReviewDate && b.nextReviewDate > todayStr)) return false;
-      if (statusFilter === 'mastered' && !isBlockMastered(b)) return false;
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        const sub = subjectOf(b);
-        return (
-          b.name.toLowerCase().includes(q) ||
-          (sub?.name || '').toLowerCase().includes(q) ||
-          blockTopicsOf(b).some((t) => t.title.toLowerCase().includes(q))
-        );
+      if (subjectFilter !== 'all' && b.subjectId !== subjectFilter) return false;
+      if (allFilter === 'due' && !isBlockDue(b, today)) return false;
+      if (allFilter === 'upcoming' && !(b.reviewStatus === 'revisao' && b.nextReviewDate && b.nextReviewDate > today)) return false;
+      if (allFilter === 'star' && !b.star) return false;
+      if (allFilter === 'consolidated' && !isConsolidated(b)) return false;
+      const q = search.trim().toLowerCase();
+      if (q) {
+        const sub = subjects.find((s) => s.id === b.subjectId);
+        return b.name.toLowerCase().includes(q) || subjectLabel(sub).toLowerCase().includes(q) || blockTopicsOf(b).some((t) => t.title.toLowerCase().includes(q));
       }
       return true;
     })
@@ -102,725 +236,530 @@ export const SpacedRepetitionView: React.FC<SpacedRepetitionViewProps> = () => {
       if (a.reviewStatus !== 'dominado' && b.reviewStatus === 'dominado') return -1;
       return (a.nextReviewDate || '9999').localeCompare(b.nextReviewDate || '9999');
     });
+  const subjectsInCycle = subjects.filter((s) => cycleBlocks.some((b) => b.subjectId === s.id));
 
-  const getReviewStatusBadge = (b: TopicBlock) => {
-    if (b.reviewStatus === 'dominado') {
-      return (
-        <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-          <Award className="h-3 w-3" /> Dominado
-        </span>
-      );
-    }
-    const day = cycleDay(b, b.nextReviewDate);
-    if (isBlockDue(b, todayStr)) {
-      const isToday = b.nextReviewDate === todayStr;
-      return (
-        <span className="inline-flex items-center gap-1 text-[11px] font-black px-2.5 py-1 rounded-full bg-rose-100 dark:bg-rose-950/80 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-800 animate-pulse">
-          <AlertCircle className="h-3 w-3" /> {isToday ? 'Revisar Hoje' : 'Revisão Atrasada'} · R{b.reviewsDone + 1}
-          {day !== undefined && ` · Dia ${day}`}
-        </span>
-      );
-    }
-    return (
-      <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800">
-        <Calendar className="h-3 w-3" /> R{b.reviewsDone + 1} · {formatDM(b.nextReviewDate)}
-        {day !== undefined && ` · Dia ${day}`}
-      </span>
-    );
+  const effectiveTodayOpen = todayOpen === undefined ? todayQueue[0]?.key : todayOpen;
+
+  const startNextPlanTask = () => {
+    const t = plan.next;
+    if (!t) return;
+    startPlanTask(t, { startTask });
   };
 
-  // Plano / sugestão de estudo para a revisão agendada
-  const renderSuggestion = (b: TopicBlock, emphasize: boolean) => {
-    if (b.reviewStatus === 'dominado') return null;
-    const plan = suggestedPlan(b);
-    const when = isBlockDue(b, todayStr) ? 'hoje' : `em ${formatDM(b.nextReviewDate)}`;
-    return (
-      <div
-        className={`rounded-xl border px-3 py-2 text-xs ${emphasize ? 'font-semibold' : ''}`}
-        style={
-          plan
-            ? { borderColor: plan.color + '55', backgroundColor: plan.color + '12', color: plan.color }
-            : { borderColor: '#0284c755', backgroundColor: '#0284c712', color: '#0284c7' }
-        }
-      >
-        {plan ? (
-          <>
-            📋 Sugestão para {when} ({plan.emoji} {plan.label}): <strong>{plan.steps.join(' + ')}</strong>
-          </>
-        ) : (
-          <>
-            📋 1ª revisão (Dia {FIRST_REVIEW_DAY}) {when}: revise o bloco como preferir e avalie a dificuldade. A avaliação define a próxima data e a sugestão de
-            estudo.
-          </>
-        )}
-      </div>
-    );
-  };
+  // ---------------- Render ----------------
+  const metrics: Array<{ id: string; label: string; value: number; hint: string; tone: string; onClick: () => void }> = [
+    {
+      id: 'review-metric-today',
+      label: 'Para hoje',
+      value: todayQueue.length,
+      hint: doneToday > 0 ? `${doneToday} feita${doneToday > 1 ? 's' : ''} hoje` : 'revisões',
+      tone: 'text-sky-600 dark:text-sky-400',
+      onClick: () => setTab('hoje'),
+    },
+    { id: 'review-metric-week', label: 'Próximos 7 dias', value: next7, hint: 'agendadas', tone: 'text-indigo-600 dark:text-indigo-400', onClick: () => setTab('agenda') },
+    {
+      id: 'review-metric-errors',
+      label: 'Erros para refazer',
+      value: errorsDue,
+      hint: 'do caderno',
+      tone: 'text-amber-600 dark:text-amber-400',
+      onClick: () => {
+        setErrFilter((e) => ({ f: 'hoje', n: e.n + 1 }));
+        setTab('erros');
+      },
+    },
+    {
+      id: 'review-metric-consolidated',
+      label: 'Consolidados',
+      value: consolidated,
+      hint: 'temas com R4 ou mais',
+      tone: 'text-emerald-600 dark:text-emerald-400',
+      onClick: () => {
+        setAllFilter('consolidated');
+        setTab('todos');
+      },
+    },
+  ];
 
-  // Prévia do que cada botão agenda
-  const ratingPreview = (b: TopicBlock, level: TopicDifficulty) => {
-    const done = b.reviewsDone + 1;
-    const days = nextIntervalDays(level, done);
-    return `R${done + 1} em ${days}d · ${REVIEW_PLANS[level].questions}Q`;
-  };
-
-  // Questões informadas no card (opcional) entram no registro da revisão e no total do semestre
-  const [cardQ, setCardQ] = useState<Record<string, { total: string; correct: string }>>({});
-  const rate = (b: TopicBlock, level: TopicDifficulty) => {
-    const q = cardQ[b.id];
-    const total = Number(q?.total) || 0;
-    const correct = q && q.correct !== '' ? Math.min(Number(q.correct) || 0, total) : undefined;
-    reviewTopicBlock(b.id, level, total ? { questions: total, correct } : undefined);
-    askPendings(b.id);
-    if (total > 0 && correct !== undefined) addQuestionLog({ kind: 'block', blockId: b.id, subjectId: b.subjectId, total, correct });
-    setCardQ(({ [b.id]: _, ...rest }) => rest);
-  };
-
-  // Linha "Revisões feitas": R · data · dia do ciclo · questões · dificuldade
-  const renderReviewHistory = (b: TopicBlock) => {
-    const log = b.reviewLog || [];
-    if (log.length === 0) return null;
-    return (
-      <div className="rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
-        <div className="px-3 py-2 bg-slate-50 dark:bg-slate-950/60 text-[11px] font-black uppercase tracking-wide text-slate-500">
-          Revisões feitas ({log.length})
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-[11px] min-w-[460px]">
-            <thead>
-              <tr className="text-left text-[10px] uppercase tracking-wide text-slate-400">
-                <th className="px-3 py-1.5 font-bold">Revisão</th>
-                <th className="px-2 py-1.5 font-bold">Concluída em</th>
-                <th className="px-2 py-1.5 font-bold">Questões</th>
-                <th className="px-2 py-1.5 font-bold">Acertos</th>
-                <th className="px-2 py-1.5 font-bold">Tempo</th>
-                <th className="px-3 py-1.5 font-bold text-right">Dificuldade</th>
-              </tr>
-            </thead>
-            <tbody>
-              {log.map((r, i) => {
-                const day = cycleDay(b, r.date);
-                const hasQ = !!r.questions;
-                const p = hasQ && r.correct !== undefined ? Math.round((r.correct / r.questions!) * 100) : undefined;
-                const plan = REVIEW_PLANS[r.difficulty];
-                return (
-                  <tr key={i} className="border-t border-slate-100 dark:border-slate-800">
-                    <td className="px-3 py-1.5">
-                      <span className="font-black px-1.5 py-0.5 rounded bg-sky-600 text-white">R{i + 1} ✓</span>
-                    </td>
-                    <td className="px-2 py-1.5 text-slate-700 dark:text-slate-200 font-semibold whitespace-nowrap">
-                      {formatDM(r.date)}
-                      {day !== undefined && <span className="text-slate-400 font-normal"> · Dia {day}</span>}
-                    </td>
-                    <td className="px-2 py-1.5 whitespace-nowrap">
-                      {hasQ ? <span className="font-semibold text-slate-700 dark:text-slate-200">Sim · {r.questions}</span> : <span className="text-slate-400">Não</span>}
-                    </td>
-                    <td className="px-2 py-1.5 whitespace-nowrap">
-                      {p !== undefined ? (
-                        <span>
-                          <span className="text-slate-600 dark:text-slate-300">{r.correct}/{r.questions}</span>{' '}
-                          <strong className={p >= 80 ? 'text-emerald-600 dark:text-emerald-400' : p >= 60 ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400'}>
-                            {p}%
-                          </strong>
-                        </span>
-                      ) : (
-                        <span className="text-slate-400">—</span>
-                      )}
-                    </td>
-                    <td className="px-2 py-1.5 whitespace-nowrap">
-                      {r.minutes ? <span className="font-semibold text-slate-700 dark:text-slate-200">{formatMinutes(r.minutes)}</span> : <span className="text-slate-400">—</span>}
-                    </td>
-                    <td className="px-3 py-1.5 text-right whitespace-nowrap">
-                      <span className="font-bold" style={{ color: plan.color }}>
-                        {plan.emoji} {plan.label}
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
-              {b.reviewStatus === 'revisao' && b.nextReviewDate && (
-                <tr className="border-t border-dashed border-slate-200 dark:border-slate-700 bg-amber-50/50 dark:bg-amber-950/10">
-                  <td className="px-3 py-1.5">
-                    <span className="font-black px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-700 dark:text-amber-300">R{b.reviewsDone + 1}</span>
-                  </td>
-                  <td className="px-2 py-1.5 text-slate-600 dark:text-slate-300 whitespace-nowrap" colSpan={5}>
-                    Próxima em <strong>{formatDM(b.nextReviewDate)}</strong>
-                    {cycleDay(b, b.nextReviewDate) !== undefined && ` · Dia ${cycleDay(b, b.nextReviewDate)}`}
-                    {suggestedPlan(b) && ` · sugestão: ${suggestedPlan(b)!.steps.join(' + ')}`}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    );
-  };
-
-  const activeSessionBlock = dueBlocks[sessionCurrentIndex];
-
-  const handleSessionRating = (level: TopicDifficulty) => {
-    if (!activeSessionBlock) return;
-    const total = Number(reviewQuestions) || 0;
-    const correct = reviewCorrect === '' ? undefined : Math.min(Number(reviewCorrect) || 0, total);
-    reviewTopicBlock(activeSessionBlock.id, level, { questions: total || undefined, correct });
-    askPendings(activeSessionBlock.id);
-    if (total > 0 && correct !== undefined) {
-      addQuestionLog({ kind: 'block', blockId: activeSessionBlock.id, subjectId: activeSessionBlock.subjectId, total, correct });
-    }
-    setReviewQuestions('');
-    setReviewCorrect('');
-    setReviewTimeMinutes('');
-    // O bloco avaliado sai de "hoje": o próximo assume o mesmo índice
-    if (dueBlocks.length <= 1) {
-      setIsStudySessionActive(false);
-      triggerConfetti();
-      addXp(150, 'Sessão de Revisões Finalizada');
-    } else if (sessionCurrentIndex >= dueBlocks.length - 1) {
-      setSessionCurrentIndex(0);
-    }
-  };
-
-  const startTimerFor = (b: TopicBlock) => {
-    setTimerMode('pomodoro', b.subjectId);
-    setCurrentTab('stopwatch');
-  };
-
-  const sessionScore =
-    reviewQuestions && reviewCorrect !== '' ? difficultyFromScore(Number(reviewCorrect), Number(reviewQuestions)) : undefined;
+  const tabs: Array<{ id: ReviewTab; label: string; count?: number }> = [
+    { id: 'hoje', label: 'Hoje', count: todayQueue.length },
+    { id: 'agenda', label: 'Agenda' },
+    { id: 'todos', label: 'Todos', count: cycleBlocks.length },
+    { id: 'erros', label: 'Caderno de erros', count: errorsDue || undefined },
+  ];
 
   return (
-    <div id="tour-spaced-repetition" className="space-y-6 pb-16">
+    <div id="tour-spaced-repetition" className="space-y-5 pb-16">
       {/* Cabeçalho */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white">Repetição Espaçada de Blocos</h1>
-            <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-sky-100 dark:bg-sky-950 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800">
-              Curva do Esquecimento de Ebbinghaus
-            </span>
-          </div>
-          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Hierarquia: <strong className="text-slate-700 dark:text-slate-300">Disciplina → Bloco → Tópicos</strong>. O bloco entra aqui quando todos os tópicos forem
-            vistos (Dia 0).
-          </p>
+      <div id="review-header" className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white">Revisões</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Revisar é tentar lembrar, não reler.</p>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2">
+          <button
+            id="review-how-btn"
+            type="button"
+            onClick={() => openMethodGuide(2)}
+            className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 min-h-[44px] px-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800"
+          >
+            <HelpCircle className="h-4 w-4" /> Como funciona?
+          </button>
           <button
             id="open-question-log-btn"
-            onClick={() => {
-              setQuestionLogBlock(undefined);
-              setIsQuestionLogOpen(true);
-            }}
-            className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-black shadow-md transition-all"
+            type="button"
+            onClick={() => setIsQuestionLogOpen(true)}
+            className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 min-h-[44px] px-4 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-black shadow-sm"
           >
             <ClipboardCheck className="h-4 w-4" /> Registrar questões
           </button>
-          <button
-            onClick={() => setCurrentTab('structure')}
-            className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 text-xs font-bold"
-          >
-            <Layers className="h-4 w-4" /> Disciplinas
-          </button>
         </div>
       </div>
 
-      <SpacedRepetitionRulesCard />
-
-      {/* Métricas */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="p-4 rounded-2xl border border-rose-200 dark:border-rose-900/40 bg-rose-50/50 dark:bg-rose-950/20">
-          <div className="text-[11px] font-bold text-rose-900 dark:text-rose-300 uppercase tracking-wider">Para Revisar Hoje</div>
-          <div className="text-2xl font-black text-rose-700 dark:text-rose-400 mt-1">{dueBlocks.length}</div>
-          <div className="text-[10px] text-rose-700/70 dark:text-rose-400/70">Blocos pendentes</div>
-        </div>
-        <div className="p-4 rounded-2xl border border-sky-200 dark:border-sky-900/40 bg-sky-50/50 dark:bg-sky-950/20">
-          <div className="text-[11px] font-bold text-sky-900 dark:text-sky-300 uppercase tracking-wider">Total no Ciclo</div>
-          <div className="text-2xl font-black text-sky-700 dark:text-sky-400 mt-1">{cycleBlocks.length}</div>
-          <div className="text-[10px] text-sky-700/70 dark:text-sky-400/70">{studyingCount} blocos ainda em estudo</div>
-        </div>
-        <div className="p-4 rounded-2xl border border-amber-200 dark:border-amber-900/40 bg-amber-50/50 dark:bg-amber-950/20">
-          <div className="text-[11px] font-bold text-amber-900 dark:text-amber-300 uppercase tracking-wider">Próximos 7 Dias</div>
-          <div className="text-2xl font-black text-amber-700 dark:text-amber-400 mt-1">{next7Count}</div>
-          <div className="text-[10px] text-amber-700/70 dark:text-amber-400/70">Revisões agendadas</div>
-        </div>
-        <div className="p-4 rounded-2xl border border-emerald-200 dark:border-emerald-900/40 bg-emerald-50/50 dark:bg-emerald-950/20">
-          <div className="text-[11px] font-bold text-emerald-900 dark:text-emerald-300 uppercase tracking-wider">Blocos Dominados</div>
-          <div className="text-2xl font-black text-emerald-700 dark:text-emerald-400 mt-1">{masteredBlocks.length}</div>
-          <div className="text-[10px] text-emerald-700/70 dark:text-emerald-400/70">1 ciclo de 4 revisões ou mais</div>
-        </div>
-      </div>
-
-      {/* Sessão guiada */}
-      {dueBlocks.length > 0 && !isStudySessionActive && (
-        <div className="rounded-3xl border border-amber-200 dark:border-amber-900/50 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="p-1.5 rounded-xl bg-amber-500 text-white">
-                <Zap className="h-4 w-4" />
-              </span>
-              <h2 className="text-base font-bold text-slate-900 dark:text-white">Sessão Guiada de Revisão ({dueBlocks.length} blocos para hoje)</h2>
+      {/* Bem-vindo de volta */}
+      {plan.overflowReviews > 0 && (
+        <div
+          id="review-welcome-banner"
+          className="rounded-3xl border border-indigo-200 dark:border-indigo-900/60 bg-gradient-to-r from-indigo-50 to-sky-50 dark:from-indigo-950/40 dark:to-sky-950/30 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center gap-3 justify-between"
+        >
+          <div className="flex items-start gap-3 min-w-0">
+            <span className="text-2xl leading-none" aria-hidden>
+              👋
+            </span>
+            <div className="min-w-0">
+              <p className="text-[15px] font-black text-slate-900 dark:text-white">Bem-vindo de volta!</p>
+              <p className="text-xs sm:text-[13px] text-slate-600 dark:text-slate-300 mt-0.5 leading-snug">
+                Algumas revisões ficaram para trás, e tudo bem. São {plan.overflowReviews} a mais do que cabe hoje: espalhamos pelos próximos dias, as mais importantes primeiro.
+              </p>
             </div>
-            <p className="text-xs text-slate-600 dark:text-slate-400">Percorra os blocos do dia com a sugestão de estudo de cada um e avalie como foi.</p>
           </div>
           <button
-            onClick={() => {
-              setSessionCurrentIndex(0);
-              setIsStudySessionActive(true);
-            }}
-            className="shrink-0 px-5 py-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs shadow-md transition-all flex items-center justify-center gap-2"
+            id="review-replan-btn"
+            type="button"
+            onClick={() => replanOverdueReviews()}
+            className="shrink-0 inline-flex items-center justify-center gap-2 min-h-[44px] px-5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-black shadow-sm"
           >
-            <Zap className="h-4 w-4" /> Iniciar Revisão do Dia
+            <Sparkles className="h-4 w-4" /> Replanejar
           </button>
         </div>
       )}
 
-      {isStudySessionActive && activeSessionBlock && (
-        <div id="guided-review-session" className="rounded-3xl border border-sky-300 dark:border-sky-800 bg-white dark:bg-slate-900 p-6 shadow-xl space-y-5 animate-in fade-in">
-          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: colorOf(activeSessionBlock) }} />
-              <span className="text-xs font-bold text-slate-600 dark:text-slate-300 truncate">
-                {subjectOf(activeSessionBlock)?.universitySubject || subjectOf(activeSessionBlock)?.name}
-              </span>
-            </div>
-            <div className="flex items-center gap-3 shrink-0">
-              <span className="text-xs font-bold text-sky-600 dark:text-sky-400">
-                Bloco {sessionCurrentIndex + 1} de {dueBlocks.length}
-              </span>
-              <button onClick={() => setIsStudySessionActive(false)} className="text-xs font-semibold text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
-                Pausar Sessão
-              </button>
-            </div>
-          </div>
+      {/* Métricas */}
+      <div id="review-metrics" className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
+        {metrics.map((m) => (
+          <button
+            key={m.id}
+            id={m.id}
+            type="button"
+            onClick={m.onClick}
+            className="text-left p-3.5 sm:p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-700 transition-colors min-w-0"
+          >
+            <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 truncate">{m.label}</div>
+            <div className={`text-2xl sm:text-3xl font-black mt-0.5 tabular-nums ${m.tone}`}>{m.value}</div>
+            <div className="text-[11px] text-slate-400 dark:text-slate-500 truncate">{m.hint}</div>
+          </button>
+        ))}
+      </div>
 
-          <div className="space-y-3">
-            <div>
-              <span className="text-xs text-slate-400">
-                Revisão R{activeSessionBlock.reviewsDone + 1} · ciclo {Math.floor(activeSessionBlock.reviewsDone / BLOCK_REVIEWS_TO_MASTER) + 1}
-                {cycleDay(activeSessionBlock, todayStr) !== undefined && ` · Dia ${cycleDay(activeSessionBlock, todayStr)}`}
-              </span>
-              <h2 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white">{activeSessionBlock.name}</h2>
-            </div>
-            {renderSuggestion(activeSessionBlock, true)}
-            <div className="flex flex-wrap gap-1.5">
-              {blockTopicsOf(activeSessionBlock).map((t) => (
-                <span key={t.id} className="text-[11px] font-semibold px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                  {t.title}
-                </span>
-              ))}
-            </div>
-          </div>
-
-          <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
-            <p className="text-xs font-bold text-slate-800 dark:text-slate-200 mb-3">Métricas da Revisão</p>
-            <div className="grid grid-cols-3 gap-3">
-              <div>
-                <label className="block text-[10px] font-bold text-slate-500 mb-1">Qtd. Questões</label>
-                <input
-                  type="number"
-                  placeholder={String(suggestedPlan(activeSessionBlock)?.questions || 20)}
-                  value={reviewQuestions}
-                  onChange={(e) => setReviewQuestions(parseInt(e.target.value) || '')}
-                  className="w-full text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-slate-700 dark:text-slate-300 focus:outline-hidden focus:border-sky-500"
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] font-bold text-slate-500 mb-1">Acertos</label>
-                <input
-                  type="number"
-                  placeholder="Ex: 17"
-                  value={reviewCorrect}
-                  onChange={(e) => setReviewCorrect(e.target.value === '' ? '' : parseInt(e.target.value) || 0)}
-                  className="w-full text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-slate-700 dark:text-slate-300 focus:outline-hidden focus:border-sky-500"
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] font-bold text-slate-500 mb-1">Tempo (minutos)</label>
-                <input
-                  type="number"
-                  placeholder="Ex: 45"
-                  value={reviewTimeMinutes}
-                  onChange={(e) => setReviewTimeMinutes(parseInt(e.target.value) || '')}
-                  className="w-full text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-slate-700 dark:text-slate-300 focus:outline-hidden focus:border-sky-500"
-                />
-              </div>
-            </div>
-            {sessionScore && (
-              <p className="text-[11px] mt-2 font-semibold" style={{ color: REVIEW_PLANS[sessionScore].color }}>
-                {Math.round((Number(reviewCorrect) / Number(reviewQuestions)) * 100)}% de acertos · sugestão: {REVIEW_PLANS[sessionScore].label}
-              </p>
-            )}
-          </div>
-
-          <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
-            <p className="text-xs font-bold text-slate-800 dark:text-slate-200 mb-3 text-center">Como foi seu desempenho nesta revisão?</p>
-            <div className="grid grid-cols-3 gap-2.5">
-              {PLAN_ORDER.map((level) => (
-                <button
-                  key={level}
-                  onClick={() => handleSessionRating(level)}
-                  className={`flex flex-col items-center p-3 rounded-xl border font-bold transition-all shadow-xs ${RATING_STYLE[level]} ${
-                    sessionScore === level ? 'ring-2 ring-offset-2 ring-sky-500 dark:ring-offset-slate-900' : ''
+      {/* Sub-abas */}
+      <div className="sticky top-0 z-20 -mx-4 px-4 sm:mx-0 sm:px-0 py-1 bg-[#F8FAFC]/90 dark:bg-slate-950/90 backdrop-blur-sm">
+        <div role="tablist" aria-label="Revisões" className="flex gap-1 p-1 rounded-2xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 overflow-x-auto">
+          {tabs.map((t) => (
+            <button
+              key={t.id}
+              id={`review-tab-${t.id}`}
+              role="tab"
+              type="button"
+              aria-selected={tab === t.id}
+              onClick={() => setTab(t.id)}
+              className={`flex-1 shrink-0 inline-flex items-center justify-center gap-1.5 min-h-[40px] px-3 rounded-xl text-xs sm:text-[13px] font-bold whitespace-nowrap transition-colors ${
+                tab === t.id ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+              }`}
+            >
+              {t.label}
+              {t.count !== undefined && t.count > 0 && (
+                <span
+                  className={`text-[10px] font-black px-1.5 py-0.5 rounded-full tabular-nums ${
+                    tab === t.id ? 'bg-sky-600 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
                   }`}
                 >
-                  <span className="text-xs">
-                    {REVIEW_PLANS[level].emoji} {REVIEW_PLANS[level].label}
-                  </span>
-                  <span className="text-[10px] font-normal opacity-80">{ratingPreview(activeSessionBlock, level)}</span>
+                  {t.count}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ---------------- HOJE ---------------- */}
+      {tab === 'hoje' &&
+        (session ? (
+          <GuidedReviewSession key={session.n} initial={session.initial} storageKey={guidedKey} onClose={closeSession} onReviewed={handleReviewed} />
+        ) : (
+          <div id="review-today" className="space-y-4">
+            {savedRemaining > 0 && (
+              <div
+                id="review-resume-session"
+                className="rounded-3xl border border-sky-300 dark:border-sky-700 bg-sky-50 dark:bg-sky-950/40 p-4 flex flex-col sm:flex-row sm:items-center gap-3 justify-between"
+              >
+                <div className="min-w-0">
+                  <p className="text-[14px] font-black text-slate-900 dark:text-white">Sua sessão guiada está pausada</p>
+                  <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5">Continue de onde parou.</p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    id="review-resume-session-btn"
+                    onClick={resumeSession}
+                    className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 min-h-[44px] px-4 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-black"
+                  >
+                    <Play className="h-4 w-4 fill-current shrink-0" /> Continuar sessão guiada (faltam {savedRemaining})
+                  </button>
+                  <button
+                    type="button"
+                    id="review-resume-session-end"
+                    onClick={closeSession}
+                    aria-label="Encerrar a sessão guiada"
+                    title="Encerrar a sessão guiada"
+                    className="h-11 w-11 shrink-0 flex items-center justify-center rounded-xl text-slate-500 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+              </div>
+            )}
+            {todayQueue.length > 0 ? (
+              <>
+                <div className="rounded-3xl border border-sky-200 dark:border-sky-900/60 bg-gradient-to-br from-sky-500/10 via-sky-500/5 to-transparent p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
+                  <div className="min-w-0">
+                    <p className="text-[15px] font-black text-slate-900 dark:text-white">
+                      {todayQueue.length} revis{todayQueue.length === 1 ? 'ão' : 'ões'} para hoje
+                    </p>
+                    <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5">
+                      Na ordem certa: as remarcadas primeiro, depois as que caem muito e as que você mais erra.
+                    </p>
+                  </div>
+                  <button
+                    id="review-start-session"
+                    type="button"
+                    onClick={startSession}
+                    className="shrink-0 inline-flex items-center justify-center gap-2 min-h-[48px] px-5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-sm font-black shadow-md"
+                  >
+                    <Play className="h-4 w-4 fill-current" /> Fazer as revisões de hoje
+                  </button>
+                </div>
+
+                <div id="review-today-list" className="space-y-3">
+                  {todayQueue.map((e) => {
+                    if (e.blockId) {
+                      const b = topicBlocks.find((x) => x.id === e.blockId);
+                      if (!b) return null;
+                      return (
+                        <ReviewCard
+                          key={e.key}
+                          block={b}
+                          expanded={effectiveTodayOpen === e.key}
+                          onToggle={() => setTodayOpen(effectiveTodayOpen === e.key ? null : e.key)}
+                          highlight={highlightId === e.key}
+                          onReviewed={handleReviewed}
+                        />
+                      );
+                    }
+                    const x = dueProjectItems.find((p) => p.key === e.key);
+                    if (!x) return null;
+                    return (
+                      <ProjectReviewCard
+                        key={e.key}
+                        project={x.project}
+                        item={x.item}
+                        expanded={effectiveTodayOpen === e.key}
+                        onToggle={() => setTodayOpen(effectiveTodayOpen === e.key ? null : e.key)}
+                        onReviewed={() => setTodayOpen(undefined)}
+                      />
+                    );
+                  })}
+                </div>
+              </>
+            ) : (
+              <div id="review-today-empty" className="rounded-3xl border border-emerald-200 dark:border-emerald-900/50 bg-white dark:bg-slate-900 p-6 sm:p-8 text-center space-y-3">
+                <CheckCircle2 className="h-10 w-10 text-emerald-500 mx-auto" />
+                <div>
+                  <h3 className="text-base font-black text-slate-900 dark:text-white">{doneToday > 0 ? 'Revisões de hoje feitas! 🎉' : 'Nenhuma revisão para hoje'}</h3>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-md mx-auto">
+                    {cycleBlocks.length === 0
+                      ? 'Quando você terminar o estudo inicial de um tema (todos os tópicos vistos), a 1ª revisão aparece aqui no dia seguinte.'
+                      : 'Revisões em dia. Siga o próximo passo do seu plano.'}
+                  </p>
+                </div>
+                {plan.next && plan.next.kind !== 'review' && (
+                  <div className="max-w-md mx-auto rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50 p-3 flex items-center gap-3 text-left">
+                    <span className="h-10 w-10 shrink-0 rounded-xl flex items-center justify-center text-lg" style={{ backgroundColor: plan.next.color + '1a' }}>
+                      {plan.next.emoji}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400">Próximo passo</p>
+                      <p className="text-[13px] font-black text-slate-900 dark:text-white truncate">{plan.next.title}</p>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">{taskDuration(plan.next)}</p>
+                    </div>
+                    <button
+                      id="review-next-step-start"
+                      type="button"
+                      onClick={startNextPlanTask}
+                      className="shrink-0 inline-flex items-center gap-1.5 min-h-[44px] px-4 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-black"
+                    >
+                      <Play className="h-3.5 w-3.5 fill-current" /> Começar
+                    </button>
+                  </div>
+                )}
+                <div className="flex flex-wrap justify-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setTab('agenda')}
+                    className="inline-flex items-center gap-1.5 min-h-[40px] px-4 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+                  >
+                    <CalendarDays className="h-4 w-4" /> Ver a agenda
+                  </button>
+                  {cycleBlocks.length === 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setCurrentTab('structure')}
+                      className="inline-flex items-center gap-1.5 min-h-[40px] px-4 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+                    >
+                      Abrir disciplinas
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Feitas hoje (com desfazer) */}
+            {doneTodayBlocks.length > 0 && (
+              <div id="review-done-today" className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3.5">
+                <p className="text-[11px] font-black uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1.5">Feitas hoje</p>
+                <ul className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {doneTodayBlocks.map((b) => {
+                    const done = reviewTechnique({ reviewsDone: Math.max(0, b.reviewsDone - 1) }, subjects.find((s) => s.id === b.subjectId)?.format);
+                    return (
+                      <li key={b.id} className="py-2">
+                        <div className="flex items-center gap-2.5">
+                          <span className="text-emerald-500 text-sm" aria-hidden>
+                            ✓
+                          </span>
+                          <button type="button" onClick={() => openBlockInAll(b.id)} className="min-w-0 flex-1 text-left">
+                            <span className="block text-[13px] font-bold text-slate-800 dark:text-slate-100 truncate">
+                              {done.badge} · {b.name}
+                            </span>
+                          </button>
+                          {confirmUndo !== b.id && (
+                            <button
+                              type="button"
+                              onClick={() => setConfirmUndo(b.id)}
+                              className="shrink-0 inline-flex items-center gap-1 min-h-[36px] px-2 text-[11px] font-bold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                            >
+                              <Undo2 className="h-3.5 w-3.5" /> Desfazer
+                            </button>
+                          )}
+                        </div>
+                        {confirmUndo === b.id && (
+                          <div className="mt-2 flex flex-wrap items-center gap-2 pl-6">
+                            <span className="text-xs text-slate-600 dark:text-slate-300">Desfazer esta revisão?</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                undoBlockReview(b.id);
+                                setConfirmUndo(null);
+                              }}
+                              className="min-h-[36px] px-3 rounded-lg bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-[11px] font-black"
+                            >
+                              Sim, desfazer
+                            </button>
+                            <button type="button" onClick={() => setConfirmUndo(null)} className="min-h-[36px] px-3 rounded-lg text-[11px] font-bold text-slate-500">
+                              Cancelar
+                            </button>
+                          </div>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
+          </div>
+        ))}
+
+      {/* ---------------- AGENDA ---------------- */}
+      {tab === 'agenda' && <ReviewAgenda onOpenBlock={openBlockInAll} onOpenPersonal={() => setCurrentTab('personal')} />}
+
+      {/* ---------------- TODOS ---------------- */}
+      {tab === 'todos' && (
+        <div id="review-all" className="space-y-3">
+          <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 space-y-2.5">
+            <div className="flex flex-col sm:flex-row gap-2">
+              <div className="relative flex-1 min-w-0">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <input
+                  id="review-search"
+                  type="search"
+                  placeholder="Buscar tema ou tópico..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full min-h-[42px] text-sm pl-9 pr-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-hidden focus:border-sky-500"
+                />
+              </div>
+              <select
+                id="review-subject-filter"
+                value={subjectFilter}
+                onChange={(e) => setSubjectFilter(e.target.value)}
+                className="min-h-[42px] text-xs font-semibold px-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-sky-500 sm:w-56"
+              >
+                <option value="all">Todas as disciplinas</option>
+                {subjectsInCycle.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {subjectLabel(s)}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex gap-1.5 overflow-x-auto -mx-1 px-1 pb-0.5">
+              {(
+                [
+                  ['all', `Todos · ${cycleBlocks.length}`],
+                  ['due', `Para hoje · ${dueBlocks.length}`],
+                  ['upcoming', 'Próximas'],
+                  ['star', '⭐ Cai muito'],
+                  ['consolidated', `Consolidados · ${consolidated}`],
+                ] as Array<[AllFilter, string]>
+              ).map(([id, label]) => (
+                <button
+                  key={id}
+                  id={`review-filter-${id}`}
+                  type="button"
+                  onClick={() => setAllFilter(id)}
+                  className={`shrink-0 min-h-[36px] px-3 rounded-full text-xs font-bold transition-colors ${
+                    allFilter === id ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                  }`}
+                >
+                  {label}
                 </button>
               ))}
             </div>
           </div>
+
+          {filteredBlocks.length === 0 ? (
+            <div className="p-8 sm:p-10 text-center rounded-3xl border border-dashed border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-900">
+              <BookmarkCheck className="h-9 w-9 text-slate-300 dark:text-slate-700 mx-auto mb-3" />
+              <h3 className="text-sm font-bold text-slate-700 dark:text-slate-200">{cycleBlocks.length === 0 ? 'Nenhum tema nas revisões ainda' : 'Nenhum tema neste filtro'}</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto mb-4">
+                Marque todos os tópicos de um tema como vistos na aba Disciplinas: esse dia vira o Dia 0 e a 1ª revisão aparece aqui no dia seguinte (24 h).
+              </p>
+              <button
+                type="button"
+                onClick={() => setCurrentTab('structure')}
+                className="min-h-[40px] px-4 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold"
+              >
+                Abrir disciplinas
+              </button>
+            </div>
+          ) : (
+            <div id="review-all-list" className="space-y-3">
+              {filteredBlocks.map((b) => (
+                <ReviewCard
+                  key={b.id}
+                  block={b}
+                  expanded={allOpen === b.id}
+                  onToggle={() => setAllOpen(allOpen === b.id ? null : b.id)}
+                  highlight={highlightId === b.id}
+                  onReviewed={handleReviewed}
+                />
+              ))}
+            </div>
+          )}
+          {studyingCount > 0 && (
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 px-1">
+              + {studyingCount} tema{studyingCount > 1 ? 's' : ''} ainda no estudo inicial (aba Disciplinas). Entra{studyingCount > 1 ? 'm' : ''} aqui quando você fechar o Dia 0.
+            </p>
+          )}
         </div>
       )}
 
-      {/* Filtros */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
-          {(
-            [
-              ['all', `Todos (${cycleBlocks.length})`, 'bg-slate-900 text-white dark:bg-white dark:text-slate-900'],
-              ['due', `🚨 Hoje (${dueBlocks.length})`, 'bg-rose-600 text-white'],
-              ['upcoming', `⏳ Próximos (${upcomingBlocks.length})`, 'bg-sky-600 text-white'],
-              ['mastered', `🏆 Dominados (${masteredBlocks.length})`, 'bg-emerald-600 text-white'],
-            ] as const
-          ).map(([id, label, active]) => (
-            <button
-              key={id}
-              onClick={() => setStatusFilter(id)}
-              className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold transition-colors ${
-                statusFilter === id ? active : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-        <div className="flex items-center gap-2">
-          <select
-            value={selectedSubjectFilter}
-            onChange={(e) => setSelectedSubjectFilter(e.target.value)}
-            className="text-xs font-semibold px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-sky-500"
-          >
-            <option value="all">Todas as Disciplinas</option>
-            {subjects.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.universitySubject || s.name}
-              </option>
-            ))}
-          </select>
-          <div className="relative w-full sm:w-48">
-            <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Buscar bloco..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full text-xs pl-8 pr-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-hidden focus:border-sky-500"
-            />
-          </div>
-        </div>
-      </div>
+      {/* ---------------- CADERNO DE ERROS ---------------- */}
+      {tab === 'erros' && <ErrorNotebook key={errFilter.n} initialFilter={errFilter.f} />}
 
-      {/* Lista de blocos no ciclo */}
-      <div className="space-y-3.5">
-        {filteredBlocks.length === 0 ? (
-          <div className="p-12 text-center rounded-3xl border border-dashed border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-900">
-            <BookmarkCheck className="h-10 w-10 text-slate-300 dark:text-slate-700 mx-auto mb-3" />
-            <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300">Nenhum bloco neste filtro</h3>
-            <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto mb-4">
-              Marque todos os tópicos de um bloco como vistos na aba Disciplinas: esse dia vira o Dia 0 e a 1ª revisão aparece aqui no Dia {FIRST_REVIEW_DAY}.
-            </p>
-            <button onClick={() => setCurrentTab('structure')} className="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold">
-              Abrir disciplinas
-            </button>
-          </div>
-        ) : (
-          filteredBlocks.map((b) => {
-            const sub = subjectOf(b);
-            const color = colorOf(b);
-            const list = blockTopicsOf(b);
-            const done = b.reviewsDone;
-            return (
+      <SpacedRepetitionRulesCard initialExpanded={false} />
+
+      <QuestionLogModal isOpen={isQuestionLogOpen} onClose={() => setIsQuestionLogOpen(false)} />
+
+      {pendingPromptBlock &&
+        (() => {
+          const block = topicBlocks.find((x) => x.id === pendingPromptBlock);
+          // mantém na lista os que acabaram de ser respondidos (para mostrar o resultado)
+          const items = topics.filter((t) => t.blockId === pendingPromptBlock && (isTopicPending(t) || pendingAnswers[t.id]));
+          if (!block || items.length === 0) return null;
+          const allAnswered = items.every((t) => pendingAnswers[t.id]);
+          return (
+            <div className="app-modal fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in">
               <div
-                key={b.id}
-                className="group rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-xs hover:border-sky-300 dark:hover:border-sky-700 transition-all space-y-4"
+                id="pending-topics-prompt"
+                className="app-modal-panel w-full max-w-md max-h-[90vh] overflow-y-auto rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-2xl space-y-4"
               >
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-[11px] font-bold px-2.5 py-1 rounded-lg text-white shadow-2xs" style={{ backgroundColor: color }}>
-                      {getMedicalArea(sub?.majorArea).short} • {sub?.universitySubject || sub?.name}
-                    </span>
-                    <span className="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200/60 dark:border-slate-700">
-                      {list.length} tópico{list.length === 1 ? '' : 's'}
-                    </span>
-                    {list.some(isTopicPending) && (
-                      <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-rose-600 text-white">
-                        ⚠ {list.filter(isTopicPending).length} pendente{list.filter(isTopicPending).length > 1 ? 's' : ''}
-                      </span>
-                    )}
-                    {completedCycles(b) > 0 && (
-                      <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
-                        🏆 {completedCycles(b)} ciclo{completedCycles(b) > 1 ? 's' : ''} de 4
-                      </span>
-                    )}
-                    {suggestedPlan(b) && b.reviewStatus !== 'dominado' && (
-                      <span className="text-[11px] font-bold px-2 py-0.5 rounded-md text-white" style={{ backgroundColor: suggestedPlan(b)!.color }}>
-                        {suggestedPlan(b)!.label} · {suggestedPlan(b)!.questions}Q
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">{getReviewStatusBadge(b)}</div>
-                </div>
-
                 <div>
-                  <h3 className="text-base font-black text-slate-900 dark:text-white leading-snug">{b.name}</h3>
-                  {list.length > 0 && (
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                      {list.slice(0, 10).map((t, i) => (
-                        <React.Fragment key={t.id}>
-                          {i > 0 && ' · '}
-                          {isTopicPending(t) ? (
-                            <span className="font-semibold text-rose-600 dark:text-rose-400" title="Ver depois: ainda não visto">
-                              ✕ {t.title}
-                            </span>
-                          ) : (
-                            t.title
-                          )}
-                        </React.Fragment>
-                      ))}
-                      {list.length > 10 && ` · +${list.length - 10}`}
-                    </p>
-                  )}
+                  <p className="text-[10px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400">Assuntos para ver depois</p>
+                  <h2 className="text-base font-black text-slate-900 dark:text-white">{block.name}</h2>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Revisão registrada! Você já viu estes assuntos que estavam para ver depois?</p>
                 </div>
-
-                {renderSuggestion(b, isBlockDue(b, todayStr))}
-
-                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200/70 dark:border-slate-800/80 flex flex-col md:flex-row md:items-center justify-between gap-3">
-                  <div className="flex items-center gap-2 text-xs text-slate-500 flex-wrap">
-                    <span>
-                      Revisões: <strong className="text-slate-700 dark:text-slate-200">{done}</strong>
-                    </span>
-                    <div className="flex items-center gap-1 flex-wrap">
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-700 text-white">Dia 0</span>
-                      {currentGroupStart(done) > 0 && (
-                        <>
-                          <ArrowRight className="h-2.5 w-2.5 text-slate-400" />
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-600 text-white" title="Ciclos anteriores concluídos">
-                            R1–R{currentGroupStart(done)} ✓
-                          </span>
-                        </>
-                      )}
-                      {Array.from({ length: BLOCK_REVIEWS_TO_MASTER }, (_, k) => currentGroupStart(done) + k).map((i) => {
-                        const isNext = i === done && b.reviewStatus === 'revisao';
-                        const day =
-                          i < done ? cycleDay(b, b.reviewLog?.[i]?.date) : isNext ? cycleDay(b, b.nextReviewDate) : i === 0 ? FIRST_REVIEW_DAY : undefined;
-                        return (
-                          <React.Fragment key={i}>
-                            <ArrowRight className="h-2.5 w-2.5 text-slate-400" />
-                            <span
-                              className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
-                                done > i
-                                  ? 'bg-sky-600 text-white'
-                                  : isNext
-                                  ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300 ring-1 ring-amber-500/50'
-                                  : 'bg-slate-200 dark:bg-slate-800 text-slate-500'
-                              }`}
-                              title={done > i ? 'Revisão concluída' : isNext ? 'Próxima revisão' : 'Data definida pela avaliação anterior'}
-                            >
-                              R{i + 1}
-                              {day !== undefined ? ` · Dia ${day}` : ''}
-                              {done > i ? ' ✓' : ''}
-                            </span>
-                          </React.Fragment>
-                        );
-                      })}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3 text-[11px] text-slate-500 dark:text-slate-400 flex-wrap">
-                    {b.completedDate && (
-                      <span>
-                        Dia 0: <strong className="text-slate-700 dark:text-slate-300">{formatDM(b.completedDate)}</strong>
-                      </span>
-                    )}
-                    {b.lastReviewDate && (
-                      <span>
-                        Última: <strong className="text-slate-700 dark:text-slate-300">{formatDM(b.lastReviewDate)}</strong>
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {renderReviewHistory(b)}
-
-                {b.reviewStatus !== 'dominado' && (
-                  <div className="flex flex-wrap items-center gap-2 text-[11px]">
-                    <span className="font-bold text-slate-500">Questões nesta revisão (opcional):</span>
-                    <input
-                      type="number"
-                      min="0"
-                      placeholder={String(suggestedPlan(b)?.questions || 'Feitas')}
-                      value={cardQ[b.id]?.total || ''}
-                      onChange={(e) => setCardQ((q) => ({ ...q, [b.id]: { total: e.target.value, correct: q[b.id]?.correct || '' } }))}
-                      className="w-20 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-2 py-1 font-bold text-slate-800 dark:text-slate-100 focus:outline-hidden focus:border-sky-500"
-                      aria-label={`Questões feitas em ${b.name}`}
-                    />
-                    <span className="text-slate-400">feitas</span>
-                    <input
-                      type="number"
-                      min="0"
-                      placeholder="Acertos"
-                      value={cardQ[b.id]?.correct || ''}
-                      onChange={(e) => setCardQ((q) => ({ ...q, [b.id]: { total: q[b.id]?.total || '', correct: e.target.value } }))}
-                      className="w-20 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-2 py-1 font-bold text-slate-800 dark:text-slate-100 focus:outline-hidden focus:border-sky-500"
-                      aria-label={`Acertos em ${b.name}`}
-                    />
-                    <span className="text-slate-400">acertos</span>
-                    {Number(cardQ[b.id]?.total) > 0 && cardQ[b.id]?.correct !== '' && cardQ[b.id]?.correct !== undefined && (
-                      <strong className="text-slate-700 dark:text-slate-200">
-                        {Math.round((Math.min(Number(cardQ[b.id].correct), Number(cardQ[b.id].total)) / Number(cardQ[b.id].total)) * 100)}%
-                      </strong>
-                    )}
-                  </div>
-                )}
-
-                <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-xs font-bold text-slate-400 mr-1">
-                      {`Concluir revisão R${done + 1}:`}
-                    </span>
-                    {b.reviewStatus !== 'dominado' &&
-                      PLAN_ORDER.map((level) => (
-                        <button
-                          key={level}
-                          onClick={() => rate(b, level)}
-                          className={`flex flex-col items-start px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors ${RATING_STYLE[level]}`}
-                          title={`Revisão feita: ${ratingPreview(b, level)}`}
-                        >
-                          <span>
-                            {REVIEW_PLANS[level].emoji} {REVIEW_PLANS[level].label}
-                          </span>
-                          <span className="text-[9px] font-semibold opacity-75">{ratingPreview(b, level)}</span>
-                        </button>
-                      ))}
-                  </div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {(b.reviewLog?.length || 0) > 0 && (
-                      <button
-                        id={`undo-review-${b.id}`}
-                        onClick={() => {
-                          const n = b.reviewLog!.length;
-                          if (window.confirm(`Desfazer a R${n} de "${b.name}"? A avaliação e as questões dessa revisão serão removidas e a data volta a ser a anterior.`)) {
-                            undoBlockReview(b.id);
-                          }
-                        }}
-                        className="flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-lg bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/30 hover:bg-amber-500/20 transition-colors"
-                        title="Clicou sem querer? Volta a última revisão deste bloco"
+                <ul className="space-y-2">
+                  {items.map((t) => {
+                    const ans = pendingAnswers[t.id];
+                    return (
+                      <li
+                        key={t.id}
+                        className={`rounded-xl border p-2.5 ${
+                          ans === 'sim' ? 'border-emerald-300 dark:border-emerald-800 bg-emerald-50/60 dark:bg-emerald-950/20' : 'border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-950/30'
+                        }`}
                       >
-                        <Undo2 className="h-3.5 w-3.5" /> Desfazer R{b.reviewLog!.length}
-                      </button>
-                    )}
-                    <button
-                      onClick={() => {
-                        setQuestionLogBlock(b.id);
-                        setIsQuestionLogOpen(true);
-                      }}
-                      className="flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-sky-100 hover:text-sky-700 dark:hover:bg-sky-950 transition-colors"
-                    >
-                      <ClipboardList className="h-3.5 w-3.5" /> Questões
-                    </button>
-                    <button
-                      onClick={() => startTimerFor(b)}
-                      className="flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-sky-100 hover:text-sky-700 dark:hover:bg-sky-950 transition-colors"
-                    >
-                      <Timer className="h-3.5 w-3.5" /> Cronômetro
-                    </button>
-                  </div>
-                </div>
+                        <span className="block text-xs font-bold text-slate-800 dark:text-slate-100 break-words">{t.title}</span>
+                        {ans ? (
+                          <p className={`text-[11px] mt-1 font-semibold ${ans === 'sim' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400'}`}>
+                            {ans === 'sim' ? 'Marcado como visto.' : 'Continua para ver depois: pergunto de novo na próxima revisão.'}
+                          </p>
+                        ) : (
+                          <div className="flex gap-1.5 mt-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                markTopicSeen(t.id);
+                                setPendingAnswers((a) => ({ ...a, [t.id]: 'sim' }));
+                              }}
+                              className="min-h-[36px] px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold"
+                            >
+                              ✓ Sim, já vi
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setPendingAnswers((a) => ({ ...a, [t.id]: 'nao' }))}
+                              className="min-h-[36px] px-3 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-[11px] font-bold hover:bg-slate-50 dark:hover:bg-slate-800"
+                            >
+                              Ainda não
+                            </button>
+                          </div>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+                <button
+                  type="button"
+                  onClick={() => setPendingPromptBlock(null)}
+                  className={`w-full min-h-[44px] px-4 rounded-xl text-xs font-bold ${
+                    allAnswered ? 'bg-sky-600 hover:bg-sky-500 text-white' : 'border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'
+                  }`}
+                >
+                  {allAnswered ? 'Concluir' : 'Responder depois'}
+                </button>
               </div>
-            );
-          })
-        )}
-      </div>
-
-      <QuestionLogModal isOpen={isQuestionLogOpen} onClose={() => setIsQuestionLogOpen(false)} defaultBlockId={questionLogBlock} />
-
-      {pendingPromptBlock && (() => {
-        const block = topicBlocks.find((x) => x.id === pendingPromptBlock);
-        // mantém na lista os que acabaram de ser respondidos (para mostrar o resultado)
-        const items = topics.filter((t) => t.blockId === pendingPromptBlock && (isTopicPending(t) || pendingAnswers[t.id]));
-        if (!block || items.length === 0) return null;
-        const allAnswered = items.every((t) => pendingAnswers[t.id]);
-        return (
-          <div className="app-modal fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in">
-            <div id="pending-topics-prompt" className="app-modal-panel w-full max-w-md max-h-[90vh] overflow-y-auto rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-2xl space-y-4">
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-wider text-rose-600 dark:text-rose-400">Pendências do bloco</p>
-                <h2 className="text-base font-black text-slate-900 dark:text-white">{block.name}</h2>
-                <p className="text-xs text-slate-500 mt-0.5">Revisão registrada! Você já viu estes assuntos que estavam para ver depois?</p>
-              </div>
-              <ul className="space-y-2">
-                {items.map((t) => {
-                  const ans = pendingAnswers[t.id];
-                  return (
-                    <li
-                      key={t.id}
-                      className={`rounded-xl border p-2.5 ${
-                        ans === 'sim'
-                          ? 'border-emerald-300 dark:border-emerald-800 bg-emerald-50/60 dark:bg-emerald-950/20'
-                          : 'border-rose-200 dark:border-rose-900/50 bg-rose-50/60 dark:bg-rose-950/20'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`h-5 w-5 shrink-0 rounded-full flex items-center justify-center text-white text-[11px] font-black ${
-                            ans === 'sim' ? 'bg-emerald-500' : 'bg-rose-600'
-                          }`}
-                        >
-                          {ans === 'sim' ? '✓' : '✕'}
-                        </span>
-                        <span className="flex-1 min-w-0 text-xs font-bold text-slate-800 dark:text-slate-100 break-words">{t.title}</span>
-                      </div>
-                      {ans ? (
-                        <p className={`text-[11px] mt-1.5 pl-7 font-semibold ${ans === 'sim' ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
-                          {ans === 'sim' ? 'Marcado como concluído.' : 'Continua pendente: pergunto de novo na próxima revisão.'}
-                        </p>
-                      ) : (
-                        <div className="flex gap-1.5 mt-2 pl-7">
-                          <button
-                            onClick={() => {
-                              markTopicSeen(t.id);
-                              setPendingAnswers((a) => ({ ...a, [t.id]: 'sim' }));
-                            }}
-                            className="px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-[11px] font-bold"
-                          >
-                            ✓ Sim, já vi
-                          </button>
-                          <button
-                            onClick={() => setPendingAnswers((a) => ({ ...a, [t.id]: 'nao' }))}
-                            className="px-3 py-1.5 rounded-lg border border-rose-300 dark:border-rose-800 text-rose-600 dark:text-rose-400 text-[11px] font-bold hover:bg-rose-50 dark:hover:bg-rose-950/40"
-                          >
-                            ✕ Ainda não
-                          </button>
-                        </div>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-              <button
-                onClick={() => setPendingPromptBlock(null)}
-                className={`w-full px-4 py-2.5 rounded-xl text-xs font-bold ${
-                  allAnswered ? 'bg-sky-600 hover:bg-sky-700 text-white' : 'border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'
-                }`}
-              >
-                {allAnswered ? 'Concluir' : 'Responder depois'}
-              </button>
             </div>
-          </div>
-        );
-      })()}
+          );
+        })()}
     </div>
   );
 };

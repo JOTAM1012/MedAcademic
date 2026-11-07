@@ -1,14 +1,14 @@
-// Revisões por BLOCO. Quando todos os tópicos de um bloco são vistos, aquele dia é o Dia 0 e a
-// 1ª revisão fica para o Dia 7. Depois de cada revisão o usuário avalia (Difícil/Médio/Fácil):
-// a avaliação define a data da próxima revisão e o plano sugerido para esse dia.
-// As revisões seguem em ciclos de 4 (R1–R4, R5–R8, ...): não há fim, a cada ciclo o intervalo é o maior.
+// Revisões por BLOCO (tema), seguindo o Guia Científico de Estudo:
+// Dia 0 = estudo inicial (todos os tópicos vistos) → R1 em 24 h → R2 no dia 7 → R3 no dia 30 →
+// R4 por volta do dia 75 → depois a cada poucos meses. Foi mal: o próximo intervalo encurta;
+// foi muito bem: alonga. Cada etapa tem uma técnica de recuperação ativa (ver studyMethod.ts).
 import { Topic, TopicBlock, TopicDifficulty } from '../types';
 
-/** Tamanho de cada ciclo de revisões (R1–R4, R5–R8...) */
+/** A partir da R4 o tema está consolidado ("dominado"), mas continua em manutenção */
 export const BLOCK_REVIEWS_TO_MASTER = 4;
 export const REVIEW_GROUP_SIZE = BLOCK_REVIEWS_TO_MASTER;
 
-/** Bloco que já completou pelo menos um ciclo de 4 revisões */
+/** Bloco que já fez as 4 revisões iniciais (R1–R4) */
 export const isBlockMastered = (b: { reviewsDone: number; reviewStatus: string }) =>
   b.reviewStatus !== 'estudando' && b.reviewsDone >= BLOCK_REVIEWS_TO_MASTER;
 
@@ -17,18 +17,47 @@ export const completedCycles = (b: { reviewsDone: number }) => Math.floor(b.revi
 
 /** 1ª revisão (índice 0) do ciclo em que está a próxima revisão */
 export const currentGroupStart = (done: number) => Math.floor(done / BLOCK_REVIEWS_TO_MASTER) * BLOCK_REVIEWS_TO_MASTER;
-export const FIRST_REVIEW_DAY = 7;
 
-// Dias até a revisão nº (feitas + 1). A 1ª é sempre no Dia 7; as seguintes dependem da avaliação.
-export const REVIEW_INTERVALS: Record<TopicDifficulty, number[]> = {
-  dificil: [FIRST_REVIEW_DAY, 3, 7, 15],
-  medio: [FIRST_REVIEW_DAY, 7, 15, 30],
-  facil: [FIRST_REVIEW_DAY, 15, 30, 60],
+/** 1ª revisão: 24 h depois do estudo inicial (a mais valiosa, segundo a curva do esquecimento) */
+export const FIRST_REVIEW_DAY = 1;
+
+/** Dia (contado do Dia 0) em que cada revisão cai quando tudo vai "Médio": R1 1, R2 7, R3 30, R4 75 */
+export const REVIEW_TARGET_DAYS = [1, 7, 30, 75];
+
+/** Intervalo base até a próxima revisão depois de concluir `done` revisões (done = 0 é o Dia 0) */
+export const baseIntervalDays = (done: number, longTerm = false) => {
+  if (done <= 0) return 1;
+  if (done === 1) return 6;
+  if (done === 2) return 23;
+  if (done === 3) return 45;
+  const cap = longTerm ? 180 : 120;
+  return Math.min(cap, Math.round(45 * Math.pow(2, done - 3)));
 };
 
+/** Fator pelo desempenho: Difícil encurta, Fácil alonga */
+export const DIFFICULTY_FACTOR: Record<TopicDifficulty, number> = { dificil: 0.5, medio: 1, facil: 1.4 };
+
 /** Dias até a próxima revisão depois de concluir `done` revisões com esta avaliação */
-export const nextIntervalDays = (difficulty: TopicDifficulty, done: number) =>
-  REVIEW_INTERVALS[difficulty][Math.min(done, BLOCK_REVIEWS_TO_MASTER - 1)];
+export const nextIntervalDays = (difficulty: TopicDifficulty, done: number, longTerm = false) =>
+  Math.min(longTerm ? 180 : 120, Math.max(1, Math.round(baseIntervalDays(done, longTerm) * DIFFICULTY_FACTOR[difficulty])));
+
+/** Tabela para mostrar ao aluno: intervalo após R1, R2, R3 e R4 por avaliação (sem a 1ª, que é sempre 24 h) */
+export const REVIEW_INTERVALS: Record<TopicDifficulty, number[]> = {
+  dificil: [FIRST_REVIEW_DAY, nextIntervalDays('dificil', 1), nextIntervalDays('dificil', 2), nextIntervalDays('dificil', 3)],
+  medio: [FIRST_REVIEW_DAY, nextIntervalDays('medio', 1), nextIntervalDays('medio', 2), nextIntervalDays('medio', 3)],
+  facil: [FIRST_REVIEW_DAY, nextIntervalDays('facil', 1), nextIntervalDays('facil', 2), nextIntervalDays('facil', 3)],
+};
+
+/**
+ * Data da próxima revisão. Se cair no dia de descanso, vai para o dia seguinte
+ * (revisar um pouco tarde rende mais do que revisar cedo demais).
+ */
+export const scheduleReviewDate = (days: number, opts: { from?: Date | string; restDay?: number | null } = {}) => {
+  const d = opts.from ? (typeof opts.from === 'string' ? parseYMD(opts.from) : new Date(opts.from)) : new Date();
+  d.setDate(d.getDate() + days);
+  if (opts.restDay !== undefined && opts.restDay !== null && d.getDay() === opts.restDay) d.setDate(d.getDate() + 1);
+  return ymd(d);
+};
 
 export interface ReviewPlan {
   id: TopicDifficulty;
@@ -39,23 +68,23 @@ export interface ReviewPlan {
   steps: string[];
 }
 
-// Plano sugerido para a revisão agendada, conforme a avaliação da revisão anterior
+// Avaliação da revisão (Difícil / Médio / Fácil). Os passos são sempre de recuperação ativa (nunca reler).
 export const REVIEW_PLANS: Record<TopicDifficulty, ReviewPlan> = {
   facil: { id: 'facil', label: 'Fácil', emoji: '🟢', color: '#16a34a', questions: 15, steps: ['15 questões'] },
-  medio: { id: 'medio', label: 'Médio', emoji: '🟡', color: '#d97706', questions: 20, steps: ['Ler o resumo', '20 questões'] },
+  medio: { id: 'medio', label: 'Médio', emoji: '🟡', color: '#d97706', questions: 20, steps: ['Folha em branco do tema', '20 questões'] },
   dificil: {
     id: 'dificil',
     label: 'Difícil',
     emoji: '🔴',
     color: '#e11d48',
     questions: 30,
-    steps: ['Revisar o resumo', 'Videoaula rápida', '30 questões'],
+    steps: ['Reexplique o mecanismo que travou (Feynman)', '30 questões'],
   },
 };
 
 export const PLAN_ORDER: TopicDifficulty[] = ['dificil', 'medio', 'facil'];
 
-/** Plano da próxima revisão: só existe depois da 1ª avaliação (a revisão do Dia 7 é livre) */
+/** @deprecated use reviewTechnique() de studyMethod.ts. Mantido para telas antigas. */
 export const suggestedPlan = (block: TopicBlock): ReviewPlan | undefined =>
   block.reviewsDone > 0 && block.difficulty ? REVIEW_PLANS[block.difficulty] : undefined;
 
@@ -82,6 +111,9 @@ export const parseYMD = (s: string) => {
   return new Date(y, (m || 1) - 1, d || 1);
 };
 
+/** Dias de b menos a (YYYY-MM-DD) */
+export const daysBetween = (a: string, b: string) => Math.round((parseYMD(b).getTime() - parseYMD(a).getTime()) / 86400000);
+
 export const formatDM = (s?: string) => {
   if (!s) return '';
   const [, m, d] = s.split('-');
@@ -102,3 +134,7 @@ export const isTopicResolved = (t: Topic) => isTopicSeen(t) || isTopicPending(t)
 
 export const isBlockDue = (block: TopicBlock, todayStr = ymd(new Date())) =>
   block.reviewStatus === 'revisao' && !!block.nextReviewDate && block.nextReviewDate <= todayStr;
+
+/** Dias de atraso de uma revisão (0 = hoje ou ainda não venceu) */
+export const overdueDays = (block: TopicBlock, todayStr = ymd(new Date())) =>
+  block.reviewStatus === 'revisao' && block.nextReviewDate && block.nextReviewDate < todayStr ? daysBetween(block.nextReviewDate, todayStr) : 0;

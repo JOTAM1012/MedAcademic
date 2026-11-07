@@ -24,13 +24,23 @@ import {
   Search,
   Building2,
   FolderPlus,
+  CalendarRange,
+  Settings2,
+  HelpCircle,
+  ChevronDown,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { getReviewsDone, REVIEWS_TO_MASTER } from '../data/topicStatus';
 import { getActivityCategory, getExamKind, getExamSubjectName, getExamShift, occursOn } from '../data/planning';
 import { Exam, ScheduleClass, Topic, Subject, ChecklistItem, TopicBlock } from '../types';
-import { BLOCK_REVIEWS_TO_MASTER, cycleDay, formatDM, isTopicSeen, suggestedPlan } from '../data/blockReview';
+import { BLOCK_REVIEWS_TO_MASTER, cycleDay, formatDM, isTopicSeen } from '../data/blockReview';
+import { reviewTechnique } from '../data/studyMethod';
+import { useWeekLoad } from '../hooks/useStudyPlan';
 import { DatePickerField } from './DatePickerField';
+import { TodayPlanPanel } from './plan/TodayPlanPanel';
+import { DailyHabitsCard } from './plan/DailyHabitsCard';
+import { WeeklyPlanModal } from './plan/WeeklyPlanModal';
+import { StudyRoutineModal } from './plan/StudyRoutineModal';
+import { DAY_KIND_INFO, readLocal, userLocalKey, writeLocal } from './plan/planShared';
 
 interface CalendarViewProps {
   onOpenAddExam?: (date?: string) => void;
@@ -39,7 +49,12 @@ interface CalendarViewProps {
 }
 
 type FilterType = 'all' | 'classes' | 'reviews' | 'exams' | 'personal';
-type ViewMode = 'daily' | 'weekly' | 'monthly';
+type ViewMode = 'today' | 'daily' | 'weekly' | 'monthly';
+const VIEW_KEY = 'medacademic_planner_view';
+const readView = (): ViewMode => {
+  const v = readLocal(VIEW_KEY);
+  return v === 'daily' || v === 'weekly' || v === 'monthly' || v === 'today' ? v : 'today';
+};
 
 const MONTH_NAMES = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -57,9 +72,19 @@ const DAY_NAMES = [
 ];
 
 const VIEW_LABELS: Record<ViewMode, { title: string; live: string; prev: string; next: string }> = {
+  today: { title: 'Meu plano de hoje', live: 'Hoje', prev: '', next: '' },
   daily: { title: 'Meu dia', live: 'Hoje', prev: 'Dia Anterior', next: 'Próximo Dia' },
   weekly: { title: 'Minha semana', live: 'Semana Atual', prev: 'Semana Anterior', next: 'Próxima Semana' },
   monthly: { title: 'Meu mês', live: 'Mês Atual', prev: 'Mês Anterior', next: 'Próximo Mês' },
+};
+
+// Selos dos cards: tons escuros no modo claro, claros no escuro (legíveis nos dois)
+const BADGE_CLS: Record<'amber' | 'blue' | 'rose' | 'emerald' | 'purple', string> = {
+  amber: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/30',
+  blue: 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-500/15 dark:text-sky-400 dark:border-sky-500/30',
+  rose: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-500/15 dark:text-rose-400 dark:border-rose-500/30',
+  purple: 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-500/15 dark:text-purple-400 dark:border-purple-500/30',
+  emerald: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-400 dark:border-emerald-500/30',
 };
 
 interface UnifiedCalendarItem {
@@ -108,10 +133,47 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     updateExam,
     updateChecklistItem,
     updateTopicBlock,
+    openMethodGuide,
+    openReviews,
+    studyMethod,
+    userProfile,
+    isInitialLoadComplete,
+    methodGuideSeen,
+    methodGuide,
+    plannerRequest,
+    clearPlannerRequest,
   } = useApp();
 
-  // Calendar View State: default to 'weekly'
-  const [viewMode, setViewMode] = useState<ViewMode>('weekly');
+  // Visão: "Hoje" é a padrão; a escolhida fica lembrada neste aparelho
+  const [viewMode, setViewModeState] = useState<ViewMode>(readView);
+  const setViewMode = (mode: ViewMode) => {
+    setViewModeState(mode);
+    writeLocal(VIEW_KEY, mode);
+  };
+  const [weekPlanOpen, setWeekPlanOpen] = useState(false);
+  const [routineOpen, setRoutineOpen] = useState<null | 'full' | 'first'>(null);
+  const [agendaOpen, setAgendaOpen] = useState(true);
+
+  // Atalhos "Planner › Hoje" (Início, guia, menu): cai sempre na visão Hoje e, se pedido, abre Minha rotina
+  useEffect(() => {
+    if (!plannerRequest) return;
+    setViewMode('today');
+    if (plannerRequest.routine) setRoutineOpen('full');
+    clearPlannerRequest();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [plannerRequest]);
+
+  // Mini-configuração da rotina: abre sozinha na 1ª visita ao Hoje se o aluno nunca escolheu nada
+  useEffect(() => {
+    if (viewMode !== 'today' || !isInitialLoadComplete || !methodGuideSeen || methodGuide.open) return;
+    const prefs = studyMethod.prefs;
+    if (prefs && Object.keys(prefs).length > 0) return;
+    const key = userLocalKey('routine_setup_shown', userProfile.email);
+    if (readLocal(key) === '1') return;
+    writeLocal(key, '1');
+    setRoutineOpen('first');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewMode, isInitialLoadComplete, studyMethod.prefs, userProfile.email, methodGuideSeen, methodGuide.open]);
   const [filterType, setFilterType] = useState<FilterType>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
@@ -193,7 +255,9 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   }, [currentWeekDate]);
 
   // Days covered by the active view (used for the stats and filter counters)
+  const todayInfo = makeDayInfo(new Date());
   const rangeDays = useMemo(() => {
+    if (viewMode === 'today') return [makeDayInfo(new Date())];
     if (viewMode === 'daily') return [activeDay];
     if (viewMode === 'monthly') return monthGrid.filter((c) => c.inMonth);
     return weekDays;
@@ -201,6 +265,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 
   // Navigation handlers (step depends on the active view)
   const shiftPeriod = (direction: 1 | -1) => {
+    if (viewMode === 'today') return;
     const d = new Date(currentWeekDate);
     if (viewMode === 'daily') {
       d.setDate(d.getDate() + direction);
@@ -224,6 +289,10 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 
   // Period description header
   const weekRangeLabel = useMemo(() => {
+    if (viewMode === 'today') {
+      const t = makeDayInfo(new Date());
+      return `${t.long}, ${t.dayNumber} de ${MONTH_NAMES[t.date.getMonth()]}`;
+    }
     if (viewMode === 'daily') {
       return `${activeDay.long}, ${activeDay.dayNumber} de ${MONTH_NAMES[activeDay.date.getMonth()]} de ${activeDay.date.getFullYear()}`;
     }
@@ -243,6 +312,10 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     const todayYMD = formatToYMD(new Date());
     return rangeDays.some((d) => d.dateStr === todayYMD);
   }, [rangeDays]);
+
+  // Carga de cada dia da semana (revisões + temas × capacidade) e tipo do dia
+  const weekLoadList = useWeekLoad(viewMode === 'weekly' ? weekDays.map((d) => d.dateStr) : []);
+  const weekLoadByDate = useMemo(() => new Map(weekLoadList.map((l) => [l.date, l])), [weekLoadList]);
 
   // ---------- D0 e arrastar cards entre dias ----------
   // Dia de estudo de um bloco em estudo: data planejada ou o 1º contato agendado mais cedo dos tópicos
@@ -451,7 +524,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   }, []);
 
   // Generate unified items for a specific day of the week
-  const getItemsForDay = (dayInfo: { dateStr: string; dayNum: number }) => {
+  const getItemsForDay = (dayInfo: { dateStr: string; dayNum: number }, opts?: { noFilter?: boolean }) => {
     const items: UnifiedCalendarItem[] = [];
 
     // 1. Schedule Classes & Commitments (Recurring by dayOfWeek or matches day)
@@ -530,23 +603,32 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         });
       });
 
-    // 3a. Blocos em estudo (D0): um card por bloco, com a % de tópicos vistos
+    // 3a. Blocos em estudo (D0): um card por bloco, com a % de tópicos vistos.
+    // O D0 que passou da data sobe para hoje com selo neutro ("remarcado").
+    const todayStr = formatToYMD(new Date());
+    const isTodayCol = dayInfo.dateStr === todayStr;
     topicBlocks
-      .filter((bk) => bk.reviewStatus === 'estudando' && studyDateOf(bk) === dayInfo.dateStr)
+      .filter((bk) => {
+        if (bk.reviewStatus !== 'estudando') return false;
+        const sd = studyDateOf(bk);
+        return !!sd && (sd === dayInfo.dateStr || (isTodayCol && sd < todayStr));
+      })
       .forEach((bk) => {
         const sub = getSubject(bk.subjectId);
         const list = topics.filter((t) => t.blockId === bk.id);
         const seen = list.filter(isTopicSeen).length;
         const pct = list.length ? Math.round((seen / list.length) * 100) : 0;
+        const sd = studyDateOf(bk)!;
+        const late = sd < dayInfo.dateStr;
         items.push({
           id: `blockstudy-${bk.id}`,
           sourceType: 'blockstudy',
           time: '--:--',
-          badge: 'D0',
+          badge: late ? 'D0 · remarcado' : 'D0',
           badgeColor: 'blue',
           title: bk.name,
           subtitle: sub?.universitySubject || sub?.name,
-          bottomLeftLabel: `${seen}/${list.length} tópicos`,
+          bottomLeftLabel: late ? `Estava para ${formatDM(sd)} · ${seen}/${list.length} tópicos` : `${seen}/${list.length} tópicos`,
           bottomLeftIcon: 'brain',
           statusLabel: `${pct}%`,
           progressPercent: pct,
@@ -563,22 +645,25 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       .filter(
         (t) =>
           t.scheduleFirstContact &&
-          t.firstContactDate === dayInfo.dateStr &&
+          !!t.firstContactDate &&
+          (t.firstContactDate === dayInfo.dateStr || (isTodayCol && t.firstContactDate < todayStr)) &&
           t.status === 'nao_iniciado' &&
+          !t.cabide &&
           !topicBlocks.some((bk) => bk.id === t.blockId && bk.reviewStatus === 'estudando')
       )
       .forEach((topic) => {
         const sub = getSubject(topic.subjectId);
         const block = topicBlocks.find((bk) => bk.id === topic.blockId);
+        const late = (topic.firstContactDate || '') < dayInfo.dateStr;
         items.push({
           id: `topic-${topic.id}`,
           sourceType: 'topic',
           time: topic.studyTime || '--:--',
-          badge: '1º CONTATO',
+          badge: late ? '1º CONTATO · remarcado' : '1º CONTATO',
           badgeColor: 'blue',
           title: topic.title,
           subtitle: block?.name || sub?.universitySubject || sub?.name,
-          bottomLeftLabel: '1º Contato',
+          bottomLeftLabel: late ? `Estava para ${formatDM(topic.firstContactDate)}` : '1º Contato',
           bottomLeftIcon: 'brain',
           statusLabel: 'A estudar',
           isCompleted: false,
@@ -588,34 +673,35 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         });
       });
 
-    // 4. Revisões de bloco (as atrasadas aparecem no dia de hoje)
-    const todayYMD = formatToYMD(new Date());
+    // 4. Revisões de bloco com a técnica da etapa (as atrasadas sobem para hoje como "remarcada")
     topicBlocks
       .filter(
         (bk) =>
           bk.reviewStatus === 'revisao' &&
           !!bk.nextReviewDate &&
-          (bk.nextReviewDate === dayInfo.dateStr || (dayInfo.dateStr === todayYMD && bk.nextReviewDate < todayYMD))
+          subjects.some((s) => s.id === bk.subjectId) &&
+          (bk.nextReviewDate === dayInfo.dateStr || (isTodayCol && bk.nextReviewDate < todayStr))
       )
       .forEach((bk) => {
         const sub = getSubject(bk.subjectId);
-        const plan = suggestedPlan(bk);
+        const tech = reviewTechnique(bk, sub?.format);
         const day = cycleDay(bk, bk.nextReviewDate);
+        const late = !!bk.nextReviewDate && bk.nextReviewDate < dayInfo.dateStr;
         items.push({
           id: `block-${bk.id}`,
           sourceType: 'block',
           time: '--:--',
-          badge: `R${bk.reviewsDone + 1}`,
+          badge: late ? `R${tech.reviewNumber} · remarcada` : `R${tech.reviewNumber}${bk.star ? ' ⭐' : ''}`,
           badgeColor: 'blue',
-          title: bk.name,
-          subtitle: plan ? `${sub?.universitySubject || sub?.name || 'Bloco'} · ${plan.steps.join(' + ')}` : `${sub?.universitySubject || sub?.name || 'Bloco'} · 1ª revisão, avalie a dificuldade`,
-          bottomLeftLabel: `Revisão R${bk.reviewsDone + 1}${day !== undefined ? ` · Dia ${day}` : ''}`,
+          title: `${tech.emoji} ${tech.short}: ${bk.name}`,
+          subtitle: `${sub?.universitySubject || sub?.name || 'Bloco'} · ${tech.label}`,
+          bottomLeftLabel: late ? `${tech.short} · desde ${formatDM(bk.nextReviewDate)}` : `${tech.badge}${day !== undefined ? ` · Dia ${day}` : ''}`,
           bottomLeftIcon: 'brain',
           statusLabel: `${Math.round(((bk.reviewsDone % BLOCK_REVIEWS_TO_MASTER) / BLOCK_REVIEWS_TO_MASTER) * 100)}%`,
           progressPercent: Math.round(((bk.reviewsDone % BLOCK_REVIEWS_TO_MASTER) / BLOCK_REVIEWS_TO_MASTER) * 100),
           isCompleted: false,
           subject: sub,
-          accentColor: plan?.color || '#0284c7',
+          accentColor: tech.color,
           originalData: bk,
         });
       });
@@ -623,6 +709,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     // Sort items by time (e.g. 08:00, 14:00, 18:30, --:--)
     return items
       .filter((item) => {
+        if (opts?.noFilter) return true;
         // Filter by category
         const isClass = item.sourceType === 'schedule' && getActivityCategory(item.originalData as ScheduleClass).id === 'aula';
         if (filterType === 'classes' && !isClass) {
@@ -667,8 +754,9 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     } else if (item.sourceType === 'task') {
       toggleChecklistItem((item.originalData as ChecklistItem).id);
     } else if (item.sourceType === 'block') {
-      // A revisão do bloco é feita na aba Revisões (plano sugerido + avaliação)
-      setCurrentTab('spaced_repetition');
+      // A revisão do bloco é feita na aba Revisões (técnica da etapa + avaliação), já no card do bloco
+      const bk = item.originalData as TopicBlock;
+      openReviews({ blockId: bk.id, tab: bk.nextReviewDate && bk.nextReviewDate <= formatToYMD(new Date()) ? 'hoje' : 'agenda' });
     } else if (item.sourceType === 'blockstudy') {
       setCurrentTab('structure');
     } else if (item.sourceType === 'topic') {
@@ -745,7 +833,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     });
 
     return { totalItems, completedItems, examsCount, reviewsCount };
-  }, [rangeDays, schedule, exams, topics, subjects, checklist, checklistBlocks, filterType, searchQuery]);
+  }, [rangeDays, schedule, exams, topics, topicBlocks, subjects, checklist, checklistBlocks, filterType, searchQuery]);
 
   // Item card shared by the weekly columns (compact) and the daily board
   const renderItemCard = (item: UnifiedCalendarItem, compact = false) => (
@@ -781,17 +869,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 
         {/* Pill Badge */}
         <span
-          className={`text-[9px] font-black px-2 py-0.5 rounded-md border tracking-wider uppercase ${
-            item.badgeColor === 'amber'
-              ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
-              : item.badgeColor === 'blue'
-              ? 'bg-sky-500/15 text-sky-400 border-sky-500/30'
-              : item.badgeColor === 'rose'
-              ? 'bg-rose-500/15 text-rose-400 border-rose-500/30'
-              : item.badgeColor === 'purple'
-              ? 'bg-purple-500/15 text-purple-400 border-purple-500/30'
-              : 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
-          }`}
+          className={`text-[9px] font-black px-2 py-0.5 rounded-md border tracking-wider uppercase truncate max-w-[70%] ${BADGE_CLS[item.badgeColor]}`}
         >
           {item.badge}
         </span>
@@ -831,14 +909,14 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       ) : (
       /* Bottom Line: Recurrence/Type and Status (stacked in the narrow weekly columns) */
       <div
-        className={`border-t border-slate-800/60 flex text-[10px] ${
+        className={`border-t border-slate-200 dark:border-slate-800/60 flex text-[10px] ${
           compact ? 'mt-2 pt-1.5 flex-col items-start gap-1' : 'mt-2.5 pt-2 items-center justify-between gap-2'
         }`}
       >
         <div className="flex items-center gap-1 text-slate-500 dark:text-slate-400 font-medium min-w-0">
           {item.bottomLeftIcon === 'repeat' && <Repeat className="h-3 w-3 text-slate-500 dark:text-slate-400 shrink-0" />}
-          {item.bottomLeftIcon === 'brain' && <Brain className="h-3 w-3 text-sky-400 shrink-0" />}
-          {item.bottomLeftIcon === 'exam' && <GraduationCap className="h-3 w-3 text-rose-400 shrink-0" />}
+          {item.bottomLeftIcon === 'brain' && <Brain className="h-3 w-3 text-sky-600 dark:text-sky-400 shrink-0" />}
+          {item.bottomLeftIcon === 'exam' && <GraduationCap className="h-3 w-3 text-rose-600 dark:text-rose-400 shrink-0" />}
           <span className="truncate">{item.bottomLeftLabel}</span>
         </div>
 
@@ -847,10 +925,10 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           onClick={(e) => handleToggleItemStatus(item, e)}
           className={`flex items-center gap-1 font-bold transition-colors shrink-0 ${
             item.isCompleted
-              ? 'text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300'
+              ? 'text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300'
               : item.sourceType === 'exam'
-              ? 'text-rose-400'
-              : 'text-amber-400 hover:text-amber-700 dark:hover:text-amber-300'
+              ? 'text-rose-600 dark:text-rose-400'
+              : 'text-amber-700 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-300'
           }`}
         >
           {item.isCompleted ? <CheckCircle2 className="h-3 w-3" /> : <AlertCircle className="h-3 w-3" />}
@@ -864,7 +942,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   return (
     <div className="space-y-5 pb-16 max-w-full">
       {/* Top Header & Navigation Bar */}
-      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-4 sm:p-5 shadow-xl relative overflow-hidden">
+      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 sm:gap-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-4 sm:p-5 shadow-xl relative overflow-hidden">
         {/* Subtle Background Glow */}
         <div className="absolute top-0 right-0 -mt-8 -mr-8 w-64 h-64 bg-sky-500/10 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute bottom-0 left-1/3 -mb-8 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
@@ -872,29 +950,61 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         <div className="relative z-10 min-w-0">
           <div className="flex items-center gap-2.5 flex-wrap">
             <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
-              <CalendarDays className="h-6 w-6 text-sky-400" />
+              <CalendarDays className="h-6 w-6 text-sky-600 dark:text-sky-400" />
               <span>Planner</span>
             </h1>
-            <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-sky-500/15 text-sky-300 border border-sky-500/30">
+            <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-sky-50 text-sky-700 border border-sky-200 dark:bg-sky-500/15 dark:text-sky-300 dark:border-sky-500/30">
               {VIEW_LABELS[viewMode].title}
             </span>
-            {isCurrentLiveWeek && (
-              <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            {isCurrentLiveWeek && viewMode !== 'today' && (
+              <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-500/30 flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse" />
                 {VIEW_LABELS[viewMode].live}
               </span>
             )}
           </div>
-          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Seu dia, semana e mês em um só lugar: aulas, provas, revisões, estudos e tudo o que você quiser adicionar.
+          <p className="hidden sm:block text-sm text-slate-500 dark:text-slate-400 mt-1">
+            {viewMode === 'today'
+              ? 'O que fazer agora, na ordem certa: revisões primeiro, depois questões e conteúdo novo.'
+              : 'Seu dia, semana e mês em um só lugar: aulas, provas, revisões, estudos e tudo o que você quiser adicionar.'}
           </p>
+          {/* Atalhos do método */}
+          <div className="mt-2 sm:mt-3 flex flex-wrap items-center gap-1.5">
+            <button
+              type="button"
+              id="planner-plan-week-btn"
+              onClick={() => setWeekPlanOpen(true)}
+              className="min-h-[40px] px-3 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-black inline-flex items-center gap-1.5 shadow-xs"
+            >
+              <CalendarRange className="h-4 w-4" /> Planejar semana
+            </button>
+            <button
+              type="button"
+              id="planner-routine-btn"
+              onClick={() => setRoutineOpen('full')}
+              className="min-h-[40px] px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:border-sky-400 dark:hover:border-sky-600 text-xs font-bold inline-flex items-center gap-1.5"
+            >
+              <Settings2 className="h-4 w-4 text-sky-600 dark:text-sky-400" /><span className="sm:hidden">Rotina</span><span className="hidden sm:inline">Minha rotina</span>
+            </button>
+            <button
+              type="button"
+              id="planner-how-btn"
+              aria-label="Como funciona?"
+              title="Como funciona?"
+              onClick={() => openMethodGuide(4)}
+              className="min-h-[40px] min-w-[40px] justify-center px-2.5 sm:px-3 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-bold inline-flex items-center gap-1.5"
+            >
+              <HelpCircle className="h-4 w-4" /><span className="hidden sm:inline">Como funciona?</span>
+            </button>
+          </div>
         </div>
 
         {/* Action Controls & Navigation Buttons */}
         <div className="relative z-10 flex items-center gap-2.5 flex-wrap">
-          {/* View Mode Switcher (Dia / Semana / Mês) */}
+          {/* View Mode Switcher (Hoje / Dia / Semana / Mês) */}
           <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 rounded-2xl p-1 shadow-inner">
             {([
+              { mode: 'today', label: 'Hoje' },
               { mode: 'daily', label: 'Dia' },
               { mode: 'weekly', label: 'Semana' },
               { mode: 'monthly', label: 'Mês' },
@@ -903,10 +1013,11 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 key={mode}
                 id={`calendar-view-${mode}`}
                 onClick={() => setViewMode(mode)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-black transition-colors ${
+                aria-pressed={viewMode === mode}
+                className={`min-h-[36px] px-3 py-1.5 rounded-xl text-xs font-black transition-colors ${
                   viewMode === mode
                     ? 'bg-sky-600 text-white shadow-xs'
-                    : 'text-slate-500 dark:text-slate-400 hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
                 }`}
               >
                 {label}
@@ -915,46 +1026,50 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           </div>
 
           {/* Period Paging Buttons */}
+          {viewMode !== 'today' && (
           <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 rounded-2xl p-1 shadow-inner">
             <button
               onClick={() => shiftPeriod(-1)}
-              className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
               title={VIEW_LABELS[viewMode].prev}
+              aria-label={VIEW_LABELS[viewMode].prev}
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
 
             <button
               onClick={jumpToToday}
-              className="px-3 py-1.5 rounded-xl text-xs font-black text-slate-800 dark:text-slate-200 hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              className="px-3 py-1.5 rounded-xl text-xs font-black text-slate-800 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
             >
               Hoje
             </button>
 
             <button
               onClick={() => shiftPeriod(1)}
-              className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
               title={VIEW_LABELS[viewMode].next}
+              aria-label={VIEW_LABELS[viewMode].next}
             >
               <ChevronRight className="h-4 w-4" />
             </button>
           </div>
+          )}
 
-          {/* Quick Add Menu */}
-          <div className="flex items-center gap-1.5">
+          {/* Quick Add Menu (no Hoje do celular fica só o "Adicionar na agenda de hoje" mais abaixo) */}
+          <div className={`items-center gap-1.5 ${viewMode === 'today' ? 'hidden sm:flex' : 'flex'}`}>
             {onOpenAddSchedule && (
               <button
-                onClick={() => onOpenAddSchedule(activeDay.dayNum, activeDay.dateStr)}
+                onClick={() => onOpenAddSchedule((viewMode === 'today' ? todayInfo : activeDay).dayNum, (viewMode === 'today' ? todayInfo : activeDay).dateStr)}
                 className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-900 dark:text-white text-xs font-bold border border-slate-300 dark:border-slate-700 transition-all shadow-xs"
               >
-                <Plus className="h-3.5 w-3.5 text-amber-400" />
+                <Plus className="h-3.5 w-3.5 text-amber-500" />
                 <span>+ Atividade</span>
               </button>
             )}
 
             {onOpenAddExam && (
               <button
-                onClick={() => onOpenAddExam(viewMode === 'daily' ? activeDay.dateStr : undefined)}
+                onClick={() => onOpenAddExam(viewMode === 'daily' ? activeDay.dateStr : viewMode === 'today' ? todayInfo.dateStr : undefined)}
                 className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-all shadow-xs"
               >
                 <Plus className="h-3.5 w-3.5" />
@@ -966,6 +1081,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       </div>
 
       {/* Week Title & Filter Toolbar */}
+      {viewMode !== 'today' && (
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800/80 rounded-2xl p-3 shadow-xs">
         {/* Range Label */}
         <div className="flex items-center gap-2 px-1">
@@ -1032,6 +1148,87 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           </button>
         </div>
       </div>
+      )}
+
+      {/* TODAY: plano do dia + checklist + agenda (2 colunas no desktop, empilhado no celular) */}
+      {viewMode === 'today' && (() => {
+        const agenda = getItemsForDay(todayInfo, { noFilter: true }).filter((i) => i.sourceType === 'schedule' || i.sourceType === 'exam' || i.sourceType === 'task');
+        return (
+          <div id="planner-today-view" className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(300px,380px)] gap-4 items-start">
+            <div className="min-w-0">
+              <TodayPlanPanel onOpenWeekPlan={() => setWeekPlanOpen(true)} />
+            </div>
+            <div className="min-w-0 space-y-3 lg:sticky lg:top-4">
+              {/* Agenda do dia: aulas, provas e tarefas com data */}
+              <div id="planner-today-agenda" className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs">
+                <button
+                  type="button"
+                  onClick={() => setAgendaOpen((o) => !o)}
+                  aria-expanded={agendaOpen}
+                  className="w-full min-h-[52px] flex items-center justify-between gap-2 p-4 text-left"
+                >
+                  <span className="flex items-center gap-2.5 min-w-0">
+                    <span className="h-9 w-9 shrink-0 rounded-xl bg-violet-500/10 text-violet-600 dark:text-violet-400 flex items-center justify-center">
+                      <CalendarDays className="h-[18px] w-[18px]" />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-sm font-black text-slate-900 dark:text-white">Agenda de hoje</span>
+                      <span className="block text-[11px] text-slate-500 dark:text-slate-400 truncate">Aulas, provas e tarefas com data</span>
+                    </span>
+                  </span>
+                  <span className="flex items-center gap-2 shrink-0">
+                    <span className="text-[11px] font-black px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 border border-violet-200 dark:bg-violet-500/10 dark:text-violet-300 dark:border-violet-500/30">
+                      {agenda.length}
+                    </span>
+                    <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${agendaOpen ? 'rotate-180' : ''}`} />
+                  </span>
+                </button>
+                {agendaOpen && (
+                  <div className="px-3 pb-3 space-y-1.5">
+                    {agenda.length === 0 ? (
+                      <p className="px-1 pb-1 text-xs text-slate-500 dark:text-slate-400">Nada na agenda hoje. Bom dia para seguir o plano com calma.</p>
+                    ) : (
+                      agenda.map((item) => (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => setSelectedItem(item)}
+                          className={`w-full min-h-[48px] flex items-center gap-2.5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/40 px-3 py-2 text-left hover:border-slate-300 dark:hover:border-slate-700 transition-colors ${
+                            item.isCompleted ? 'opacity-60' : ''
+                          }`}
+                        >
+                          <span className="h-8 w-1 rounded-full shrink-0" style={{ backgroundColor: item.accentColor || '#94a3b8' }} />
+                          <span className="w-11 shrink-0 font-mono text-[11px] font-bold text-slate-600 dark:text-slate-300">{item.time === '--:--' ? '—' : item.time}</span>
+                          <span className="min-w-0 flex-1">
+                            <span className={`block text-[13px] font-bold truncate ${item.isCompleted ? 'line-through text-slate-500 dark:text-slate-400' : 'text-slate-900 dark:text-white'}`}>
+                              {item.title}
+                            </span>
+                            {(item.subtitle || item.locationOrRoom) && (
+                              <span className="block text-[11px] text-slate-500 dark:text-slate-400 truncate">{item.subtitle || item.locationOrRoom}</span>
+                            )}
+                          </span>
+                          <span className={`shrink-0 text-[9px] font-black px-1.5 py-0.5 rounded-md border uppercase ${BADGE_CLS[item.badgeColor]}`}>{item.badge}</span>
+                        </button>
+                      ))
+                    )}
+                    {onOpenAddSchedule && (
+                      <button
+                        type="button"
+                        onClick={() => onOpenAddSchedule(todayInfo.dayNum, todayInfo.dateStr)}
+                        className="w-full min-h-[40px] rounded-xl border border-dashed border-slate-300 dark:border-slate-700 text-[11px] font-bold text-slate-600 dark:text-slate-300 hover:border-sky-400 hover:text-sky-700 dark:hover:text-sky-300 flex items-center justify-center gap-1.5"
+                      >
+                        <Plus className="h-3.5 w-3.5" /> Adicionar na agenda de hoje
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <DailyHabitsCard collapsible defaultOpen={typeof window !== 'undefined' && !!window.matchMedia?.('(min-width: 1024px)').matches} />
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Card sendo arrastado */}
       {drag && (
@@ -1042,7 +1239,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         >
           <p className="text-[11px] font-black text-slate-900 dark:text-white uppercase line-clamp-2">{drag.item.title}</p>
           <div className="mt-1 flex items-center justify-between">
-            <span className="text-[9px] font-black px-1.5 py-0.5 rounded-md bg-sky-500/20 text-sky-300 border border-sky-500/40">{drag.item.badge}</span>
+            <span className="text-[9px] font-black px-1.5 py-0.5 rounded-md bg-sky-50 text-sky-700 border border-sky-200 dark:bg-sky-500/20 dark:text-sky-300 dark:border-sky-500/40">{drag.item.badge}</span>
             <span className="text-[10px] font-bold text-sky-700 dark:text-sky-300">{dropDate ? `→ ${formatDM(dropDate)}` : 'solte num dia'}</span>
           </div>
         </div>
@@ -1080,7 +1277,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                   </span>
 
                   {day.isToday && (
-                    <span className="text-[9px] font-black px-1.5 py-0.5 rounded-md bg-sky-500/20 text-sky-300 border border-sky-500/40 uppercase">
+                    <span className="text-[9px] font-black px-1.5 py-0.5 rounded-md bg-sky-50 text-sky-700 border border-sky-200 dark:bg-sky-500/20 dark:text-sky-300 dark:border-sky-500/40 uppercase">
                       Hoje
                     </span>
                   )}
@@ -1089,7 +1286,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 <div className="mt-0.5 flex items-baseline justify-between">
                   <span
                     className={`text-2xl font-black ${
-                      day.isToday ? 'text-sky-400' : 'text-slate-900 dark:text-white'
+                      day.isToday ? 'text-sky-600 dark:text-sky-400' : 'text-slate-900 dark:text-white'
                     }`}
                   >
                     {day.dayNumber}
@@ -1099,6 +1296,39 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                     {dayItems.length} {dayItems.length === 1 ? 'item' : 'itens'}
                   </span>
                 </div>
+
+                {/* Tipo do dia + carga de estudo (revisões e temas × capacidade) */}
+                {(() => {
+                  const load = weekLoadByDate.get(day.dateStr);
+                  if (!load) return null;
+                  const kindInfo = DAY_KIND_INFO[load.dayKind];
+                  const past = day.dateStr < todayInfo.dateStr;
+                  const pctLoad = load.capacity > 0 ? Math.min(100, Math.round((load.demand / load.capacity) * 100)) : 0;
+                  return (
+                    <div className="mt-1.5 space-y-1" data-planner-load={day.dateStr}>
+                      {load.dayKind !== 'normal' && (
+                        <span className={`inline-flex max-w-full items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${kindInfo.cls}`}>
+                          <span aria-hidden>{kindInfo.emoji}</span>
+                          <span className="truncate">{kindInfo.label}</span>
+                        </span>
+                      )}
+                      {!past && (
+                        <div title={`Estudo previsto: ${load.demand} de ${load.capacity} blocos de 25 min · ${load.reviews} revisões · ${load.newTopics} temas novos`}>
+                          <div className="h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                            <div
+                              className={`h-full rounded-full ${load.overloaded ? 'bg-amber-500' : 'bg-sky-500'}`}
+                              style={{ width: `${load.demand > 0 ? Math.max(pctLoad, 6) : 0}%` }}
+                            />
+                          </div>
+                          <p className={`mt-0.5 text-[9px] font-bold ${load.overloaded ? 'text-amber-700 dark:text-amber-300' : 'text-slate-500 dark:text-slate-400'}`}>
+                            {load.overloaded ? 'Dia cheio · ' : ''}
+                            {load.demand}/{load.capacity} blocos
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* Day Items List */}
@@ -1109,7 +1339,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                     <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Livre</p>
                     <button
                       onClick={() => onOpenAddSchedule && onOpenAddSchedule(day.dayNum, day.dateStr)}
-                      className="mt-2 text-[10px] font-bold text-sky-400 hover:text-sky-700 dark:hover:text-sky-300 transition-colors"
+                      className="mt-2 text-[10px] font-bold text-sky-700 dark:text-sky-400 hover:text-sky-800 dark:hover:text-sky-300 transition-colors"
                     >
                       + Adicionar
                     </button>
@@ -1125,9 +1355,9 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                   type="button"
                   onClick={() => onOpenAddSchedule && onOpenAddSchedule(day.dayNum, day.dateStr)}
                   title={`Adicionar na ${day.short}`}
-                  className="w-full py-1.5 px-2 rounded-xl bg-slate-50 dark:bg-slate-950/60 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800/70 text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:text-white transition-colors flex items-center justify-center gap-1 whitespace-nowrap"
+                  className="w-full py-1.5 px-2 rounded-xl bg-slate-50 dark:bg-slate-950/60 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800/70 text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors flex items-center justify-center gap-1 whitespace-nowrap"
                 >
-                  <Plus className="h-3 w-3 text-sky-400 shrink-0" />
+                  <Plus className="h-3 w-3 text-sky-600 dark:text-sky-400 shrink-0" />
                   <span>Adicionar</span>
                 </button>
               </div>
@@ -1142,10 +1372,10 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         const dayItems = getItemsForDay(activeDay);
         const summary = summarizeItems(dayItems);
         const summaryTiles = [
-          { label: 'Revisões espaçadas', value: summary.reviews, icon: <Repeat className="h-4 w-4" />, color: 'text-sky-400 bg-sky-500/10 border-sky-500/30' },
-          { label: '1º contato', value: summary.firstContacts, icon: <Brain className="h-4 w-4" />, color: 'text-violet-400 bg-violet-500/10 border-violet-500/30' },
-          { label: 'Avaliações', value: summary.exams, icon: <GraduationCap className="h-4 w-4" />, color: 'text-rose-400 bg-rose-500/10 border-rose-500/30' },
-          { label: 'Aulas & atividades', value: summary.classes, icon: <BookOpen className="h-4 w-4" />, color: 'text-amber-400 bg-amber-500/10 border-amber-500/30' },
+          { label: 'Revisões espaçadas', value: summary.reviews, icon: <Repeat className="h-4 w-4" />, color: 'text-sky-700 dark:text-sky-400 bg-sky-500/10 border-sky-500/30' },
+          { label: '1º contato', value: summary.firstContacts, icon: <Brain className="h-4 w-4" />, color: 'text-violet-700 dark:text-violet-400 bg-violet-500/10 border-violet-500/30' },
+          { label: 'Avaliações', value: summary.exams, icon: <GraduationCap className="h-4 w-4" />, color: 'text-rose-700 dark:text-rose-400 bg-rose-500/10 border-rose-500/30' },
+          { label: 'Aulas & atividades', value: summary.classes, icon: <BookOpen className="h-4 w-4" />, color: 'text-amber-700 dark:text-amber-400 bg-amber-500/10 border-amber-500/30' },
         ];
 
         return (
@@ -1176,7 +1406,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 onClick={() => onOpenAddSchedule && onOpenAddSchedule(activeDay.dayNum, activeDay.dateStr)}
                 className="self-start sm:self-auto flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 text-xs font-bold text-slate-900 dark:text-white transition-colors"
               >
-                <Plus className="h-3.5 w-3.5 text-sky-400" />
+                <Plus className="h-3.5 w-3.5 text-sky-600 dark:text-sky-400" />
                 <span>Adicionar neste dia</span>
               </button>
             </div>
@@ -1259,22 +1489,22 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                   {/* Category counters */}
                   <div className="flex flex-wrap gap-0.5 sm:gap-1">
                     {s.reviews > 0 && (
-                      <span className="text-[9px] font-black px-1 sm:px-1.5 rounded bg-sky-500/15 text-sky-300" title="Revisões espaçadas">
+                      <span className="text-[9px] font-black px-1 sm:px-1.5 rounded bg-sky-100 text-sky-800 dark:bg-sky-500/15 dark:text-sky-300" title="Revisões espaçadas">
                         {s.reviews} rev
                       </span>
                     )}
                     {s.firstContacts > 0 && (
-                      <span className="text-[9px] font-black px-1 sm:px-1.5 rounded bg-violet-500/15 text-violet-300" title="Estudos de 1º contato">
+                      <span className="text-[9px] font-black px-1 sm:px-1.5 rounded bg-violet-100 text-violet-800 dark:bg-violet-500/15 dark:text-violet-300" title="Estudos de 1º contato">
                         {s.firstContacts} 1º
                       </span>
                     )}
                     {s.exams > 0 && (
-                      <span className="text-[9px] font-black px-1 sm:px-1.5 rounded bg-rose-500/15 text-rose-300" title="Avaliações">
+                      <span className="text-[9px] font-black px-1 sm:px-1.5 rounded bg-rose-100 text-rose-800 dark:bg-rose-500/15 dark:text-rose-300" title="Avaliações">
                         {s.exams} prova{s.exams > 1 ? 's' : ''}
                       </span>
                     )}
                     {s.classes > 0 && (
-                      <span className="text-[9px] font-black px-1 sm:px-1.5 rounded bg-amber-500/15 text-amber-300" title="Aulas & atividades">
+                      <span className="text-[9px] font-black px-1 sm:px-1.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300" title="Aulas & atividades">
                         {s.classes} ativ.
                       </span>
                     )}
@@ -1316,7 +1546,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 
       {/* Selected Item Detail & Quick Actions Modal */}
       {selectedItem && (
-        <div className="app-modal fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-50 dark:bg-slate-950/80 backdrop-blur-xs animate-in fade-in">
+        <div className="app-modal fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 dark:bg-slate-950/80 backdrop-blur-xs animate-in fade-in">
           <div className="app-modal-panel relative w-full max-w-md rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-2xl space-y-4">
             {/* Header */}
             <div className="flex items-start justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
@@ -1324,12 +1554,12 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 <div
                   className={`p-2.5 rounded-2xl ${
                     selectedItem.badgeColor === 'amber'
-                      ? 'bg-amber-500/10 text-amber-400'
+                      ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
                       : selectedItem.badgeColor === 'blue'
-                      ? 'bg-sky-500/10 text-sky-400'
+                      ? 'bg-sky-500/10 text-sky-600 dark:text-sky-400'
                       : selectedItem.badgeColor === 'rose'
-                      ? 'bg-rose-500/10 text-rose-400'
-                      : 'bg-purple-500/10 text-purple-400'
+                      ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
+                      : 'bg-purple-500/10 text-purple-600 dark:text-purple-400'
                   }`}
                 >
                   {selectedItem.sourceType === 'schedule' && <Clock className="h-5 w-5" />}
@@ -1355,7 +1585,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 
               <button
                 onClick={() => setSelectedItem(null)}
-                className="p-1 rounded-lg text-slate-500 dark:text-slate-400 hover:text-white"
+                className="p-1 rounded-lg text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
               >
                 ✕
               </button>
@@ -1383,7 +1613,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 <span className="text-slate-500 dark:text-slate-400">Status Atual:</span>
                 <span
                   className={`font-black ${
-                    selectedItem.isCompleted ? 'text-emerald-400' : 'text-amber-400'
+                    selectedItem.isCompleted ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-700 dark:text-amber-400'
                   }`}
                 >
                   {selectedItem.statusLabel}
@@ -1492,6 +1722,10 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* Janelas do método: planejar semana e minha rotina */}
+      <WeeklyPlanModal open={weekPlanOpen} onClose={() => setWeekPlanOpen(false)} />
+      <StudyRoutineModal open={routineOpen !== null} firstTime={routineOpen === 'first'} onClose={() => setRoutineOpen(null)} />
     </div>
   );
 };

@@ -11,9 +11,17 @@ import {
   RefreshCw,
   HelpCircle,
   Smartphone,
+  Repeat,
+  NotebookPen,
+  GraduationCap,
+  BookOpen,
+  ChevronRight,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { openInstallGuide, usePwaInstall } from '../lib/pwaInstall';
+import { daysBetween, formatDM } from '../data/blockReview';
+import { isErrorDue } from '../data/studyMethod';
+import { todayYMD, useDueReviewCount } from '../hooks/useStudyPlan';
 
 interface TopBarProps {
   onToggleMobileMenu: () => void;
@@ -33,6 +41,10 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleMobileMenu, onOpenTour }
     exams,
     cloudSyncStatus,
     forceCloudSync,
+    topicBlocks,
+    studyMethod,
+    openReviews,
+    openMethodGuide,
   } = useApp();
 
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -70,12 +82,29 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleMobileMenu, onOpenTour }
     ? exams.filter((e) => e.title.toLowerCase().includes(searchQuery.toLowerCase()))
     : [];
 
-  // Notifications
-  const upcomingExamsList = exams.filter((e) => {
-    if (!e.date || e.grade !== undefined) return false;
-    const diffDays = Math.ceil((new Date(e.date).getTime() - new Date().getTime()) / (1000 * 3600 * 24));
-    return diffDays >= 0 && diffDays <= 10;
-  });
+  // Notifications (datas locais)
+  const today = todayYMD();
+  const upcomingExamsList = exams
+    .filter((e) => {
+      if (!e.date || e.grade !== undefined) return false;
+      const diffDays = daysBetween(today, e.date);
+      return diffDays >= 0 && diffDays <= 10;
+    })
+    .sort((a, b) => a.date.localeCompare(b.date));
+  const dueReviews = useDueReviewCount();
+  const dueErrors = React.useMemo(
+    () => (studyMethod.errorNotes || []).filter((n) => isErrorDue(n, today, topicBlocks)).length,
+    [studyMethod.errorNotes, topicBlocks, today]
+  );
+  const hasAlerts = upcomingExamsList.length > 0 || dueReviews > 0 || dueErrors > 0;
+  const examWhen = (date: string) => {
+    const d = daysBetween(today, date);
+    return d === 0 ? 'hoje' : d === 1 ? 'amanhã' : `em ${d} dias · ${formatDM(date)}`;
+  };
+  const closeAnd = (fn: () => void) => () => {
+    setIsNotificationsOpen(false);
+    fn();
+  };
 
   return (
     <header
@@ -272,12 +301,13 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleMobileMenu, onOpenTour }
             id="topbar-notifications-btn"
             onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
             className="relative rounded-xl p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-            aria-label="Notificações"
+            aria-label={hasAlerts ? 'Notificações (há lembretes)' : 'Notificações'}
+            aria-expanded={isNotificationsOpen}
           >
             <Bell className="h-4 w-4" />
-            {upcomingExamsList.length > 0 && (
+            {hasAlerts && (
               <span className="absolute top-1.5 right-1.5 flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                {upcomingExamsList.length > 0 && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>}
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
               </span>
             )}
@@ -285,51 +315,101 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleMobileMenu, onOpenTour }
 
           {/* Notifications Dropdown */}
           {isNotificationsOpen && (
-            <div
-              id="topbar-notifications-dropdown"
-              className="absolute right-0 top-full mt-2 w-80 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 shadow-xl z-50"
-            >
-              <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
-                <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                  Lembretes e Alertas
-                </span>
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setIsNotificationsOpen(false)} aria-hidden="true" />
+              <div
+                id="topbar-notifications-dropdown"
+                className="fixed left-3 right-3 top-16 sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-2 sm:w-80 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 shadow-xl z-50"
+              >
+                <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200">Lembretes de hoje</span>
+                  <button
+                    onClick={() => setIsNotificationsOpen(false)}
+                    className="p-1.5 -m-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+                    aria-label="Fechar lembretes"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+
+                <div className="py-2 space-y-2 max-h-[60vh] sm:max-h-80 overflow-y-auto">
+                  {dueReviews > 0 && (
+                    <button
+                      type="button"
+                      id="topbar-notif-reviews"
+                      onClick={closeAnd(() => openReviews({ tab: 'hoje' }))}
+                      className="w-full flex items-center gap-2.5 p-2.5 rounded-xl bg-sky-50 dark:bg-sky-950/30 border border-sky-100 dark:border-sky-900/40 text-left hover:bg-sky-100/70 dark:hover:bg-sky-900/30 transition-colors"
+                    >
+                      <span className="p-1.5 rounded-lg bg-sky-600 text-white shrink-0">
+                        <Repeat className="h-3.5 w-3.5" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-xs font-bold text-sky-900 dark:text-sky-100">
+                          {dueReviews} {dueReviews === 1 ? 'revisão' : 'revisões'} para hoje
+                        </span>
+                        <span className="block text-[11px] text-sky-800/80 dark:text-sky-300/80">Revisões vêm antes de conteúdo novo</span>
+                      </span>
+                      <ChevronRight className="h-4 w-4 text-sky-600 dark:text-sky-400 shrink-0" />
+                    </button>
+                  )}
+
+                  {dueErrors > 0 && (
+                    <button
+                      type="button"
+                      id="topbar-notif-errors"
+                      onClick={closeAnd(() => openReviews({ tab: 'erros' }))}
+                      className="w-full flex items-center gap-2.5 p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-100 dark:border-amber-900/40 text-left hover:bg-amber-100/70 dark:hover:bg-amber-900/30 transition-colors"
+                    >
+                      <span className="p-1.5 rounded-lg bg-amber-500 text-slate-950 shrink-0">
+                        <NotebookPen className="h-3.5 w-3.5" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-xs font-bold text-amber-900 dark:text-amber-100">
+                          {dueErrors} {dueErrors === 1 ? 'erro' : 'erros'} para refazer
+                        </span>
+                        <span className="block text-[11px] text-amber-800/80 dark:text-amber-300/80">Tente lembrar a regra antes de olhar</span>
+                      </span>
+                      <ChevronRight className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                    </button>
+                  )}
+
+                  {upcomingExamsList.map((exam) => (
+                    <button
+                      type="button"
+                      key={exam.id}
+                      onClick={closeAnd(() => setCurrentTab('grades'))}
+                      className="w-full flex items-center gap-2.5 p-2.5 rounded-xl bg-rose-50/70 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/30 text-left hover:bg-rose-100/60 dark:hover:bg-rose-900/20 transition-colors"
+                    >
+                      <span className="p-1.5 rounded-lg bg-rose-500 text-white shrink-0">
+                        <GraduationCap className="h-3.5 w-3.5" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-xs font-bold text-rose-900 dark:text-rose-100 truncate">{exam.title}</span>
+                        <span className="block text-[11px] text-rose-800/80 dark:text-rose-300/80 truncate">
+                          Prova {examWhen(exam.date)}
+                          {exam.location ? ` · ${exam.location}` : ''}
+                        </span>
+                      </span>
+                    </button>
+                  ))}
+
+                  {!hasAlerts && (
+                    <div className="text-center py-4 text-xs text-slate-500 dark:text-slate-400">Tudo em dia por aqui: sem revisões, erros ou provas urgentes. 🎉</div>
+                  )}
+                </div>
+
                 <button
-                  onClick={() => setIsNotificationsOpen(false)}
-                  className="text-slate-400 hover:text-slate-600"
+                  type="button"
+                  id="topbar-method-guide-link"
+                  onClick={closeAnd(() => openMethodGuide(0))}
+                  className="w-full mt-1 pt-2.5 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2 px-1 text-[11px] font-bold text-slate-600 dark:text-slate-300 hover:text-sky-700 dark:hover:text-sky-300 transition-colors"
                 >
-                  <X className="h-3.5 w-3.5" />
+                  <BookOpen className="h-3.5 w-3.5 text-sky-600 dark:text-sky-400" />
+                  Como funciona o método
+                  <ChevronRight className="h-3.5 w-3.5 ml-auto" />
                 </button>
               </div>
-
-              <div className="py-2 space-y-2 max-h-64 overflow-y-auto">
-                {upcomingExamsList.length === 0 ? (
-                  <div className="text-center py-4 text-xs text-slate-400">
-                    Nenhuma prova urgente nos próximos 10 dias. 🎉
-                  </div>
-                ) : (
-                  upcomingExamsList.map((exam) => (
-                    <div
-                      key={exam.id}
-                      onClick={() => {
-                        setCurrentTab('grades');
-                        setIsNotificationsOpen(false);
-                      }}
-                      className="p-2.5 rounded-lg bg-rose-50/60 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/30 cursor-pointer hover:opacity-90"
-                    >
-                      <div className="flex items-center justify-between text-xs font-semibold text-rose-900 dark:text-rose-200">
-                        <span>{exam.title}</span>
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-rose-200/60 dark:bg-rose-900/60 text-rose-800 dark:text-rose-300">
-                          {exam.date}
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-rose-700/80 dark:text-rose-400 mt-0.5">
-                        Peso: {exam.weight} | Local: {exam.location || 'A definir'}
-                      </p>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
+            </>
           )}
         </div>
 
@@ -360,6 +440,17 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleMobileMenu, onOpenTour }
             <span className="hidden sm:inline text-slate-700 dark:text-slate-300">Ajuda & Tour</span>
           </button>
         )}
+
+        {/* Guia do método (só em telas largas; no celular fica dentro do sino) */}
+        <button
+          id="topbar-method-guide-btn"
+          onClick={() => openMethodGuide(0)}
+          className="hidden xl:flex rounded-xl p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors items-center gap-1.5 text-xs font-semibold"
+          title="Como funciona o Método MedAcademic"
+        >
+          <BookOpen className="h-4 w-4 text-sky-500" />
+          <span className="text-slate-700 dark:text-slate-300">Como funciona</span>
+        </button>
 
         {/* Dark Mode Toggle */}
         <button

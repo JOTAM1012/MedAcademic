@@ -1,117 +1,141 @@
 import React, { useState } from 'react';
-import { TrendingUp, ChevronDown, ArrowRight, Sparkles } from 'lucide-react';
-import { PLAN_ORDER, REVIEW_INTERVALS, REVIEW_PLANS, FIRST_REVIEW_DAY } from '../data/blockReview';
+import { ChevronDown, TrendingUp } from 'lucide-react';
+import { REVIEW_INTERVALS } from '../data/blockReview';
+import { TECHNIQUES } from '../data/studyMethod';
+import type { TopicDifficulty } from '../types';
 
 interface SpacedRepetitionRulesCardProps {
   initialExpanded?: boolean;
   className?: string;
 }
 
-const ROW_STYLE: Record<string, { dot: string; text: string; hint: string }> = {
-  dificil: { dot: 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.7)]', text: 'text-rose-400', hint: '(Retenção instável)' },
-  medio: { dot: 'bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.7)]', text: 'text-amber-300', hint: '(Recordação com esforço)' },
-  facil: { dot: 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.7)]', text: 'text-emerald-300', hint: '(Memória consolidada)' },
-};
+// Cronograma do guia: Dia 0 → 24 h → 7 dias → 30 dias → 60–90 dias → a cada poucos meses
+const TIMELINE = [
+  { when: 'Dia 0', title: 'Estudo inicial', tech: TECHNIQUES.estudo_inicial, detail: 'Pré-teste, mapa, Feynman, flashcards e questões' },
+  { when: '24 h', title: 'R1 · Folha em branco', tech: TECHNIQUES.folha_branco, detail: 'Escreva tudo o que lembra, sem consultar' },
+  { when: '7 dias', title: 'R2 · Questões do tema', tech: TECHNIQUES.questoes_tema, detail: 'Bloco só deste tema, marcando a certeza' },
+  { when: '30 dias', title: 'R3 · Questões novas + caderno', tech: TECHNIQUES.questoes_novas, detail: 'Questões que você não viu e os erros anotados' },
+  { when: '60–90 dias', title: 'R4 · Misturadas', tech: TECHNIQUES.misturadas, detail: 'Este tema no meio de outros, como na prova' },
+  { when: 'Depois', title: 'Manutenção', tech: { emoji: '🔁', color: '#64748b' }, detail: 'Questões misturadas a cada poucos meses' },
+];
 
-export const SpacedRepetitionRulesCard: React.FC<SpacedRepetitionRulesCardProps> = ({ initialExpanded = true, className = '' }) => {
+const ROWS: Array<{ id: TopicDifficulty; label: string; dot: string; text: string }> = [
+  { id: 'dificil', label: 'Foi mal', dot: 'bg-rose-500', text: 'text-rose-600 dark:text-rose-400' },
+  { id: 'medio', label: 'Normal', dot: 'bg-amber-400', text: 'text-amber-600 dark:text-amber-400' },
+  { id: 'facil', label: 'Foi bem', dot: 'bg-emerald-500', text: 'text-emerald-600 dark:text-emerald-400' },
+];
+
+export const SpacedRepetitionRulesCard: React.FC<SpacedRepetitionRulesCardProps> = ({ initialExpanded = false, className = '' }) => {
   const [isExpanded, setIsExpanded] = useState<boolean>(initialExpanded);
 
   return (
     <div
       id="spaced-repetition-rules-card"
-      className={`dark relative overflow-hidden rounded-2xl bg-gradient-to-br from-sky-600 via-sky-700 to-blue-800 text-white shadow-lg hover:shadow-xl transition-all duration-300 border border-sky-400/20 ${className}`}
+      className={`relative overflow-hidden rounded-3xl border border-sky-200 dark:border-sky-900/60 bg-gradient-to-br from-sky-50 via-white to-indigo-50 dark:from-slate-900 dark:via-slate-900 dark:to-sky-950/60 shadow-xs ${className}`}
     >
-      <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-cyan-400/15 blur-3xl" />
-      <div className="pointer-events-none absolute -left-16 -bottom-16 h-48 w-48 rounded-full bg-blue-900/30 blur-2xl" />
+      <div className="pointer-events-none absolute -right-20 -top-20 h-56 w-56 rounded-full bg-sky-300/20 dark:bg-sky-500/10 blur-3xl" />
 
-      <div
+      <button
+        type="button"
         onClick={() => setIsExpanded((prev) => !prev)}
-        role="button"
-        tabIndex={0}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            setIsExpanded((prev) => !prev);
-          }
-        }}
         aria-expanded={isExpanded}
-        className="relative z-10 flex cursor-pointer items-center justify-between gap-4 p-5 sm:p-6 transition-colors select-none"
+        className="relative z-10 w-full flex items-center justify-between gap-3 p-4 sm:p-5 text-left select-none"
       >
-        <div className="flex items-center gap-3.5 sm:gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-cyan-300/20 border border-cyan-200/30 shadow-inner backdrop-blur-xs text-cyan-200">
-            <TrendingUp className="h-6 w-6 stroke-[2.2]" />
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-sky-600 text-white shadow-sm">
+            <TrendingUp className="h-5 w-5 stroke-[2.4]" />
           </div>
-          <div>
-            <h3 className="text-base sm:text-lg font-bold tracking-tight text-white flex items-center gap-2">
-              <span>Regras da Repetição Espaçada</span>
-              <span className="hidden sm:inline-flex items-center gap-1 rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-semibold text-cyan-100 backdrop-blur-xs">
-                <Sparkles className="h-2.5 w-2.5" />
-                Por bloco
-              </span>
-            </h3>
-            <p className="text-xs sm:text-sm text-sky-100/80 font-medium">
-              Dia 0 = bloco concluído · 1ª revisão no Dia {FIRST_REVIEW_DAY} · sua avaliação define a próxima
-            </p>
+          <div className="min-w-0">
+            <h3 className="text-[15px] sm:text-base font-black tracking-tight text-slate-900 dark:text-white">Como as revisões são marcadas</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium truncate">Dia 0 → 24 h → 7 dias → 30 dias → 60–90 dias</p>
           </div>
         </div>
-        <div
-          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white/90 transition-transform duration-300 ${
-            isExpanded ? 'rotate-180 bg-white/20' : 'rotate-0'
+        <span
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/80 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 transition-transform duration-300 ${
+            isExpanded ? 'rotate-180' : ''
           }`}
-          aria-label={isExpanded ? 'Recolher regras' : 'Expandir regras'}
+          aria-hidden
         >
           <ChevronDown className="h-4 w-4" />
-        </div>
-      </div>
+        </span>
+      </button>
 
       {isExpanded && (
-        <div className="relative z-10 space-y-4 px-5 pb-5 sm:px-6 sm:pb-6 animate-in fade-in slide-in-from-top-2 duration-200">
-          <div className="space-y-2.5">
-            <div className="flex items-center justify-between text-xs sm:text-sm font-semibold text-white/95 tracking-wide">
-              <span className="flex items-center gap-1.5">
-                <span>📊</span>
-                <span>Intervalos e sugestão de estudo por avaliação:</span>
-              </span>
-              <span className="text-[11px] text-sky-200/70 font-normal hidden sm:inline">R1 → R2 → R3 → R4</span>
-            </div>
+        <div className="relative z-10 space-y-4 px-4 pb-4 sm:px-5 sm:pb-5">
+          {/* Linha do tempo */}
+          <ol className="relative space-y-2.5 before:absolute before:left-[19px] before:top-3 before:bottom-3 before:w-px before:bg-slate-200 dark:before:bg-slate-700">
+            {TIMELINE.map((s) => (
+              <li key={s.when} className="relative flex items-start gap-3">
+                <span
+                  className="relative z-10 h-10 w-10 shrink-0 rounded-xl flex items-center justify-center text-lg border bg-white dark:bg-slate-900"
+                  style={{ borderColor: s.tech.color + '55' }}
+                  aria-hidden
+                >
+                  {s.tech.emoji}
+                </span>
+                <div className="min-w-0 pt-0.5">
+                  <p className="text-[13px] font-black text-slate-900 dark:text-white leading-tight">
+                    <span className="text-[11px] font-black px-1.5 py-0.5 rounded-md mr-1.5 whitespace-nowrap" style={{ color: s.tech.color, backgroundColor: s.tech.color + '18' }}>
+                      {s.when}
+                    </span>
+                    {s.title}
+                  </p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{s.detail}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
 
-            <div className="overflow-hidden rounded-xl border border-slate-700/60 bg-[#0B132B] p-3 sm:p-4 shadow-inner text-slate-100">
-              <div className="divide-y divide-slate-800/80">
-                {PLAN_ORDER.map((level) => {
-                  const plan = REVIEW_PLANS[level];
-                  const style = ROW_STYLE[level];
-                  const intervals = REVIEW_INTERVALS[level];
-                  return (
-                    <div key={level} className="flex flex-col lg:flex-row lg:items-center justify-between gap-2 py-2.5 first:pt-0 last:pb-0">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2.5">
-                          <span className={`inline-block h-2.5 w-2.5 rounded-full ${style.dot}`} />
-                          <span className={`text-xs sm:text-sm font-bold tracking-wide ${style.text}`}>{plan.label}</span>
-                          <span className="text-[10px] text-slate-400 font-medium hidden md:inline">{style.hint}</span>
-                        </div>
-                        <p className="text-[11px] text-slate-300 mt-0.5 pl-5">Sugestão na próxima revisão: {plan.steps.join(' + ')}</p>
-                      </div>
-                      <div className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm font-mono font-medium text-slate-200 bg-slate-900/90 px-3 py-1.5 rounded-lg border border-slate-800 self-start lg:self-auto">
-                        <span className="font-semibold text-sky-300">D{intervals[0]}</span>
-                        {intervals.slice(1).map((d, i) => (
-                          <React.Fragment key={i}>
-                            <ArrowRight className="h-3 w-3 text-slate-500" />
-                            <span className={`font-semibold ${i === intervals.length - 2 ? style.text + ' font-bold' : 'text-white'}`}>+{d}d</span>
-                          </React.Fragment>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+          {/* Regras */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <div className="rounded-2xl bg-white/80 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800 p-3">
+              <p className="text-[13px] font-black text-slate-900 dark:text-white">🧠 Tentar lembrar</p>
+              <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5">Revisar é se testar, nunca só reler.</p>
+            </div>
+            <div className="rounded-2xl bg-white/80 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800 p-3">
+              <p className="text-[13px] font-black text-slate-900 dark:text-white">↕️ Você ajusta</p>
+              <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5">Foi mal: o próximo intervalo encurta. Foi bem: alonga.</p>
+            </div>
+            <div className="rounded-2xl bg-white/80 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800 p-3">
+              <p className="text-[13px] font-black text-slate-900 dark:text-white">⏳ Sem pressa</p>
+              <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5">Revisar um pouco tarde é melhor do que cedo demais.</p>
             </div>
           </div>
 
-          <div className="flex items-start sm:items-center gap-2.5 rounded-xl bg-sky-950/40 border border-sky-300/20 px-3.5 py-2.5 text-xs sm:text-sm text-sky-100 font-medium leading-relaxed backdrop-blur-xs">
-            <span className="text-base shrink-0">📅</span>
-            <p className="text-sky-100/95 font-medium">
-              Cada revisão agendada aparece no <strong className="text-white font-bold">Planner</strong>. As revisões seguem em ciclos de 4 (R1–R4, R5–R8…): a cada ciclo completo o bloco ganha um{' '}
-              <strong className="text-white font-bold">🏆 ciclo</strong> e continua sendo revisado.
+          {/* Mini-tabela de intervalos */}
+          <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-950/50 overflow-hidden">
+            <p className="px-3 pt-3 text-[11px] font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Dias até a próxima revisão</p>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs min-w-[300px]">
+                <thead>
+                  <tr className="text-[10px] uppercase tracking-wide text-slate-400">
+                    <th className="text-left font-bold px-3 py-2">Como foi</th>
+                    <th className="font-bold px-1.5 py-2">→ R1</th>
+                    <th className="font-bold px-1.5 py-2">→ R2</th>
+                    <th className="font-bold px-1.5 py-2">→ R3</th>
+                    <th className="font-bold px-1.5 py-2 pr-3">→ R4</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ROWS.map((r) => (
+                    <tr key={r.id} className="border-t border-slate-100 dark:border-slate-800">
+                      <td className="px-3 py-2">
+                        <span className="inline-flex items-center gap-1.5 font-bold text-slate-700 dark:text-slate-200 whitespace-nowrap">
+                          <span className={`h-2 w-2 rounded-full ${r.dot}`} /> {r.label}
+                        </span>
+                      </td>
+                      {REVIEW_INTERVALS[r.id].map((d, i) => (
+                        <td key={i} className={`text-center px-1.5 py-2 font-black tabular-nums ${i === 0 ? 'text-slate-400' : r.text} ${i === 3 ? 'pr-3' : ''}`}>
+                          {i === 0 ? '24 h' : d === 1 ? '1 d' : `${d} d`}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="px-3 pb-3 text-[11px] text-slate-500 dark:text-slate-400">
+              A 1ª revisão é sempre em 24 h. Depois da R4, o tema entra em manutenção. As datas aparecem no Planner e no plano do dia.
             </p>
           </div>
         </div>
