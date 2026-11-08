@@ -489,7 +489,14 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           
           {/* Form Wizard (Left / Main) */}
-          <div className="lg:col-span-8 bg-slate-900/80 backdrop-blur-md rounded-3xl border border-slate-800 p-6 sm:p-8 shadow-xl space-y-6">
+          <div className="lg:col-span-8 space-y-2.5">
+            {currentStep === 4 && !isEditingProfileSetup && (
+              <p id="profile-welcome-line" className="px-2 text-xs text-slate-400 flex items-center gap-1.5">
+                <span aria-hidden>✨</span>
+                <span><strong className="text-sky-300">Boas-vindas!</strong> Ao concluir, você responde uma pesquisa rápida de rotina e ganha o tutorial de boas-vindas.</span>
+              </p>
+            )}
+          <div className="bg-slate-900/80 backdrop-blur-md rounded-3xl border border-slate-800 p-6 sm:p-8 shadow-xl space-y-6">
             
             {/* Step 1: Identidade & Avatar */}
             {currentStep === 1 && (
@@ -1263,6 +1270,7 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
               )}
             </div>
           </div>
+          </div>
 
           {/* Live Preview Card (Right Sidebar) */}
           <div className="lg:col-span-4 space-y-4">
@@ -1346,14 +1354,6 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
               </div>
 
             </div>
-
-            {/* Boas-vindas: cartão próprio, só na última etapa */}
-            {currentStep === 4 && !isEditingProfileSetup && <div id="profile-welcome-card" className="rounded-3xl border border-sky-900/50 bg-gradient-to-br from-sky-950/50 to-slate-900/60 backdrop-blur-md p-5 shadow-xl flex items-start gap-3">
-              <span className="text-2xl leading-none" aria-hidden>✨</span>
-              <p className="text-sm text-sky-200 leading-relaxed">
-                <strong className="text-white">Boas-vindas!</strong> Ao concluir seu perfil, você responde uma pesquisa rápida de rotina e ganha o <strong className="text-white">tutorial de boas-vindas</strong>.
-              </p>
-            </div>}
           </div>
 
         </div>
