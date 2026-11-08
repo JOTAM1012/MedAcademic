@@ -45,7 +45,7 @@ export const startPlanTask = (
 export const AUTO_KINDS: PlanTask['kind'][] = ['review', 'project_review', 'new_block', 'new_topics'];
 
 /** Tarefas que contam como "reais" (o resto é rotina fixa do dia) */
-export const isRealTask = (t: PlanTask) => t.kind !== 'blank_page' && t.kind !== 'flashcards';
+export const isRealTask = (t: PlanTask) => t.kind !== 'blank_page' && t.kind !== 'flashcards' && t.kind !== 'summary';
 
 /** Rótulo curto e neutro do tipo do dia (selo da Semana, Planejar semana) */
 export const DAY_KIND_INFO: Record<DayKind, { label: string; emoji: string; cls: string }> = {
@@ -126,7 +126,7 @@ export const PlanModal: React.FC<PlanModalProps> = ({ id, open, onClose, title, 
         id={id}
         role="dialog"
         aria-modal="true"
-        className={`app-modal-panel relative w-full ${maxWidth} rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 sm:p-6 shadow-2xl text-slate-800 dark:text-slate-100`}
+        className={`app-modal-panel relative w-full ${maxWidth} overflow-x-hidden rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 sm:p-6 shadow-2xl text-slate-800 dark:text-slate-100`}
       >
         <div className="flex items-start justify-between gap-3 pb-4 border-b border-slate-200 dark:border-slate-800">
           <div className="flex items-start gap-3 min-w-0">

@@ -3,6 +3,9 @@ import { motion } from 'motion/react';
 import {
   LayoutDashboard,
   LogOut,
+  Cloud,
+  CloudOff,
+  RefreshCw,
   Layers,
   Repeat,
   Stethoscope,
@@ -41,6 +44,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
     currentSemester,
     userProfile,
     cloudSyncStatus,
+    forceCloudSync,
   } = useApp();
   const pendingChecklistCount = checklist.filter((i) => !i.done).length;
   const { isAdmin, isOwner } = useAccess();
@@ -514,10 +518,20 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
                 <span className="block truncate text-[10px] text-slate-400">
                   {userProfile.currentStreakDays > 0 ? `${userProfile.currentStreakDays} ${userProfile.currentStreakDays === 1 ? 'dia' : 'dias'} · ` : ''}
                   <span className={cloudSyncStatus === 'synced' ? 'text-emerald-400' : cloudSyncStatus === 'syncing' ? 'text-amber-400' : 'text-rose-400'}>
-                    {cloudSyncStatus === 'synced' ? 'Online' : cloudSyncStatus === 'syncing' ? 'Salvando…' : 'Offline'}
+                    {cloudSyncStatus === 'synced' ? 'Salvo na nuvem' : cloudSyncStatus === 'syncing' ? 'Salvando…' : 'Offline'}
                   </span>
                 </span>
               </span>
+            </button>
+            <button
+              type="button"
+              id="topbar-cloud-sync-btn"
+              onClick={() => forceCloudSync()}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-700/60 hover:text-slate-100 transition-colors"
+              title={cloudSyncStatus === 'synced' ? 'Salvo na nuvem (toque para sincronizar agora)' : cloudSyncStatus === 'syncing' ? 'Salvando…' : 'Offline: tentar sincronizar'}
+              aria-label={cloudSyncStatus === 'offline' ? 'Modo Offline - Dados salvos no dispositivo' : 'Sincronizar com a nuvem agora'}
+            >
+              {cloudSyncStatus === 'syncing' ? <RefreshCw className="h-4 w-4 animate-spin" /> : cloudSyncStatus === 'synced' ? <Cloud className="h-4 w-4" /> : <CloudOff className="h-4 w-4" />}
             </button>
             <button
               type="button"

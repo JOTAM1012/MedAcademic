@@ -13,16 +13,17 @@ import { QuickThemeModal } from './QuickThemeModal';
 
 /** "Somar o básico" do método (modo simples): só aparece o que ainda não está no plano de hoje */
 const BASICS: Array<{ id: string; title: string; blocks: number; kinds: string[] }> = [
-  { id: 'fc', title: 'Flashcards ou resumo do dia', blocks: 1, kinds: ['flashcards'] },
+  { id: 'fc', title: 'Flashcards do dia', blocks: 1, kinds: ['flashcards'] },
+  { id: 'sum', title: 'Ler o resumo do dia', blocks: 1, kinds: ['summary'] },
   { id: 'q', title: 'Questões do dia (10 a 15, sem consultar)', blocks: 1, kinds: ['phase_questions', 'mixed'] },
   { id: 'err', title: 'Caderno de erros: refazer tentando lembrar a regra', blocks: 1, kinds: ['error_redo', 'mixed'] },
-  { id: 'res', title: 'Ler o resumo de um tema (leitura ativa)', blocks: 1, kinds: [] },
   { id: 'blank', title: 'Folha em branco do dia (10 min)', blocks: 0, kinds: ['blank_page'] },
 ];
 
 /** Blocos fixos que o modo detalhado deixa ligar/desligar */
 const FIXED_KINDS: Array<{ kind: string; label: string }> = [
-  { kind: 'flashcards', label: 'Flashcards ou resumo' },
+  { kind: 'flashcards', label: 'Flashcards' },
+  { kind: 'summary', label: 'Ler o resumo' },
   { kind: 'phase_questions', label: 'Questões do dia' },
   { kind: 'error_redo', label: 'Caderno de erros' },
   { kind: 'mixed', label: 'Misturadas' },
@@ -48,6 +49,7 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose }) => 
     setLowEnergy,
     setDayShift,
     skipTask,
+    removeCustomTask,
     moveTaskToTomorrow,
     addCustomTask,
     updateTopicBlock,
@@ -106,10 +108,20 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose }) => 
     setDayPlanState(date, (s) => ({ ...s, order: [id, ...order.filter((x) => x !== id)], pinned: Array.from(new Set([...(s.pinned || []), id])) }));
   };
   const presentKinds = new Set(all.filter((t) => !t.skipped).map((t) => t.kind as string));
-  const basicsToAdd = BASICS.filter((b) => !b.kinds.some((k) => presentKinds.has(k)) && !all.some((t) => t.title === b.title));
+  // Atalho aparece sempre que o item não está no dia (o que foi tirado de hoje conta como fora)
+  const activeTitles = new Set(all.filter((t) => !t.skipped).map((t) => t.title));
+  const basicsToAdd = BASICS.filter((b) => !b.kinds.some((k) => presentKinds.has(k)) && !activeTitles.has(b.title));
   const addBasic = (b: (typeof BASICS)[number]) => {
-    addCustomTask(date, b.title, b.blocks);
+    // Se o item já existe mas foi tirado de hoje, só volta (não duplica)
+    const skipped = all.find((t) => t.skipped && (t.title === b.title || b.kinds.includes(t.kind)));
+    if (skipped) skipTask(date, skipped.id, false);
+    else addCustomTask(date, b.title, b.blocks);
     showNotification(`"${b.title}" entrou no plano de hoje.`, 'success');
+  };
+  // X: tarefa que você somou sai de vez; as do plano saem só de hoje
+  const removeOrSkip = (t: PlanTask) => {
+    if (t.kind === 'custom' && t.customId) removeCustomTask(date, t.customId);
+    else skipTask(date, t.id, !t.skipped);
   };
   const fixedTasks = (kind: string) => all.filter((t) => t.kind === kind);
   const togglePin = (id: string) =>
@@ -230,9 +242,9 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose }) => 
             <button
               type="button"
               id={`dayplan-skip-${t.id}`}
-              aria-label={t.skipped ? 'Voltar para hoje' : 'Tirar de hoje'}
-              title={t.skipped ? 'Voltar para hoje' : 'Tirar de hoje'}
-              onClick={() => skipTask(date, t.id, !t.skipped)}
+              aria-label={t.skipped ? 'Voltar para hoje' : t.kind === 'custom' ? 'Remover' : 'Tirar de hoje'}
+              title={t.skipped ? 'Voltar para hoje' : t.kind === 'custom' ? 'Remover' : 'Tirar de hoje'}
+              onClick={() => removeOrSkip(t)}
               className="h-10 w-10 flex items-center justify-center rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
             >
               {t.skipped ? <Undo2 className="h-4 w-4" /> : <X className="h-4 w-4" />}
@@ -402,12 +414,12 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose }) => 
           {/* Tema novo + conteúdos */}
           <section>
             <p className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Estudar um tema hoje</p>
-            <div className="flex flex-col sm:flex-row gap-2">
+            <div className="space-y-2">
               <select
                 id="dayplan-theme"
                 value=""
                 onChange={(e) => e.target.value && addTheme(e.target.value)}
-                className="flex-1 min-h-[44px] rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 text-sm font-bold text-slate-800 dark:text-slate-100"
+                className="w-full min-w-0 min-h-[44px] rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 text-sm font-bold text-slate-800 dark:text-slate-100"
               >
                 <option value="">{themeOptions.length ? 'Escolher um bloco em estudo…' : 'Nenhum tema ligado sem data'}</option>
                 {themeOptions.map((b) => (
@@ -417,6 +429,7 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose }) => 
                   </option>
                 ))}
               </select>
+              <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
                 id="dayplan-pick-area"
@@ -433,6 +446,7 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose }) => 
               >
                 <Layers className="h-4 w-4" /> Meus conteúdos
               </button>
+              </div>
             </div>
           </section>
 
@@ -451,7 +465,7 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose }) => 
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Ex.: ler o resumo de arritmias"
-                className="flex-1 min-h-[44px] rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 text-sm text-slate-900 dark:text-white placeholder:text-slate-400"
+                className="flex-1 min-w-0 min-h-[44px] rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 text-sm text-slate-900 dark:text-white placeholder:text-slate-400"
               />
               <div className="flex gap-2">
                 <select

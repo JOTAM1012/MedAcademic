@@ -797,6 +797,7 @@ export const isItemReviewDue = (item: PersonalProjectItem, today = ymd(new Date(
 // ---------------------------------------------------------------------------------------------
 export type PlanTaskKind =
   | 'flashcards'
+  | 'summary'
   | 'review'
   | 'project_review'
   | 'custom'
@@ -1003,14 +1004,29 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
         priority: 1,
         emoji: '🃏',
         color: '#14b8a6',
-        title: 'Flashcards ou resumo do dia',
-        subtitle: 'Comece por aqui: seus cartões (Anki) ou a leitura ativa do seu resumo',
-        reason: 'Rever um pouco todo dia evita a avalanche de atrasados. Flashcard e resumo são formas de revisar o mesmo conteúdo.',
-        steps: [
-          'Faça os cartões do dia no Anki ou nos seus flashcards, sendo honesto nos botões',
-          'Ou leia seu resumo de forma ativa: tampe um trecho e tente lembrar antes de ler',
-          'No fim, diga em voz alta 3 pontos que ficaram',
-        ],
+        title: 'Flashcards do dia',
+        subtitle: 'Comece por aqui: seus cartões do dia (Anki ou flashcards)',
+        reason: 'Fazer os cartões todo dia evita a avalanche de atrasados.',
+        steps: ['Faça os cartões do dia no Anki ou nos seus flashcards', 'Seja honesto nos botões: errei, difícil, bom, fácil', 'Poucos cartões novos por dia'],
+        pomodoros: 1,
+        focus: shortFocus,
+        optional: rest,
+      })
+    );
+  }
+  // 1b. Ler o resumo do dia (leitura ativa)
+  if (prefs.readsSummary !== false) {
+    all.push(
+      mk({
+        id: `sum:${date}`,
+        kind: 'summary',
+        priority: 1,
+        emoji: '📖',
+        color: '#0ea5e9',
+        title: 'Ler o resumo do dia',
+        subtitle: 'Leitura ativa do seu resumo (o do tema de hoje ou de uma revisão)',
+        reason: 'Ler tentando lembrar antes fixa muito mais do que só reler.',
+        steps: ['Escolha o resumo do tema de hoje ou de uma revisão', 'Tampe um trecho e tente lembrar antes de ler', 'No fim, diga em voz alta 3 pontos que ficaram'],
         pomodoros: 1,
         focus: shortFocus,
         optional: rest,
@@ -1538,7 +1554,7 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
       overflow.push(t);
       continue;
     }
-    if (rest && (t.kind === 'review' || t.kind === 'project_review' || t.kind === 'flashcards')) {
+    if (rest && (t.kind === 'review' || t.kind === 'project_review' || t.kind === 'flashcards' || t.kind === 'summary')) {
       tasks.push({ ...t, optional: true });
       continue;
     }
@@ -1578,7 +1594,7 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
   else if (examEve) message = `Prova ${examEve.date === date ? 'hoje' : 'amanhã'}: ${examEve.title}. Não passe da conta e durma no horário de sempre.`;
   else if (overflowReviews > 0) message = `+${overflowReviews} revisão${overflowReviews > 1 ? 'ões' : ''} na fila que não coube${overflowReviews > 1 ? 'ram' : ''} hoje. Use "Replanejar" para espalhar pelos próximos dias.`;
   else if (overflow.some((t) => !t.skipped && !t.optional)) message = 'Hoje tem mais do que cabe. As revisões vêm primeiro; o resto pode ir para amanhã.';
-  else if (tasks.filter((t) => !['blank_page', 'flashcards', 'phase_questions'].includes(t.kind)).length === 0)
+  else if (tasks.filter((t) => !['blank_page', 'flashcards', 'summary', 'phase_questions'].includes(t.kind)).length === 0)
     message = 'Nada agendado para hoje. Escolha um tema novo para começar ou faça questões.';
 
   return {

@@ -352,7 +352,8 @@ export const StudyRoutineModal: React.FC<StudyRoutineModalProps> = ({ open, onCl
         </section>
 
         <section className="space-y-2">
-          <Toggle id="routine-flashcards" on={draft.usesFlashcards} onChange={(v) => set('usesFlashcards', v)} label="Flashcards ou resumo todo dia" hint="Anki, cartões ou leitura ativa do seu resumo: entra como 1º passo do dia" />
+          <Toggle id="routine-flashcards" on={draft.usesFlashcards} onChange={(v) => set('usesFlashcards', v)} label="Flashcards todo dia" hint="Anki ou cartões: entra como 1º passo do dia" />
+          <Toggle id="routine-summary" on={draft.readsSummary !== false} onChange={(v) => set('readsSummary', v)} label="Ler o resumo todo dia" hint="Leitura ativa do seu resumo: tampe e tente lembrar antes de ler" />
           <Toggle
             id="routine-longterm"
             on={draft.longTermGoal}

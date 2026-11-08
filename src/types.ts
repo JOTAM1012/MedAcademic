@@ -160,6 +160,8 @@ export interface StudyPlanPrefs {
   newTopicsPerDay: 1 | 2 | 3;
   /** Usa flashcards/Anki todo dia */
   usesFlashcards: boolean;
+  /** Lê o resumo todo dia (leitura ativa); padrão: sim */
+  readsSummary?: boolean;
   /** Conteúdo novo: 'auto' = o plano escolhe entre os temas ativos; 'manual' = só os que você programar */
   topicMode?: 'auto' | 'manual';
   /** Meta de longo prazo (internato/residência): intervalos de manutenção mais longos */

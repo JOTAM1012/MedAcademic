@@ -265,40 +265,20 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleMobileMenu, onOpenTour }
 
       {/* Right section: Cloud Sync, Notifications & Dark Mode */}
       <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
-        {/* Nuvem: ícone discreto com bolinha de status (toque força a sincronização) */}
-        <button
-          id="topbar-cloud-sync-btn"
-          type="button"
-          onClick={() => forceCloudSync()}
-          className={`relative h-10 w-10 shrink-0 flex items-center justify-center rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-800 dark:hover:text-slate-100 transition-colors ${isTopBarPop ? 'scale-110' : ''}`}
-          aria-label={
-            cloudSyncStatus === 'synced'
-              ? 'Salvo na nuvem (toque para sincronizar agora)'
-              : cloudSyncStatus === 'syncing'
-              ? 'Salvando na nuvem…'
-              : 'Modo Offline - Dados salvos no dispositivo'
-          }
-          title={
-            cloudSyncStatus === 'synced'
-              ? 'Salvo na nuvem'
-              : cloudSyncStatus === 'syncing'
-              ? 'Salvando…'
-              : 'Offline: salvo neste aparelho'
-          }
-        >
-          {cloudSyncStatus === 'syncing' ? (
-            <RefreshCw className="h-4 w-4 animate-spin" />
-          ) : cloudSyncStatus === 'synced' ? (
-            <Cloud className="h-4 w-4" />
-          ) : (
-            <CloudOff className="h-4 w-4" />
-          )}
-          <span
-            className={`absolute bottom-2 right-2 h-2 w-2 rounded-full ring-2 ring-white dark:ring-slate-950 ${
-              cloudSyncStatus === 'synced' ? 'bg-emerald-500' : cloudSyncStatus === 'syncing' ? 'bg-sky-500' : 'bg-amber-500'
-            }`}
-          />
-        </button>
+        {/* Instalar como aplicativo (some quando já está instalado) */}
+        {!isAppInstalled && (
+          <button
+            id="topbar-install-btn"
+            type="button"
+            onClick={openInstallGuide}
+            className="relative h-10 shrink-0 flex items-center justify-center gap-1.5 rounded-xl px-2.5 text-xs font-bold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-800 dark:hover:text-slate-100 transition-colors"
+            aria-label="Instalar o MedAcademic como aplicativo"
+            title="Instalar como aplicativo"
+          >
+            <Smartphone className="h-4 w-4" />
+            <span className="hidden md:inline">Instalar app</span>
+          </button>
+        )}
 
         {/* Notification Bell */}
         <div className="relative">
@@ -439,7 +419,7 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleMobileMenu, onOpenTour }
             type="button"
             onClick={() => setIsHelpOpen((v) => !v)}
             aria-expanded={isHelpOpen}
-            aria-label="Ajuda: como funciona, tour guiado e instalar app"
+            aria-label="Ajuda: como funciona e tour guiado"
             className={`relative h-10 shrink-0 flex items-center justify-center gap-1.5 rounded-xl px-2.5 text-xs font-bold transition-colors ${
               isNewcomer
                 ? 'bg-sky-600 hover:bg-sky-500 text-white shadow-sm shadow-sky-600/30'
@@ -500,26 +480,6 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleMobileMenu, onOpenTour }
                     <span className="min-w-0">
                       <span className="block text-sm font-bold text-slate-900 dark:text-white">Tour guiado pelo site</span>
                       <span className="block text-[11px] text-slate-500 dark:text-slate-400">Onde fica cada coisa, passo a passo.</span>
-                    </span>
-                  </button>
-                )}
-                {!isAppInstalled && (
-                  <button
-                    type="button"
-                    role="menuitem"
-                    id="topbar-install-btn"
-                    onClick={() => {
-                      setIsHelpOpen(false);
-                      openInstallGuide();
-                    }}
-                    className="w-full flex items-start gap-3 p-2.5 rounded-xl text-left hover:bg-slate-50 dark:hover:bg-slate-800/70"
-                  >
-                    <span className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 shrink-0">
-                      <Smartphone className="h-4 w-4" />
-                    </span>
-                    <span className="min-w-0">
-                      <span className="block text-sm font-bold text-slate-900 dark:text-white">Instalar como aplicativo</span>
-                      <span className="block text-[11px] text-slate-500 dark:text-slate-400">Abre direto da tela do celular ou do computador.</span>
                     </span>
                   </button>
                 )}
