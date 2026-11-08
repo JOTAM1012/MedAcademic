@@ -12,7 +12,9 @@ import {
   Pencil,
   Eraser,
   Target,
+  ListTree,
 } from 'lucide-react';
+import { SubItemsEditor, subItemsProgress } from './shared/SubItems';
 import { useApp } from '../context/AppContext';
 import { ChecklistItem } from '../types';
 import { CHECKLIST_COLORS, CHECKLIST_TEMPLATES, formatDateBR, toYMD } from '../data/planning';
@@ -52,6 +54,7 @@ export const ChecklistView: React.FC = () => {
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const [editingBlock, setEditingBlock] = useState<string | null>(null);
   const [editingItem, setEditingItem] = useState<{ id: string; text: string } | null>(null);
+  const [detailsOpen, setDetailsOpen] = useState<Record<string, boolean>>({});
   const [creator, setCreator] = useState<{ open: boolean; name: string; color: string; emoji: string }>({
     open: false,
     name: '',
@@ -120,7 +123,7 @@ export const ChecklistView: React.FC = () => {
     const overdue = !item.done && item.dueDate && item.dueDate < todayStr;
     const block = showBlock ? blockById(ownerOf(item)) : undefined;
     return (
-      <li key={item.id} className="group flex items-start gap-2.5 rounded-xl px-2 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800/50">
+      <li key={item.id} className="group flex flex-wrap items-start gap-x-2.5 rounded-xl px-2 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800/50">
         <button
           onClick={() => toggleChecklistItem(item.id)}
           className="mt-0.5 h-[18px] w-[18px] shrink-0 rounded-md border-2 flex items-center justify-center transition-colors"
@@ -173,6 +176,32 @@ export const ChecklistView: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-0.5 shrink-0">
+          {(() => {
+            const pr = subItemsProgress(item.details);
+            const open = !!detailsOpen[item.id];
+            return (
+              <button
+                type="button"
+                id={`check-details-${item.id}`}
+                onClick={() => setDetailsOpen((o) => ({ ...o, [item.id]: !open }))}
+                aria-expanded={open}
+                className={`p-1 rounded-md inline-flex items-center gap-0.5 text-[10px] font-bold transition-colors ${
+                  open || pr.total ? 'text-sky-500' : 'text-slate-300 dark:text-slate-600 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:text-sky-500'
+                }`}
+                aria-label={open ? 'Esconder subitens' : 'Subitens'}
+                title={pr.total ? 'Subitens' : 'Adicionar subitens (opcional)'}
+              >
+                {pr.total > 0 ? (
+                  <>
+                    <span>{pr.done}/{pr.total}</span>
+                    <ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? 'rotate-180' : ''}`} />
+                  </>
+                ) : (
+                  <ListTree className="h-3.5 w-3.5" />
+                )}
+              </button>
+            );
+          })()}
           <button
             onClick={() => updateChecklistItem(item.id, { important: !item.important })}
             className={`p-1 rounded-md transition-colors ${
@@ -206,6 +235,11 @@ export const ChecklistView: React.FC = () => {
             <Trash2 className="h-3.5 w-3.5" />
           </button>
         </div>
+        {detailsOpen[item.id] && (
+          <div className="basis-full pl-5">
+            <SubItemsEditor idPrefix={`check-${item.id}`} items={item.details} onChange={(d) => updateChecklistItem(item.id, { details: d })} color={color} />
+          </div>
+        )}
       </li>
     );
   };

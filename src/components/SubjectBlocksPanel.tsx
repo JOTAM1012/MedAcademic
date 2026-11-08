@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { Plus, Search, ChevronDown, Check, Trash2, Clock3, MoreHorizontal, Pencil, RotateCcw, Repeat, Trophy, Layers, X, Star, Play, Lightbulb, Gift, BarChart3 } from 'lucide-react';
+import { Plus, Search, ChevronDown, Check, Trash2, Clock3, MoreHorizontal, Pencil, RotateCcw, Repeat, Trophy, Layers, X, Star, Play, Lightbulb, Gift, BarChart3, ListTree } from 'lucide-react';
+import { SubItemsEditor, subItemsProgress } from './shared/SubItems';
 import { useApp } from '../context/AppContext';
 import { Subject, Topic, TopicBlock } from '../types';
 import { SPECIALTY_BLOCK_SUGGESTIONS } from '../data/areas';
@@ -56,6 +57,8 @@ export const SubjectBlocksPanel: React.FC<SubjectBlocksPanelProps> = ({ subject,
   const [newBlockOpen, setNewBlockOpen] = useState(false);
   const [newBlockName, setNewBlockName] = useState('');
   const [drafts, setDrafts] = useState<Record<string, string>>({});
+  // Subtópicos abertos por tópico (com subtópicos, começa aberto)
+  const [detailsOpen, setDetailsOpen] = useState<Record<string, boolean>>({});
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
@@ -551,6 +554,32 @@ export const SubjectBlocksPanel: React.FC<SubjectBlocksPanelProps> = ({ subject,
                                 </span>
                               )}
                             </span>
+                            {(() => {
+                              const pr = subItemsProgress(t.details);
+                              const open = !!detailsOpen[t.id];
+                              return (
+                                <button
+                                  type="button"
+                                  id={`struct-details-${t.id}`}
+                                  onClick={() => setDetailsOpen((o) => ({ ...o, [t.id]: !open }))}
+                                  aria-expanded={open}
+                                  className={`h-8 shrink-0 inline-flex items-center gap-1 px-1.5 rounded-lg text-[11px] font-bold transition-colors sm:order-last ${
+                                    open || pr.total ? 'text-sky-600 dark:text-sky-400 hover:bg-sky-500/10' : 'text-slate-300 dark:text-slate-600 sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100 hover:text-sky-500'
+                                  }`}
+                                  aria-label={open ? `Esconder subtópicos de ${t.title}` : `Subtópicos de ${t.title}`}
+                                  title={pr.total ? 'Subtópicos' : 'Adicionar subtópicos (opcional)'}
+                                >
+                                  {pr.total > 0 ? (
+                                    <>
+                                      <span>{pr.done}/{pr.total}</span>
+                                      <ChevronDown className={`h-4 w-4 transition-transform ${open ? 'rotate-180' : ''}`} />
+                                    </>
+                                  ) : (
+                                    <ListTree className="h-3.5 w-3.5" />
+                                  )}
+                                </button>
+                              );
+                            })()}
                             <button
                               onClick={() => setConfirm({ kind: 'topic', id: t.id })}
                               className="h-8 w-8 shrink-0 grid place-items-center rounded-lg text-slate-300 dark:text-slate-600 sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100 hover:text-rose-500 sm:order-last"
@@ -592,6 +621,9 @@ export const SubjectBlocksPanel: React.FC<SubjectBlocksPanelProps> = ({ subject,
                             </button>
                           </div>
                         </div>
+                        {detailsOpen[t.id] && (
+                          <SubItemsEditor idPrefix={`topic-${t.id}`} items={t.details} onChange={(d) => updateTopic(t.id, { details: d })} color="#10b981" />
+                        )}
                         {confirm?.kind === 'topic' && confirm.id === t.id && (
                           <div className="mt-2">
                             <InlineConfirm

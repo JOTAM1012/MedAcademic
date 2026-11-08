@@ -3,6 +3,14 @@ export type TopicPriority = 'alta' | 'media' | 'baixa';
 export type PreferredStudyMethod = 'questoes' | 'videoaula' | 'resumo' | 'livros' | 'pessoal';
 export type TopicDifficulty = 'dificil' | 'medio' | 'facil';
 
+/** Subtópico ("Título: descrição"), opcional, dentro de um tópico ou item do Checklist */
+export interface SubItem {
+  id: string;
+  title: string;
+  text?: string;
+  done?: boolean;
+}
+
 export interface Topic {
   id: string;
   subjectId: string;
@@ -25,6 +33,8 @@ export interface Topic {
   questionCount?: number;
   difficulty?: TopicDifficulty;
   cycleStep?: number; // 1, 2, 3, 4 (R1, R2, R3, R4...)
+  /** Subtópicos (opcional): detalhes do assunto como no plano de ensino */
+  details?: SubItem[];
   reviewsDone?: number; // revisões espaçadas concluídas (0–4); na 4ª o assunto vira "dominado"
   intervalDays?: number; // 1, 3, 7, 15, 30, 60
   lastStudiedDate?: string;
@@ -506,6 +516,8 @@ export interface ChecklistItem {
   blockId?: string; // bloco ao qual pertence (itens antigos caem em "Geral")
   important?: boolean; // essencial: sobe para o topo e entra no foco
   dueDate?: string; // YYYY-MM-DD: aparece no Planner
+  /** Subitens (opcional): "Título: descrição" */
+  details?: SubItem[];
 }
 
 export interface ChecklistBlock {
