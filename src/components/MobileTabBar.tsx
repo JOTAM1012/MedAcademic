@@ -4,12 +4,10 @@ import {
   LayoutDashboard,
   Calendar,
   GraduationCap,
-  CalendarDays,
   Layers,
   Repeat,
   Timer,
   ListChecks,
-  History,
   User,
   LayoutGrid,
   Rocket,
@@ -25,7 +23,9 @@ type NavItem = { id: string; label: string; short: string; icon: React.ElementTy
 
 // Barra de abas fixa no rodapé (celular / app instalado) + painel "Mais" com todas as funções
 export const MobileTabBar: React.FC = () => {
-  const { currentTab, setCurrentTab, openPlannerToday, exams, checklist } = useApp();
+  const { currentTab: rawTab, setCurrentTab, openPlannerToday, exams, checklist } = useApp();
+  // Abas antigas que agora moram em outra (links antigos continuam funcionando)
+  const currentTab = rawTab === 'grades' || rawTab === 'schedule' ? 'semester' : rawTab === 'history' ? 'profile' : rawTab;
   const [isMoreOpen, setIsMoreOpen] = useState(false);
   const { isAdmin } = useAccess();
 
@@ -45,15 +45,13 @@ export const MobileTabBar: React.FC = () => {
   const all: NavItem[] = [
     { id: 'dashboard', label: 'Dashboard', short: 'Início', icon: LayoutDashboard, color: 'from-blue-500 to-blue-700' },
     { id: 'calendar', label: 'Planner', short: 'Planner', icon: Calendar, color: 'from-violet-500 to-violet-700', badge: planLeft ? String(planLeft) : null },
-    { id: 'grades', label: 'Avaliações', short: 'Avaliações', icon: GraduationCap, color: 'from-rose-500 to-rose-700', badge: upcomingExams ? String(upcomingExams) : null },
-    { id: 'schedule', label: 'Grade de horários', short: 'Horários', icon: CalendarDays, color: 'from-cyan-500 to-cyan-700' },
+    { id: 'semester', label: 'Semestre', short: 'Semestre', icon: GraduationCap, color: 'from-rose-500 to-rose-700', badge: upcomingExams ? String(upcomingExams) : null },
     { id: 'structure', label: 'Disciplinas & assuntos', short: 'Disciplinas', icon: Layers, color: 'from-indigo-500 to-indigo-700' },
     { id: 'spaced_repetition', label: 'Revisões', short: 'Revisões', icon: Repeat, color: 'from-sky-500 to-sky-700', badge: dueCount ? String(dueCount) : null },
     { id: 'personal', label: 'Estudos pessoais', short: 'Pessoais', icon: Rocket, color: 'from-fuchsia-500 to-fuchsia-700' },
     { id: 'stopwatch', label: 'Pomodoro', short: 'Pomodoro', icon: Timer, color: 'from-orange-500 to-orange-700' },
     { id: 'checklist', label: 'Checklist', short: 'Checklist', icon: ListChecks, color: 'from-emerald-500 to-emerald-700', badge: pendingChecklist ? String(pendingChecklist) : null },
-    { id: 'history', label: 'Histórico', short: 'Histórico', icon: History, color: 'from-amber-500 to-amber-700' },
-    { id: 'profile', label: 'Perfil & metas', short: 'Perfil', icon: User, color: 'from-slate-500 to-slate-700' },
+    { id: 'profile', label: 'Perfil', short: 'Perfil', icon: User, color: 'from-slate-500 to-slate-700' },
     ...(isAdmin ? [{ id: 'admin', label: 'Painel do Dono', short: 'Dono', icon: Crown, color: 'from-amber-400 to-amber-600' }] : []),
   ];
   const byId = (id: string) => all.find((i) => i.id === id)!;

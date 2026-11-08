@@ -18,9 +18,7 @@ import { DashboardView } from './components/DashboardView';
 import { AcademicStructureView } from './components/AcademicStructureView';
 import { SpacedRepetitionView } from './components/SpacedRepetitionView';
 import { StudyStopwatchView } from './components/StudyStopwatchView';
-import { SemesterGridView } from './components/SemesterGridView';
-import { SemesterHistoryView } from './components/SemesterHistoryView';
-import { ScheduleView } from './components/ScheduleView';
+import { SemesterView } from './components/semester/SemesterView';
 import { CalendarView } from './components/CalendarView';
 import { ProfileView } from './components/ProfileView';
 import { ChecklistView } from './components/ChecklistView';
@@ -57,6 +55,7 @@ const AppContent: React.FC = () => {
     methodGuide,
     openMethodGuide,
     methodGuideSeen,
+    tourRequestAt,
   } = useApp();
 
   // Mobile menu state
@@ -64,6 +63,10 @@ const AppContent: React.FC = () => {
 
   // Guided Tour State
   const [isTourOpen, setIsTourOpen] = useState(false);
+  // Outras telas pedem o tour pelo contexto (requestTour)
+  useEffect(() => {
+    if (tourRequestAt) setIsTourOpen(true);
+  }, [tourRequestAt]);
 
   // Janela "Instalar app" (aberta por openInstallGuide() de qualquer tela)
   const [isInstallOpen, setIsInstallOpen] = useState(false);
@@ -328,10 +331,11 @@ const AppContent: React.FC = () => {
         );
       case 'stopwatch':
         return <StudyStopwatchView />;
+      // Avaliações e Grade de horários viraram uma aba só (links antigos caem nela)
+      case 'semester':
       case 'grades':
-        return <SemesterGridView />;
       case 'schedule':
-        return <ScheduleView />;
+        return <SemesterView />;
       case 'calendar':
         return (
           <CalendarView
@@ -340,11 +344,11 @@ const AppContent: React.FC = () => {
             onOpenAddTopic={handleOpenAddTopic}
           />
         );
-      case 'history':
-        return <SemesterHistoryView />;
       case 'admin':
         return <OwnerPanelView />;
+      // O Histórico agora fica dentro do Perfil
       case 'profile':
+      case 'history':
         return <ProfileView />;
       case 'checklist':
         return <ChecklistView />;

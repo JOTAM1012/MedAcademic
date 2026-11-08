@@ -18,6 +18,10 @@ import {
   QuestionLog,
   StudyTimePrompt,
   StudyMethodState,
+  ExamTaskKind,
+  ContestExam,
+  PastExam,
+  DashboardPrefs,
   StudyPlanPrefs,
   DayPlanState,
   ErrorNote,
@@ -241,6 +245,26 @@ interface AppContextType {
   addScheduleClass: (sc: Omit<ScheduleClass, 'id'>) => void;
   updateScheduleClass: (id: string, sc: Partial<ScheduleClass>) => void;
   deleteScheduleClass: (id: string) => void;
+  /** Várias atividades de uma vez (rodízio). Devolve o id do rodízio */
+  addScheduleClasses: (list: Omit<ScheduleClass, 'id'>[], rotation?: { name?: string }) => string;
+  /** "Excluir só deste dia": a atividade continua nas outras semanas */
+  excludeScheduleOnDate: (id: string, date: string) => void;
+  /** "Substituir neste dia": tira a atividade nesta data e coloca outra no lugar */
+  replaceScheduleOnDate: (id: string, date: string, replacement: Omit<ScheduleClass, 'id'>) => void;
+  /** Apaga todas as atividades de um rodízio */
+  deleteRotation: (rotationId: string) => void;
+  /** Marca/desmarca uma tarefa de um assunto da prova */
+  toggleExamTopicTask: (examId: string, topicId: string, task: ExamTaskKind) => void;
+  /** Painel personalizado (vale para todos os semestres) */
+  setDashboardPrefs: (prefs: DashboardPrefs | null) => void;
+  /** Ferramenta "Provas de concurso" disponível (internato sempre; clínico se ligar no perfil; básico não) */
+  contestsActive: boolean;
+  addContest: (c: Omit<ContestExam, 'id' | 'createdAt'>) => string;
+  updateContest: (id: string, changes: Partial<ContestExam>) => void;
+  deleteContest: (id: string) => void;
+  addPastExam: (p: Omit<PastExam, 'id' | 'createdAt'>) => string;
+  updatePastExam: (id: string, changes: Partial<PastExam>) => void;
+  deletePastExam: (id: string) => void;
 
   // MedRevision
   medRevisions: MedRevisionTopic[];
@@ -376,6 +400,9 @@ interface AppContextType {
   // Guia do método e navegação com foco
   methodGuide: { open: boolean; step: number };
   openMethodGuide: (step?: number) => void;
+  /** Pede para abrir o tour guiado (o App escuta tourRequestAt) */
+  requestTour: () => void;
+  tourRequestAt: number | null;
   closeMethodGuide: () => void;
   methodGuideSeen: boolean;
   markMethodGuideSeen: () => void;
@@ -1512,6 +1539,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Método de estudo: fase do curso e preferências efetivas (padrões da fase + escolhas do aluno)
   const studyPhase = studyPhaseOf(currentSemester);
+  const contestsActive = studyPhase === 'internato' || (studyPhase === 'ciclo_clinico' && !!userProfile.contestsEnabled);
   const studyPrefs = resolvePrefs(studyMethod.prefs, studyPhase, userProfile.weeklyTargetHours);
   const residencyPrep = isResidencyPrep(studyPhase, userProfile, studyMethod.projects);
   const currentSubjectIds = subjects.filter((s) => !s.semesterId || s.semesterId === currentSemester?.id).map((s) => s.id);
@@ -1760,7 +1788,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!blockId) return;
     const block = topicBlocks.find((bk) => bk.id === blockId);
     if (!block) return;
-    const list = nextTopics.filter((t) => t.blockId === blockId);
+    // Aula bônus não conta para fechar o bloco
+    const list = nextTopics.filter((t) => t.blockId === blockId && !t.bonus);
     const allSeen = list.length > 0 && list.every(isTopicResolved);
     if (block.reviewStatus === 'estudando' && allSeen) {
       const r1 = reviewDateIn(FIRST_REVIEW_DAY);
@@ -1970,7 +1999,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const nextDate = reviewDateIn(intervalDays);
     setTopicBlocks((prev) =>
       prev.map((bk) =>
-        bk.id === id ? { ...bk, reviewStatus: 'revisao', reviewsDone: done, difficulty, lastReviewDate: todayStr, nextReviewDate: nextDate, reviewLog: log } : bk
+        bk.id === id
+          ? {
+              ...bk,
+              reviewStatus: 'revisao',
+              reviewsDone: done,
+              difficulty,
+              lastReviewDate: todayStr,
+              nextReviewDate: nextDate,
+              reviewLog: log,
+              // fez questões nesta revisão: o método deixa de cobrar
+              needsQuestions: result?.questions ? undefined : bk.needsQuestions,
+            }
+          : bk
       )
     );
     if (focusMinutes === 0 && !focusRunning) setStudyTimePrompt({ kind: 'review', blockId: id, subjectId: block.subjectId, name: block.name, reviewNumber: done });
@@ -2124,7 +2165,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const addExam = (ex: Omit<Exam, 'id'>) => {
     const newEx: Exam = { ...ex, id: 'exam-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6) };
     setExams((prev) => [...prev, newEx]);
-    showNotification(`Prova "${ex.title}" adicionada em Avaliações!`, 'success');
+    showNotification(`Prova "${ex.title}" adicionada no Semestre!`, 'success');
     // XP is awarded by the calling modal
   };
 
@@ -2161,6 +2202,78 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setSchedule((prev) => prev.filter((s) => s.id !== id));
     showNotification('Atividade removida.', 'info');
   };
+
+  const addScheduleClasses: AppContextType['addScheduleClasses'] = (list, rotation) => {
+    const rotationId = 'rot-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
+    const stamp = Date.now();
+    const created: ScheduleClass[] = list.map((sc, i) => ({
+      ...sc,
+      semesterId: sc.semesterId || currentSemester?.id,
+      rotationId: sc.rotationId || rotationId,
+      rotationName: sc.rotationName || rotation?.name?.trim() || undefined,
+      id: `sch-${stamp}-${i}-${Math.random().toString(36).slice(2, 6)}`,
+    }));
+    setSchedule((prev) => [...prev, ...created]);
+    showNotification(`${created.length} atividade${created.length > 1 ? 's' : ''} adicionada${created.length > 1 ? 's' : ''} de uma vez.`, 'success');
+    return rotationId;
+  };
+
+  const excludeScheduleOnDate = (id: string, date: string) => {
+    setSchedule((prev) => prev.map((s) => (s.id === id ? { ...s, exceptions: Array.from(new Set([...(s.exceptions || []), date])) } : s)));
+    showNotification('Removida só deste dia. Nas outras semanas continua normal.', 'info');
+  };
+
+  const replaceScheduleOnDate: AppContextType['replaceScheduleOnDate'] = (id, date, replacement) => {
+    setSchedule((prev) => [
+      ...prev.map((s) => (s.id === id ? { ...s, exceptions: Array.from(new Set([...(s.exceptions || []), date])) } : s)),
+      {
+        ...replacement,
+        date,
+        endDate: undefined,
+        semesterId: replacement.semesterId || currentSemester?.id,
+        id: 'sch-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+      },
+    ]);
+    showNotification('Atividade substituída neste dia.', 'success');
+  };
+
+  const deleteRotation = (rotationId: string) => {
+    setSchedule((prev) => prev.filter((s) => s.rotationId !== rotationId));
+    showNotification('Rodízio removido.', 'info');
+  };
+
+  const toggleExamTopicTask = (examId: string, topicId: string, task: ExamTaskKind) =>
+    setExams((prev) =>
+      prev.map((e) =>
+        e.id === examId
+          ? { ...e, examTopics: (e.examTopics || []).map((t) => (t.id === topicId ? { ...t, done: { ...(t.done || {}), [task]: !t.done?.[task] } } : t)) }
+          : e
+      )
+    );
+
+  const setDashboardPrefs = (prefs: DashboardPrefs | null) => patchMethod((s) => ({ ...s, dashboard: prefs || undefined }));
+
+  const newMiscId = (p: string) => p + '-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
+  const addContest: AppContextType['addContest'] = (c) => {
+    const id = newMiscId('cx');
+    patchMethod((s) => ({ ...s, contests: [...(s.contests || []), { ...c, id, createdAt: new Date().toISOString() }] }));
+    showNotification('Prova de concurso salva.', 'success');
+    return id;
+  };
+  const updateContest = (id: string, changes: Partial<ContestExam>) =>
+    patchMethod((s) => ({ ...s, contests: (s.contests || []).map((c) => (c.id === id ? { ...c, ...changes } : c)) }));
+  const deleteContest = (id: string) =>
+    patchMethod((s) => ({ ...s, contests: (s.contests || []).filter((c) => c.id !== id), deleted: { ...(s.deleted || {}), [id]: ymd(new Date()) } }));
+  const addPastExam: AppContextType['addPastExam'] = (p) => {
+    const id = newMiscId('px');
+    patchMethod((s) => ({ ...s, pastExams: [...(s.pastExams || []), { ...p, id, createdAt: new Date().toISOString() }] }));
+    showNotification('Prova anterior salva.', 'success');
+    return id;
+  };
+  const updatePastExam = (id: string, changes: Partial<PastExam>) =>
+    patchMethod((s) => ({ ...s, pastExams: (s.pastExams || []).map((c) => (c.id === id ? { ...c, ...changes } : c)) }));
+  const deletePastExam = (id: string) =>
+    patchMethod((s) => ({ ...s, pastExams: (s.pastExams || []).filter((c) => c.id !== id), deleted: { ...(s.deleted || {}), [id]: ymd(new Date()) } }));
 
   const toggleMedRevisionComplete = (id: string) => {
     const current = medRevisions.find((mr) => mr.id === id);
@@ -2572,7 +2685,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const toggleIn = (list: string[] | undefined, id: string) => (list || []).includes(id) ? (list || []).filter((x) => x !== id) : [...(list || []), id];
 
-  const toggleTaskDone = (date: string, taskId: string) => setDayPlanState(date, (d) => ({ ...d, done: toggleIn(d.done, taskId) }));
+  const toggleTaskDone = (date: string, taskId: string) => {
+    // Passo de um assunto da prova: marcar no plano marca no check list da prova (e o próximo passo aparece)
+    if (taskId.startsWith('etopic:')) {
+      const [, examId, topicId, task] = taskId.split(':');
+      toggleExamTopicTask(examId, topicId, task as ExamTaskKind);
+      return;
+    }
+    setDayPlanState(date, (d) => ({ ...d, done: toggleIn(d.done, taskId) }));
+  };
   const skipTask = (date: string, taskId: string, skip = true) =>
     setDayPlanState(date, (d) => ({ ...d, skipped: skip ? Array.from(new Set([...(d.skipped || []), taskId])) : (d.skipped || []).filter((x) => x !== taskId) }));
   const addCustomTask = (date: string, title: string, pomodoros = 1) => {
@@ -2828,6 +2949,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!studyMethod.guideSeen) patchMethod((s) => ({ ...s, guideSeen: true }));
   };
   const openMethodGuide = (step = 0) => setMethodGuide({ open: true, step });
+  const [tourRequestAt, setTourRequestAt] = useState<number | null>(null);
+  const requestTour = () => setTourRequestAt(Date.now());
   const closeMethodGuide = () => {
     setMethodGuide((m) => ({ ...m, open: false }));
     markMethodGuideSeen();
@@ -2877,6 +3000,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addScheduleClass,
         updateScheduleClass,
         deleteScheduleClass,
+        addScheduleClasses,
+        excludeScheduleOnDate,
+        replaceScheduleOnDate,
+        deleteRotation,
+        toggleExamTopicTask,
+        setDashboardPrefs,
+        contestsActive,
+        addContest,
+        updateContest,
+        deleteContest,
+        addPastExam,
+        updatePastExam,
+        deletePastExam,
         medRevisions,
         toggleMedRevisionComplete,
         addMedRevision,
@@ -2982,6 +3118,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         openMethodGuide,
         closeMethodGuide,
         methodGuideSeen,
+        requestTour,
+        tourRequestAt,
         markMethodGuideSeen,
         openReviews,
         reviewFocus,

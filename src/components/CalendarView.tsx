@@ -28,6 +28,7 @@ import {
   Settings2,
   HelpCircle,
   ChevronDown,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { getActivityCategory, getExamKind, getExamSubjectName, getExamShift, occursOn } from '../data/planning';
@@ -39,6 +40,7 @@ import { DatePickerField } from './DatePickerField';
 import { TodayPlanPanel } from './plan/TodayPlanPanel';
 import { DailyHabitsCard } from './plan/DailyHabitsCard';
 import { WeeklyPlanModal } from './plan/WeeklyPlanModal';
+import { DayPlanModal } from './plan/DayPlanModal';
 import { StudyRoutineModal } from './plan/StudyRoutineModal';
 import { DAY_KIND_INFO, blocksToHours, readLocal, userLocalKey, writeLocal } from './plan/planShared';
 
@@ -152,6 +154,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     writeLocal(VIEW_KEY, mode);
   };
   const [weekPlanOpen, setWeekPlanOpen] = useState(false);
+  const [dayPlanOpen, setDayPlanOpen] = useState(false);
   const [routineOpen, setRoutineOpen] = useState<null | 'full' | 'first'>(null);
   const [agendaOpen, setAgendaOpen] = useState(true);
 
@@ -977,11 +980,23 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           <div className="mt-2 sm:mt-3 flex flex-wrap items-center gap-1.5">
             <button
               type="button"
-              id="planner-plan-week-btn"
-              onClick={() => setWeekPlanOpen(true)}
+              id="planner-plan-day-btn"
+              onClick={() => setDayPlanOpen(true)}
               className="min-h-[40px] px-3 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-black inline-flex items-center gap-1.5 shadow-xs"
             >
-              <CalendarRange className="h-4 w-4" /> Planejar semana
+              <SlidersHorizontal className="h-4 w-4" />
+              <span className="sm:hidden">Dia</span>
+              <span className="hidden sm:inline">Planejar dia</span>
+            </button>
+            <button
+              type="button"
+              id="planner-plan-week-btn"
+              onClick={() => setWeekPlanOpen(true)}
+              className="min-h-[40px] px-3 rounded-xl border border-sky-300 dark:border-sky-700 bg-white dark:bg-slate-900 text-sky-700 dark:text-sky-300 hover:bg-sky-50 dark:hover:bg-sky-500/10 text-xs font-black inline-flex items-center gap-1.5"
+            >
+              <CalendarRange className="h-4 w-4" />
+              <span className="sm:hidden">Semana</span>
+              <span className="hidden sm:inline">Planejar semana</span>
             </button>
             <button
               type="button"
@@ -997,9 +1012,9 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
               aria-label="Como funciona?"
               title="Como funciona?"
               onClick={() => openMethodGuide(4)}
-              className="min-h-[40px] min-w-[40px] justify-center px-2.5 sm:px-3 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-bold inline-flex items-center gap-1.5"
+              className="min-h-[40px] min-w-[40px] justify-center px-2.5 sm:px-3 rounded-xl border border-sky-200 dark:border-sky-500/30 bg-sky-50 dark:bg-sky-500/10 text-sky-700 dark:text-sky-300 hover:bg-sky-100 dark:hover:bg-sky-500/20 text-xs font-bold inline-flex items-center gap-1.5"
             >
-              <HelpCircle className="h-4 w-4" /><span className="hidden sm:inline">Como funciona?</span>
+              <HelpCircle className="h-4 w-4" /><span className="hidden sm:inline">Como funciona</span>
             </button>
           </div>
         </div>
@@ -1729,6 +1744,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 
       {/* Janelas do método: planejar semana e minha rotina */}
       <WeeklyPlanModal open={weekPlanOpen} onClose={() => setWeekPlanOpen(false)} />
+      <DayPlanModal open={dayPlanOpen} onClose={() => setDayPlanOpen(false)} />
       <StudyRoutineModal open={routineOpen !== null} firstTime={routineOpen === 'first'} onClose={() => setRoutineOpen(null)} />
     </div>
   );

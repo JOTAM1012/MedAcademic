@@ -37,6 +37,7 @@ import { AUTO_KINDS, DAY_KIND_INFO, blocksToHours, isRealTask, readLocal, startP
 import { QuickThemeModal } from './QuickThemeModal';
 import { WeeklyPlanModal } from './WeeklyPlanModal';
 import { DayPlanModal } from './DayPlanModal';
+import { UpcomingExamTopics } from '../semester/UpcomingExamTopics';
 import { semesterNumberOf } from '../../data/subjectFormats';
 
 interface TodayPlanPanelProps {
@@ -720,6 +721,24 @@ export const TodayPlanPanel: React.FC<TodayPlanPanelProps> = ({ compact, onOpenW
       {NowCard({})}
       </div>
 
+      {/* Lembretes de prova (30/15/7/3/1 dias antes, se ainda não começou os assuntos) */}
+      {(plan.examReminders || []).map((r) => (
+        <div
+          key={r.examId}
+          id={`today-exam-reminder-${r.examId}`}
+          className="rounded-2xl border border-indigo-200 dark:border-indigo-500/30 bg-indigo-50 dark:bg-indigo-500/10 px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-2"
+        >
+          <p className="text-[13px] text-indigo-900 dark:text-indigo-100 flex-1">📅 {r.text}</p>
+          <button
+            type="button"
+            onClick={() => setCurrentTab('semester')}
+            className="shrink-0 min-h-[40px] px-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black inline-flex items-center gap-1.5"
+          >
+            Ver assuntos da prova <ArrowRight className="h-4 w-4" />
+          </button>
+        </div>
+      ))}
+
       {showEmpty && EmptyCard({})}
 
       {/* Controles de 1 toque */}
@@ -917,6 +936,9 @@ export const TodayPlanPanel: React.FC<TodayPlanPanelProps> = ({ compact, onOpenW
           <span>{WELLBEING_NOTE}</span>
         </p>
       )}
+      {/* Assuntos das próximas provas: check list da prova direto no plano */}
+      <UpcomingExamTopics withinDays={21} compact />
+
       <p id="today-sleep" className="flex items-center gap-2 px-2 text-[12px] text-slate-500 dark:text-slate-400">
         <span aria-hidden>🌙</span> {plan.sleepNote}
       </p>

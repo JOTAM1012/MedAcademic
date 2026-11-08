@@ -1,5 +1,6 @@
-import React, { useMemo, useState } from 'react';
-import { History, BookOpen, Layers, ClipboardCheck, Clock, Repeat, GraduationCap, Printer, Award } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { History, BookOpen, Layers, ClipboardCheck, Clock, Repeat, GraduationCap, Printer, Award, ChevronRight, X } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { Exam, Semester } from '../types';
 import { SemesterStatusCard } from './SemesterStatusCard';
@@ -23,19 +24,24 @@ const weighted = (list: Exam[], pick: (e: Exam) => number | undefined) => {
   return w > 0 ? sum / w : undefined;
 };
 
-// Histórico: resumo de cada semestre (disciplinas, tópicos, blocos, questões, horas, revisões) e boletim
-export const SemesterHistoryView: React.FC = () => {
-  const { semesters, currentSemester, subjects, topics, topicBlocks, questionLogs, studySessions, exams } = useApp();
+const periodOfSem = (s: Semester) => semesterBounds(s);
+const semNumber = (s: Semester) => {
+  const m = s.name.match(/(\d+)\s*[ºo°]/i) || s.name.match(/(\d+)/);
+  return m ? Number(m[1]) : undefined;
+};
+/** Semestres em ordem crescente (1º, 2º, …); sem número no nome, vale o período (2025.1, 2025.2…) */
+export const sortSemestersAsc = (list: Semester[]) =>
+  [...list].sort((a, b) => {
+    const na = semNumber(a);
+    const nb = semNumber(b);
+    if (na !== undefined && nb !== undefined && na !== nb) return na - nb;
+    return periodOfSem(a).code.localeCompare(periodOfSem(b).code) || a.id.localeCompare(b.id);
+  });
 
-  const periodOfSem = (s: Semester) => semesterBounds(s);
-  const ordered = useMemo(
-    () => [...semesters].sort((a, b) => periodOfSem(b).code.localeCompare(periodOfSem(a).code) || b.id.localeCompare(a.id)),
-    [semesters]
-  );
-  const [selectedId, setSelectedId] = useState<string>(currentSemester?.id || ordered[0]?.id || '');
-  const sel = semesters.find((s) => s.id === selectedId) || currentSemester;
-
-  const data = useMemo(() => {
+// Números de um semestre: disciplinas, tópicos, blocos, questões, horas, revisões e provas
+const useSemesterData = (sel?: Semester | null) => {
+  const { currentSemester, subjects, topics, topicBlocks, questionLogs, studySessions, exams } = useApp();
+  return useMemo(() => {
     if (!sel) return null;
     const p = periodOfSem(sel);
     const isCurrent = sel.id === currentSemester?.id;
@@ -51,6 +57,87 @@ export const SemesterHistoryView: React.FC = () => {
     const exs = exams.filter((e) => e.semesterId === sel.id || (!e.semesterId && isCurrent));
     return { p, isCurrent, subs, tps, blks, qTotal, qCorrect, minutes, reviews, exs, qs };
   }, [sel, subjects, topics, topicBlocks, questionLogs, studySessions, exams, currentSemester]);
+};
+type SemesterData = NonNullable<ReturnType<typeof useSemesterData>>;
+
+const buildMetrics = (data: SemesterData) => {
+  const overall = weighted(data.exs, (e) => e.grade);
+  const overallExpected = weighted(data.exs, (e) => e.expectedGrade);
+  const pct = data.qTotal ? Math.round((data.qCorrect / data.qTotal) * 100) : undefined;
+  const seen = data.tps.filter(isTopicSeen).length;
+  const mastered = data.blks.filter((b) => b.reviewStatus !== 'estudando' && b.reviewsDone >= 4).length;
+  return [
+    { icon: BookOpen, label: 'Disciplinas', value: data.subs.length, sub: `${data.blks.length} blocos`, color: 'text-sky-500' },
+    { icon: Layers, label: 'Tópicos vistos', value: `${seen}/${data.tps.length}`, sub: `${mastered} blocos dominados`, color: 'text-violet-500' },
+    { icon: ClipboardCheck, label: 'Questões', value: data.qTotal, sub: pct !== undefined ? `${pct}% de acertos` : 'nenhuma registrada', color: 'text-emerald-500' },
+    { icon: Clock, label: 'Horas de estudo', value: `${(data.minutes / 60).toFixed(1).replace('.', ',')}h`, sub: 'Pomodoro e cronômetro', color: 'text-amber-500' },
+    { icon: Repeat, label: 'Revisões feitas', value: data.reviews, sub: 'revisões de blocos', color: 'text-rose-500' },
+    { icon: GraduationCap, label: 'Média lançada', value: fmt(overall), sub: overallExpected !== undefined ? `esperada ${fmt(overallExpected)}` : `${data.exs.length} provas`, color: 'text-blue-500' },
+  ];
+};
+
+const MetricTile: React.FC<{ m: ReturnType<typeof buildMetrics>[number] }> = ({ m }) => {
+  const Icon = m.icon;
+  return (
+    <div className="rounded-2xl bg-slate-50 dark:bg-slate-950/60 p-3 min-w-0">
+      <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+        <Icon className={`h-3.5 w-3.5 shrink-0 ${m.color}`} /> <span className="truncate">{m.label}</span>
+      </div>
+      <div className="text-xl font-black text-slate-900 dark:text-white mt-1">{m.value}</div>
+      <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate">{m.sub}</div>
+    </div>
+  );
+};
+
+/** Resumo do semestre atual (cartão compacto do Perfil) com botão "Saiba mais" */
+export const SemesterSummaryCard: React.FC<{ onMore?: () => void; className?: string }> = ({ onMore, className = '' }) => {
+  const { currentSemester } = useApp();
+  const data = useSemesterData(currentSemester);
+  return (
+    <div id="profile-semester-summary" className={`rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-xs flex flex-col gap-3 min-w-0 ${className}`}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <h3 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-1.5 truncate">
+            <History className="h-4 w-4 text-sky-500 shrink-0" /> Resumo · {currentSemester?.name || 'Semestre'}
+          </h3>
+          {data && (
+            <p className="text-[11px] text-slate-500 dark:text-slate-400">
+              {data.p.code} · {formatDM(data.p.start)} a {formatDM(data.p.end)}
+            </p>
+          )}
+        </div>
+        {data?.isCurrent && <span className="shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-600 dark:text-sky-400">Em andamento</span>}
+      </div>
+      {data ? (
+        <div className="grid grid-cols-2 gap-2">
+          {buildMetrics(data).map((m) => (
+            <MetricTile key={m.label} m={m} />
+          ))}
+        </div>
+      ) : (
+        <p className="text-xs text-slate-500">Nenhum semestre cadastrado.</p>
+      )}
+      {onMore && (
+        <button
+          type="button"
+          id="profile-history-more"
+          onClick={onMore}
+          className="mt-auto h-10 w-full flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
+        >
+          Saiba mais <ChevronRight className="h-4 w-4" />
+        </button>
+      )}
+    </div>
+  );
+};
+
+/** Histórico completo: semestres em ordem crescente, resumo, disciplinas e boletim */
+export const SemesterHistoryContent: React.FC = () => {
+  const { semesters, currentSemester, subjects } = useApp();
+  const ordered = useMemo(() => sortSemestersAsc(semesters), [semesters]);
+  const [selectedId, setSelectedId] = useState<string>(currentSemester?.id || ordered[ordered.length - 1]?.id || '');
+  const sel = semesters.find((s) => s.id === selectedId) || currentSemester;
+  const data = useSemesterData(sel);
 
   // Boletim: provas agrupadas por disciplina
   const report = useMemo(() => {
@@ -76,35 +163,15 @@ export const SemesterHistoryView: React.FC = () => {
 
   const overall = weighted(data.exs, (e) => e.grade);
   const overallExpected = weighted(data.exs, (e) => e.expectedGrade);
-  const pct = data.qTotal ? Math.round((data.qCorrect / data.qTotal) * 100) : undefined;
-  const seen = data.tps.filter(isTopicSeen).length;
-  const mastered = data.blks.filter((b) => b.reviewStatus !== 'estudando' && b.reviewsDone >= 4).length;
   const gradeTone = (g?: number, target?: number) =>
     g === undefined ? 'text-slate-400' : target !== undefined ? (g >= target ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400') : g >= 7 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400';
 
-  const metrics = [
-    { icon: BookOpen, label: 'Disciplinas', value: data.subs.length, sub: `${data.blks.length} blocos`, color: 'text-sky-500' },
-    { icon: Layers, label: 'Tópicos vistos', value: `${seen}/${data.tps.length}`, sub: `${mastered} blocos dominados`, color: 'text-violet-500' },
-    { icon: ClipboardCheck, label: 'Questões', value: data.qTotal, sub: pct !== undefined ? `${pct}% de acertos` : 'nenhuma registrada', color: 'text-emerald-500' },
-    { icon: Clock, label: 'Horas de estudo', value: `${(data.minutes / 60).toFixed(1).replace('.', ',')}h`, sub: 'Pomodoro e cronômetro', color: 'text-amber-500' },
-    { icon: Repeat, label: 'Revisões feitas', value: data.reviews, sub: 'revisões de blocos', color: 'text-rose-500' },
-    { icon: GraduationCap, label: 'Média lançada', value: fmt(overall), sub: overallExpected !== undefined ? `esperada ${fmt(overallExpected)}` : `${data.exs.length} provas`, color: 'text-blue-500' },
-  ];
+  const metrics = buildMetrics(data);
 
   return (
-    <div className="space-y-5 pb-12 max-w-6xl mx-auto">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
-            <History className="h-6 w-6 text-sky-500" /> Histórico de semestres
-          </h1>
-        </div>
-      </div>
-
-      <SemesterStatusCard compact />
-
+    <div className="space-y-5 min-w-0">
       {/* Semestres */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1">
+      <div id="history-semester-chips" className="flex items-center gap-2 overflow-x-auto pb-1">
         {ordered.map((s) => {
           const p = periodOfSem(s);
           const active = s.id === sel.id;
@@ -112,7 +179,7 @@ export const SemesterHistoryView: React.FC = () => {
             <button
               key={s.id}
               onClick={() => setSelectedId(s.id)}
-              className={`shrink-0 text-left px-3.5 py-2 rounded-2xl border transition-colors ${
+              className={`shrink-0 min-h-10 text-left px-3.5 py-2 rounded-2xl border transition-colors ${
                 active ? 'bg-sky-600 border-sky-600 text-white' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200'
               }`}
             >
@@ -139,18 +206,9 @@ export const SemesterHistoryView: React.FC = () => {
           {data.isCurrent && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-600 dark:text-sky-400">Em andamento</span>}
         </div>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-          {metrics.map((m) => {
-            const Icon = m.icon;
-            return (
-              <div key={m.label} className="rounded-2xl bg-slate-50 dark:bg-slate-950/60 p-3">
-                <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-500">
-                  <Icon className={`h-3.5 w-3.5 ${m.color}`} /> {m.label}
-                </div>
-                <div className="text-xl font-black text-slate-900 dark:text-white mt-1">{m.value}</div>
-                <div className="text-[10px] text-slate-500">{m.sub}</div>
-              </div>
-            );
-          })}
+          {metrics.map((m) => (
+            <MetricTile key={m.label} m={m} />
+          ))}
         </div>
       </section>
 
@@ -272,3 +330,61 @@ export const SemesterHistoryView: React.FC = () => {
     </div>
   );
 };
+
+/** Histórico completo em janela grande (aberto pelo "Saiba mais" do Perfil) */
+export const SemesterHistoryModal: React.FC<{ open: boolean; onClose: () => void }> = ({ open, onClose }) => {
+  useEffect(() => {
+    if (!open) return;
+    const esc = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    document.addEventListener('keydown', esc);
+    return () => document.removeEventListener('keydown', esc);
+  }, [open, onClose]);
+  if (!open) return null;
+  return createPortal(
+    <div className="app-modal fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in" onClick={onClose}>
+      <div
+        id="profile-history-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="profile-history-title"
+        className="app-modal-panel relative w-full max-w-5xl max-h-[92vh] overflow-y-auto overflow-x-hidden rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 sm:p-6 shadow-2xl space-y-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="p-2 rounded-xl bg-sky-500/10 text-sky-600 dark:text-sky-400 shrink-0">
+              <History className="h-5 w-5" />
+            </div>
+            <div className="min-w-0">
+              <h2 id="profile-history-title" className="text-base font-black text-slate-900 dark:text-white truncate">
+                Histórico de semestres
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Escolha um semestre para ver o resumo e o boletim.</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Fechar"
+            className="h-10 w-10 shrink-0 flex items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <SemesterHistoryContent />
+      </div>
+    </div>,
+    document.body
+  );
+};
+
+// Página "Histórico" (rota antiga): mantida funcionando, o caminho principal agora é pelo Perfil
+export const SemesterHistoryView: React.FC = () => (
+  <div className="space-y-5 pb-12 max-w-6xl mx-auto">
+    <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
+      <History className="h-6 w-6 text-sky-500" /> Histórico de semestres
+    </h1>
+    <SemesterStatusCard compact />
+    <SemesterHistoryContent />
+  </div>
+);

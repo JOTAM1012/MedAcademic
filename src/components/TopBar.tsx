@@ -21,6 +21,7 @@ import { useApp } from '../context/AppContext';
 import { openInstallGuide, usePwaInstall } from '../lib/pwaInstall';
 import { daysBetween, formatDM } from '../data/blockReview';
 import { isErrorDue } from '../data/studyMethod';
+import { examReminderText, examReminderToday } from '../data/examTopics';
 import { todayYMD, useDueReviewCount } from '../hooks/useStudyPlan';
 
 interface TopBarProps {
@@ -30,6 +31,7 @@ interface TopBarProps {
 
 export const TopBar: React.FC<TopBarProps> = ({ onToggleMobileMenu, onOpenTour }) => {
   const { isInstalled: isAppInstalled } = usePwaInstall();
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
   const {
     setCurrentTab,
     isDarkMode,
@@ -45,6 +47,7 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleMobileMenu, onOpenTour }
     studyMethod,
     openReviews,
     openMethodGuide,
+    methodGuideSeen,
   } = useApp();
 
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -96,7 +99,14 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleMobileMenu, onOpenTour }
     () => (studyMethod.errorNotes || []).filter((n) => isErrorDue(n, today, topicBlocks)).length,
     [studyMethod.errorNotes, topicBlocks, today]
   );
-  const hasAlerts = upcomingExamsList.length > 0 || dueReviews > 0 || dueErrors > 0;
+  // Lembretes de prova: 30/15/7/3/1 dias antes, se o aluno ainda não começou os assuntos
+  const examReminders = exams
+    .map((e) => ({ e, left: examReminderToday(e, today) }))
+    .filter((x) => x.left !== undefined)
+    .map(({ e, left }) => ({ id: e.id, text: examReminderText(e, left as number) }));
+  // Novo usuário (ainda não viu o guia do método): o botão de ajuda vira "Comece aqui"
+  const isNewcomer = !methodGuideSeen;
+  const hasAlerts = upcomingExamsList.length > 0 || dueReviews > 0 || dueErrors > 0 || examReminders.length > 0;
   const examWhen = (date: string) => {
     const d = daysBetween(today, date);
     return d === 0 ? 'hoje' : d === 1 ? 'amanhã' : `em ${d} dias · ${formatDM(date)}`;
@@ -227,14 +237,14 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleMobileMenu, onOpenTour }
                   {filteredExams.length > 0 && (
                     <div>
                       <div className="text-[10px] font-bold uppercase text-rose-600 dark:text-rose-400 mb-1">
-                        Avaliações ({filteredExams.length})
+                        Provas ({filteredExams.length})
                       </div>
                       <div className="space-y-1">
                         {filteredExams.map((e) => (
                           <div
                             key={e.id}
                             onClick={() => {
-                              setCurrentTab('grades');
+                              setCurrentTab('semester');
                               setIsSearchOpen(false);
                             }}
                             className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer text-xs text-slate-800 dark:text-slate-200"
@@ -254,45 +264,40 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleMobileMenu, onOpenTour }
       </div>
 
       {/* Right section: Cloud Sync, Notifications & Dark Mode */}
-      <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
-        {/* Cloud Sync Status Indicator & Trigger */}
+      <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
+        {/* Nuvem: ícone discreto com bolinha de status (toque força a sincronização) */}
         <button
           id="topbar-cloud-sync-btn"
           type="button"
           onClick={() => forceCloudSync()}
-          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold border transition-all duration-300 cursor-pointer ${
+          className={`relative h-10 w-10 shrink-0 flex items-center justify-center rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-800 dark:hover:text-slate-100 transition-colors ${isTopBarPop ? 'scale-110' : ''}`}
+          aria-label={
             cloudSyncStatus === 'synced'
-              ? isTopBarPop
-                ? 'bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 border-emerald-400 dark:border-emerald-500 scale-105 shadow-md shadow-emerald-500/20'
-                : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/60 hover:bg-emerald-100 dark:hover:bg-emerald-900/40'
+              ? 'Salvo na nuvem (toque para sincronizar agora)'
               : cloudSyncStatus === 'syncing'
-              ? 'bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-400 border-sky-200 dark:border-sky-800/60 animate-pulse'
-              : 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800/60'
-          }`}
-          title={
-            cloudSyncStatus === 'synced'
-              ? 'Sincronizado na Nuvem (Clique para forçar sincronização)'
-              : cloudSyncStatus === 'syncing'
-              ? 'Sincronizando com a nuvem...'
+              ? 'Salvando na nuvem…'
               : 'Modo Offline - Dados salvos no dispositivo'
           }
+          title={
+            cloudSyncStatus === 'synced'
+              ? 'Salvo na nuvem'
+              : cloudSyncStatus === 'syncing'
+              ? 'Salvando…'
+              : 'Offline: salvo neste aparelho'
+          }
         >
-          {cloudSyncStatus === 'synced' ? (
-            <>
-              <Cloud className={`h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 transition-transform ${isTopBarPop ? 'scale-125' : 'scale-100'}`} />
-              <span className="hidden md:inline text-[11px]">Nuvem OK</span>
-            </>
-          ) : cloudSyncStatus === 'syncing' ? (
-            <>
-              <RefreshCw className="h-3.5 w-3.5 text-sky-600 dark:text-sky-400 animate-spin" />
-              <span className="hidden md:inline text-[11px]">Salvando...</span>
-            </>
+          {cloudSyncStatus === 'syncing' ? (
+            <RefreshCw className="h-4 w-4 animate-spin" />
+          ) : cloudSyncStatus === 'synced' ? (
+            <Cloud className="h-4 w-4" />
           ) : (
-            <>
-              <CloudOff className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
-              <span className="hidden md:inline text-[11px]">Offline</span>
-            </>
+            <CloudOff className="h-4 w-4" />
           )}
+          <span
+            className={`absolute bottom-2 right-2 h-2 w-2 rounded-full ring-2 ring-white dark:ring-slate-950 ${
+              cloudSyncStatus === 'synced' ? 'bg-emerald-500' : cloudSyncStatus === 'syncing' ? 'bg-sky-500' : 'bg-amber-500'
+            }`}
+          />
         </button>
 
         {/* Notification Bell */}
@@ -300,7 +305,7 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleMobileMenu, onOpenTour }
           <button
             id="topbar-notifications-btn"
             onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
-            className="relative rounded-xl p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            className="relative h-10 w-10 shrink-0 flex items-center justify-center rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-800 dark:hover:text-slate-100 transition-colors"
             aria-label={hasAlerts ? 'Notificações (há lembretes)' : 'Notificações'}
             aria-expanded={isNotificationsOpen}
           >
@@ -353,6 +358,20 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleMobileMenu, onOpenTour }
                     </button>
                   )}
 
+                  {examReminders.map((r) => (
+                    <button
+                      key={r.id}
+                      type="button"
+                      id={`topbar-notif-exam-reminder-${r.id}`}
+                      onClick={closeAnd(() => setCurrentTab('semester'))}
+                      className="w-full flex items-center gap-2.5 p-2.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/40 text-left hover:bg-indigo-100/70 dark:hover:bg-indigo-900/30 transition-colors"
+                    >
+                      <span className="p-1.5 rounded-lg bg-indigo-600 text-white shrink-0 text-xs leading-none">📅</span>
+                      <span className="min-w-0 flex-1 block text-[11px] font-semibold text-indigo-900 dark:text-indigo-100">{r.text}</span>
+                      <ChevronRight className="h-4 w-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                    </button>
+                  ))}
+
                   {dueErrors > 0 && (
                     <button
                       type="button"
@@ -377,7 +396,7 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleMobileMenu, onOpenTour }
                     <button
                       type="button"
                       key={exam.id}
-                      onClick={closeAnd(() => setCurrentTab('grades'))}
+                      onClick={closeAnd(() => setCurrentTab('semester'))}
                       className="w-full flex items-center gap-2.5 p-2.5 rounded-xl bg-rose-50/70 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/30 text-left hover:bg-rose-100/60 dark:hover:bg-rose-900/20 transition-colors"
                     >
                       <span className="p-1.5 rounded-lg bg-rose-500 text-white shrink-0">
@@ -413,56 +432,113 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleMobileMenu, onOpenTour }
           )}
         </div>
 
-        {/* Instalar como aplicativo (some quando já está instalado) */}
-        {!isAppInstalled && (
+        {/* Ajuda: um botão só (guia do método, tour guiado, instalar app). Novo usuário vê "Comece aqui" */}
+        <div className="relative">
           <button
-            id="topbar-install-btn"
-            onClick={openInstallGuide}
-            className="rounded-xl p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center gap-1.5 text-xs font-semibold"
-            aria-label="Instalar o MedAcademic como aplicativo"
-            title="Instalar como aplicativo"
+            id="topbar-help-btn"
+            type="button"
+            onClick={() => setIsHelpOpen((v) => !v)}
+            aria-expanded={isHelpOpen}
+            aria-label="Ajuda: como funciona, tour guiado e instalar app"
+            className={`relative h-10 shrink-0 flex items-center justify-center gap-1.5 rounded-xl px-2.5 text-xs font-bold transition-colors ${
+              isNewcomer
+                ? 'bg-sky-600 hover:bg-sky-500 text-white shadow-sm shadow-sky-600/30'
+                : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-800 dark:hover:text-slate-100'
+            }`}
           >
-            <Smartphone className="h-4 w-4 text-sky-500" />
-            <span className="hidden md:inline text-slate-700 dark:text-slate-300">Instalar app</span>
+            <HelpCircle className="h-4 w-4" />
+            <span className={isNewcomer ? 'inline' : 'hidden md:inline'}>{isNewcomer ? 'Comece aqui' : 'Ajuda'}</span>
+            {isNewcomer && (
+              <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-300 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-sky-300" />
+              </span>
+            )}
           </button>
-        )}
-
-        {/* Guided Tour Launcher Button */}
-        {onOpenTour && (
-          <button
-            id="topbar-tour-btn"
-            onClick={onOpenTour}
-            className="rounded-xl p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center gap-1.5 text-xs font-semibold"
-            aria-label="Abrir Tour Guiado MedAcademic"
-            title="Abrir Tour Guiado Interativo"
-          >
-            <HelpCircle className="h-4 w-4 text-cyan-500" />
-            <span className="hidden sm:inline text-slate-700 dark:text-slate-300">Ajuda & Tour</span>
-          </button>
-        )}
-
-        {/* Guia do método (só em telas largas; no celular fica dentro do sino) */}
-        <button
-          id="topbar-method-guide-btn"
-          onClick={() => openMethodGuide(0)}
-          className="hidden xl:flex rounded-xl p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors items-center gap-1.5 text-xs font-semibold"
-          title="Como funciona o Método MedAcademic"
-        >
-          <BookOpen className="h-4 w-4 text-sky-500" />
-          <span className="text-slate-700 dark:text-slate-300">Como funciona</span>
-        </button>
+          {isHelpOpen && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setIsHelpOpen(false)} aria-hidden="true" />
+              <div
+                id="topbar-help-menu"
+                role="menu"
+                className="fixed left-3 right-3 top-16 sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-2 sm:w-72 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-2 shadow-xl z-50"
+              >
+                <button
+                  type="button"
+                  role="menuitem"
+                  id="topbar-method-guide-btn"
+                  onClick={() => {
+                    setIsHelpOpen(false);
+                    openMethodGuide(0);
+                  }}
+                  className="w-full flex items-start gap-3 p-2.5 rounded-xl text-left hover:bg-slate-50 dark:hover:bg-slate-800/70"
+                >
+                  <span className="p-2 rounded-lg bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 shrink-0">
+                    <BookOpen className="h-4 w-4" />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-sm font-bold text-slate-900 dark:text-white">
+                      Como funciona o método {!methodGuideSeen && <span className="ml-1 text-[10px] font-black text-sky-600 dark:text-sky-400">COMECE AQUI</span>}
+                    </span>
+                    <span className="block text-[11px] text-slate-500 dark:text-slate-400">O guia do estudo: revisões, plano do dia, questões. 3 min.</span>
+                  </span>
+                </button>
+                {onOpenTour && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    id="topbar-tour-btn"
+                    onClick={() => {
+                      setIsHelpOpen(false);
+                      onOpenTour();
+                    }}
+                    className="w-full flex items-start gap-3 p-2.5 rounded-xl text-left hover:bg-slate-50 dark:hover:bg-slate-800/70"
+                  >
+                    <span className="p-2 rounded-lg bg-cyan-50 dark:bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 shrink-0">
+                      <HelpCircle className="h-4 w-4" />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-sm font-bold text-slate-900 dark:text-white">Tour guiado pelo site</span>
+                      <span className="block text-[11px] text-slate-500 dark:text-slate-400">Onde fica cada coisa, passo a passo.</span>
+                    </span>
+                  </button>
+                )}
+                {!isAppInstalled && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    id="topbar-install-btn"
+                    onClick={() => {
+                      setIsHelpOpen(false);
+                      openInstallGuide();
+                    }}
+                    className="w-full flex items-start gap-3 p-2.5 rounded-xl text-left hover:bg-slate-50 dark:hover:bg-slate-800/70"
+                  >
+                    <span className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 shrink-0">
+                      <Smartphone className="h-4 w-4" />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-sm font-bold text-slate-900 dark:text-white">Instalar como aplicativo</span>
+                      <span className="block text-[11px] text-slate-500 dark:text-slate-400">Abre direto da tela do celular ou do computador.</span>
+                    </span>
+                  </button>
+                )}
+              </div>
+            </>
+          )}
+        </div>
 
         {/* Dark Mode Toggle */}
         <button
           id="topbar-theme-toggle-btn"
           onClick={toggleDarkMode}
-          className="rounded-xl p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+          className="relative h-10 w-10 shrink-0 flex items-center justify-center rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-800 dark:hover:text-slate-100 transition-colors"
           aria-label={isDarkMode ? 'Ativar Modo Claro' : 'Ativar Modo Escuro'}
         >
           {isDarkMode ? (
-            <Sun className="h-4 w-4 text-amber-400" />
+            <Sun className="h-4 w-4" />
           ) : (
-            <Moon className="h-4 w-4 text-slate-600" />
+            <Moon className="h-4 w-4" />
           )}
         </button>
       </div>

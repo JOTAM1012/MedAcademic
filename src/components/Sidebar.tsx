@@ -7,11 +7,9 @@ import {
   Stethoscope,
   Timer,
   GraduationCap,
-  CalendarDays,
   Calendar,
   Sparkles,
   User,
-  History,
   PanelLeftClose,
   PanelLeftOpen,
   ListChecks,
@@ -21,7 +19,7 @@ import {
 import { useAccess } from '../context/AccessContext';
 import { useApp } from '../context/AppContext';
 import { daysBetween } from '../data/blockReview';
-import { sessionDate, weekStart } from '../data/studyMethod';
+import { daysUntil, periodProgress, semesterBounds } from '../data/academicCalendar';
 import { todayYMD, useDayPlan, useDueReviewCount } from '../hooks/useStudyPlan';
 
 interface SidebarProps {
@@ -34,10 +32,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
     currentTab,
     setCurrentTab,
     openPlannerToday,
-    userProfile,
     exams,
-    studySessions,
     checklist,
+    currentSemester,
   } = useApp();
   const pendingChecklistCount = checklist.filter((i) => !i.done).length;
   const { isAdmin } = useAccess();
@@ -82,17 +79,24 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
     return diff >= 0 && diff <= 14;
   }).length;
 
-  // Blocos de foco (Pomodoro) desta semana, de segunda a hoje: contar blocos, não só horas
-  const weekFrom = weekStart(todayStr);
-  const focusBlocksWeek = studySessions.filter((s) => s.type === 'pomodoro' && sessionDate(s) >= weekFrom && sessionDate(s) <= todayStr).length;
+  // Semestre atual (mesmas contas do cartão do semestre): % que já passou e dias que faltam
+  const semBounds = currentSemester ? semesterBounds(currentSemester) : undefined;
+  const semNotStarted = !!semBounds && todayStr < semBounds.start;
+  const semPct = semBounds ? (semNotStarted ? 0 : periodProgress(semBounds, todayStr)) : 0;
+  const semLeft = semBounds ? Math.max(0, daysUntil(todayStr, semBounds.end)) : 0;
+  const semName = (currentSemester?.name || '').split(/s+[-–·]s+/)[0] || 'Semestre';
+  const semLeftLabel = !semBounds
+    ? ''
+    : semNotStarted
+    ? `começa em ${daysUntil(todayStr, semBounds.start)} dias`
+    : todayStr > semBounds.end
+    ? 'terminou'
+    : semLeft === 0
+    ? 'último dia'
+    : `faltam ${semLeft} dias`;
 
-  // Study hours this week
-  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 3600 * 1000);
-  const recentSessions = studySessions.filter((s) => new Date(s.timestamp) >= sevenDaysAgo);
-  const totalMinutesStudiedWeek = recentSessions.reduce((acc, s) => acc + s.durationMinutes, 0);
-  const totalHoursStudiedWeek = (totalMinutesStudiedWeek / 60).toFixed(1);
-  const weeklyGoalTarget = userProfile.weeklyTargetHours || 30;
-  const weeklyGoalPercent = Math.min(100, Math.round((Number(totalHoursStudiedWeek) / weeklyGoalTarget) * 100));
+  // Abas antigas que agora moram em outra (links antigos continuam funcionando)
+  const activeTab = currentTab === 'grades' || currentTab === 'schedule' ? 'semester' : currentTab === 'history' ? 'profile' : currentTab;
 
   const academicItems = [
     {
@@ -109,17 +113,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
       badgeColor: 'bg-violet-500/20 text-violet-300 border border-violet-400/30',
     },
     {
-      id: 'grades',
-      label: 'Avaliações',
+      id: 'semester',
+      label: 'Semestre',
       icon: GraduationCap,
       badge: upcomingExamsCount > 0 ? `${upcomingExamsCount} próx.` : null,
       badgeColor: 'bg-rose-500/20 text-rose-300 border border-rose-400/30',
-    },
-    {
-      id: 'schedule',
-      label: 'Grade de horários',
-      icon: CalendarDays,
-      badge: null,
     },
   ];
 
@@ -166,14 +164,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
     badgeColor?: string;
   }> = [
     {
-      id: 'history',
-      label: 'Histórico',
-      icon: History,
-      badge: null,
-    },
-    {
       id: 'profile',
-      label: 'Perfil & metas',
+      label: 'Perfil',
       icon: User,
       badge: null,
     },
@@ -259,7 +251,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
             <div className="space-y-1">
               {academicItems.map((item) => {
                 const Icon = item.icon;
-                const isActive = currentTab === item.id;
+                const isActive = activeTab === item.id;
                 return (
                   <button
                     key={item.id}
@@ -326,7 +318,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
             <div className="space-y-1">
               {toolsItems.map((item) => {
                 const Icon = item.icon;
-                const isActive = currentTab === item.id;
+                const isActive = activeTab === item.id;
                 return (
                   <button
                     key={item.id}
@@ -389,7 +381,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
             <div className="space-y-1">
               {aiItems.map((item) => {
                 const Icon = item.icon;
-                const isActive = currentTab === item.id;
+                const isActive = activeTab === item.id;
                 const isGemini = item.id === 'gemini_tutor';
                 return (
                   <button
@@ -443,46 +435,41 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
           </div>
         </nav>
 
-        {/* Bottom Weekly Goal Card */}
-        {isExpanded ? (
-          <div className="mt-auto p-4 bg-slate-800/40 m-3 rounded-xl border border-slate-700/50 animate-in fade-in duration-200">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-medium text-slate-300">Meta Semanal</span>
-              <span className="text-xs font-bold text-blue-400">{weeklyGoalPercent}%</span>
-            </div>
-            <div className="w-full bg-slate-700 h-1.5 rounded-full overflow-hidden">
-              <div
-                className="bg-blue-500 h-full transition-all duration-500 rounded-full"
-                style={{ width: `${weeklyGoalPercent}%` }}
-              />
-            </div>
-            <div className="mt-2.5 text-[10px] text-slate-400 flex justify-between">
-              <span>{totalHoursStudiedWeek}h estudados</span>
-              <span>meta de {weeklyGoalTarget}h</span>
-            </div>
-            <div id="sidebar-week-focus-blocks" className="mt-2 pt-2 border-t border-slate-700/50 flex items-center justify-between gap-2 text-[10px]">
-              <span className="text-slate-300 flex items-center gap-1.5 min-w-0">
-                <Timer className="h-3 w-3 text-orange-400 shrink-0" />
-                <span className="truncate">blocos de foco na semana</span>
-              </span>
-              <span className="font-black text-orange-300 shrink-0">{focusBlocksWeek}</span>
-            </div>
-          </div>
-        ) : (
-          <div
-            className="mt-auto p-2 mx-2 mb-3 bg-slate-800/40 rounded-lg border border-slate-700/50 flex flex-col items-center justify-center cursor-pointer hover:bg-slate-800/80 transition-colors"
-            title={`Meta Semanal: ${weeklyGoalPercent}% (${totalHoursStudiedWeek}h de ${weeklyGoalTarget}h) · ${focusBlocksWeek} blocos de foco na semana`}
-            onClick={() => setIsHovered(true)}
-          >
-            <span className="text-[10px] font-bold text-blue-400">{weeklyGoalPercent}%</span>
-            <div className="w-6 bg-slate-700 h-1 rounded-full overflow-hidden mt-1">
-              <div
-                className="bg-blue-500 h-full rounded-full"
-                style={{ width: `${weeklyGoalPercent}%` }}
-              />
-            </div>
-          </div>
-        )}
+        {/* Semestre atual (abre a aba Semestre) */}
+        {semBounds &&
+          (isExpanded ? (
+            <button
+              id="sidebar-semester-card"
+              type="button"
+              onClick={() => {
+                setCurrentTab('semester');
+                setIsMobileOpen(false);
+              }}
+              className="mt-auto m-3 p-3.5 text-left bg-slate-800/40 hover:bg-slate-800/70 rounded-xl border border-slate-700/50 transition-colors animate-in fade-in duration-200"
+            >
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <span className="text-xs font-semibold text-slate-200 truncate">{semName}</span>
+                <span className="text-xs font-bold text-blue-400 shrink-0">{semPct}%</span>
+              </div>
+              <div className="w-full bg-slate-700 h-1.5 rounded-full overflow-hidden">
+                <div className="bg-blue-500 h-full transition-all duration-500 rounded-full" style={{ width: `${semPct}%` }} />
+              </div>
+              <div className="mt-2 text-[10px] text-slate-400">{semLeftLabel}</div>
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="mt-auto p-2 mx-2 mb-3 bg-slate-800/40 rounded-lg border border-slate-700/50 flex flex-col items-center justify-center hover:bg-slate-800/80 transition-colors"
+              title={`${semName}: ${semPct}% · ${semLeftLabel}`}
+              aria-label={`${semName}: ${semPct}%, ${semLeftLabel}`}
+              onClick={() => setCurrentTab('semester')}
+            >
+              <span className="text-[10px] font-bold text-blue-400">{semPct}%</span>
+              <div className="w-6 bg-slate-700 h-1 rounded-full overflow-hidden mt-1">
+                <div className="bg-blue-500 h-full rounded-full" style={{ width: `${semPct}%` }} />
+              </div>
+            </button>
+          ))}
       </aside>
     </>
   );

@@ -39,7 +39,7 @@ const QUICK_SCREENS = [
 const clampStep = (n: number) => Math.max(0, Math.min(GUIDE_STEPS.length - 1, Number.isFinite(n) ? n : 0));
 
 export const MethodGuideModal: React.FC = () => {
-  const { methodGuide, openMethodGuide, closeMethodGuide, studyPhase, residencyPrep, studyPrefs, setCurrentTab, openReviews, openPlannerToday } = useApp();
+  const { methodGuide, openMethodGuide, closeMethodGuide, studyPhase, residencyPrep, studyPrefs, setCurrentTab, openReviews, openPlannerToday, requestTour } = useApp();
   const isOpen = methodGuide.open;
   const quick = methodGuide.step === -1;
 
@@ -444,6 +444,18 @@ export const MethodGuideModal: React.FC = () => {
                       <ChevronRight className="h-4 w-4" />
                     </button>
                   ) : (
+                    <button
+                      id="guide-tour-btn"
+                      onClick={() => {
+                        close();
+                        requestTour();
+                      }}
+                      className="min-h-[44px] inline-flex items-center justify-center gap-1.5 rounded-xl px-4 border border-sky-300 dark:border-sky-700 text-sky-700 dark:text-sky-300 hover:bg-sky-50 dark:hover:bg-sky-500/10 text-xs sm:text-sm font-bold transition-colors cursor-pointer"
+                    >
+                      Fazer o tour pelo site
+                    </button>
+                  )}
+                  {idx >= GUIDE_STEPS.length - 1 && (
                     <button
                       id="guide-finish-btn"
                       onClick={close}

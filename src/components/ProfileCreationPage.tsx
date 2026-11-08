@@ -21,6 +21,7 @@ import {
   CloudOff,
   X as XIcon,
   Pencil,
+  Trophy,
 } from 'lucide-react';
 import { useApp, seedNewUserData } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
@@ -168,6 +169,7 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
   const [semesterCode, setSemesterCode] = useState(initialAcademic?.code || '2026.1');
   const [dreamSpecialty, setDreamSpecialty] = useState(userProfile.dreamSpecialty || 'Clínica Médica');
   const [targetExam, setTargetExam] = useState(userProfile.targetExam || '');
+  const [contestsEnabled, setContestsEnabled] = useState<boolean>(!!userProfile.contestsEnabled);
   const [googleSyncEnabled, setGoogleSyncEnabled] = useState(true);
   const [weeklyTargetHours, setWeeklyTargetHours] = useState<number>(userProfile.weeklyTargetHours || 30);
   const [targetAverageGrade, setTargetAverageGrade] = useState<number>(userProfile.targetAverageGrade || 8.5);
@@ -260,6 +262,7 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
       universityName,
       dreamSpecialty: dreamSpecialty.trim(),
       targetExam: targetExam.trim(),
+      contestsEnabled: selectedCycle === 'ciclo_clinico' ? contestsEnabled : userProfile.contestsEnabled,
       googleSyncEnabled,
       weeklyTargetHours: Number(weeklyTargetHours),
       targetAverageGrade: Number(targetAverageGrade),
@@ -356,6 +359,7 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
       universityName,
       dreamSpecialty: dreamSpecialty.trim(),
       targetExam: targetExam.trim(),
+      contestsEnabled: selectedCycle === 'ciclo_clinico' ? contestsEnabled : userProfile.contestsEnabled,
       googleSyncEnabled: googleSyncEnabled,
       weeklyTargetHours: Number(weeklyTargetHours),
       targetAverageGrade: Number(targetAverageGrade),
@@ -895,6 +899,42 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
                         </div>
                       </div>
                     </>
+                  )}
+
+                  {/* Provas de concurso: opcional no ciclo clínico, automática no internato */}
+                  {selectedCycle !== 'ciclo_basico' && (
+                    <div id="profile-setup-contests" className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-2">
+                      <div className="flex items-start gap-3">
+                        <div className="h-9 w-9 rounded-xl bg-sky-500/15 text-sky-400 flex items-center justify-center shrink-0">
+                          <Trophy className="h-4.5 w-4.5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-bold text-slate-200">Provas de concurso</p>
+                          <p className="text-[11px] text-slate-400 mt-0.5 leading-relaxed">
+                            {selectedCycle === 'internato'
+                              ? 'Registre as provas de residência que você fizer fora daqui e acompanhe seu % de acerto. No internato ela já vem ligada.'
+                              : 'Registre provas de residência feitas fora daqui e acompanhe seu % de acerto. É opcional: dá para ativar a qualquer momento no Perfil, e no internato ela liga sozinha.'}
+                          </p>
+                        </div>
+                        {selectedCycle === 'ciclo_clinico' ? (
+                          <button
+                            type="button"
+                            id="profile-setup-contests-toggle"
+                            role="switch"
+                            aria-checked={contestsEnabled}
+                            aria-label="Ativar provas de concurso"
+                            onClick={() => setContestsEnabled((v) => !v)}
+                            className="shrink-0 h-10 w-14 flex items-center justify-center cursor-pointer"
+                          >
+                            <span className={`relative h-6 w-11 rounded-full transition-colors ${contestsEnabled ? 'bg-sky-500' : 'bg-slate-700'}`}>
+                              <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${contestsEnabled ? 'left-[22px]' : 'left-0.5'}`} />
+                            </span>
+                          </button>
+                        ) : (
+                          <span className="shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400">Ligada</span>
+                        )}
+                      </div>
+                    </div>
                   )}
 
                   {/* Target Study Hours focused on R1 */}

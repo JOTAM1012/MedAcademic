@@ -39,16 +39,16 @@ export const getExamKind = (type?: string) => {
 };
 
 export const EXAM_SHIFTS: Array<{ id: ExamShift; label: string; emoji: string; range: string }> = [
-  { id: 'manha', label: 'Manhã', emoji: '🌅', range: '06h–12h' },
-  { id: 'tarde', label: 'Tarde', emoji: '☀️', range: '12h–18h' },
-  { id: 'noite', label: 'Noite', emoji: '🌙', range: '18h–24h' },
+  { id: 'manha', label: 'Manhã', emoji: '🌅', range: '8h–12h' },
+  { id: 'tarde', label: 'Tarde', emoji: '☀️', range: '14h–18h' },
+  { id: 'noite', label: 'Noite', emoji: '🌙', range: '18h–22h' },
 ];
 
-// Horário padrão de cada turno ao escolher o turno na Grade de Horários
+// Horário padrão de cada turno em todo o site (o aluno ajusta "começa/termina" se precisar)
 export const SHIFT_DEFAULT_TIMES: Record<ExamShift, { start: string; end: string }> = {
-  manha: { start: '07:00', end: '12:00' },
-  tarde: { start: '13:00', end: '18:00' },
-  noite: { start: '19:00', end: '22:00' },
+  manha: { start: '08:00', end: '12:00' },
+  tarde: { start: '14:00', end: '18:00' },
+  noite: { start: '18:00', end: '22:00' },
 };
 
 export const shiftFromTime = (time?: string): ExamShift | undefined => {
@@ -73,7 +73,7 @@ export const getExamSubjectName = (exam: Exam, subjects: Subject[]) => {
 // ---------- Grade de Horários (aulas e atividades) ----------
 
 export const ACTIVITY_CATEGORIES = [
-  { id: 'aula', label: 'Aula', emoji: '📚', color: '#2563eb' },
+  { id: 'aula', label: 'Aula da faculdade', emoji: '📚', color: '#2563eb' },
   { id: 'academia', label: 'Academia', emoji: '🏋️', color: '#16a34a' },
   { id: 'simposio', label: 'Simpósio', emoji: '🎤', color: '#9333ea' },
   { id: 'liga', label: 'Liga Acadêmica', emoji: '🩺', color: '#0d9488' },
@@ -113,9 +113,24 @@ export const dayOfWeekFromDate = (ymd: string) => {
   return (js === 0 ? 7 : js) as ScheduleClass['dayOfWeek'];
 };
 
-/** Atividade acontece nesta data? Recorrentes pelo dia da semana; data única só no dia */
-export const occursOn = (sc: ScheduleClass, ymd: string, dayNum: number) =>
-  sc.date ? sc.date === ymd : sc.dayOfWeek === dayNum;
+/**
+ * Atividade acontece nesta data?
+ * - Data única: só no dia; período (date + endDate): todos os dias do intervalo
+ * - Semanal: no dia da semana, dentro de startDate/endDate (rodízio), menos as exceções ("excluir só deste dia")
+ */
+export const occursOn = (sc: ScheduleClass, ymd: string, dayNum: number) => {
+  if (sc.exceptions?.includes(ymd)) return false;
+  if (sc.date) return sc.endDate && sc.endDate > sc.date ? ymd >= sc.date && ymd <= sc.endDate : sc.date === ymd;
+  if (sc.startDate && ymd < sc.startDate) return false;
+  if (sc.endDate && ymd > sc.endDate) return false;
+  return sc.dayOfWeek === dayNum;
+};
+
+/** Nome da prova para mostrar: o nome que o aluno deu vem primeiro; senão a disciplina */
+export const examDisplayTitle = (exam: Pick<Exam, 'title' | 'subjectName' | 'link'>) => {
+  const t = (exam.title || '').trim();
+  return t || exam.link?.label || exam.subjectName?.trim() || 'Prova';
+};
 
 export const durationHours = (start: string, end: string) => {
   const [h1, m1] = (start || '0:0').split(':').map(Number);

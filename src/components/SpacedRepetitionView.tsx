@@ -8,6 +8,7 @@ import { BLOCK_REVIEWS_TO_MASTER, addDaysYMD, isBlockDue, isTopicPending } from 
 import { dueReviewQueue, isErrorDue, isItemReviewDue, reviewTechnique } from '../data/studyMethod';
 import { todayYMD, useDayPlan } from '../hooks/useStudyPlan';
 import { ReviewCard } from './review/ReviewCard';
+import { UpcomingExamTopics } from './semester/UpcomingExamTopics';
 import { ProjectReviewCard, projectReviewKey } from './review/ProjectReviewCard';
 import { ReviewAgenda } from './review/ReviewAgenda';
 import { ErrorNotebook, type ErrorFilter } from './review/ErrorNotebook';
@@ -301,9 +302,9 @@ export const SpacedRepetitionView: React.FC<SpacedRepetitionViewProps> = () => {
             id="review-how-btn"
             type="button"
             onClick={() => openMethodGuide(2)}
-            className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 min-h-[44px] px-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800"
+            className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 min-h-[44px] px-4 rounded-xl border border-sky-200 dark:border-sky-500/30 bg-sky-50 dark:bg-sky-500/10 text-sky-700 dark:text-sky-300 hover:bg-sky-100 dark:hover:bg-sky-500/20 text-xs font-bold"
           >
-            <HelpCircle className="h-4 w-4" /> Como funciona?
+            <HelpCircle className="h-4 w-4" /> Como funciona
           </button>
           <button
             id="open-question-log-btn"
@@ -397,6 +398,8 @@ export const SpacedRepetitionView: React.FC<SpacedRepetitionViewProps> = () => {
           <GuidedReviewSession key={session.n} initial={session.initial} storageKey={guidedKey} onClose={closeSession} onReviewed={handleReviewed} />
         ) : (
           <div id="review-today" className="space-y-4">
+            {/* Assuntos das próximas provas (check list ligado ao Semestre) */}
+            <UpcomingExamTopics withinDays={30} compact />
             {savedRemaining > 0 && (
               <div
                 id="review-resume-session"

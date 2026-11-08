@@ -1,14 +1,33 @@
 // "Planejar dia": personalizar o dia de hoje. Tipo do dia, quanto tempo tem, a ordem das tarefas,
 // o que entra (fixar) ou sai (tirar de hoje / amanhã), escolher o tema novo e somar tarefas suas.
 import React, { useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, CalendarClock, Layers, Minus, Pin, PinOff, Plus, RotateCcw, SlidersHorizontal, Undo2, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, ArrowUpToLine, BookOpen, CalendarClock, Layers, Minus, Pin, PinOff, Plus, RotateCcw, SlidersHorizontal, Undo2, X } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { formatDM, parseYMD } from '../../data/blockReview';
 import { WEEKDAY_NAMES, type PlanTask } from '../../data/studyMethod';
 import { semesterNumberOf } from '../../data/subjectFormats';
 import { useDayPlan } from '../../hooks/useStudyPlan';
-import { OptionChip, PlanModal, blocksToHours, taskSizeLabel } from './planShared';
+import { OptionChip, PlanModal, blocksToHours, readLocal, taskSizeLabel, userLocalKey, writeLocal } from './planShared';
 import { StudyContentModal } from './StudyContentModal';
+import { QuickThemeModal } from './QuickThemeModal';
+
+/** "Somar o básico" do método (modo simples): só aparece o que ainda não está no plano de hoje */
+const BASICS: Array<{ id: string; title: string; blocks: number; kinds: string[] }> = [
+  { id: 'fc', title: 'Flashcards ou resumo do dia', blocks: 1, kinds: ['flashcards'] },
+  { id: 'q', title: 'Questões do dia (10 a 15, sem consultar)', blocks: 1, kinds: ['phase_questions', 'mixed'] },
+  { id: 'err', title: 'Caderno de erros: refazer tentando lembrar a regra', blocks: 1, kinds: ['error_redo', 'mixed'] },
+  { id: 'res', title: 'Ler o resumo de um tema (leitura ativa)', blocks: 1, kinds: [] },
+  { id: 'blank', title: 'Folha em branco do dia (10 min)', blocks: 0, kinds: ['blank_page'] },
+];
+
+/** Blocos fixos que o modo detalhado deixa ligar/desligar */
+const FIXED_KINDS: Array<{ kind: string; label: string }> = [
+  { kind: 'flashcards', label: 'Flashcards ou resumo' },
+  { kind: 'phase_questions', label: 'Questões do dia' },
+  { kind: 'error_redo', label: 'Caderno de erros' },
+  { kind: 'mixed', label: 'Misturadas' },
+  { kind: 'blank_page', label: 'Folha em branco' },
+];
 
 interface DayPlanModalProps {
   open: boolean;
@@ -33,6 +52,7 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose }) => 
     addCustomTask,
     updateTopicBlock,
     showNotification,
+    userProfile,
   } = useApp();
   const plan = useDayPlan();
   const date = plan.date;
@@ -40,6 +60,13 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose }) => 
   const [title, setTitle] = useState('');
   const [blocks, setBlocks] = useState(1);
   const [contentOpen, setContentOpen] = useState(false);
+  const [themeOpen, setThemeOpen] = useState(false);
+  const modeKey = userLocalKey('dayplan_mode', userProfile?.email);
+  const [mode, setModeState] = useState<'simples' | 'detalhado'>(() => (readLocal(modeKey) === 'detalhado' ? 'detalhado' : 'simples'));
+  const setMode = (m: 'simples' | 'detalhado') => {
+    setModeState(m);
+    writeLocal(modeKey, m);
+  };
 
   const semNumber = semesterNumberOf(currentSemester);
   const showPlantao = semNumber ? semNumber >= 11 : studyPhase === 'internato';
@@ -74,6 +101,17 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose }) => 
     [next[i], next[j]] = [next[j], next[i]];
     setDayPlanState(date, (s) => ({ ...s, order: next }));
   };
+  // Prioridade: vai para o topo e fica fixada hoje
+  const toTop = (id: string) => {
+    setDayPlanState(date, (s) => ({ ...s, order: [id, ...order.filter((x) => x !== id)], pinned: Array.from(new Set([...(s.pinned || []), id])) }));
+  };
+  const presentKinds = new Set(all.filter((t) => !t.skipped).map((t) => t.kind as string));
+  const basicsToAdd = BASICS.filter((b) => !b.kinds.some((k) => presentKinds.has(k)) && !all.some((t) => t.title === b.title));
+  const addBasic = (b: (typeof BASICS)[number]) => {
+    addCustomTask(date, b.title, b.blocks);
+    showNotification(`"${b.title}" entrou no plano de hoje.`, 'success');
+  };
+  const fixedTasks = (kind: string) => all.filter((t) => t.kind === kind);
   const togglePin = (id: string) =>
     setDayPlanState(date, (s) => {
       const set = new Set(s.pinned || []);
@@ -124,7 +162,7 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose }) => 
     const isIn = inToday.has(t.id) && !t.skipped;
     return (
       <li key={t.id} id={`dayplan-task-${t.id}`} className={`flex items-center gap-2 px-2.5 py-2 ${t.skipped ? 'opacity-50' : ''}`}>
-        <div className="flex flex-col shrink-0">
+        <div className={`flex-col shrink-0 ${mode === 'detalhado' ? 'flex' : 'hidden'}`}>
           <button
             type="button"
             aria-label={`Subir ${t.title}`}
@@ -152,7 +190,19 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose }) => 
           </p>
         </div>
         <div className="flex items-center gap-0.5 shrink-0">
-          {!t.skipped && !t.done && (
+          {mode === 'detalhado' && !t.skipped && !t.done && i > 0 && (
+            <button
+              type="button"
+              id={`dayplan-top-${t.id}`}
+              aria-label="Prioridade: colocar em primeiro"
+              title="Prioridade: em primeiro"
+              onClick={() => toTop(t.id)}
+              className="h-10 w-9 hidden sm:flex items-center justify-center rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+            >
+              <ArrowUpToLine className="h-4 w-4" />
+            </button>
+          )}
+          {mode === 'detalhado' && !t.skipped && !t.done && (
             <button
               type="button"
               id={`dayplan-pin-${t.id}`}
@@ -215,6 +265,31 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose }) => 
         }
       >
         <div className="space-y-5">
+          {/* Modo */}
+          <div className="grid grid-cols-2 gap-1.5 rounded-2xl bg-slate-100 dark:bg-slate-950/60 p-1" role="tablist" aria-label="Modo do planejamento">
+            {(
+              [
+                { id: 'simples', label: 'Simples', hint: 'o plano pronto + o básico' },
+                { id: 'detalhado', label: 'Detalhado', hint: 'você escolhe tudo' },
+              ] as const
+            ).map((m) => (
+              <button
+                key={m.id}
+                type="button"
+                role="tab"
+                id={`dayplan-mode-${m.id}`}
+                aria-selected={mode === m.id}
+                onClick={() => setMode(m.id)}
+                className={`min-h-[44px] rounded-xl px-3 text-left transition-colors ${
+                  mode === m.id ? 'bg-white dark:bg-slate-800 shadow-xs' : 'hover:bg-white/60 dark:hover:bg-slate-800/50'
+                }`}
+              >
+                <span className={`block text-sm font-black ${mode === m.id ? 'text-sky-700 dark:text-sky-300' : 'text-slate-700 dark:text-slate-200'}`}>{m.label}</span>
+                <span className="block text-[10px] text-slate-500 dark:text-slate-400">{m.hint}</span>
+              </button>
+            ))}
+          </div>
+
           {/* Tipo do dia */}
           <section>
             <p className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Como é o seu dia hoje?</p>
@@ -257,11 +332,63 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose }) => 
             </div>
           </section>
 
+          {/* Simples: somar o básico do método */}
+          {mode === 'simples' && (
+            <section>
+              <p className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Somar o básico do método</p>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-2">O plano já vem pronto. Se quiser, some um destes:</p>
+              {basicsToAdd.length === 0 ? (
+                <p className="text-[12px] text-slate-500 dark:text-slate-400">O básico já está no seu dia. 👍</p>
+              ) : (
+                <div className="flex flex-wrap gap-1.5">
+                  {basicsToAdd.map((b) => (
+                    <button
+                      key={b.id}
+                      type="button"
+                      id={`dayplan-basic-${b.id}`}
+                      onClick={() => addBasic(b)}
+                      className="min-h-[40px] px-3 rounded-xl border border-dashed border-sky-300 dark:border-sky-700 text-[12px] font-bold text-sky-700 dark:text-sky-300 hover:bg-sky-50 dark:hover:bg-sky-500/10 inline-flex items-center gap-1.5"
+                    >
+                      <Plus className="h-3.5 w-3.5" /> {b.title}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
+
+          {/* Detalhado: ligar/desligar os blocos fixos do dia */}
+          {mode === 'detalhado' && (
+            <section>
+              <p className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Check list do dia</p>
+              <div className="flex flex-wrap gap-1.5">
+                {FIXED_KINDS.filter((k) => fixedTasks(k.kind).length > 0).map((k) => {
+                  const list = fixedTasks(k.kind);
+                  const on = list.some((t) => !t.skipped);
+                  return (
+                    <OptionChip
+                      key={k.kind}
+                      id={`dayplan-fixed-${k.kind}`}
+                      active={on}
+                      onClick={() => list.forEach((t) => skipTask(date, t.id, on))}
+                    >
+                      {on ? '✓ ' : ''}
+                      {k.label}
+                    </OptionChip>
+                  );
+                })}
+              </div>
+              <p className="mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">Desligado sai só de hoje. Amanhã o plano volta ao padrão da sua rotina.</p>
+            </section>
+          )}
+
           {/* Tarefas */}
           <section>
             <div className="flex items-end justify-between gap-2 mb-2">
-              <p className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Tarefas e ordem</p>
-              <p className="text-[10px] text-slate-500 dark:text-slate-400">Setas mudam a ordem · alfinete fixa hoje · X tira de hoje</p>
+              <p className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">{mode === 'detalhado' ? 'Tarefas, ordem e prioridade' : 'Seu dia'}</p>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                {mode === 'detalhado' ? 'Setas mudam a ordem · ⤒ prioridade · alfinete fixa hoje · X tira de hoje' : 'X tira de hoje · relógio passa para amanhã'}
+              </p>
             </div>
             {all.length === 0 ? (
               <p className="rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 p-4 text-sm text-center text-slate-600 dark:text-slate-300">Nada no plano de hoje ainda.</p>
@@ -282,7 +409,7 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose }) => 
                 onChange={(e) => e.target.value && addTheme(e.target.value)}
                 className="flex-1 min-h-[44px] rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 text-sm font-bold text-slate-800 dark:text-slate-100"
               >
-                <option value="">{themeOptions.length ? 'Escolher um tema em estudo…' : 'Nenhum tema ligado sem data'}</option>
+                <option value="">{themeOptions.length ? 'Escolher um bloco em estudo…' : 'Nenhum tema ligado sem data'}</option>
                 {themeOptions.map((b) => (
                   <option key={b.id} value={b.id}>
                     {b.name}
@@ -290,6 +417,14 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose }) => 
                   </option>
                 ))}
               </select>
+              <button
+                type="button"
+                id="dayplan-pick-area"
+                onClick={() => setThemeOpen(true)}
+                className="min-h-[44px] px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 text-xs font-bold inline-flex items-center justify-center gap-1.5 hover:border-sky-400"
+              >
+                <BookOpen className="h-4 w-4" /> Por área e disciplina
+              </button>
               <button
                 type="button"
                 id="dayplan-open-content"
@@ -340,6 +475,7 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose }) => 
         </div>
       </PlanModal>
       <StudyContentModal open={contentOpen} onClose={() => setContentOpen(false)} stacked />
+      <QuickThemeModal open={open && themeOpen} onClose={() => setThemeOpen(false)} defaultDate={date} stacked />
     </>
   );
 };

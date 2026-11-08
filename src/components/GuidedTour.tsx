@@ -45,13 +45,14 @@ interface GuidedTourProps {
 
 const TOUR_STEPS: TourStep[] = [
   {
-    id: 'welcome',
-    targetSelector: '#tour-welcome',
-    title: 'Bem-vindo ao MedAcademic!',
-    description: 'Sua plataforma para organizar a vida acadêmica e os estudos. Faça este tour rápido para conhecer as principais ferramentas.',
-    badgeText: 'Introdução 🚀',
-    icon: <Sparkles className="w-5 h-5 text-amber-400" />,
-    position: 'center',
+    id: 'help',
+    targetSelector: '#topbar-help-btn',
+    title: 'Comece por aqui',
+    description:
+      'Em Ajuda você encontra “Como funciona o método” (o guia do estudo) e este tour. Volte quando quiser.',
+    badgeText: 'Ajuda 🧭',
+    icon: <HelpCircle className="w-5 h-5 text-amber-400" />,
+    position: 'bottom',
   },
   {
     id: 'sidebar',
@@ -59,9 +60,9 @@ const TOUR_STEPS: TourStep[] = [
     mobileTargetSelector: '#mobile-tab-bar',
     title: 'Navegação principal',
     description:
-      'Acesse o Dashboard, o Planner, as Avaliações (provas e notas), a Grade de horários, as Disciplinas, as Revisões, o Pomodoro, os Estudos pessoais, o Checklist e o Perfil.',
+      'Acesse o Dashboard, o Planner, o Semestre (aulas, atividades e provas), as Disciplinas, as Revisões, o Pomodoro, os Estudos pessoais, o Checklist e o Perfil.',
     mobileDescription:
-      'Use a barra de abas aqui embaixo: Início, Planner, Revisões e Pomodoro. Em “Mais” estão as Avaliações (provas e notas), a Grade de horários, as Disciplinas, os Estudos pessoais, o Checklist e o Perfil.',
+      'Use a barra de abas aqui embaixo: Início, Planner, Revisões e Pomodoro. Em “Mais” estão o Semestre (aulas, atividades e provas), as Disciplinas, os Estudos pessoais, o Checklist e o Perfil.',
     badgeText: 'Navegação 📍',
     icon: <Compass className="w-5 h-5 text-cyan-400" />,
     position: 'right',

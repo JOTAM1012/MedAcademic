@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Clock, CheckCircle2, X } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { BlockStatsModal } from '../structure/BlockStatsModal';
 
 type Unit = 'min' | 'h';
 
@@ -22,7 +23,7 @@ export const formatMinutes = (m: number) => {
 
 // Aba de conclusão: ao fechar um bloco (Dia 0) ou concluir uma revisão, pergunta quanto tempo durou o estudo
 export const StudyTimeModal: React.FC = () => {
-  const { studyTimePrompt, completeStudyTimePrompt } = useApp();
+  const { studyTimePrompt, completeStudyTimePrompt, topicBlocks } = useApp();
   const [value, setValue] = useState('');
   const [unit, setUnit] = useState<Unit>('min');
 
@@ -33,6 +34,10 @@ export const StudyTimeModal: React.FC = () => {
 
   if (!studyTimePrompt) return null;
   const p = studyTimePrompt;
+  // Tema fechado: abre a janela de estatísticas (dias, tempo, questões e atividades do bloco)
+  if (p.kind === 'block' && topicBlocks.some((b) => b.id === p.blockId)) {
+    return <BlockStatsModal open blockId={p.blockId} celebrate onClose={() => completeStudyTimePrompt(0)} />;
+  }
   const num = Number(value.replace(',', '.'));
   const minutes = num > 0 ? Math.round(unit === 'h' ? num * 60 : num) : 0;
 

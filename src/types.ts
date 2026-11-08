@@ -8,6 +8,8 @@ export interface Topic {
   subjectId: string;
   blockId?: string; // bloco da disciplina (ex.: "Diabetes"); a revisão é feita por bloco
   pending?: boolean; // "ver depois": conta para fechar o bloco, mas fica como pendência até ser visto
+  /** Aula bônus / assunto extra: fica como visto, mas não conta para fechar o bloco nem para o "ver depois" */
+  bonus?: boolean;
   moduleName?: string; // Matéria / Módulo dentro da disciplina
   specialty?: string; // especialidade (Clínica Médica): Cardiologia, Neurologia...
   title: string; // Nome do Assunto
@@ -65,6 +67,14 @@ export interface TopicBlock {
   difficulty?: TopicDifficulty; // última avaliação: define o plano sugerido da próxima revisão
   /** Fora da rotina: o plano não sugere, não programa e não cobra revisões deste tema */
   paused?: boolean;
+  /** Estudo inicial feito em vários dias: cada dia com seu tempo e questões */
+  studyDays?: BlockStudyDay[];
+  /** Check list de atividades do bloco (resumo, aula, mapa...), com itens do aluno */
+  activities?: Array<{ id: string; title: string; done?: boolean }>;
+  /** Nenhuma questão feita no estudo inicial: o método cobra questões nas próximas revisões */
+  needsQuestions?: boolean;
+  /** Grande área ligada (visão por módulo da faculdade: estudar a faculdade e a área juntas) */
+  linkedAreaBlockIds?: string[];
   reviewLog?: Array<{
     date: string;
     difficulty: TopicDifficulty;
@@ -163,6 +173,17 @@ export interface PlanCustomTask {
   done?: boolean;
 }
 
+export type DashboardWidgetId = 'semester' | 'plan' | 'habits' | 'progress' | 'questions' | 'reviews' | 'exams_upcoming' | 'study_time' | 'grades_avg' | 'concursos';
+
+export interface DashboardPrefs {
+  /** Ordem e visibilidade dos cartões */
+  widgets: Array<{ id: DashboardWidgetId; visible: boolean }>;
+  /** Progresso: agrupar por grande área (internato/clínico) ou por disciplina/módulo; 'auto' = pela fase */
+  progressGroup?: 'auto' | 'area' | 'module';
+  /** Acertos: por grande área ou por módulo/disciplina; 'auto' = pela fase */
+  questionsGroup?: 'auto' | 'area' | 'module';
+}
+
 /** Estado manual de um dia do plano (o resto é calculado) */
 export interface DayPlanState {
   done?: string[];
@@ -223,6 +244,12 @@ export interface StudyMethodState {
   dayPlans: Record<string, DayPlanState>;
   projects: PersonalProject[];
   guideSeen?: boolean;
+  /** Painel (Dashboard) personalizado pelo aluno: vale para todos os semestres */
+  dashboard?: DashboardPrefs;
+  /** Provas de concurso feitas fora da plataforma */
+  contests?: ContestExam[];
+  /** Provas de semestres passados (organização pessoal) */
+  pastExams?: PastExam[];
   /** Erros/projetos excluídos (id → data), para a exclusão valer em todos os aparelhos */
   deleted?: Record<string, string>;
 }
@@ -280,6 +307,65 @@ export interface Semester {
 
 export type ExamShift = 'manha' | 'tarde' | 'noite';
 
+/** Um dia de estudo de um bloco (o tema pode levar mais de 1 dia) */
+export interface BlockStudyDay {
+  date: string;
+  minutes?: number;
+  /** Fez questões neste dia? false = marcou "não fiz" */
+  didQuestions?: boolean;
+  questions?: number;
+  correct?: number;
+}
+
+/** Prova de concurso / residência feita fora da plataforma */
+export interface ContestExam {
+  id: string;
+  name: string;
+  year: number;
+  date: string;
+  totalQuestions: number;
+  correct: number;
+  minutes?: number;
+  /** Por grande área (opcional) */
+  areas?: Array<{ area: string; total?: number; correct?: number }>;
+  notes?: string;
+  createdAt: string;
+}
+
+/** Prova de semestres passados (organização pessoal: assuntos para revisar e questões para tirar dúvida) */
+export interface PastExam {
+  id: string;
+  moduleName: string;
+  examType: string;
+  /** Semestre/data da prova (texto livre, ex.: "2025.2" ou "1º semestre") */
+  semesterLabel: string;
+  date?: string;
+  topics: Array<{ id: string; title: string; done?: boolean }>;
+  questions: Array<{ id: string; text: string; options?: string; note?: string; resolved?: boolean }>;
+  createdAt: string;
+}
+
+/** O que fazer em cada assunto da prova (check list) */
+export type ExamTaskKind = 'questoes' | 'ler_resumo' | 'fazer_resumo' | 'aula' | 'revisar';
+
+/** Assunto da prova: digitado à mão ou ligado a uma disciplina/bloco/tópico/estudo pessoal */
+export interface ExamTopic {
+  id: string;
+  title: string;
+  source?: { kind: 'subject' | 'block' | 'topic' | 'project' | 'manual'; id?: string };
+  /** Quantas questões fazer neste assunto (tarefa "questoes") */
+  questions?: number;
+  /** Tarefas marcadas como feitas */
+  done?: Partial<Record<ExamTaskKind, boolean>>;
+}
+
+/** Com o que a prova está ligada (para mostrar o nome certo e puxar assuntos) */
+export interface ExamLink {
+  kind: 'subject' | 'area' | 'module' | 'project' | 'manual';
+  id?: string;
+  label: string;
+}
+
 export interface Exam {
   id: string;
   subjectId?: string; // legado: provas antigas vinculadas a uma disciplina cadastrada
@@ -288,6 +374,8 @@ export interface Exam {
   title: string; // e.g. "P1 - Cardiologia"
   date: string; // YYYY-MM-DD
   time?: string;
+  /** Término da prova (HH:MM), opcional */
+  endTime?: string;
   shift?: ExamShift;
   weight: number;
   grade?: number; // nota lançada (undefined enquanto não sai)
@@ -307,6 +395,14 @@ export interface Exam {
   objectiveCorrect?: number;
   writtenPointsEarned?: number;
   notes?: string;
+  /** Disciplina / grande área / módulo / estudo pessoal da prova (o nome livre continua em subjectName) */
+  link?: ExamLink;
+  /** Assuntos da prova (opcional) */
+  examTopics?: ExamTopic[];
+  /** Quais tarefas usar no check list dos assuntos (padrão: as 5) */
+  topicTasks?: ExamTaskKind[];
+  /** Desliga os lembretes (30/15/7/3/1 dias antes) desta prova */
+  remindersOff?: boolean;
 }
 
 export interface ScheduleClass {
@@ -325,7 +421,18 @@ export interface ScheduleClass {
   category?: string; // id de ACTIVITY_CATEGORIES (aula, academia, simposio, liga, congresso...)
   semesterId?: string; // a grade de horários é por semestre (as antigas ficam no histórico)
   shift?: ExamShift; // turno: manhã, tarde ou noite
-  date?: string; // YYYY-MM-DD: evento de data única (sem repetição semanal)
+  date?: string; // YYYY-MM-DD: evento de data única (sem repetição semanal) ou 1º dia de um período
+  /** Fim: para semanal = última semana que vale (rodízio); para evento com `date` = último dia do período */
+  endDate?: string;
+  /** Semanal: a partir de quando vale (rodízio) */
+  startDate?: string;
+  /** Datas em que esta atividade NÃO acontece ("excluir só deste dia") */
+  exceptions?: string[];
+  /** Professor(a) (opcional) */
+  teacher?: string;
+  /** Rodízio: atividades criadas juntas */
+  rotationId?: string;
+  rotationName?: string;
 }
 
 export interface StudySession {
@@ -390,6 +497,8 @@ export interface MedRevisionTopic {
 }
 
 export interface UserProfile {
+  /** Ferramenta "Provas de concurso" ligada (no internato fica sempre ligada) */
+  contestsEnabled?: boolean;
   name: string;
   email: string;
   university: string; // o que aparece: sigla da faculdade (ou nome em "Outra")

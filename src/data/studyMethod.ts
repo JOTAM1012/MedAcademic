@@ -28,7 +28,8 @@ import type {
 } from '../types';
 import { addDaysYMD, daysBetween, isBlockDue, isTopicSeen, nextIntervalDays, overdueDays, parseYMD, scheduleReviewDate, ymd } from './blockReview';
 import { cycleOfSemester, type CycleId } from './subjectFormats';
-import { getActivityCategory, occursOn } from './planning';
+import { examDisplayTitle, getActivityCategory, occursOn } from './planning';
+import { EXAM_TASKS, examProgress, examReminderText, examReminderToday, nextExamStep } from './examTopics';
 
 // ---------------------------------------------------------------------------------------------
 // Técnicas de cada etapa (recuperação ativa)
@@ -167,7 +168,7 @@ export const mainErrorType = (block: Pick<TopicBlock, 'reviewLog'>): ErrorType |
  * (lacuna → estudar o ponto e criar flashcard; raciocínio → Feynman; leitura → grifar; pressa → ritmo).
  */
 export const reviewTechnique = (
-  block: Pick<TopicBlock, 'reviewsDone' | 'difficulty'> & Partial<Pick<TopicBlock, 'reviewLog'>>,
+  block: Pick<TopicBlock, 'reviewsDone' | 'difficulty'> & Partial<Pick<TopicBlock, 'reviewLog' | 'needsQuestions'>>,
   format?: SubjectFormat
 ): ReviewTechnique => {
   const n = (block.reviewsDone || 0) + 1;
@@ -203,6 +204,12 @@ export const reviewTechnique = (
     const type = mainErrorType(block as TopicBlock);
     extraStep = type ? `Antes: ${ERROR_TYPES[type].action.toLowerCase()} (${ERROR_TYPES[type].label.toLowerCase()})` : 'Antes: reexplique em voz alta o mecanismo que travou (Feynman)';
     steps = [extraStep, ...steps];
+  }
+  // Nenhuma questão no estudo inicial: o método cobra questões já nesta revisão
+  if (block.needsQuestions && !steps.some((s) => /quest/i.test(s))) {
+    const q = 'Faça um bloco de questões deste tema (você ainda não fez nenhuma), sem consultar';
+    steps = [...steps, q];
+    if (!extraStep) extraStep = q;
   }
   return { ...base, label, steps, extraStep, reviewNumber: n, badge: `R${n} · ${base.short}` };
 };
@@ -481,6 +488,9 @@ export const normalizeStudyMethod = (raw: any): StudyMethodState => {
     projects: Array.isArray(raw.projects) ? raw.projects : [],
     guideSeen: !!raw.guideSeen,
     deleted: raw.deleted && typeof raw.deleted === 'object' ? raw.deleted : undefined,
+    dashboard: raw.dashboard && typeof raw.dashboard === 'object' ? raw.dashboard : undefined,
+    contests: Array.isArray(raw.contests) ? raw.contests : undefined,
+    pastExams: Array.isArray(raw.pastExams) ? raw.pastExams : undefined,
   };
 };
 
@@ -505,6 +515,9 @@ export const mergeStudyMethod = (local: StudyMethodState, cloudRaw: any, _today 
     dayPlans: { ...local.dayPlans, ...cloud.dayPlans },
     guideSeen: cloud.guideSeen || local.guideSeen,
     deleted: Object.keys(deleted).length ? deleted : undefined,
+    dashboard: cloud.dashboard || local.dashboard,
+    contests: byId(cloud.contests || [], local.contests || []),
+    pastExams: byId(cloud.pastExams || [], local.pastExams || []),
   };
 };
 
@@ -791,6 +804,7 @@ export type PlanTaskKind =
   | 'phase_questions'
   | 'mixed'
   | 'exam_prep'
+  | 'exam_topic'
   | 'tutoria'
   | 'new_block'
   | 'new_topics'
@@ -864,6 +878,8 @@ export interface DayPlan {
   residencyPrep: boolean;
   /** Prova amanhã/hoje (não passar da capacidade, dormir bem) */
   examEve?: Exam;
+  /** Lembretes de prova de hoje (30/15/7/3/1 dias antes, se ainda não começou os assuntos) */
+  examReminders?: Array<{ examId: string; daysLeft: number; text: string }>;
 }
 
 export interface PlanInput {
@@ -1194,6 +1210,37 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
           })
         );
       }
+      // Assuntos da prova: o próximo passo do check list de cada prova (as 2 mais próximas, até 30 dias)
+      exams
+        .filter((e) => e.grade === undefined && e.date > date && daysBetween(date, e.date) <= 30 && (e.examTopics || []).length > 0)
+        .sort((a, b) => a.date.localeCompare(b.date))
+        .slice(0, 2)
+        .forEach((e) => {
+          const step = nextExamStep(e);
+          if (!step) return;
+          const info = EXAM_TASKS[step.task];
+          const left = daysBetween(date, e.date);
+          const prog = examProgress(e);
+          const q = step.topic.questions || 10;
+          all.push(
+            mk({
+              id: `etopic:${e.id}:${step.topic.id}:${step.task}`,
+              kind: 'exam_topic',
+              priority: 2,
+              emoji: info.emoji,
+              color: '#6366f1',
+              title: `${info.label}: ${step.topic.title}`,
+              subtitle: `${examDisplayTitle(e)} · faltam ${left} dia${left > 1 ? 's' : ''} · ${prog.pct}% dos assuntos`,
+              reason: 'Assuntos da prova que você listou: um passo por vez, com tempo para revisar antes.',
+              steps: [info.step(step.topic.title, q), 'No fim, diga em voz alta os 3 pontos principais', 'Marque o passo no check list da prova'],
+              pomodoros: step.task === 'questoes' ? (q >= 20 ? 2 : 1) : step.task === 'aula' || step.task === 'fazer_resumo' ? 2 : 1,
+              focus: shortFocus,
+              examId: e.id,
+              subjectId: examSubjectId(e, subjects),
+              questions: step.task === 'questoes' ? q : undefined,
+            })
+          );
+        });
       const nextExam = exams
         .filter((e) => e.grade === undefined && e.date > date && daysBetween(date, e.date) <= 14)
         .sort((a, b) => a.date.localeCompare(b.date))[0];
@@ -1514,6 +1561,12 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
   const next = tasks.find((t) => !t.done && !t.optional && t.kind !== 'blank_page') || tasks.find((t) => !t.done && t.kind !== 'blank_page');
   const overflowReviews = overflow.filter((t) => (t.kind === 'review' || t.kind === 'project_review') && !t.skipped).length;
 
+  const examReminders = isToday
+    ? exams
+        .map((e) => ({ e, left: examReminderToday(e, date) }))
+        .filter((x): x is { e: Exam; left: number } => x.left !== undefined)
+        .map(({ e, left }) => ({ examId: e.id, daysLeft: left, text: examReminderText(e, left) }))
+    : [];
   let message: string | undefined;
   if (lowEnergy) message = 'Dia difícil? Tudo bem. Faça só o essencial, em blocos curtos de 25 minutos. Um passo pequeno ainda conta.';
   else if (posProva) message = 'Pós-prova: dia de descanso. Você merece. Se der vontade, só os flashcards ou o resumo.';
@@ -1545,6 +1598,7 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
     phase,
     residencyPrep,
     examEve,
+    examReminders,
   };
 };
 

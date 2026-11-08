@@ -30,6 +30,8 @@ import {
   LogOut,
   UserX,
   RotateCcw as RotateCcwIcon,
+  Trophy,
+  ChevronRight,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
@@ -42,6 +44,8 @@ import { GoalsEditor } from './dashboard/DashboardInsights';
 import { useAccess } from '../context/AccessContext';
 import { getMedicalArea, getSpecialty } from '../data/areas';
 import { ymd } from '../data/blockReview';
+import { SemesterSummaryCard, SemesterHistoryModal } from './SemesterHistoryView';
+import { ContestsModal } from './contests/ContestsModal';
 
 export const ProfileView: React.FC = () => {
   const { accounts, activeUser, activeUserId, openAuthModal, updateAccount, logout, deleteAccount } = useAuth();
@@ -66,6 +70,9 @@ export const ProfileView: React.FC = () => {
     lastCloudSync,
     forceCloudSync,
     setIsEditingProfileSetup,
+    studyPhase,
+    contestsActive,
+    studyMethod,
   } = useApp();
 
   const access = useAccess();
@@ -103,6 +110,14 @@ export const ProfileView: React.FC = () => {
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [contestsOpen, setContestsOpen] = useState(false);
+  const contestsCount = (studyMethod.contests || []).length;
+  const toggleContests = () => {
+    const next = !userProfile.contestsEnabled;
+    updateUserProfile({ contestsEnabled: next });
+    showNotification(next ? 'Provas de concurso ativada.' : 'Provas de concurso desativada. Suas provas ficam guardadas.', next ? 'success' : 'info');
+  };
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
 
   const handleCustomPhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -185,7 +200,7 @@ export const ProfileView: React.FC = () => {
     const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(fullBackup, null, 2));
     const downloadAnchor = document.createElement('a');
     downloadAnchor.setAttribute('href', dataStr);
-    downloadAnchor.setAttribute('download', `medacademic-backup-completo-${new Date().toISOString().split('T')[0]}.json`);
+    downloadAnchor.setAttribute('download', `medacademic-backup-completo-${ymd(new Date())}.json`);
     document.body.appendChild(downloadAnchor);
     downloadAnchor.click();
     downloadAnchor.remove();
@@ -352,12 +367,12 @@ export const ProfileView: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white">
-            {isEditing ? 'Editar Perfil' : 'Seu Perfil Médico'}
+            {isEditing ? 'Editar perfil' : 'Perfil'}
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
             {isEditing 
               ? 'Ajuste seus dados pessoais e metas.' 
-              : 'Acompanhe seu progresso, metas e estatísticas.'}
+              : 'Seus dados, metas, estatísticas e histórico.'}
           </p>
         </div>
         {!isEditing ? (
@@ -552,17 +567,72 @@ export const ProfileView: React.FC = () => {
                )}
              </div>
 
-             {/* Reviews Done */}
-             <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-xs flex items-center gap-4">
-               <div className="h-12 w-12 rounded-2xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 flex items-center justify-center shrink-0">
-                 <BookOpen className="h-6 w-6" />
+             <div className="flex flex-col gap-6 min-w-0">
+               {/* Reviews Done */}
+               <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-xs flex items-center gap-4">
+                 <div className="h-12 w-12 rounded-2xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 flex items-center justify-center shrink-0">
+                   <BookOpen className="h-6 w-6" />
+                 </div>
+                 <div>
+                   <div className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Revisões (Semana)</div>
+                   <div className="text-xl font-black text-slate-900 dark:text-white mt-0.5">{revisionsThisWeek}</div>
+                 </div>
                </div>
-               <div>
-                 <div className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Revisões (Semana)</div>
-                 <div className="text-xl font-black text-slate-900 dark:text-white mt-0.5">{revisionsThisWeek}</div>
-               </div>
+
+               {/* Provas de concurso: opcional no ciclo clínico, automática no internato, oculta no básico */}
+               {studyPhase !== 'ciclo_basico' && (
+                 <div id="profile-contests-card" className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-xs space-y-3">
+                   <div className="flex items-start gap-3">
+                     <div className="h-10 w-10 rounded-2xl bg-sky-100 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0">
+                       <Trophy className="h-5 w-5" />
+                     </div>
+                     <div className="flex-1 min-w-0">
+                       <div className="text-sm font-black text-slate-900 dark:text-white">Provas de concurso</div>
+                       <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                         Registre provas de residência feitas fora daqui e acompanhe seu % de acerto.
+                         {studyPhase === 'ciclo_clinico' && ' No internato ela liga sozinha.'}
+                       </p>
+                     </div>
+                     {studyPhase === 'ciclo_clinico' ? (
+                       <button
+                         type="button"
+                         id="profile-contests-toggle"
+                         role="switch"
+                         aria-checked={!!userProfile.contestsEnabled}
+                         aria-label="Ativar provas de concurso"
+                         onClick={toggleContests}
+                         className="shrink-0 h-10 w-14 flex items-center justify-center"
+                       >
+                         <span className={`relative h-6 w-11 rounded-full transition-colors ${userProfile.contestsEnabled ? 'bg-sky-600' : 'bg-slate-300 dark:bg-slate-700'}`}>
+                           <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${userProfile.contestsEnabled ? 'left-[22px]' : 'left-0.5'}`} />
+                         </span>
+                       </button>
+                     ) : (
+                       <span id="profile-contests-toggle" className="shrink-0 text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-400">
+                         Ligada automaticamente
+                       </span>
+                     )}
+                   </div>
+                   {contestsActive && (
+                     <button
+                       type="button"
+                       id="profile-contests-open"
+                       onClick={() => setContestsOpen(true)}
+                       className="w-full h-10 flex items-center justify-center gap-1.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold"
+                     >
+                       Abrir provas de concurso{contestsCount ? ` (${contestsCount})` : ''} <ChevronRight className="h-4 w-4" />
+                     </button>
+                   )}
+                 </div>
+               )}
              </div>
+
+             {/* Resumo do semestre atual + histórico completo */}
+             <SemesterSummaryCard onMore={() => setHistoryOpen(true)} />
           </div>
+
+          <SemesterHistoryModal open={historyOpen} onClose={() => setHistoryOpen(false)} />
+          <ContestsModal open={contestsOpen} onClose={() => setContestsOpen(false)} />
 
           {dangerZone}
         </div>

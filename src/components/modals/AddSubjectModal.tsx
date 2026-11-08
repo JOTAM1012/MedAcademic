@@ -3,7 +3,7 @@ import { X, BookOpen, GraduationCap } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { AreaPicker } from '../AreaPicker';
 import { SpecialtyPicker } from '../SpecialtyPicker';
-import { getMedicalArea, getSpecialty, isClinicaMedica } from '../../data/areas';
+import { MEDICAL_AREAS, getMedicalArea, getSpecialty, isClinicaMedica } from '../../data/areas';
 import { CycleSubjectForm } from './CycleSubjectForm';
 import { cycleOfSemester, getSubjectFormat } from '../../data/subjectFormats';
 import type { SubjectFormat, SubjectOrganization } from '../../types';
@@ -27,6 +27,8 @@ export const AddSubjectModal: React.FC<AddSubjectModalProps> = ({ isOpen, onClos
   const [format, setFormat] = useState<SubjectFormat | null>(null);
   const [organization, setOrganization] = useState<SubjectOrganization>('checklist');
   const [tutorialCount, setTutorialCount] = useState(5);
+  // Módulo / matéria da faculdade (opcional) → universitySubject
+  const [moduleName, setModuleName] = useState('');
 
   if (!isOpen) return null;
   const cycle = cycleOfSemester(currentSemester);
@@ -42,6 +44,7 @@ export const AddSubjectModal: React.FC<AddSubjectModalProps> = ({ isOpen, onClos
     setFormat(null);
     setOrganization('checklist');
     setTutorialCount(5);
+    setModuleName('');
   };
 
   const handleClose = () => {
@@ -71,7 +74,8 @@ export const AddSubjectModal: React.FC<AddSubjectModalProps> = ({ isOpen, onClos
       const f = getSubjectFormat(format);
       addSubject({
         name: name.trim(),
-        universitySubject: name.trim(),
+        universitySubject: moduleName.trim() || name.trim(),
+        majorArea: cycle === 'ciclo_clinico' && area ? area : undefined,
         code: f.label.slice(0, 3).toUpperCase(),
         color: f.color,
         format,
@@ -99,7 +103,7 @@ export const AddSubjectModal: React.FC<AddSubjectModalProps> = ({ isOpen, onClos
       specialty: sp?.id,
       targetGrade: 7.0,
       semesterId: currentSemester?.id,
-      universitySubject: name.trim(),
+      universitySubject: moduleName.trim() || name.trim(),
     });
 
     triggerConfetti();
@@ -153,7 +157,36 @@ export const AddSubjectModal: React.FC<AddSubjectModalProps> = ({ isOpen, onClos
               tutorialCount={tutorialCount}
               onTutorialCount={setTutorialCount}
             />
-          ) : (
+          ) : null}
+          {isCycleMode && cycle === 'ciclo_clinico' && (
+            <div>
+              <label className={labelCls}>
+                Grande área <span className="font-medium text-slate-400">(opcional)</span>
+              </label>
+              <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Grande área (opcional)">
+                {MEDICAL_AREAS.map((a) => {
+                  const on = area === a.id;
+                  return (
+                    <button
+                      key={a.id}
+                      type="button"
+                      role="radio"
+                      aria-checked={on}
+                      onClick={() => setArea(on ? null : a.id)}
+                      className={`h-10 inline-flex items-center gap-1.5 px-3 rounded-xl text-xs font-bold transition-colors ${
+                        on ? 'text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                      }`}
+                      style={on ? { backgroundColor: a.color } : undefined}
+                    >
+                      <span className="h-2 w-2 rounded-full" style={{ backgroundColor: on ? '#fff' : a.color }} />
+                      {a.id}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          {isCycleMode ? null : (
           <>
           {/* 1. Grande área (define grupo e cor) */}
           <AreaPicker value={area} onChange={handleAreaChange} label="1. Grande Área" />
@@ -183,6 +216,21 @@ export const AddSubjectModal: React.FC<AddSubjectModalProps> = ({ isOpen, onClos
           </div>
           </>
           )}
+
+          {/* Módulo / matéria da faculdade (opcional): agrupa na visão "Módulos" */}
+          <div>
+            <label className={labelCls} htmlFor="subject-module">
+              Módulo/matéria da faculdade <span className="font-medium text-slate-400">(opcional)</span>
+            </label>
+            <input
+              id="subject-module"
+              type="text"
+              placeholder="Ex: Saúde da Criança, Módulo IV..."
+              value={moduleName}
+              onChange={(e) => setModuleName(e.target.value)}
+              className={inputCls}
+            />
+          </div>
 
           <div className="app-modal-footer pt-3 flex items-center justify-end gap-2 border-t border-slate-100 dark:border-slate-800">
             <button
