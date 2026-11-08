@@ -143,6 +143,15 @@ export interface ErrorNote {
 
 /** Estado de um turno na semana: livre para estudar, ocupado (aula, estágio, trabalho) ou descanso */
 export type TurnState = 'livre' | 'ocupado' | 'descanso';
+/** Forma de estudo escolhida para um turno */
+export type TurnMethod = 'tema_novo' | 'revisao' | 'questoes' | 'flashcards' | 'resumo' | 'leitura';
+/** O que fazer num turno livre (modo detalhado da semana) */
+export interface TurnPlan {
+  subjectId?: string;
+  topicId?: string;
+  method?: TurnMethod;
+  note?: string;
+}
 
 export interface StudyPlanPrefs {
   /** Capacidade: blocos de foco (pomodoros) por dia de estudo */
@@ -173,6 +182,12 @@ export interface StudyPlanPrefs {
   weekTurns?: TurnState[][];
   /** Turno em que o aluno rende mais (o plano sugere o tema novo nele) */
   bestTurn?: ExamShift;
+  /** Modo detalhado da semana: cada turno livre pode ter matéria, assunto e forma de estudo */
+  turnsDetailed?: boolean;
+  /** Plano de cada turno. Chave "dia-turno" (ex.: "1-manha" = segunda de manhã) */
+  turnPlans?: Record<string, TurnPlan>;
+  /** Semanas de prova (segunda-feira de cada uma, YYYY-MM-DD): estudo intensificado */
+  examWeeks?: string[];
 }
 
 export interface PlanCustomTask {

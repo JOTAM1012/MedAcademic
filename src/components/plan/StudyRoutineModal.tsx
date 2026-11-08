@@ -9,6 +9,7 @@ import type { ExamShift, StudyPlanPrefs, TurnState } from '../../types';
 import { OptionChip, PlanModal, blocksToHours } from './planShared';
 import { BlockPicker } from './BlockPicker';
 import { WeekTurnsEditor } from './WeekTurnsEditor';
+import { ExamWeeksPicker } from './ExamWeeksPicker';
 
 interface StudyRoutineModalProps {
   open: boolean;
@@ -395,7 +396,19 @@ export const StudyRoutineModal: React.FC<StudyRoutineModalProps> = ({ open, onCl
             onChange={(v) => set('weekTurns', v)}
             bestTurn={draft.bestTurn}
             onBestTurn={(v) => set('bestTurn', v)}
+            detailed={draft.turnsDetailed}
+            onDetailed={(v) => set('turnsDetailed', v || undefined)}
+            turnPlans={draft.turnPlans}
+            onTurnPlans={(v) => set('turnPlans', v)}
           />
+        </section>
+
+        {/* Semanas de prova */}
+        <section>
+          <SectionTitle hint="Na semana de prova o plano aumenta seu tempo de foco em 50% e dá prioridade às matérias da prova. Toque para marcar.">
+            Semanas de prova
+          </SectionTitle>
+          <ExamWeeksPicker value={draft.examWeeks} onChange={(v) => set('examWeeks', v)} />
         </section>
 
         {/* Meus blocos de foco */}

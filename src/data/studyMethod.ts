@@ -20,6 +20,7 @@ import type {
   StudyPlanPrefs,
   ExamShift,
   TurnState,
+  TurnMethod,
   StudySession,
   Subject,
   SubjectFormat,
@@ -499,6 +500,17 @@ export const turnCapacity = (prefs: StudyPlanPrefs, dow: number): { capacity: nu
   return { capacity, allRest, turns };
 };
 const TURN_WORD: Record<TurnState, string> = { livre: 'livre', ocupado: 'ocupada', descanso: 'de descanso' };
+export const turnKey = (dow: number, turn: ExamShift) => `${dow}-${turn}`;
+export const TURN_METHODS: Array<{ id: TurnMethod; label: string; emoji: string }> = [
+  { id: 'tema_novo', label: 'Tema novo', emoji: '📘' },
+  { id: 'revisao', label: 'Revisão', emoji: '🔁' },
+  { id: 'questoes', label: 'Questões', emoji: '✍️' },
+  { id: 'flashcards', label: 'Flashcards', emoji: '🃏' },
+  { id: 'resumo', label: 'Resumo', emoji: '📝' },
+  { id: 'leitura', label: 'Leitura / aula', emoji: '🎧' },
+];
+/** Semana de prova marcada pelo aluno */
+export const isExamWeek = (prefs: Pick<StudyPlanPrefs, 'examWeeks'>, date: string) => !!prefs.examWeeks?.includes(weekStart(date));
 
 export const WEEKDAY_NAMES = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
 export const WEEKDAY_SHORT = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
@@ -983,6 +995,7 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
   const posPlantao = posPlantaoDay || posProva; // descanso depois do plantão ou da prova
   const plantao = plantaoDay || provaDay; // só o essencial
   const turnsDay = turnCapacity(prefs, dow);
+  const examWeek = isExamWeek(prefs, date);
   const rest = prefs.restDay === dow || posPlantao || !!turnsDay?.allRest;
   const mixed = prefs.mixedDay === dow && !rest && !plantao;
   const dayKind: DayKind = lowEnergy
@@ -1016,6 +1029,8 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
     if (turnsDay && !state.capacity) capacity = Math.min(capacity, turnsDay.capacity);
     if (lowEnergy && !state.capacity) capacity = Math.min(capacity, Math.max(2, Math.round(prefs.dailyPomodoros / 3)));
     if (plantao && !state.capacity) capacity = Math.min(capacity, 2);
+    // Semana de prova: estudo intensificado (+50%), menos no dia difícil e no plantão
+    if (examWeek && !state.capacity && !lowEnergy && !plantao) capacity = Math.min(16, Math.round(capacity * 1.5));
   }
   // Blocos do aluno: curto para revisões/questões, longo para tema novo (no dia difícil/plantão, só o curto)
   const shortFocus = prefs.shortFocusMinutes;
@@ -1154,6 +1169,37 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
       );
     })
   );
+
+  // 2b. Turnos planejados (modo detalhado): matéria, assunto e forma de estudo de cada turno livre
+  if (prefs.turnsDetailed && prefs.turnPlans && !rest) {
+    const freeIdx = TURN_KEYS.map((_, i) => i).filter((i) => !turnsDay || turnsDay.turns[i] === 'livre');
+    const share = Math.max(1, Math.min(4, Math.floor(capacity / Math.max(1, freeIdx.length))));
+    freeIdx.forEach((i) => {
+      const tp = prefs.turnPlans?.[turnKey(dow, TURN_KEYS[i])];
+      if (!tp || (!tp.subjectId && !tp.method && !tp.note)) return;
+      const m = TURN_METHODS.find((x) => x.id === tp.method);
+      const subj = tp.subjectId ? subjectName(subjects, tp.subjectId) : '';
+      const topic = tp.topicId ? topics.find((t) => t.id === tp.topicId)?.title : '';
+      all.push(
+        mk({
+          id: `turn:${date}:${TURN_KEYS[i]}`,
+          kind: 'custom',
+          priority: 2,
+          emoji: m?.emoji || '🕒',
+          color: tp.subjectId ? subjectColor(subjects, tp.subjectId) : '#0ea5e9',
+          title: `${TURN_LABELS[i]}: ${[subj, m?.label].filter(Boolean).join(' · ') || tp.note}`,
+          subtitle: [topic, tp.note && (subj || m) ? tp.note : ''].filter(Boolean).join(' · ') || 'Turno que você planejou',
+          reason: 'Você planejou este turno em Minha rotina.',
+          steps: [],
+          pomodoros: share,
+          focus: tp.method === 'tema_novo' ? newFocus : shortFocus,
+          subjectId: tp.subjectId,
+          topicIds: tp.topicId ? [tp.topicId] : undefined,
+          sized: true,
+        })
+      );
+    });
+  }
 
   // 3. Tarefas que o aluno adicionou
   (state.custom || []).forEach((c) =>
@@ -1647,13 +1693,14 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
     message,
     sleepNote: SLEEP_NOTE,
     turnsNote: (() => {
-      if (!turnsDay) return undefined;
+      const wk = examWeek ? 'Semana de prova: estudo intensificado e foco nas matérias da prova.' : '';
+      if (!turnsDay) return wk || undefined;
       const t = turnsDay.turns;
       let note = `Seus turnos hoje: ${TURN_LABELS.map((l, i) => `${l.toLowerCase()} ${TURN_WORD[t[i]]}`).join(' · ')}.`;
       const bi = prefs.bestTurn ? TURN_KEYS.indexOf(prefs.bestTurn) : -1;
       if (!rest && !plantao && bi >= 0 && t[bi] === 'livre') note += ` Faça o tema novo de ${TURN_LABELS[bi].toLowerCase()}, seu melhor turno.`;
       else if (!rest && t.every((x) => x !== 'livre')) note += ' Sem turno livre: só revisões curtas.';
-      return note;
+      return wk ? `${wk} ${note}` : note;
     })(),
     tips: PHASE_INFO[phase].tips,
     phase,
