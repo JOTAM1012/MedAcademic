@@ -1269,37 +1269,35 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
             <div className="rounded-3xl border border-slate-800 bg-slate-900/60 backdrop-blur-md p-6 shadow-xl space-y-5">
               <div className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5 pb-3 border-b border-slate-800">
                 <ShieldCheck className="h-4 w-4 text-sky-400" />
-                <span>Prévia do Crachá Médico</span>
+                <span>Crachá médico</span>
               </div>
 
-              {/* Student Identification Card */}
-              <div className="flex items-center gap-3.5">
+              {/* Foto no centro e nome embaixo */}
+              <div className="flex flex-col items-center text-center gap-3">
                 <div className="relative">
                   <img
                     src={selectedAvatarUrl}
                     alt={name || 'Estudante'}
                     referrerPolicy="no-referrer"
-                    className="h-16 w-16 rounded-2xl object-cover border-2 border-sky-500/50 shadow-md bg-slate-950"
+                    className="h-28 w-28 rounded-3xl object-cover border-2 border-sky-500/50 shadow-lg shadow-sky-500/10 bg-slate-950"
                   />
-                  <div className="absolute -bottom-1 -right-1 bg-emerald-500 h-4 w-4 rounded-full border-2 border-slate-900" />
+                  <div className="absolute -bottom-1 -right-1 bg-emerald-500 h-5 w-5 rounded-full border-[3px] border-slate-900" />
                 </div>
-                <div className="min-w-0 flex-1">
-                  <h3 className="text-sm font-black text-white truncate">
-                    {name.trim() || 'Estudante de Medicina'}
-                  </h3>
-                  <p className="text-xs text-sky-400 truncate mt-0.5">
-                    {university.trim().toUpperCase() || 'Faculdade de Medicina'}
-                  </p>
-                  <div className="flex items-center gap-1.5 text-[10px] text-slate-400 mt-1">
-                    <span className="px-1.5 py-0.5 rounded-md bg-slate-800 text-slate-300 font-medium">
-                      {selectedSemesterNum}º semestre
-                    </span>
-                  </div>
-                </div>
+                <h3 className="w-full text-lg font-black text-white truncate">{name.trim() || 'Estudante de Medicina'}</h3>
               </div>
 
               {/* Badges preview */}
               <div className="space-y-2.5 pt-3 border-t border-slate-800 text-xs">
+                <div className="grid grid-cols-[1fr_auto] gap-2 pb-1">
+                  <div className="min-w-0 rounded-xl bg-slate-800/60 px-3 py-2">
+                    <span className="block text-[10px] uppercase tracking-wider font-bold text-slate-500">Faculdade</span>
+                    <span className="block font-bold text-sky-300 truncate">{university.trim().toUpperCase() || 'Faculdade de Medicina'}</span>
+                  </div>
+                  <div className="rounded-xl bg-slate-800/60 px-3 py-2">
+                    <span className="block text-[10px] uppercase tracking-wider font-bold text-slate-500">Semestre</span>
+                    <span className="block font-bold text-slate-100 whitespace-nowrap">{selectedSemesterNum}º semestre</span>
+                  </div>
+                </div>
                 <div className="flex items-center justify-between text-slate-400">
                   <span className="flex items-center gap-1.5">
                     <Target className="h-3.5 w-3.5 text-indigo-400" />
@@ -1347,9 +1345,14 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
                 </div>
               </div>
 
-              <div className="p-3.5 rounded-2xl bg-sky-950/30 border border-sky-900/40 text-[11px] text-sky-300 leading-relaxed">
-                ✨ <strong>Boas-vindas:</strong> ao concluir seu perfil, você desbloqueará o <strong>Tutorial de Boas-Vindas</strong>.
-              </div>
+            </div>
+
+            {/* Boas-vindas: cartão próprio, embaixo do crachá */}
+            <div id="profile-welcome-card" className="rounded-3xl border border-sky-900/50 bg-gradient-to-br from-sky-950/50 to-slate-900/60 backdrop-blur-md p-5 shadow-xl flex items-start gap-3">
+              <span className="text-2xl leading-none" aria-hidden>✨</span>
+              <p className="text-sm text-sky-200 leading-relaxed">
+                <strong className="text-white">Boas-vindas!</strong> Ao concluir seu perfil, você responde uma pesquisa rápida de rotina e ganha o <strong className="text-white">tutorial de boas-vindas</strong>.
+              </p>
             </div>
           </div>
 
