@@ -123,12 +123,12 @@ const TOUR_STEPS: TourStep[] = [
   },
   {
     id: 'sync',
-    targetSelector: '#topbar-cloud-sync-btn',
+    targetSelector: '#sidebar-account-card',
     title: 'Sincronização dos dados',
-    description: 'Seus dados ficam salvos no dispositivo e são sincronizados com a nuvem em tempo real.',
+    description: 'Seus dados são salvos sozinhos no aparelho e na nuvem. A bolinha na sua foto mostra: verde é salvo, amarela é salvando e vermelha é offline.',
     badgeText: 'Sincronização ☁️',
     icon: <Cloud className="w-5 h-5 text-blue-400" />,
-    position: 'bottom',
+    position: 'right',
   },
   {
     id: 'install',
@@ -294,7 +294,7 @@ export const GuidedTour: React.FC<GuidedTourProps> = ({
 
     if (isMobile) {
       return {
-        bottom: '24px',
+        bottom: 'calc(84px + env(safe-area-inset-bottom, 0px))',
         left: '16px',
         right: '16px',
         position: 'fixed',
@@ -380,8 +380,8 @@ export const GuidedTour: React.FC<GuidedTourProps> = ({
         >
           {/* Header */}
           <div className="flex items-start justify-between gap-3">
-            <div className="flex items-center gap-2.5">
-              <div className="p-2 rounded-xl bg-slate-800/90 border border-slate-700/60 shadow-inner">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="shrink-0 h-11 w-11 grid place-items-center rounded-xl bg-slate-800/90 border border-slate-700/60 shadow-inner">
                 {currentStep.icon || <Sparkles className="w-5 h-5 text-cyan-400" />}
               </div>
               <div>
@@ -396,20 +396,21 @@ export const GuidedTour: React.FC<GuidedTourProps> = ({
 
             <button
               onClick={onClose}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors"
+              className="shrink-0 h-10 w-10 grid place-items-center rounded-full text-slate-400 hover:text-slate-200 bg-slate-800/80 hover:bg-slate-700 transition-colors"
               title="Fechar tour (Esc)"
+              aria-label="Fechar tour"
             >
-              <X className="w-4 h-4" />
+              <X className="w-5 h-5" />
             </button>
           </div>
 
           {/* Body Description */}
-          <p className="text-xs md:text-sm text-slate-300 leading-relaxed font-normal">
+          <p className="text-sm text-slate-300 leading-relaxed font-normal">
             {typeof window !== "undefined" && window.innerWidth < 1024 && currentStep.mobileDescription ? currentStep.mobileDescription : currentStep.description}
           </p>
 
           {/* Progress & Controls */}
-          <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between gap-2">
+          <div className="pt-3 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-3">
             {/* Step Dots */}
             <div className="flex items-center gap-1.5">
               {TOUR_STEPS.map((_, idx) => (
@@ -431,7 +432,7 @@ export const GuidedTour: React.FC<GuidedTourProps> = ({
               {currentStepIndex > 0 && (
                 <button
                   onClick={handlePrev}
-                  className="px-3 py-1.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 transition-all flex items-center gap-1"
+                  className="min-h-[40px] px-3 rounded-xl text-sm font-semibold text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 transition-all flex items-center gap-1"
                 >
                   <ChevronLeft className="w-3.5 h-3.5" />
                   Anterior
@@ -440,7 +441,7 @@ export const GuidedTour: React.FC<GuidedTourProps> = ({
 
               <button
                 onClick={handleNext}
-                className="px-4 py-1.5 rounded-xl text-xs font-semibold text-slate-950 bg-gradient-to-r from-cyan-400 via-sky-400 to-blue-400 hover:from-cyan-300 hover:to-blue-300 shadow-md shadow-cyan-500/20 transition-all flex items-center gap-1.5 active:scale-95"
+                className="min-h-[40px] px-4 rounded-xl text-sm font-bold text-slate-950 bg-gradient-to-r from-cyan-400 via-sky-400 to-blue-400 hover:from-cyan-300 hover:to-blue-300 shadow-md shadow-cyan-500/20 transition-all flex items-center gap-1.5 active:scale-95"
               >
                 {currentStepIndex === TOUR_STEPS.length - 1 ? (
                   <>

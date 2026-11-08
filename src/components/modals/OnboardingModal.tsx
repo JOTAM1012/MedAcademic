@@ -130,19 +130,10 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClos
 
   return (
     <div className="app-modal fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in">
-      <div className="app-modal-panel relative w-full max-w-xl max-h-[92vh] overflow-y-auto rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 sm:p-8 shadow-2xl overflow-hidden">
-        {/* Close Button */}
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 p-2 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 bg-slate-100 dark:bg-slate-800 transition-colors cursor-pointer"
-          aria-label="Fechar tutorial"
-        >
-          <X className="h-4 w-4" />
-        </button>
-
-        {/* Step Indicator Header */}
-        <div className="flex items-center justify-between gap-2 mb-6">
-          <div className="flex items-center gap-1.5">
+      <div className="app-modal-panel relative w-full max-w-xl max-h-[92dvh] overflow-y-auto overscroll-contain rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 sm:p-7 shadow-2xl">
+        {/* Topo: passos, contador e fechar na mesma linha */}
+        <div className="flex items-center gap-3 mb-6">
+          <div className="flex items-center gap-1.5 flex-1 min-w-0">
             {steps.map((_, idx) => (
               <button
                 key={idx}
@@ -158,33 +149,41 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClos
               />
             ))}
           </div>
-          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+          <span className="shrink-0 text-xs font-bold text-slate-400 uppercase tracking-wider">
             Guia {currentStep + 1} de {steps.length}
           </span>
+          <button
+            id="onboarding-close-btn"
+            onClick={onClose}
+            className="shrink-0 h-10 w-10 grid place-items-center rounded-full text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+            aria-label="Fechar tutorial"
+          >
+            <X className="h-5 w-5" />
+          </button>
         </div>
 
         {/* Header with Icon */}
-        <div className="flex items-start gap-4 mb-4">
-          <div className={`p-3.5 rounded-2xl ${active.color} shadow-md shrink-0`}>
-            <IconComponent className="h-6 w-6" />
+        <div className="flex items-start gap-4 mb-5">
+          <div className={`h-14 w-14 grid place-items-center rounded-2xl ${active.color} shadow-md shrink-0`}>
+            <IconComponent className="h-7 w-7" />
           </div>
-          <div>
+          <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <span className="text-[10px] uppercase font-bold tracking-widest px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20">
                 {active.tag}
               </span>
             </div>
-            <h2 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white mt-1">
+            <h2 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white mt-1.5 leading-tight">
               {active.title}
             </h2>
-            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-0.5">
+            <p className="text-sm font-semibold text-slate-500 dark:text-slate-400 mt-1 leading-snug">
               {active.subtitle}
             </p>
           </div>
         </div>
 
         {/* Description */}
-        <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed mb-4">
+        <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed mb-4">
           {active.description}
         </p>
 
@@ -192,9 +191,9 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClos
         {'custom' in active && active.custom ? (
           <div className="mb-4">{active.custom}</div>
         ) : (
-          <div className="space-y-2 mb-4 bg-slate-50 dark:bg-slate-950/60 p-4 rounded-2xl border border-slate-100 dark:border-slate-800/80">
+          <div className="space-y-2.5 mb-4 bg-slate-50 dark:bg-slate-950/60 p-4 rounded-2xl border border-slate-100 dark:border-slate-800/80">
             {active.bulletPoints.map((bp, i) => (
-              <div key={i} className="flex items-start gap-2 text-xs text-slate-700 dark:text-slate-300">
+              <div key={i} className="flex items-start gap-2.5 text-sm leading-snug text-slate-700 dark:text-slate-300">
                 <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" />
                 <span>{bp}</span>
               </div>
@@ -203,7 +202,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClos
         )}
 
         {/* Action Tip */}
-        <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-700 dark:text-amber-300 font-medium mb-6">
+        <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-sm leading-snug text-amber-700 dark:text-amber-300 font-medium mb-6">
           {active.actionTip}
         </div>
 
@@ -228,30 +227,30 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClos
         )}
 
         {/* Footer Actions */}
-        <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-800">
+        <div className="flex items-center justify-between gap-3 pt-5 border-t border-slate-100 dark:border-slate-800">
           {currentStep > 0 ? (
             <button
               onClick={() => setCurrentStep((prev) => prev - 1)}
-              className="flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 cursor-pointer"
+              className="min-h-[44px] inline-flex items-center gap-1.5 px-4 rounded-xl text-sm font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer"
             >
-              <ArrowLeft className="h-3.5 w-3.5" />
+              <ArrowLeft className="h-4 w-4" />
               <span>Anterior</span>
             </button>
           ) : (
             <button
               onClick={onClose}
-              className="text-xs font-bold text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+              className="min-h-[44px] px-2 text-sm font-bold text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
             >
-              Pular Tutorial
+              Pular tutorial
             </button>
           )}
 
           <button
             id="onboarding-next-step-btn"
             onClick={handleNext}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs shadow-md transition-all hover:scale-102 cursor-pointer"
+            className="min-h-[44px] inline-flex items-center gap-2 px-5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold text-sm shadow-md transition-colors cursor-pointer"
           >
-            <span>{currentStep === steps.length - 1 ? 'Concluir Tutorial 🩺' : 'Próximo Passo'}</span>
+            <span>{currentStep === steps.length - 1 ? 'Concluir tutorial 🩺' : 'Próximo passo'}</span>
             <ArrowRight className="h-4 w-4" />
           </button>
         </div>
