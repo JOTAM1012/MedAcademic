@@ -12,6 +12,8 @@ import { Bar, Ring, hasArea, moduleOf, topicStats } from './structure/shared';
 import { AreaGrid, groupByArea } from './structure/AreaGrid';
 import { ModuleList } from './structure/ModuleList';
 import { SubjectSection } from './structure/SubjectSection';
+import { SubjectGrid } from './structure/SubjectGrid';
+import { ymd } from '../data/blockReview';
 
 interface AcademicStructureViewProps {
   onOpenAddSubject: () => void;
@@ -19,7 +21,7 @@ interface AcademicStructureViewProps {
 }
 
 type ViewMode = 'area' | 'module';
-type Detail = { kind: 'area'; id: string } | { kind: 'subject'; id: string } | null;
+type Detail = { kind: 'area'; id: string } | { kind: 'subject'; id: string; fromArea?: string } | null;
 
 const VIEW_KEY = 'medacademic_struct_view';
 
@@ -109,11 +111,11 @@ export const AcademicStructureView: React.FC<AcademicStructureViewProps> = ({ on
     </>
   );
 
-  const backBar = (label: string) => (
+  const backBar = (label: string, to: Detail = null) => (
     <button
       type="button"
       id="struct-back"
-      onClick={() => setDetail(null)}
+      onClick={() => setDetail(to)}
       className="h-10 -ml-2 inline-flex items-center gap-1.5 px-2 rounded-xl text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
     >
       <ArrowLeft className="h-4 w-4" /> {label}
@@ -125,7 +127,9 @@ export const AcademicStructureView: React.FC<AcademicStructureViewProps> = ({ on
   if (detailSubject) {
     return (
       <div className="space-y-4 pb-12 max-w-4xl">
-        {backBar('Disciplinas')}
+        {detail?.kind === 'subject' && detail.fromArea
+          ? backBar(detail.fromArea === OTHER_AREA.id ? 'Sem grande área' : detail.fromArea, { kind: 'area', id: detail.fromArea })
+          : backBar('Disciplinas')}
         <div className="rounded-3xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-4 sm:p-6">
           <SubjectSection subject={detailSubject} standalone allowLinking={mode === 'module' && !isBasic} onEdit={setEditing} />
         </div>
@@ -143,7 +147,7 @@ export const AcademicStructureView: React.FC<AcademicStructureViewProps> = ({ on
     const st = topicStats(topics.filter((t) => ids.has(t.subjectId)));
     const isOther = area.id === OTHER_AREA.id;
     return (
-      <div className="space-y-4 pb-12 max-w-4xl">
+      <div className="space-y-4 pb-12">
         {backBar('Grandes áreas')}
         <div className="flex items-center gap-4">
           <span className="h-14 w-14 shrink-0 rounded-2xl grid place-items-center text-sm font-black" style={{ backgroundColor: `${area.color}1a`, color: area.color }}>
@@ -160,18 +164,14 @@ export const AcademicStructureView: React.FC<AcademicStructureViewProps> = ({ on
           </div>
         </div>
         {isOther && <p className="text-[11px] text-slate-500 dark:text-slate-400">Use “Editar disciplina” no menu ⋯ para escolher a grande área.</p>}
-        <div className="space-y-3">
-          {items.map((s, i) => (
-            <SubjectSection key={s.id} subject={s} defaultOpen={i === 0 && items.length <= 2} onEdit={setEditing} />
-          ))}
-        </div>
-        <button
-          type="button"
-          onClick={onOpenAddSubject}
-          className="w-full h-12 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-400 hover:text-sky-600 hover:border-sky-400 inline-flex items-center justify-center gap-1.5"
-        >
-          <Plus className="h-4 w-4" /> Nova disciplina
-        </button>
+        <SubjectGrid
+          subjects={items}
+          topics={topics}
+          topicBlocks={topicBlocks}
+          today={ymd(new Date())}
+          onOpen={(id) => setDetail({ kind: 'subject', id, fromArea: area.id })}
+          onAdd={onOpenAddSubject}
+        />
         {modals}
       </div>
     );
