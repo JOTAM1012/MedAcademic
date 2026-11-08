@@ -100,18 +100,20 @@ interface PlanModalProps {
   maxWidth?: string;
   /** Janela por cima de outra janela */
   stacked?: boolean;
+  /** Sem botão de fechar, Esc ou clique fora (pesquisa obrigatória) */
+  hideClose?: boolean;
 }
 
-export const PlanModal: React.FC<PlanModalProps> = ({ id, open, onClose, title, subtitle, icon, children, footer, maxWidth = 'max-w-lg', stacked }) => {
+export const PlanModal: React.FC<PlanModalProps> = ({ id, open, onClose, title, subtitle, icon, children, footer, maxWidth = 'max-w-lg', stacked, hideClose }) => {
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
       // Com uma janela por cima, o Esc fecha só a de cima
-      if (e.key === 'Escape' && (stacked || !document.querySelector('[data-plan-stacked="true"]'))) onClose();
+      if (e.key === 'Escape' && !hideClose && (stacked || !document.querySelector('[data-plan-stacked="true"]'))) onClose();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [open, onClose, stacked]);
+  }, [open, onClose, stacked, hideClose]);
 
   if (!open) return null;
   return (
@@ -119,7 +121,7 @@ export const PlanModal: React.FC<PlanModalProps> = ({ id, open, onClose, title, 
       data-plan-stacked={stacked ? 'true' : undefined}
       className={`app-modal fixed inset-0 ${stacked ? 'z-[70]' : 'z-[60]'} flex items-center justify-center p-4 bg-slate-900/40 dark:bg-slate-950/80 backdrop-blur-xs`}
       onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        if (e.target === e.currentTarget && !hideClose) onClose();
       }}
     >
       <div
@@ -136,14 +138,14 @@ export const PlanModal: React.FC<PlanModalProps> = ({ id, open, onClose, title, 
               {subtitle && <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{subtitle}</p>}
             </div>
           </div>
-          <button
+          {!hideClose && <button
             type="button"
             onClick={onClose}
             aria-label="Fechar"
             className="shrink-0 h-10 w-10 -mr-1 -mt-1 flex items-center justify-center rounded-xl text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
           >
             <X className="h-5 w-5" />
-          </button>
+          </button>}
         </div>
         <div className="pt-4">{children}</div>
         {footer && <div className="app-modal-footer mt-5 pt-3 border-t border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-end gap-2">{footer}</div>}

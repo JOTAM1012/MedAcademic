@@ -37,6 +37,8 @@ import { AddExamModal } from './components/modals/AddExamModal';
 import { AddSemesterModal } from './components/modals/AddSemesterModal';
 import { AddScheduleModal } from './components/modals/AddScheduleModal';
 import { OnboardingModal } from './components/modals/OnboardingModal';
+import { StudyRoutineModal } from './components/plan/StudyRoutineModal';
+import { userLocalKey, writeLocal } from './components/plan/planShared';
 import { AuthModal } from './components/modals/AuthModal';
 
 const AppContent: React.FC = () => {
@@ -92,6 +94,7 @@ const AppContent: React.FC = () => {
   // Enquanto o fluxo de conta nova está entre uma janela e outra (tour → "Como usar"),
   // o guia rápido do método não pode abrir no meio
   const [isShellFlowBusy, setIsShellFlowBusy] = useState(false);
+  const [isRoutineSurveyOpen, setIsRoutineSurveyOpen] = useState(false);
   useEffect(() => {
     const start = () => {
       let pending = false;
@@ -103,7 +106,7 @@ const AppContent: React.FC = () => {
       newUserFlowRef.current = true;
       setIsShellFlowBusy(true);
       setCurrentTab('dashboard');
-      setTimeout(() => setIsTourOpen(true), 400);
+      setTimeout(() => setIsRoutineSurveyOpen(true), 400);
     };
     window.addEventListener('medacademic:new-user-welcome', start);
     start();
@@ -127,6 +130,13 @@ const AppContent: React.FC = () => {
     }, 350);
   };
 
+  // Pesquisa respondida: não abre de novo no Planner e segue para o tour
+  const handleCloseRoutineSurvey = () => {
+    setIsRoutineSurveyOpen(false);
+    writeLocal(userLocalKey('routine_setup_shown', userProfile.email), '1');
+    setTimeout(() => setIsTourOpen(true), 350);
+  };
+
   const handleCloseTour = () => {
     setIsTourOpen(false);
     markTourSeen();
@@ -148,7 +158,7 @@ const AppContent: React.FC = () => {
     if (!activeUserId || autoGuideUserRef.current === activeUserId) return;
     if (methodGuideSeen || methodGuide.open) return;
     if (!isInitialLoadComplete || cloudSyncStatus === 'syncing') return;
-    if (isTourOpen || isOnboardingOpen || isEditingProfileSetup || !isSetupDone || isShellFlowBusy) return;
+    if (isTourOpen || isOnboardingOpen || isEditingProfileSetup || !isSetupDone || isShellFlowBusy || isRoutineSurveyOpen) return;
     // pequena espera: deixa a tela assentar e evita abrir no meio de uma troca de janela
     const t = setTimeout(() => {
       autoGuideUserRef.current = activeUserId;
@@ -167,6 +177,7 @@ const AppContent: React.FC = () => {
     isEditingProfileSetup,
     isSetupDone,
     isShellFlowBusy,
+    isRoutineSurveyOpen,
   ]);
 
   // Modals state
@@ -488,6 +499,9 @@ const AppContent: React.FC = () => {
       </div>
 
       <InstallAppModal isOpen={isInstallOpen} onClose={() => setIsInstallOpen(false)} />
+
+      {/* Conta nova: pesquisa de perfil e rotina (3 perguntas obrigatórias + opcionais) */}
+      <StudyRoutineModal open={isRoutineSurveyOpen} required onClose={handleCloseRoutineSurvey} />
 
       {/* Guided Overlay Tour for New Users */}
       <GuidedTour

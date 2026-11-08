@@ -141,6 +141,9 @@ export interface ErrorNote {
   flashcard?: boolean;
 }
 
+/** Estado de um turno na semana: livre para estudar, ocupado (aula, estágio, trabalho) ou descanso */
+export type TurnState = 'livre' | 'ocupado' | 'descanso';
+
 export interface StudyPlanPrefs {
   /** Capacidade: blocos de foco (pomodoros) por dia de estudo */
   dailyPomodoros: number;
@@ -166,6 +169,10 @@ export interface StudyPlanPrefs {
   topicMode?: 'auto' | 'manual';
   /** Meta de longo prazo (internato/residência): intervalos de manutenção mais longos */
   longTermGoal: boolean;
+  /** Semana por turnos: índice = dia (0 dom … 6 sáb), cada dia = [manhã, tarde, noite]. Sem isso, todo dia vale igual */
+  weekTurns?: TurnState[][];
+  /** Turno em que o aluno rende mais (o plano sugere o tema novo nele) */
+  bestTurn?: ExamShift;
 }
 
 export interface PlanCustomTask {

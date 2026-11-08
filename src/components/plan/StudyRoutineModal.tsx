@@ -4,16 +4,19 @@
 import React, { useEffect, useState } from 'react';
 import { Check, Minus, Plus, RotateCcw, Settings2, Sparkles } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
-import { PHASE_INFO, ROUTINE_DISCLAIMER, WEEKDAY_NAMES, WEEKDAY_SHORT } from '../../data/studyMethod';
-import type { StudyPlanPrefs } from '../../types';
+import { PHASE_INFO, ROUTINE_DISCLAIMER, TURN_KEYS, TURN_LABELS, WEEKDAY_NAMES, WEEKDAY_SHORT } from '../../data/studyMethod';
+import type { ExamShift, StudyPlanPrefs, TurnState } from '../../types';
 import { OptionChip, PlanModal, blocksToHours } from './planShared';
 import { BlockPicker } from './BlockPicker';
+import { WeekTurnsEditor } from './WeekTurnsEditor';
 
 interface StudyRoutineModalProps {
   open: boolean;
   onClose: () => void;
   /** Mini-configuração da 1ª visita (3 perguntas) */
   firstTime?: boolean;
+  /** Conta nova: a pesquisa abre ao entrar; as 3 perguntas obrigatórias precisam de resposta */
+  required?: boolean;
 }
 
 const HOURS_OPTIONS = [
@@ -33,6 +36,14 @@ const mixedDayFor = (saturdayBusy: boolean, restDay: number | null): number | nu
   if (restDay !== 0) return 0;
   return null;
 };
+
+/** Pesquisa rápida → semana por turnos: dias úteis e fim de semana com os turnos livres marcados */
+const buildWeekTurns = (weekday: ExamShift[], weekend: ExamShift[]): TurnState[][] =>
+  Array.from({ length: 7 }, (_, dow) => {
+    const free = dow === 0 || dow === 6 ? weekend : weekday;
+    return TURN_KEYS.map((k) => (free.includes(k) ? 'livre' : 'ocupado')) as TurnState[];
+  });
+const freeTurnsOf = (day?: TurnState[]): ExamShift[] | null => (day ? TURN_KEYS.filter((_, i) => day[i] === 'livre') : null);
 
 const SectionTitle: React.FC<{ children: React.ReactNode; hint?: React.ReactNode }> = ({ children, hint }) => (
   <div className="mb-2">
@@ -60,32 +71,40 @@ const Toggle: React.FC<{ id: string; on: boolean; onChange: (v: boolean) => void
   </button>
 );
 
-export const StudyRoutineModal: React.FC<StudyRoutineModalProps> = ({ open, onClose, firstTime }) => {
+export const StudyRoutineModal: React.FC<StudyRoutineModalProps> = ({ open, onClose, firstTime: firstTimeProp, required }) => {
+  const firstTime = firstTimeProp || required;
   const { studyPrefs, studyPhase, updateStudyPrefs, showNotification } = useApp();
   const phase = PHASE_INFO[studyPhase];
   const [mode, setMode] = useState<'quick' | 'full'>(firstTime ? 'quick' : 'full');
   const [draft, setDraft] = useState<StudyPlanPrefs>(studyPrefs);
-  const [saturdayBusy, setSaturdayBusy] = useState<boolean | null>(null);
+  const [weekdayFree, setWeekdayFree] = useState<ExamShift[] | null>(null);
+  const [weekendFree, setWeekendFree] = useState<ExamShift[] | null>(null);
   const [confirmReset, setConfirmReset] = useState(false);
+  const [touched, setTouched] = useState({ hours: false, rest: false });
 
   useEffect(() => {
     if (!open) return;
     setDraft(studyPrefs);
     setMode(firstTime ? 'quick' : 'full');
-    setSaturdayBusy(null);
+    setWeekdayFree(freeTurnsOf(studyPrefs.weekTurns?.[1]));
+    setWeekendFree(freeTurnsOf(studyPrefs.weekTurns?.[6]));
     setConfirmReset(false);
+    setTouched({ hours: false, rest: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, firstTime]);
 
   const set = <K extends keyof StudyPlanPrefs>(k: K, v: StudyPlanPrefs[K]) => setDraft((d) => ({ ...d, [k]: v }));
-  // Versão rápida: o dia das misturadas sai da 3ª pergunta (nunca cai no descanso)
+  // Versão rápida: sábado sem turno livre = sábado ocupado; o dia das misturadas nunca cai no descanso
+  const saturdayBusy = weekendFree === null ? null : weekendFree.length === 0;
+  const quickTurns = weekdayFree !== null || weekendFree !== null ? buildWeekTurns(weekdayFree ?? ['manha', 'tarde', 'noite'], weekendFree ?? []) : undefined;
   const quickMixed =
     saturdayBusy !== null ? mixedDayFor(saturdayBusy, draft.restDay) : draft.mixedDay !== draft.restDay ? draft.mixedDay : mixedDayFor(true, draft.restDay);
   const sameDay = mode === 'full' && draft.restDay !== null && draft.restDay === draft.mixedDay;
 
+  const missing = required ? [!touched.hours && 'tempo por dia', weekdayFree === null && 'turnos livres', !touched.rest && 'dia de descanso'].filter(Boolean) as string[] : [];
   const save = () => {
-    if (sameDay) return;
-    const final: StudyPlanPrefs = mode === 'quick' ? { ...draft, mixedDay: quickMixed } : draft;
+    if (sameDay || missing.length > 0) return;
+    const final: StudyPlanPrefs = mode === 'quick' ? { ...draft, mixedDay: quickMixed, weekTurns: quickTurns ?? draft.weekTurns } : draft;
     const changes: Partial<StudyPlanPrefs> = {};
     (Object.keys(final) as Array<keyof StudyPlanPrefs>).forEach((k) => {
       if (final[k] !== studyPrefs[k]) (changes as any)[k] = final[k];
@@ -97,30 +116,65 @@ export const StudyRoutineModal: React.FC<StudyRoutineModalProps> = ({ open, onCl
 
   // 1ª vez: fechar sem responder não abre de novo sozinho, então avisa onde ajustar depois
   const skipFirstTime = () => {
-    showNotification('Sem problema. Quando quiser, toque em "Rotina" no topo do Planner.', 'info');
+    showNotification('Sem problema. Quando quiser, ajuste em Personalizar › Minha rotina ou em "Rotina" no Planner.', 'info');
     onClose();
   };
 
-  // ---------------------------------------------------------------- versão rápida (1ª vez)
+  // ---------------------------------------------------------------- versão rápida (1ª vez): pesquisa de rotina
   if (mode === 'quick') {
+    const turnChip = (list: ExamShift[] | null, setList: (v: ExamShift[]) => void, k: ExamShift, idPrefix: string, i: number) => {
+      const on = !!list?.includes(k);
+      return (
+        <OptionChip
+          key={k}
+          id={`${idPrefix}-${k}`}
+          active={on}
+          onClick={() => setList(on ? (list || []).filter((x) => x !== k) : [...(list || []), k])}
+          className="min-h-[44px] text-sm"
+        >
+          {TURN_LABELS[i]}
+        </OptionChip>
+      );
+    };
+    const Q = ({ n, children, optional }: { n: number; children: React.ReactNode; optional?: boolean }) => (
+      <p className="text-sm font-black text-slate-900 dark:text-white mb-2 flex items-start gap-2">
+        <span className={`shrink-0 h-6 w-6 rounded-full text-xs grid place-items-center ${optional ? 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-200' : 'bg-sky-600 text-white'}`}>{n}</span>
+        <span className="pt-0.5 flex-1">
+          {children}{' '}
+          {required && (
+            <span className={`ml-1 align-middle inline-block text-[10px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-md ${optional ? 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400' : 'bg-sky-500/15 text-sky-700 dark:text-sky-300'}`}>
+              {optional ? 'Opcional' : 'Obrigatória'}
+            </span>
+          )}
+        </span>
+      </p>
+    );
     return (
       <PlanModal
         id="routine-first-time"
         open={open}
         onClose={firstTime ? skipFirstTime : onClose}
+        hideClose={required}
         icon={<Sparkles className="h-5 w-5" />}
-        title="Vamos montar sua rotina?"
-        subtitle="4 perguntas rápidas. O site usa isso para dizer o que cabe no seu dia. Dá para mudar quando quiser."
+        title="Vamos conhecer sua rotina?"
+        subtitle="Leva 1 minuto. O site usa suas respostas para montar o plano do dia do seu jeito. Dá para mudar depois em Personalizar."
         footer={
           <>
-            <button type="button" id="routine-skip" onClick={firstTime ? skipFirstTime : onClose} className="min-h-[40px] px-4 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">
-              Agora não. Ajusto depois em Minha rotina
-            </button>
+            {required ? (
+              <p id="routine-missing" className="mr-auto text-[11px] text-slate-500 dark:text-slate-400">
+                {missing.length > 0 ? `Falta responder: ${missing.join(', ')}.` : 'Tudo certo. As opcionais podem ficar para depois.'}
+              </p>
+            ) : (
+              <button type="button" id="routine-skip" onClick={firstTime ? skipFirstTime : onClose} className="min-h-[44px] px-4 rounded-xl text-sm font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">
+                Agora não
+              </button>
+            )}
             <button
               type="button"
               id="routine-quick-save"
               onClick={save}
-              className="min-h-[40px] px-4 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-black flex items-center gap-1.5"
+              disabled={missing.length > 0}
+              className="min-h-[44px] px-5 rounded-xl bg-sky-600 hover:bg-sky-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-black flex items-center gap-1.5"
             >
               <Check className="h-4 w-4" /> Pronto, montar meu plano
             </button>
@@ -129,23 +183,26 @@ export const StudyRoutineModal: React.FC<StudyRoutineModalProps> = ({ open, onCl
       >
         <div className="space-y-6">
           <section>
-            <p className="text-sm font-black text-slate-900 dark:text-white mb-2">1. Quanto tempo por dia você consegue estudar?</p>
+            <Q n={1}>Quanto tempo por dia você consegue estudar?</Q>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {HOURS_OPTIONS.map((o) => (
                 <button
                   key={o.blocks}
                   type="button"
                   id={`routine-hours-${o.blocks}`}
-                  onClick={() => set('dailyPomodoros', o.blocks)}
-                  aria-pressed={draft.dailyPomodoros === o.blocks}
+                  onClick={() => {
+                    set('dailyPomodoros', o.blocks);
+                    setTouched((t) => ({ ...t, hours: true }));
+                  }}
+                  aria-pressed={draft.dailyPomodoros === o.blocks && (!required || touched.hours)}
                   className={`min-h-[56px] rounded-2xl border px-3 py-2 text-left transition-colors ${
-                    draft.dailyPomodoros === o.blocks
+                    draft.dailyPomodoros === o.blocks && (!required || touched.hours)
                       ? 'bg-sky-600 border-sky-600 text-white'
                       : 'bg-slate-50 dark:bg-slate-950/60 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 hover:border-sky-400'
                   }`}
                 >
                   <span className="block text-sm font-black">{o.label}</span>
-                  <span className={`block text-[11px] ${draft.dailyPomodoros === o.blocks ? 'text-sky-100' : 'text-slate-500 dark:text-slate-400'}`}>{o.hint}</span>
+                  <span className={`block text-[11px] ${draft.dailyPomodoros === o.blocks && (!required || touched.hours) ? 'text-sky-100' : 'text-slate-500 dark:text-slate-400'}`}>{o.hint}</span>
                 </button>
               ))}
             </div>
@@ -153,25 +210,68 @@ export const StudyRoutineModal: React.FC<StudyRoutineModalProps> = ({ open, onCl
           </section>
 
           <section>
-            <p className="text-sm font-black text-slate-900 dark:text-white mb-2">2. Qual bloco de foco funciona para você?</p>
-            <BlockPicker
-              idPrefix="routine-quick-long"
-              focus={draft.focusMinutes}
-              rest={draft.breakMinutes}
-              onChange={(fo, re) => setDraft((d) => ({ ...d, focusMinutes: fo, breakMinutes: re }))}
-            />
-            <p className="mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">Foco/pausa em minutos. Usado no tema novo; o bloco curto das revisões fica em Minha rotina.</p>
+            <Q n={2}>De segunda a sexta, quais turnos ficam livres para estudar?</Q>
+            <div className="grid grid-cols-4 gap-2">
+              {TURN_KEYS.map((k, i) => turnChip(weekdayFree, setWeekdayFree, k, 'routine-wd', i))}
+              <OptionChip id="routine-wd-none" active={weekdayFree?.length === 0} onClick={() => setWeekdayFree([])} className="min-h-[44px] text-sm">
+                Nenhum
+              </OptionChip>
+            </div>
+            <p className="mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">Pode marcar mais de um. Os outros contam como ocupados (aula, estágio, trabalho).</p>
           </section>
 
           <section>
-            <p className="text-sm font-black text-slate-900 dark:text-white mb-2">3. Qual dia é de descanso?</p>
+            <Q n={3} optional>E no sábado e domingo?</Q>
+            <div className="grid grid-cols-3 gap-2">{TURN_KEYS.map((k, i) => turnChip(weekendFree, setWeekendFree, k, 'routine-we', i))}</div>
+            <p className="mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+              {weekendFree === null
+                ? 'Se o fim de semana for todo ocupado, deixe sem marcar e toque em Pronto.'
+                : quickMixed === null
+                  ? 'Sem dia fixo para questões misturadas: elas entram aos poucos nos outros dias.'
+                  : `${WEEKDAY_NAMES[quickMixed]} vira o dia das questões misturadas + caderno de erros.`}
+            </p>
+          </section>
+
+          <section>
+            <Q n={4} optional>Em qual turno você rende mais?</Q>
+            <div className="grid grid-cols-4 gap-2">
+              {TURN_KEYS.map((k, i) => (
+                <OptionChip key={k} id={`routine-quick-best-${k}`} active={draft.bestTurn === k} onClick={() => set('bestTurn', k)} className="min-h-[44px] text-sm">
+                  {TURN_LABELS[i]}
+                </OptionChip>
+              ))}
+              <OptionChip id="routine-quick-best-none" active={!draft.bestTurn} onClick={() => set('bestTurn', undefined)} className="min-h-[44px] text-sm">
+                Tanto faz
+              </OptionChip>
+            </div>
+            <p className="mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">O plano sugere o tema novo nesse turno.</p>
+          </section>
+
+          <section>
+            <Q n={5}>Qual dia é de descanso?</Q>
             <div className="flex flex-wrap gap-1.5">
               {WEEK_ORDER.map((d) => (
-                <OptionChip key={d} id={`routine-rest-${d}`} active={draft.restDay === d} onClick={() => set('restDay', d)} className="min-w-[48px]">
+                <OptionChip
+                  key={d}
+                  id={`routine-rest-${d}`}
+                  active={draft.restDay === d && (!required || touched.rest)}
+                  onClick={() => {
+                    set('restDay', d);
+                    setTouched((t) => ({ ...t, rest: true }));
+                  }}
+                  className="min-w-[48px]"
+                >
                   {WEEKDAY_SHORT[d]}
                 </OptionChip>
               ))}
-              <OptionChip id="routine-rest-none" active={draft.restDay === null} onClick={() => set('restDay', null)}>
+              <OptionChip
+                id="routine-rest-none"
+                active={draft.restDay === null && (!required || touched.rest)}
+                onClick={() => {
+                  set('restDay', null);
+                  setTouched((t) => ({ ...t, rest: true }));
+                }}
+              >
                 Não tenho
               </OptionChip>
             </div>
@@ -179,31 +279,31 @@ export const StudyRoutineModal: React.FC<StudyRoutineModalProps> = ({ open, onCl
           </section>
 
           <section>
-            <p className="text-sm font-black text-slate-900 dark:text-white mb-2">4. Você tem aula ou estágio no sábado?</p>
-            <div className="grid grid-cols-2 gap-2">
-              <OptionChip id="routine-sat-yes" active={saturdayBusy === true} onClick={() => setSaturdayBusy(true)} className="min-h-[48px] text-sm">
-                Sim, tenho
-              </OptionChip>
-              <OptionChip id="routine-sat-no" active={saturdayBusy === false} onClick={() => setSaturdayBusy(false)} className="min-h-[48px] text-sm">
-                Não, fica livre
-              </OptionChip>
-            </div>
-            <p className="mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">
-              {quickMixed === null
-                ? 'Sem dia fixo para questões misturadas: elas entram aos poucos nos outros dias.'
-                : `${WEEKDAY_NAMES[quickMixed]} vira o dia das questões misturadas + caderno de erros.`}
-            </p>
+            <Q n={6} optional>Qual bloco de foco funciona para você?</Q>
+            <BlockPicker
+              idPrefix="routine-quick-long"
+              focus={draft.focusMinutes}
+              rest={draft.breakMinutes}
+              onChange={(fo, re) => setDraft((d) => ({ ...d, focusMinutes: fo, breakMinutes: re }))}
+            />
+            <p className="mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">Foco/pausa em minutos. Na dúvida, 25/5 é um ótimo começo.</p>
+          </section>
+
+          <section className="space-y-2">
+            <Q n={7} optional>O que já faz parte do seu estudo?</Q>
+            <Toggle id="routine-quick-flashcards" on={draft.usesFlashcards} onChange={(v) => set('usesFlashcards', v)} label="Flashcards (Anki ou cartões)" hint="Entram como 1º passo do dia" />
+            <Toggle id="routine-quick-summary" on={draft.readsSummary !== false} onChange={(v) => set('readsSummary', v)} label="Ler meu resumo" hint="Leitura ativa: tampe e tente lembrar antes de ler" />
           </section>
 
           <button
             type="button"
             id="routine-more"
             onClick={() => {
-              setDraft((d) => ({ ...d, mixedDay: quickMixed }));
+              setDraft((d) => ({ ...d, mixedDay: quickMixed, weekTurns: quickTurns ?? d.weekTurns }));
               setMode('full');
             }}
-            className="text-xs font-bold text-sky-700 dark:text-sky-400 hover:underline flex items-center gap-1.5">
-            <Settings2 className="h-3.5 w-3.5" /> Quero ajustar mais detalhes
+            className="min-h-[40px] text-sm font-bold text-sky-700 dark:text-sky-400 hover:underline flex items-center gap-1.5">
+            <Settings2 className="h-4 w-4" /> Quero ajustar mais detalhes (turno por turno de cada dia)
           </button>
         </div>
       </PlanModal>
@@ -283,6 +383,19 @@ export const StudyRoutineModal: React.FC<StudyRoutineModalProps> = ({ open, onCl
               <Plus className="h-4 w-4" />
             </button>
           </div>
+        </section>
+
+        {/* Semana por turnos */}
+        <section id="routine-turns-section">
+          <SectionTitle hint="Marque cada turno como livre, ocupado (aula, estágio, trabalho) ou descanso. O plano usa isso para saber quanto cabe em cada dia.">
+            Minha semana por turnos
+          </SectionTitle>
+          <WeekTurnsEditor
+            value={draft.weekTurns}
+            onChange={(v) => set('weekTurns', v)}
+            bestTurn={draft.bestTurn}
+            onBestTurn={(v) => set('bestTurn', v)}
+          />
         </section>
 
         {/* Meus blocos de foco */}

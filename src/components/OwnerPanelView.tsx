@@ -183,29 +183,44 @@ export const OwnerPanelView: React.FC = () => {
 
   return (
     <div id="owner-panel" className="space-y-5 pb-12">
-      {/* Cabeçalho */}
-      <div className="dark rounded-3xl border border-amber-400/40 bg-gradient-to-br from-amber-500/15 via-slate-900 to-slate-950 p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-amber-300 to-amber-600 text-slate-950 flex items-center justify-center shadow-lg shadow-amber-500/30">
-            <Crown className="h-6 w-6" />
-          </div>
-          <div>
-            <h1 className="text-xl font-black owner-gold-name">Painel do Dono</h1>
-            <p className="text-xs text-slate-300 flex items-center gap-1">
-              {access.lifetime && (
-                <>
-                  <InfinityIcon className="h-3.5 w-3.5 text-amber-300" /> Acesso vitalício ·{' '}
-                </>
-              )}
+      {/* Cabeçalho (minimalista): coroa, título, status do site e atualizar */}
+      <div className="flex items-center justify-between gap-3 pb-4 border-b border-amber-400/20">
+        <div className="flex items-center gap-3 min-w-0">
+          <span className="h-10 w-10 shrink-0 rounded-xl bg-amber-400/15 text-amber-500 dark:text-amber-300 grid place-items-center">
+            <Crown className="h-5 w-5" />
+          </span>
+          <div className="min-w-0">
+            <h1 className="text-lg font-black owner-gold-name leading-tight">Painel do Dono</h1>
+            <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1 truncate">
+              {access.lifetime && <InfinityIcon className="h-3.5 w-3.5 text-amber-500 dark:text-amber-300 shrink-0" />}
               {access.isOwner ? 'Dono do MedAcademic' : 'Equipe MedAcademic'}
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-3 self-start sm:self-auto flex-wrap">
-        <OnAirSign maintenance={access.maintenance} onClick={() => setTab('site')} />
-        <button onClick={load} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-xs font-bold text-white">
-          <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} /> Atualizar
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            id="owner-site-status"
+            onClick={() => setTab('site')}
+            title={access.maintenance ? 'Site em manutenção. Toque para ver.' : 'Site no ar. Toque para ver.'}
+            className={`min-h-[36px] inline-flex items-center gap-1.5 px-3 rounded-full text-xs font-black border ${
+              access.maintenance
+                ? 'border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-300'
+                : 'border-rose-500/40 bg-rose-500/10 text-rose-600 dark:text-rose-300'
+            }`}
+          >
+            <span className={`h-2 w-2 rounded-full ${access.maintenance ? 'bg-amber-500' : 'bg-rose-500 animate-pulse'}`} />
+            {access.maintenance ? 'Manutenção' : 'No ar'}
+          </button>
+          <button
+            type="button"
+            onClick={load}
+            aria-label="Atualizar"
+            title="Atualizar"
+            className="h-9 w-9 grid place-items-center rounded-full text-slate-500 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+          </button>
         </div>
       </div>
 

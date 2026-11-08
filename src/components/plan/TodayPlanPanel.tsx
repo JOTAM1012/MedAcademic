@@ -939,6 +939,11 @@ export const TodayPlanPanel: React.FC<TodayPlanPanelProps> = ({ compact, onOpenW
       {/* Assuntos das próximas provas: check list da prova direto no plano */}
       <UpcomingExamTopics withinDays={21} compact />
 
+      {plan.turnsNote && (
+        <p id="today-turns" className="flex items-start gap-2 px-2 text-[12px] text-slate-500 dark:text-slate-400">
+          <span aria-hidden>🕒</span> <span>{plan.turnsNote}</span>
+        </p>
+      )}
       <p id="today-sleep" className="flex items-center gap-2 px-2 text-[12px] text-slate-500 dark:text-slate-400">
         <span aria-hidden>🌙</span> {plan.sleepNote}
       </p>

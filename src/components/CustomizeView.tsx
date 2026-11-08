@@ -1,7 +1,10 @@
 // Personalizar: o painel (cartões e ordem) e a barra de baixo do celular/tablet.
 // Tudo fica salvo na conta e vale para todos os semestres.
-import React, { useMemo } from 'react';
-import { ArrowDown, ArrowUp, Check, LayoutGrid, RotateCcw, Smartphone, SlidersHorizontal } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { ArrowDown, ArrowUp, CalendarClock, Check, LayoutGrid, RotateCcw, Smartphone, SlidersHorizontal } from 'lucide-react';
+import { StudyRoutineModal } from './plan/StudyRoutineModal';
+import { blocksToHours } from './plan/planShared';
+import { TURN_LABELS, WEEKDAY_SHORT } from '../data/studyMethod';
 import { useApp } from '../context/AppContext';
 import type { DashboardPrefs, DashboardWidgetId } from '../types';
 import { DashboardEditor } from './dashboard/DashboardEditor';
@@ -9,7 +12,10 @@ import { DEFAULT_WIDGETS, resolveWidgets } from './dashboard/dashboardPrefs';
 import { DEFAULT_MOBILE_TABS, MOBILE_TAB_OPTIONS, MOBILE_TABS_MAX, resolveMobileTabs } from './navTabs';
 
 export const CustomizeView: React.FC = () => {
-  const { studyMethod, setDashboardPrefs, setMobileTabs, contestsActive, setCurrentTab, showNotification } = useApp();
+  const { studyMethod, studyPrefs, setDashboardPrefs, setMobileTabs, contestsActive, setCurrentTab, showNotification } = useApp();
+  const [routineOpen, setRoutineOpen] = useState(false);
+  const freeTurns = studyPrefs.weekTurns ? studyPrefs.weekTurns.reduce((n, d) => n + d.filter((t) => t === 'livre').length, 0) : null;
+  const bestIdx = studyPrefs.bestTurn ? ['manha', 'tarde', 'noite'].indexOf(studyPrefs.bestTurn) : -1;
 
   // ---------- Painel ----------
   const prefs = studyMethod.dashboard;
@@ -57,6 +63,38 @@ export const CustomizeView: React.FC = () => {
         </h1>
         <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Deixe o site do seu jeito. Fica salvo na sua conta e vale para todos os semestres.</p>
       </div>
+
+      {/* 0. Minha rotina (a mesma do Planner) */}
+      <section id="customize-routine" className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs p-4 sm:p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
+              <CalendarClock className="h-4 w-4 text-sky-600 dark:text-sky-400" /> Minha rotina
+            </h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Tempo por dia, turnos da semana, descanso e blocos de foco. O plano do dia segue isto.</p>
+          </div>
+          <button
+            type="button"
+            id="customize-routine-btn"
+            onClick={() => setRoutineOpen(true)}
+            className="min-h-[44px] px-4 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-sm font-black"
+          >
+            Ajustar rotina
+          </button>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-1.5 text-xs">
+          <span className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold">{blocksToHours(studyPrefs.dailyPomodoros)} de foco/dia</span>
+          <span className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold">
+            {freeTurns === null ? 'Turnos: todos iguais' : `${freeTurns} turno${freeTurns === 1 ? '' : 's'} livre${freeTurns === 1 ? '' : 's'} na semana`}
+          </span>
+          <span className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold">
+            Descanso: {studyPrefs.restDay === null ? 'nenhum' : WEEKDAY_SHORT[studyPrefs.restDay]}
+          </span>
+          {bestIdx >= 0 && <span className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold">Rende mais: {TURN_LABELS[bestIdx].toLowerCase()}</span>}
+          <span className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold">Bloco {studyPrefs.focusMinutes}/{studyPrefs.breakMinutes}</span>
+        </div>
+        <StudyRoutineModal open={routineOpen} onClose={() => setRoutineOpen(false)} />
+      </section>
 
       {/* 1. Painel */}
       <section id="customize-dashboard" className="space-y-2">

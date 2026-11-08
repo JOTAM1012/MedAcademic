@@ -18,6 +18,8 @@ import type {
   Semester,
   StudyMethodState,
   StudyPlanPrefs,
+  ExamShift,
+  TurnState,
   StudySession,
   Subject,
   SubjectFormat,
@@ -471,6 +473,33 @@ export const resolvePrefs = (saved: Partial<StudyPlanPrefs> | undefined, phase: 
   return out;
 };
 
+// ---------- Semana por turnos (manhã, tarde, noite)
+export const TURN_KEYS: ExamShift[] = ['manha', 'tarde', 'noite'];
+export const TURN_LABELS = ['Manhã', 'Tarde', 'Noite'];
+export const emptyWeekTurns = (): TurnState[][] => Array.from({ length: 7 }, () => ['livre', 'livre', 'livre'] as TurnState[]);
+/** Turno de um horário "HH:MM" (0 manhã, 1 tarde, 2 noite). Fim: o minuto anterior (12:00 ainda é manhã) */
+export const turnOfTime = (time: string, isEnd = false) => {
+  const [h, m] = (time || '00:00').split(':').map((x) => parseInt(x, 10) || 0);
+  const min = h * 60 + m - (isEnd ? 1 : 0);
+  return min < 720 ? 0 : min < 1080 ? 1 : 2;
+};
+/**
+ * Quanto cabe num dia pelos turnos. O dia com mais turnos livres recebe todo o tempo de foco;
+ * os outros, proporcional. Sem turno livre: só revisões curtas. Tudo descanso: dia de descanso.
+ */
+export const turnCapacity = (prefs: StudyPlanPrefs, dow: number): { capacity: number; allRest: boolean; turns: TurnState[] } | null => {
+  const week = prefs.weekTurns;
+  const turns = week?.[dow];
+  if (!week || !turns || turns.length !== 3) return null;
+  const freeOf = (d?: TurnState[]) => (d || []).filter((t) => t === 'livre').length;
+  const maxFree = Math.max(1, ...week.map((d, i) => (i === prefs.restDay ? 0 : freeOf(d))));
+  const free = freeOf(turns);
+  const allRest = turns.every((t) => t === 'descanso');
+  const capacity = free === 0 ? Math.min(2, prefs.dailyPomodoros) : Math.max(2, Math.round((prefs.dailyPomodoros * free) / maxFree));
+  return { capacity, allRest, turns };
+};
+const TURN_WORD: Record<TurnState, string> = { livre: 'livre', ocupado: 'ocupada', descanso: 'de descanso' };
+
 export const WEEKDAY_NAMES = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
 export const WEEKDAY_SHORT = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
@@ -876,6 +905,8 @@ export interface DayPlan {
   message?: string;
   /** Lembrete fixo de sono no fim do plano */
   sleepNote: string;
+  /** Turnos do dia (quando o aluno marcou a semana por turnos) */
+  turnsNote?: string;
   tips: string[];
   phase: StudyPhase;
   residencyPrep: boolean;
@@ -951,7 +982,8 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
   const posProva = state.shift === 'pos_prova';
   const posPlantao = posPlantaoDay || posProva; // descanso depois do plantão ou da prova
   const plantao = plantaoDay || provaDay; // só o essencial
-  const rest = prefs.restDay === dow || posPlantao;
+  const turnsDay = turnCapacity(prefs, dow);
+  const rest = prefs.restDay === dow || posPlantao || !!turnsDay?.allRest;
   const mixed = prefs.mixedDay === dow && !rest && !plantao;
   const dayKind: DayKind = lowEnergy
     ? 'low_energy'
@@ -980,6 +1012,8 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
   if (rest && !state.capacity) capacity = 1;
   else {
     // Dia difícil e plantão: vale o menor dos dois
+    // Semana por turnos: menos turnos livres, menos foco
+    if (turnsDay && !state.capacity) capacity = Math.min(capacity, turnsDay.capacity);
     if (lowEnergy && !state.capacity) capacity = Math.min(capacity, Math.max(2, Math.round(prefs.dailyPomodoros / 3)));
     if (plantao && !state.capacity) capacity = Math.min(capacity, 2);
   }
@@ -1612,6 +1646,15 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
     next,
     message,
     sleepNote: SLEEP_NOTE,
+    turnsNote: (() => {
+      if (!turnsDay) return undefined;
+      const t = turnsDay.turns;
+      let note = `Seus turnos hoje: ${TURN_LABELS.map((l, i) => `${l.toLowerCase()} ${TURN_WORD[t[i]]}`).join(' · ')}.`;
+      const bi = prefs.bestTurn ? TURN_KEYS.indexOf(prefs.bestTurn) : -1;
+      if (!rest && !plantao && bi >= 0 && t[bi] === 'livre') note += ` Faça o tema novo de ${TURN_LABELS[bi].toLowerCase()}, seu melhor turno.`;
+      else if (!rest && t.every((x) => x !== 'livre')) note += ' Sem turno livre: só revisões curtas.';
+      return note;
+    })(),
     tips: PHASE_INFO[phase].tips,
     phase,
     residencyPrep,
