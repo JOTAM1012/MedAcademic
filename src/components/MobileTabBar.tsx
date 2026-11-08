@@ -12,7 +12,9 @@ import {
   LayoutGrid,
   Rocket,
   X,
+  SlidersHorizontal,
 } from 'lucide-react';
+import { resolveMobileTabs } from './navTabs';
 import { useApp } from '../context/AppContext';
 import { daysBetween } from '../data/blockReview';
 import { todayYMD, useDayPlan, useDueReviewCount } from '../hooks/useStudyPlan';
@@ -23,7 +25,7 @@ type NavItem = { id: string; label: string; short: string; icon: React.ElementTy
 
 // Barra de abas fixa no rodapé (celular / app instalado) + painel "Mais" com todas as funções
 export const MobileTabBar: React.FC = () => {
-  const { currentTab: rawTab, setCurrentTab, openPlannerToday, exams, checklist } = useApp();
+  const { currentTab: rawTab, setCurrentTab, openPlannerToday, exams, checklist, studyMethod } = useApp();
   // Abas antigas que agora moram em outra (links antigos continuam funcionando)
   const currentTab = rawTab === 'grades' || rawTab === 'schedule' ? 'semester' : rawTab === 'history' ? 'profile' : rawTab;
   const [isMoreOpen, setIsMoreOpen] = useState(false);
@@ -52,10 +54,12 @@ export const MobileTabBar: React.FC = () => {
     { id: 'stopwatch', label: 'Pomodoro', short: 'Pomodoro', icon: Timer, color: 'from-orange-500 to-orange-700' },
     { id: 'checklist', label: 'Checklist', short: 'Checklist', icon: ListChecks, color: 'from-emerald-500 to-emerald-700', badge: pendingChecklist ? String(pendingChecklist) : null },
     { id: 'profile', label: 'Perfil', short: 'Perfil', icon: User, color: 'from-slate-500 to-slate-700' },
+    { id: 'customize', label: 'Personalizar', short: 'Personalizar', icon: SlidersHorizontal, color: 'from-cyan-500 to-cyan-700' },
     ...(isAdmin ? [{ id: 'admin', label: 'Painel do Dono', short: 'Dono', icon: Crown, color: 'from-amber-400 to-amber-600' }] : []),
   ];
   const byId = (id: string) => all.find((i) => i.id === id)!;
-  const primary = ['dashboard', 'calendar', 'spaced_repetition', 'stopwatch'].map(byId);
+  // As abas da barra são escolhidas em Personalizar (padrão: Início, Planner, Revisões, Pomodoro)
+  const primary = resolveMobileTabs(studyMethod.mobileTabs).map(byId).filter(Boolean);
   const moreActive = !primary.some((p) => p.id === currentTab);
   const moreBadge = all.filter((i) => !primary.includes(i) && i.badge).length > 0;
 

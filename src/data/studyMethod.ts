@@ -489,6 +489,7 @@ export const normalizeStudyMethod = (raw: any): StudyMethodState => {
     guideSeen: !!raw.guideSeen,
     deleted: raw.deleted && typeof raw.deleted === 'object' ? raw.deleted : undefined,
     dashboard: raw.dashboard && typeof raw.dashboard === 'object' ? raw.dashboard : undefined,
+    mobileTabs: Array.isArray(raw.mobileTabs) ? raw.mobileTabs.filter((x: unknown) => typeof x === 'string') : undefined,
     contests: Array.isArray(raw.contests) ? raw.contests : undefined,
     pastExams: Array.isArray(raw.pastExams) ? raw.pastExams : undefined,
   };
@@ -516,6 +517,7 @@ export const mergeStudyMethod = (local: StudyMethodState, cloudRaw: any, _today 
     guideSeen: cloud.guideSeen || local.guideSeen,
     deleted: Object.keys(deleted).length ? deleted : undefined,
     dashboard: cloud.dashboard || local.dashboard,
+    mobileTabs: cloud.mobileTabs || local.mobileTabs,
     contests: byId(cloud.contests || [], local.contests || []),
     pastExams: byId(cloud.pastExams || [], local.pastExams || []),
   };

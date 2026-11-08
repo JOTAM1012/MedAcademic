@@ -248,6 +248,8 @@ export interface StudyMethodState {
   guideSeen?: boolean;
   /** Painel (Dashboard) personalizado pelo aluno: vale para todos os semestres */
   dashboard?: DashboardPrefs;
+  /** Barra de baixo no celular/tablet: as 4 abas escolhidas (o "Mais" fica sempre) */
+  mobileTabs?: string[];
   /** Provas de concurso feitas fora da plataforma */
   contests?: ContestExam[];
   /** Provas de semestres passados (organização pessoal) */

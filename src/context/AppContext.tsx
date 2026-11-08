@@ -257,6 +257,8 @@ interface AppContextType {
   toggleExamTopicTask: (examId: string, topicId: string, task: ExamTaskKind) => void;
   /** Painel personalizado (vale para todos os semestres) */
   setDashboardPrefs: (prefs: DashboardPrefs | null) => void;
+  /** Abas da barra de baixo no celular (null = padrão) */
+  setMobileTabs: (tabs: string[] | null) => void;
   /** Ferramenta "Provas de concurso" disponível (internato sempre; clínico se ligar no perfil; básico não) */
   contestsActive: boolean;
   addContest: (c: Omit<ContestExam, 'id' | 'createdAt'>) => string;
@@ -2252,6 +2254,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
 
   const setDashboardPrefs = (prefs: DashboardPrefs | null) => patchMethod((s) => ({ ...s, dashboard: prefs || undefined }));
+  const setMobileTabs = (tabs: string[] | null) => patchMethod((s) => ({ ...s, mobileTabs: tabs && tabs.length ? tabs.slice(0, 4) : undefined }));
 
   const newMiscId = (p: string) => p + '-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
   const addContest: AppContextType['addContest'] = (c) => {
@@ -3006,6 +3009,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         deleteRotation,
         toggleExamTopicTask,
         setDashboardPrefs,
+        setMobileTabs,
         contestsActive,
         addContest,
         updateContest,

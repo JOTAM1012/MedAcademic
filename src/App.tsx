@@ -21,6 +21,7 @@ import { StudyStopwatchView } from './components/StudyStopwatchView';
 import { SemesterView } from './components/semester/SemesterView';
 import { CalendarView } from './components/CalendarView';
 import { ProfileView } from './components/ProfileView';
+import { CustomizeView } from './components/CustomizeView';
 import { ChecklistView } from './components/ChecklistView';
 import { ProfileCreationPage } from './components/ProfileCreationPage';
 import { GuidedTour } from './components/GuidedTour';
@@ -347,6 +348,8 @@ const AppContent: React.FC = () => {
       case 'admin':
         return <OwnerPanelView />;
       // O Histórico agora fica dentro do Perfil
+      case 'customize':
+        return <CustomizeView />;
       case 'profile':
       case 'history':
         return <ProfileView />;
