@@ -218,9 +218,9 @@ export const QuickThemeModal: React.FC<QuickThemeModalProps> = ({ open, onClose,
             type="button"
             id="quick-theme-back"
             onClick={() => setSubjectId('')}
-            className="min-h-[36px] -mt-1 inline-flex items-center gap-1.5 text-xs font-bold text-sky-700 dark:text-sky-400 hover:underline"
+            className="h-11 inline-flex items-center gap-2 px-4 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-white hover:bg-slate-200 dark:hover:bg-slate-700 text-sm font-black transition-colors"
           >
-            <ArrowLeft className="h-3.5 w-3.5" /> Trocar disciplina
+            <ArrowLeft className="h-5 w-5" /> Trocar disciplina
           </button>
           <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50 px-3.5 py-3 flex items-center gap-2.5">
             <span className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: chosen?.color }} />

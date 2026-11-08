@@ -3,6 +3,7 @@ import { ChevronRight, ArrowRight, Link2 } from 'lucide-react';
 import type { Subject, Topic, TopicBlock } from '../../types';
 import { Bar, Ring, isModule, moduleOf, subjectColor, subjectContext, subjectName, topicStats } from './shared';
 import { Plus, Link2 as LinkIcon } from 'lucide-react';
+import { DeleteSubjectButton } from './DeleteSubjectButton';
 
 /** Progresso de um módulo: assuntos próprios + disciplinas e assuntos vinculados */
 export const moduleTopics = (m: Subject, topics: Topic[]) => {
@@ -19,12 +20,12 @@ export const ModuleGrid: React.FC<{ modules: Subject[]; topics: Topic[]; onOpen:
       const color = subjectColor(m);
       const links = (m.linkedSubjectIds?.length || 0) + (m.linkedBlockIds?.length || 0);
       return (
+        <div key={m.id} className="relative">
         <button
-          key={m.id}
           type="button"
           id={`struct-module-${m.id}`}
           onClick={() => onOpen(m.id)}
-          className="group text-left rounded-3xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 hover:border-slate-200 dark:hover:border-slate-700 p-5 transition-colors"
+          className="group w-full h-full text-left rounded-3xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 hover:border-slate-200 dark:hover:border-slate-700 p-5 transition-colors"
         >
           <div className="flex items-start gap-3">
             <Ring pct={st.pct} color={color} size={44} />
@@ -37,12 +38,15 @@ export const ModuleGrid: React.FC<{ modules: Subject[]; topics: Topic[]; onOpen:
               </p>
             </div>
             {links > 0 && <LinkIcon className="h-4 w-4 mt-1 shrink-0 text-sky-500" />}
+            <span className="w-7 shrink-0" aria-hidden="true" />
           </div>
           <div className="mt-4 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
             {st.seen}/{st.total} vistos{st.pending > 0 ? ` · ${st.pending} ver depois` : ''}
           </div>
           <Bar pct={st.pct} color={color} className="mt-2" />
         </button>
+        <DeleteSubjectButton subject={m} className="!top-3 !bottom-auto" />
+        </div>
       );
     })}
     <button
@@ -96,8 +100,8 @@ export const ModuleList: React.FC<Props> = ({ subjects, topics, topicBlocks, onO
                 .filter((b) => b.subjectId === s.id)
                 .reduce((a, b) => a + (b.linkedAreaBlockIds?.length || 0), 0);
               return (
+                <div key={s.id} className="relative first:rounded-t-3xl last:rounded-b-3xl">
                 <button
-                  key={s.id}
                   type="button"
                   id={`struct-module-subject-${s.id}`}
                   onClick={() => onOpen(s.id)}
@@ -130,8 +134,10 @@ export const ModuleList: React.FC<Props> = ({ subjects, topics, topicBlocks, onO
                       {links}
                     </span>
                   )}
-                  <ChevronRight className="h-4 w-4 shrink-0 text-slate-300 dark:text-slate-600" />
+                  <span className="w-9 shrink-0" aria-hidden="true" />
                 </button>
+                <DeleteSubjectButton subject={s} compact className="!bottom-auto !top-1/2 -translate-y-1/2" />
+                </div>
               );
             })}
           </div>

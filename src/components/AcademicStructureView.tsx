@@ -119,9 +119,9 @@ export const AcademicStructureView: React.FC<AcademicStructureViewProps> = ({ on
       type="button"
       id="struct-back"
       onClick={() => setDetail(to)}
-      className="h-10 -ml-2 inline-flex items-center gap-1.5 px-2 rounded-xl text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+      className="h-11 inline-flex items-center gap-2 px-4 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-white hover:bg-slate-200 dark:hover:bg-slate-700 text-sm font-black transition-colors"
     >
-      <ArrowLeft className="h-4 w-4" /> {label}
+      <ArrowLeft className="h-5 w-5" /> {label}
     </button>
   );
 
@@ -311,46 +311,6 @@ export const AcademicStructureView: React.FC<AcademicStructureViewProps> = ({ on
             </>
           )}
         </>
-      )}
-
-      {/* Excluir tudo (pede confirmação) */}
-      {subjects.length > 0 && (
-        <div className="pt-4">
-          {confirmDeleteAll ? (
-            <div id="struct-delete-all-confirm" role="alertdialog" aria-labelledby="struct-delete-all-title" className="rounded-2xl border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 p-4 space-y-3">
-              <p id="struct-delete-all-title" className="text-sm font-black text-rose-800 dark:text-rose-200">Tem certeza que quer excluir tudo?</p>
-              <p className="text-[12px] text-rose-700 dark:text-rose-300">
-                Vai apagar as {subjects.length} disciplina{subjects.length > 1 ? 's' : ''} e módulos deste semestre, com todos os assuntos, blocos e revisões. Isso não pode ser desfeito.
-              </p>
-              <div className="flex flex-wrap gap-2 justify-end">
-                <button type="button" onClick={() => setConfirmDeleteAll(false)} className="min-h-[40px] px-4 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-white/60 dark:hover:bg-slate-800">
-                  Cancelar
-                </button>
-                <button
-                  type="button"
-                  id="struct-delete-all-yes"
-                  onClick={() => {
-                    deleteSubjects(subjects.map((s) => s.id));
-                    setConfirmDeleteAll(false);
-                    setDetail(null);
-                  }}
-                  className="min-h-[40px] px-4 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-black inline-flex items-center gap-1.5"
-                >
-                  <Trash2 className="h-4 w-4" /> Sim, excluir tudo
-                </button>
-              </div>
-            </div>
-          ) : (
-            <button
-              type="button"
-              id="struct-delete-all"
-              onClick={() => setConfirmDeleteAll(true)}
-              className="h-10 inline-flex items-center gap-1.5 px-2 rounded-lg text-[11px] font-semibold text-slate-400 dark:text-slate-500 hover:text-rose-600 dark:hover:text-rose-400"
-            >
-              <Trash2 className="h-3.5 w-3.5" /> Excluir todas as disciplinas
-            </button>
-          )}
-        </div>
       )}
 
       {showPastDiscreet && (

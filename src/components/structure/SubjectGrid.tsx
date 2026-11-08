@@ -1,9 +1,10 @@
 // Disciplinas de uma grande área em quadrados (mesmo visual dos cards de área). Tocar abre a disciplina.
 import React from 'react';
-import { ChevronRight, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import type { Subject, Topic, TopicBlock } from '../../types';
 import { formatDM } from '../../data/blockReview';
 import { Bar, Ring, subjectColor, subjectName, topicStats } from './shared';
+import { DeleteSubjectButton } from './DeleteSubjectButton';
 
 interface Props {
   subjects: Subject[];
@@ -35,12 +36,12 @@ export const SubjectGrid: React.FC<Props> = ({ subjects, topics, topicBlocks, on
             ? `${blocks.length} bloco${blocks.length > 1 ? 's' : ''}`
             : 'Sem blocos ainda';
       return (
+        <div key={s.id} className="relative">
         <button
-          key={s.id}
           type="button"
           id={`struct-subject-${s.id}`}
           onClick={() => onOpen(s.id)}
-          className="group text-left rounded-3xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 hover:border-slate-200 dark:hover:border-slate-700 p-5 transition-colors"
+          className="group w-full h-full text-left rounded-3xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 hover:border-slate-200 dark:hover:border-slate-700 p-5 transition-colors"
         >
           <div className="flex items-start gap-3">
             <Ring pct={st.pct} color={color} size={44} />
@@ -50,7 +51,7 @@ export const SubjectGrid: React.FC<Props> = ({ subjects, topics, topicBlocks, on
                 {st.total} assunto{st.total === 1 ? '' : 's'} · {status}
               </p>
             </div>
-            <ChevronRight className="h-4 w-4 mt-1 shrink-0 text-slate-300 dark:text-slate-600 group-hover:text-slate-500 transition-colors" />
+            <span className="w-7 shrink-0" aria-hidden="true" />
           </div>
           <div className="mt-4 flex items-end justify-between gap-3">
             <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
@@ -59,6 +60,8 @@ export const SubjectGrid: React.FC<Props> = ({ subjects, topics, topicBlocks, on
           </div>
           <Bar pct={st.pct} color={color} className="mt-2" />
         </button>
+        <DeleteSubjectButton subject={s} className="!top-3 !bottom-auto" />
+        </div>
       );
     })}
     <button

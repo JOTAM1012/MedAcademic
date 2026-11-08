@@ -264,7 +264,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
           {/* Rotina */}
           <div>
             {isExpanded && (
-              <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider px-2 mb-1.5 animate-in fade-in duration-150">Rotina</div>
+              <div className="text-xs font-bold text-slate-200 uppercase tracking-wider px-2 mb-1.5 animate-in fade-in duration-150">Rotina</div>
             )}
             <div className="space-y-1">
               {academicItems.map((item) => {
@@ -327,7 +327,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
           {/* Ferramentas Section */}
           <div>
             {isExpanded ? (
-              <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider px-2 mb-1.5 animate-in fade-in duration-150">
+              <div className="text-xs font-bold text-slate-200 uppercase tracking-wider px-2 mb-1.5 animate-in fade-in duration-150">
                 Ferramentas de estudo
               </div>
             ) : (
@@ -392,7 +392,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
           {/* AI & Profile Section */}
           <div>
             {isExpanded ? (
-              <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider px-2 mb-1.5 animate-in fade-in duration-150">Configurações</div>
+              <div className="text-xs font-bold text-slate-200 uppercase tracking-wider px-2 mb-1.5 animate-in fade-in duration-150">Configurações</div>
             ) : (
               <div className="w-8 mx-auto border-t border-slate-800/80 my-2" />
             )}
