@@ -1347,13 +1347,13 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
 
             </div>
 
-            {/* Boas-vindas: cartão próprio, embaixo do crachá */}
-            <div id="profile-welcome-card" className="rounded-3xl border border-sky-900/50 bg-gradient-to-br from-sky-950/50 to-slate-900/60 backdrop-blur-md p-5 shadow-xl flex items-start gap-3">
+            {/* Boas-vindas: cartão próprio, só na última etapa */}
+            {currentStep === 4 && !isEditingProfileSetup && <div id="profile-welcome-card" className="rounded-3xl border border-sky-900/50 bg-gradient-to-br from-sky-950/50 to-slate-900/60 backdrop-blur-md p-5 shadow-xl flex items-start gap-3">
               <span className="text-2xl leading-none" aria-hidden>✨</span>
               <p className="text-sm text-sky-200 leading-relaxed">
                 <strong className="text-white">Boas-vindas!</strong> Ao concluir seu perfil, você responde uma pesquisa rápida de rotina e ganha o <strong className="text-white">tutorial de boas-vindas</strong>.
               </p>
-            </div>
+            </div>}
           </div>
 
         </div>
