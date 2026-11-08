@@ -486,17 +486,17 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
 
       {/* Main Content Area */}
       <main className="relative z-10 flex-1 max-w-5xl w-full mx-auto px-6 py-8 flex flex-col justify-center">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
           
           {/* Form Wizard (Left / Main) */}
-          <div className="lg:col-span-8 space-y-2.5">
+          <div className="lg:col-span-8 relative flex flex-col gap-2.5">
             {currentStep === 4 && !isEditingProfileSetup && (
-              <p id="profile-welcome-line" className="px-2 text-xs text-slate-400 flex items-center gap-1.5">
+              <p id="profile-welcome-line" className="px-2 text-xs text-slate-400 flex items-center gap-1.5 lg:absolute lg:bottom-full lg:left-0 lg:mb-2.5">
                 <span aria-hidden>✨</span>
                 <span><strong className="text-sky-300">Boas-vindas!</strong> Ao concluir, você responde uma pesquisa rápida de rotina e ganha o tutorial de boas-vindas.</span>
               </p>
             )}
-          <div className="bg-slate-900/80 backdrop-blur-md rounded-3xl border border-slate-800 p-6 sm:p-8 shadow-xl space-y-6">
+          <div className="flex-1 bg-slate-900/80 backdrop-blur-md rounded-3xl border border-slate-800 p-6 sm:p-8 shadow-xl space-y-6">
             
             {/* Step 1: Identidade & Avatar */}
             {currentStep === 1 && (
@@ -1273,12 +1273,8 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
           </div>
 
           {/* Live Preview Card (Right Sidebar) */}
-          <div className="lg:col-span-4 space-y-4">
-            <div className="rounded-3xl border border-slate-800 bg-slate-900/60 backdrop-blur-md p-6 shadow-xl space-y-5">
-              <div className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5 pb-3 border-b border-slate-800">
-                <ShieldCheck className="h-4 w-4 text-sky-400" />
-                <span>Crachá médico</span>
-              </div>
+          <div className="lg:col-span-4 flex flex-col">
+            <div id="profile-badge-card" className="flex-1 rounded-3xl border border-slate-800 bg-slate-900/60 backdrop-blur-md p-6 shadow-xl flex flex-col justify-center gap-5">
 
               {/* Foto no centro e nome embaixo */}
               <div className="flex flex-col items-center text-center gap-3">
