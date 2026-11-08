@@ -934,45 +934,6 @@ export const StudyStopwatchView: React.FC = () => {
         </div>
       </div>
 
-      {/* Histórico */}
-      <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 sm:p-5 shadow-xs">
-        <div className="flex items-center justify-between gap-2 mb-4 flex-wrap">
-          <div className="flex items-center gap-2">
-            <List className="h-4 w-4 text-sky-600 dark:text-sky-400" />
-            <h2 className="text-sm font-bold text-slate-900 dark:text-white">Últimas sessões</h2>
-          </div>
-          <span className="text-xs text-slate-600 dark:text-slate-400">Total: {studySessions.reduce((acc, s) => acc + s.durationMinutes, 0)} min registrados</span>
-        </div>
-
-        {studySessions.length === 0 ? (
-          <p className="text-xs text-slate-600 dark:text-slate-400">Nenhuma sessão ainda. Seu primeiro bloco de foco aparece aqui.</p>
-        ) : (
-          <div className="space-y-2">
-            {studySessions.slice(0, 5).map((session) => {
-              const sub = subjects.find((s) => s.id === session.subjectId);
-              return (
-                <div
-                  key={session.id}
-                  className="flex items-center justify-between gap-3 p-3 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/20 text-xs"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: sub?.color || '#0284c7' }} />
-                    <div className="min-w-0">
-                      <div className="font-bold text-slate-900 dark:text-white truncate">{sub?.name || 'Estudo geral'}</div>
-                      <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate">{session.notes || 'Sessão de foco'}</div>
-                    </div>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <div className="font-mono font-bold text-slate-800 dark:text-slate-200">{session.durationMinutes} min</div>
-                    {session.type === 'pomodoro' && <div className="text-[10px] text-orange-600 dark:text-orange-400 font-semibold">1 bloco</div>}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
       <StudyCycleModal
         isOpen={isStudyCycleModalOpen}
         onClose={() => setIsStudyCycleModalOpen(false)}
