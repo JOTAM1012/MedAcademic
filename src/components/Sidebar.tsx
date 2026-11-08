@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import {
   LayoutDashboard,
+  LogOut,
   Layers,
   Repeat,
   Stethoscope,
@@ -18,6 +19,9 @@ import {
 } from 'lucide-react';
 import { useAccess } from '../context/AccessContext';
 import { useApp } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
+import { OwnerName } from './OwnerName';
+import { CARTOON_AVATARS } from '../data/avatars';
 import { daysBetween } from '../data/blockReview';
 import { daysUntil, periodProgress, semesterBounds } from '../data/academicCalendar';
 import { todayYMD, useDayPlan, useDueReviewCount } from '../hooks/useStudyPlan';
@@ -35,9 +39,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
     exams,
     checklist,
     currentSemester,
+    userProfile,
+    cloudSyncStatus,
   } = useApp();
   const pendingChecklistCount = checklist.filter((i) => !i.done).length;
-  const { isAdmin } = useAccess();
+  const { isAdmin, isOwner } = useAccess();
+  const { logout } = useAuth();
 
   // Collapsed sidebar state with localStorage persistence
   const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
@@ -470,6 +477,79 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
               </div>
             </button>
           ))}
+
+        {/* Conta: foto, nome, sequência de dias, nuvem e Sair */}
+        {isExpanded ? (
+          <div
+            id="sidebar-account-card"
+            className={`${semBounds ? '' : 'mt-auto '}mx-3 mb-3 -mt-1 flex items-center gap-2.5 rounded-xl border border-slate-700/50 bg-slate-800/40 p-2.5`}
+          >
+            <button
+              type="button"
+              id="sidebar-account-profile"
+              onClick={() => {
+                setCurrentTab('profile');
+                setIsMobileOpen(false);
+              }}
+              className="flex min-w-0 flex-1 items-center gap-2.5 text-left group"
+              title={`Perfil de ${userProfile.name}`}
+            >
+              <span className="relative shrink-0">
+                <span
+                  className={`block h-9 w-9 overflow-hidden rounded-full bg-blue-950 ${isOwner ? 'owner-gold-frame owner-gold-frame--sm' : 'user-blue-frame user-blue-frame--sm'}`}
+                >
+                  <img src={userProfile.avatarUrl || CARTOON_AVATARS[0].url} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                </span>
+                <span
+                  className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-slate-900 ${
+                    cloudSyncStatus === 'synced' ? 'bg-emerald-500' : cloudSyncStatus === 'syncing' ? 'bg-amber-400 animate-pulse' : 'bg-rose-500'
+                  }`}
+                  title={cloudSyncStatus === 'synced' ? 'Salvo na nuvem' : cloudSyncStatus === 'syncing' ? 'Salvando…' : 'Offline: salvo neste aparelho'}
+                />
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate text-xs font-bold text-slate-100 group-hover:text-sky-300">
+                  <OwnerName name={userProfile.name.split(' ')[0]} crown={false} />
+                </span>
+                <span className="block truncate text-[10px] text-slate-400">
+                  {userProfile.currentStreakDays > 0 ? `${userProfile.currentStreakDays} ${userProfile.currentStreakDays === 1 ? 'dia' : 'dias'} · ` : ''}
+                  <span className={cloudSyncStatus === 'synced' ? 'text-emerald-400' : cloudSyncStatus === 'syncing' ? 'text-amber-400' : 'text-rose-400'}>
+                    {cloudSyncStatus === 'synced' ? 'Online' : cloudSyncStatus === 'syncing' ? 'Salvando…' : 'Offline'}
+                  </span>
+                </span>
+              </span>
+            </button>
+            <button
+              type="button"
+              id="dock-logout-btn"
+              onClick={logout}
+              className="flex h-9 shrink-0 items-center gap-1.5 rounded-lg px-2 text-xs font-bold text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 transition-colors"
+              title="Sair da conta"
+              aria-label="Sair da conta"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+              Sair
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            id="sidebar-account-profile-mini"
+            onClick={() => setCurrentTab('profile')}
+            className={`${semBounds ? '' : 'mt-auto '}relative mx-auto mb-3 h-9 w-9 shrink-0`}
+            title={`Perfil de ${userProfile.name}`}
+            aria-label="Abrir Perfil"
+          >
+            <span className={`block h-9 w-9 overflow-hidden rounded-full bg-blue-950 ${isOwner ? 'owner-gold-frame owner-gold-frame--sm' : 'user-blue-frame user-blue-frame--sm'}`}>
+              <img src={userProfile.avatarUrl || CARTOON_AVATARS[0].url} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+            </span>
+            <span
+              className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-slate-900 ${
+                cloudSyncStatus === 'synced' ? 'bg-emerald-500' : cloudSyncStatus === 'syncing' ? 'bg-amber-400' : 'bg-rose-500'
+              }`}
+            />
+          </button>
+        )}
       </aside>
     </>
   );

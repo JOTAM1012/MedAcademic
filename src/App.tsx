@@ -442,7 +442,7 @@ const AppContent: React.FC = () => {
       {/* Guia "Como funciona o Método MedAcademic" (completo ou modo rápido do 1º acesso) */}
       <MethodGuideModal />
 
-      {/* Floating Bottom-Right Container with User Status Dock & Toast */}
+      {/* Aviso de modo offline (o cartão do usuário fica na barra lateral) */}
       <div className="fixed bottom-[calc(84px+env(safe-area-inset-bottom,0px))] lg:bottom-4 right-3 lg:right-4 z-40 flex flex-col items-end gap-2.5 max-w-[340px]">
         {/* Subtle Offline Toast above dock (shown when offline > 30s) */}
         {showOfflineToast && !isOfflineToastDismissed && !isLocalOnly && (
@@ -482,137 +482,6 @@ const AppContent: React.FC = () => {
           </div>
         )}
 
-        {/* Floating User Status & Logout Dock (Exact match to requested UI with compact mode) */}
-        <div
-          id="app-bottom-right-account-dock"
-          onMouseEnter={() => {
-            setIsDockCompact(false);
-            if (dockInactivityTimerRef.current) clearTimeout(dockInactivityTimerRef.current);
-          }}
-          onMouseLeave={() => {
-            resetDockTimer();
-          }}
-          className={`relative flex items-center bg-slate-900/95 dark:bg-slate-900/95 backdrop-blur-md border text-white rounded-full p-1.5 transition-all duration-300 ${
-            isDockCompact
-              ? 'gap-0 pr-1.5 border-slate-800 shadow-2xl'
-              : 'gap-2 pr-2 border-slate-800 hover:border-slate-700 shadow-2xl'
-          }`}
-        >
-          <button
-            onClick={() => setCurrentTab('profile')}
-            className="flex items-center gap-2 group cursor-pointer focus:outline-hidden"
-            title={`Perfil de ${userProfile.name} • Nuvem: ${
-              cloudSyncStatus === 'synced'
-                ? 'Online e Sincronizado'
-                : cloudSyncStatus === 'syncing'
-                ? 'Sincronizando...'
-                : 'Offline (Modo Local)'
-            }`}
-          >
-            <div className="relative shrink-0">
-              <div
-                className={`w-8 h-8 rounded-full bg-blue-950 overflow-hidden transition-transform group-hover:scale-105 ${
-                  isOwnerAccount ? 'owner-gold-frame owner-gold-frame--sm' : 'user-blue-frame user-blue-frame--sm'
-                }`}
-              >
-                <img
-                  src={userProfile.avatarUrl || CARTOON_AVATARS[0].url}
-                  alt={userProfile.name}
-                  referrerPolicy="no-referrer"
-                  className="w-full h-full object-cover"
-                />
-              </div>
-              {/* Visual Status Indicator (Green/Yellow/Red) with Pop Feedback */}
-              <div className="absolute -bottom-0.5 -right-0.5 flex items-center justify-center pointer-events-none">
-                {/* Ping ripple effect on reconnect */}
-                {isReconnectedPop && (
-                  <span className="absolute h-5 w-5 rounded-full bg-emerald-400 opacity-80 animate-ping" />
-                )}
-                <span
-                  id="dock-firestore-status-indicator"
-                  className={`relative w-3 h-3 rounded-full border-2 border-slate-900 transition-all duration-500 ease-out ${
-                    cloudSyncStatus === 'synced'
-                      ? isReconnectedPop
-                        ? 'bg-emerald-400 scale-150 ring-4 ring-emerald-400/50 shadow-lg shadow-emerald-400'
-                        : 'bg-emerald-500 shadow-xs shadow-emerald-500/80 scale-100'
-                      : cloudSyncStatus === 'syncing'
-                      ? 'bg-amber-400 shadow-xs shadow-amber-400/80 animate-pulse scale-100'
-                      : 'bg-rose-500 shadow-xs shadow-rose-500/80 scale-100'
-                  }`}
-                  title={
-                    cloudSyncStatus === 'synced'
-                      ? 'Nuvem online: conexão ativa e sincronizada'
-                      : cloudSyncStatus === 'syncing'
-                      ? 'Nuvem: sincronizando dados...'
-                      : 'Nuvem offline: operando com os dados do dispositivo'
-                  }
-                />
-              </div>
-            </div>
-
-            {/* Collapsible Text info container */}
-            <div
-              className={`transition-all duration-300 overflow-hidden flex flex-col text-left ${
-                isDockCompact ? 'max-w-0 opacity-0 pointer-events-none' : 'max-w-[160px] opacity-100 mr-1'
-              }`}
-            >
-              <span className="text-xs font-bold text-slate-200 group-hover:text-sky-400 transition-colors truncate max-w-[110px]">
-                <OwnerName name={userProfile.name.split(' ')[0]} crown={false} />
-              </span>
-              <div className="flex items-center gap-1.5 whitespace-nowrap">
-                {userProfile.currentStreakDays > 0 && (
-                  <span className="text-[10px] text-emerald-400 font-medium" title="Dias seguidos de estudo">
-                    {userProfile.currentStreakDays} {userProfile.currentStreakDays === 1 ? 'dia' : 'dias'}
-                  </span>
-                )}
-                <span
-                  className={`text-[9px] font-semibold rounded-sm ${userProfile.currentStreakDays > 0 ? 'px-1' : ''} ${
-                    cloudSyncStatus === 'synced'
-                      ? 'text-emerald-400/90'
-                      : cloudSyncStatus === 'syncing'
-                      ? 'text-amber-400/90'
-                      : 'text-rose-400/90'
-                  }`}
-                >
-                  {userProfile.currentStreakDays > 0 ? '• ' : ''}{cloudSyncStatus === 'synced' ? 'Online' : cloudSyncStatus === 'syncing' ? 'Sync...' : 'Offline'}
-                </span>
-              </div>
-            </div>
-          </button>
-
-          {/* Collapsible Divider, Logout Button, and Minimize Button */}
-          <div
-            className={`transition-all duration-300 overflow-hidden flex items-center gap-1.5 ${
-              isDockCompact ? 'max-w-0 opacity-0 pointer-events-none' : 'max-w-[120px] opacity-100'
-            }`}
-          >
-            <div className="h-4 w-px bg-slate-800 mr-1 shrink-0" />
-            <button
-              id="dock-logout-btn"
-              onClick={logout}
-              className="flex items-center gap-1.5 text-rose-500 hover:text-rose-400 text-xs font-bold transition-colors cursor-pointer px-1.5 py-1 rounded-md hover:bg-rose-500/10 whitespace-nowrap"
-              title="Sair da Conta (Logout)"
-            >
-              <LogOut className="w-3.5 h-3.5 shrink-0" />
-              <span className="text-xs">Sair</span>
-            </button>
-
-            {/* Discrete Minimize Button (ChevronDown) */}
-            <button
-              id="dock-minimize-btn"
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsDockCompact(true);
-                if (dockInactivityTimerRef.current) clearTimeout(dockInactivityTimerRef.current);
-              }}
-              className="p-1 rounded-full bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-slate-100 border border-slate-700/60 transition-all cursor-pointer shrink-0 ml-0.5"
-              title="Minimizar caixa de conta (ChevronDown)"
-              aria-label="Minimizar barra de conta"
-            >
-              <ChevronDown className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        </div>
       </div>
 
       <InstallAppModal isOpen={isInstallOpen} onClose={() => setIsInstallOpen(false)} />
