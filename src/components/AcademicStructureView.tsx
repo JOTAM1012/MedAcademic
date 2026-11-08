@@ -10,7 +10,9 @@ import { ContestsModal } from './contests/ContestsModal';
 import { PastExamsModal } from './contests/PastExamsModal';
 import { Bar, Ring, hasArea, moduleOf, topicStats } from './structure/shared';
 import { AreaGrid, groupByArea } from './structure/AreaGrid';
-import { ModuleList } from './structure/ModuleList';
+import { ModuleGrid, ModuleList } from './structure/ModuleList';
+import { ModuleLinks } from './structure/ModuleLinks';
+import { Trash2 } from 'lucide-react';
 import { SubjectSection } from './structure/SubjectSection';
 import { SubjectGrid } from './structure/SubjectGrid';
 import { ymd } from '../data/blockReview';
@@ -32,7 +34,8 @@ const specialtyOrder = (s: Subject) => {
 
 // Disciplinas & assuntos (todos os ciclos): visão por grandes áreas ou por módulo da faculdade
 export const AcademicStructureView: React.FC<AcademicStructureViewProps> = ({ onOpenAddSubject }) => {
-  const { currentSemester, subjects: allSubjects, topics, topicBlocks, studyPhase, contestsActive } = useApp();
+  const { currentSemester, subjects: allSubjects, topics, topicBlocks, studyPhase, contestsActive, deleteSubjects } = useApp();
+  const [confirmDeleteAll, setConfirmDeleteAll] = useState(false);
   // Só as disciplinas do semestre atual (as anteriores ficam no Histórico)
   const subjects = useMemo(
     () => allSubjects.filter((s) => !s.semesterId || !currentSemester || s.semesterId === currentSemester.id),
@@ -133,6 +136,7 @@ export const AcademicStructureView: React.FC<AcademicStructureViewProps> = ({ on
         <div className="rounded-3xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-4 sm:p-6">
           <SubjectSection subject={detailSubject} standalone allowLinking={mode === 'module' && !isBasic} onEdit={setEditing} />
         </div>
+        {detailSubject.kind === 'module' && <ModuleLinks module={detailSubject} onOpenSubject={(id) => setDetail({ kind: 'subject', id })} />}
         {modals}
       </div>
     );
@@ -288,15 +292,65 @@ export const AcademicStructureView: React.FC<AcademicStructureViewProps> = ({ on
                   Abra uma disciplina para vincular assuntos das grandes áreas e estudar as duas coisas juntas.
                 </p>
               )}
-              <ModuleList subjects={subjects} topics={topics} topicBlocks={topicBlocks} onOpen={(id) => setDetail({ kind: 'subject', id })} />
-              {!subjects.some((s) => moduleOf(s)) && (
-                <p className="text-[11px] text-slate-400 dark:text-slate-500 px-1">
-                  Dica: defina o módulo da faculdade no menu ⋯ de cada disciplina.
-                </p>
+              {/* Módulos da faculdade (tipo próprio) em quadrados */}
+              <div className="space-y-2">
+                <h3 className="px-1 text-xs font-bold text-slate-500 dark:text-slate-400">Módulos da faculdade</h3>
+                <ModuleGrid
+                  modules={subjects.filter((s) => s.kind === 'module')}
+                  topics={topics}
+                  onOpen={(id) => setDetail({ kind: 'subject', id })}
+                  onAdd={onOpenAddSubject}
+                />
+              </div>
+              {subjects.some((s) => s.kind !== 'module') && (
+                <div className="space-y-2">
+                  <h3 className="px-1 text-xs font-bold text-slate-500 dark:text-slate-400">Disciplinas</h3>
+                  <ModuleList subjects={subjects.filter((s) => s.kind !== 'module')} topics={topics} topicBlocks={topicBlocks} onOpen={(id) => setDetail({ kind: 'subject', id })} />
+                </div>
               )}
             </>
           )}
         </>
+      )}
+
+      {/* Excluir tudo (pede confirmação) */}
+      {subjects.length > 0 && (
+        <div className="pt-4">
+          {confirmDeleteAll ? (
+            <div id="struct-delete-all-confirm" role="alertdialog" aria-labelledby="struct-delete-all-title" className="rounded-2xl border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 p-4 space-y-3">
+              <p id="struct-delete-all-title" className="text-sm font-black text-rose-800 dark:text-rose-200">Tem certeza que quer excluir tudo?</p>
+              <p className="text-[12px] text-rose-700 dark:text-rose-300">
+                Vai apagar as {subjects.length} disciplina{subjects.length > 1 ? 's' : ''} e módulos deste semestre, com todos os assuntos, blocos e revisões. Isso não pode ser desfeito.
+              </p>
+              <div className="flex flex-wrap gap-2 justify-end">
+                <button type="button" onClick={() => setConfirmDeleteAll(false)} className="min-h-[40px] px-4 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-white/60 dark:hover:bg-slate-800">
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  id="struct-delete-all-yes"
+                  onClick={() => {
+                    deleteSubjects(subjects.map((s) => s.id));
+                    setConfirmDeleteAll(false);
+                    setDetail(null);
+                  }}
+                  className="min-h-[40px] px-4 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-black inline-flex items-center gap-1.5"
+                >
+                  <Trash2 className="h-4 w-4" /> Sim, excluir tudo
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              id="struct-delete-all"
+              onClick={() => setConfirmDeleteAll(true)}
+              className="h-10 inline-flex items-center gap-1.5 px-2 rounded-lg text-[11px] font-semibold text-slate-400 dark:text-slate-500 hover:text-rose-600 dark:hover:text-rose-400"
+            >
+              <Trash2 className="h-3.5 w-3.5" /> Excluir todas as disciplinas
+            </button>
+          )}
+        </div>
       )}
 
       {showPastDiscreet && (

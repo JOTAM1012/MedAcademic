@@ -34,6 +34,8 @@ export const moduleOf = (s: Subject): string | null => {
 
 /** Nome da disciplina (o campo name; disciplinas antigas podem ter só universitySubject) */
 export const subjectName = (s: Subject) => s.name || s.universitySubject || 'Disciplina';
+/** Módulo da faculdade (não é disciplina de grande área) */
+export const isModule = (s: Pick<Subject, 'kind'>) => s.kind === 'module';
 
 export const hasArea = (s: Subject) => getMedicalArea(s.majorArea).id !== OTHER_AREA.id;
 

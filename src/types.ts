@@ -261,6 +261,12 @@ export interface StudyMethodState {
 export interface Subject {
   id: string;
   semesterId?: string;
+  /** 'module' = Módulo da faculdade (tem assuntos próprios e pode vincular disciplinas, módulos e assuntos) */
+  kind?: 'module';
+  /** Módulo: disciplinas/módulos vinculados */
+  linkedSubjectIds?: string[];
+  /** Módulo: assuntos (blocos) de outras disciplinas vinculados */
+  linkedBlockIds?: string[];
   name: string;
   code: string;
   color: string;

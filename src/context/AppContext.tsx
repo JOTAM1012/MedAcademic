@@ -194,6 +194,8 @@ interface AppContextType {
   addSubject: (sub: Omit<Subject, 'id'>) => string;
   updateSubject: (id: string, sub: Partial<Subject>, opts?: { silent?: boolean }) => void;
   deleteSubject: (id: string) => void;
+  /** Exclui várias disciplinas de uma vez, com os blocos e assuntos delas */
+  deleteSubjects: (ids: string[]) => void;
 
   // Topics
   topics: Topic[];
@@ -1741,6 +1743,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showNotification('Disciplina removida.', 'info');
   };
 
+  const deleteSubjects = (ids: string[]) => {
+    if (!ids.length) return;
+    const set = new Set(ids);
+    setSubjects((prev) => prev.filter((s) => !set.has(s.id)));
+    setTopicBlocks((prev) => prev.filter((b) => !set.has(b.subjectId)));
+    setTopics((prev) => prev.filter((t) => !set.has(t.subjectId)));
+    showNotification(`${ids.length} disciplina${ids.length > 1 ? 's' : ''} excluída${ids.length > 1 ? 's' : ''}, com os assuntos.`, 'info');
+  };
+
   const addTopic = (top: Omit<Topic, 'id'>) => {
     const newTop: Topic = { ...top, id: 'top-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6) };
     setTopics((prev) => [...prev, newTop]);
@@ -2988,6 +2999,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addSubject,
         updateSubject,
         deleteSubject,
+        deleteSubjects,
         topics,
         addTopic,
         updateTopic,

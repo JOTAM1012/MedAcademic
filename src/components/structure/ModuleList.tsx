@@ -1,7 +1,60 @@
 import React from 'react';
 import { ChevronRight, ArrowRight, Link2 } from 'lucide-react';
 import type { Subject, Topic, TopicBlock } from '../../types';
-import { Ring, moduleOf, subjectColor, subjectContext, subjectName, topicStats } from './shared';
+import { Bar, Ring, isModule, moduleOf, subjectColor, subjectContext, subjectName, topicStats } from './shared';
+import { Plus, Link2 as LinkIcon } from 'lucide-react';
+
+/** Progresso de um módulo: assuntos próprios + disciplinas e assuntos vinculados */
+export const moduleTopics = (m: Subject, topics: Topic[]) => {
+  const subIds = new Set([m.id, ...(m.linkedSubjectIds || [])]);
+  const blockIds = new Set(m.linkedBlockIds || []);
+  return topics.filter((t) => subIds.has(t.subjectId) || (t.blockId && blockIds.has(t.blockId)));
+};
+
+// Módulos da faculdade em quadrados (tocar abre o módulo)
+export const ModuleGrid: React.FC<{ modules: Subject[]; topics: Topic[]; onOpen: (id: string) => void; onAdd: () => void }> = ({ modules, topics, onOpen, onAdd }) => (
+  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+    {modules.map((m) => {
+      const st = topicStats(moduleTopics(m, topics));
+      const color = subjectColor(m);
+      const links = (m.linkedSubjectIds?.length || 0) + (m.linkedBlockIds?.length || 0);
+      return (
+        <button
+          key={m.id}
+          type="button"
+          id={`struct-module-${m.id}`}
+          onClick={() => onOpen(m.id)}
+          className="group text-left rounded-3xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 hover:border-slate-200 dark:hover:border-slate-700 p-5 transition-colors"
+        >
+          <div className="flex items-start gap-3">
+            <Ring pct={st.pct} color={color} size={44} />
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Módulo</p>
+              <h3 className="text-sm font-black text-slate-900 dark:text-white line-clamp-2 leading-snug">{subjectName(m)}</h3>
+              <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                {st.total} assunto{st.total === 1 ? '' : 's'}
+                {links ? ` · ${links} vínculo${links > 1 ? 's' : ''}` : ''}
+              </p>
+            </div>
+            {links > 0 && <LinkIcon className="h-4 w-4 mt-1 shrink-0 text-sky-500" />}
+          </div>
+          <div className="mt-4 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+            {st.seen}/{st.total} vistos{st.pending > 0 ? ` · ${st.pending} ver depois` : ''}
+          </div>
+          <Bar pct={st.pct} color={color} className="mt-2" />
+        </button>
+      );
+    })}
+    <button
+      type="button"
+      id="struct-module-add"
+      onClick={onAdd}
+      className="min-h-[132px] rounded-3xl border border-dashed border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-400 hover:text-sky-600 hover:border-sky-400 flex flex-col items-center justify-center gap-1.5"
+    >
+      <Plus className="h-5 w-5" /> Novo módulo
+    </button>
+  </div>
+);
 
 
 const NO_MODULE = '__none__';

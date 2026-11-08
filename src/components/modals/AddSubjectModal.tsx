@@ -18,7 +18,11 @@ const inputCls =
 const labelCls = 'block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1';
 
 export const AddSubjectModal: React.FC<AddSubjectModalProps> = ({ isOpen, onClose }) => {
-  const { currentSemester, addSubject, triggerConfetti } = useApp();
+  const { currentSemester, addSubject, updateSubject, subjects, triggerConfetti } = useApp();
+  // Tipo: disciplina (grande área / formato) ou Módulo da faculdade
+  const [kind, setKind] = useState<'subject' | 'module'>('subject');
+  const [moduleId, setModuleId] = useState('');
+  const [linkIds, setLinkIds] = useState<string[]>([]);
 
   const [name, setName] = useState('');
   const [area, setArea] = useState<string | null>(null);
@@ -34,6 +38,15 @@ export const AddSubjectModal: React.FC<AddSubjectModalProps> = ({ isOpen, onClos
   const cycle = cycleOfSemester(currentSemester);
   const isCycleMode = cycle !== 'internato';
 
+  const semSubjects = subjects.filter((x) => !x.semesterId || !currentSemester || x.semesterId === currentSemester.id);
+  const modules = semSubjects.filter((x) => x.kind === 'module');
+  const linkable = semSubjects.filter((x) => x.kind !== 'module');
+  const chosenModule = modules.find((m) => m.id === moduleId);
+  /** Depois de criar uma disciplina: entra no módulo escolhido */
+  const attachToModule = (newId: string) => {
+    if (!chosenModule) return;
+    updateSubject(chosenModule.id, { linkedSubjectIds: Array.from(new Set([...(chosenModule.linkedSubjectIds || []), newId])) }, { silent: true });
+  };
   const isCM = isClinicaMedica(area || undefined);
   const areaInfo = area ? getMedicalArea(area) : null;
 
@@ -45,6 +58,9 @@ export const AddSubjectModal: React.FC<AddSubjectModalProps> = ({ isOpen, onClos
     setOrganization('checklist');
     setTutorialCount(5);
     setModuleName('');
+    setKind('subject');
+    setModuleId('');
+    setLinkIds([]);
   };
 
   const handleClose = () => {
@@ -69,12 +85,29 @@ export const AddSubjectModal: React.FC<AddSubjectModalProps> = ({ isOpen, onClos
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (kind === 'module') {
+      if (!name.trim()) return;
+      addSubject({
+        kind: 'module',
+        name: name.trim(),
+        universitySubject: name.trim(),
+        code: 'MOD',
+        color: '#0d9488',
+        organization: 'blocos',
+        linkedSubjectIds: linkIds.length ? linkIds : undefined,
+        targetGrade: 7.0,
+        semesterId: currentSemester?.id,
+      });
+      triggerConfetti();
+      handleClose();
+      return;
+    }
     if (isCycleMode) {
       if (!name.trim() || !format) return;
       const f = getSubjectFormat(format);
-      addSubject({
+      const newId = addSubject({
         name: name.trim(),
-        universitySubject: moduleName.trim() || name.trim(),
+        universitySubject: chosenModule?.name || moduleName.trim() || name.trim(),
         majorArea: cycle === 'ciclo_clinico' && area ? area : undefined,
         code: f.label.slice(0, 3).toUpperCase(),
         color: f.color,
@@ -88,6 +121,7 @@ export const AddSubjectModal: React.FC<AddSubjectModalProps> = ({ isOpen, onClos
         targetGrade: 7.0,
         semesterId: currentSemester?.id,
       });
+      attachToModule(newId);
       triggerConfetti();
       handleClose();
       return;
@@ -95,7 +129,7 @@ export const AddSubjectModal: React.FC<AddSubjectModalProps> = ({ isOpen, onClos
     if (!name.trim() || !area || !areaInfo) return;
     const sp = isCM ? getSpecialty(specialty) : undefined;
 
-    addSubject({
+    const newId = addSubject({
       name: name.trim(),
       code: areaInfo.short,
       color: areaInfo.color,
@@ -103,8 +137,9 @@ export const AddSubjectModal: React.FC<AddSubjectModalProps> = ({ isOpen, onClos
       specialty: sp?.id,
       targetGrade: 7.0,
       semesterId: currentSemester?.id,
-      universitySubject: moduleName.trim() || name.trim(),
+      universitySubject: chosenModule?.name || moduleName.trim() || name.trim(),
     });
+    attachToModule(newId);
 
     triggerConfetti();
     handleClose();
@@ -119,7 +154,7 @@ export const AddSubjectModal: React.FC<AddSubjectModalProps> = ({ isOpen, onClos
               <BookOpen className="h-5 w-5" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-slate-900 dark:text-white">{isCycleMode ? "Novo componente do semestre" : "Nova Disciplina da Faculdade"}</h2>
+              <h2 className="text-base font-bold text-slate-900 dark:text-white">{kind === 'module' ? 'Novo módulo da faculdade' : isCycleMode ? 'Novo componente do semestre' : 'Nova Disciplina da Faculdade'}</h2>
               <p className="text-xs text-slate-500">
                 {isCycleMode ? `${cycle === 'ciclo_basico' ? 'Ciclo Básico' : 'Ciclo Clínico'} · escolha o formato e como organizar` : 'Cadastre a disciplina da sua grade curricular'}
               </p>
@@ -145,7 +180,74 @@ export const AddSubjectModal: React.FC<AddSubjectModalProps> = ({ isOpen, onClos
             </span>
           </div>
 
-          {isCycleMode ? (
+          {/* Tipo: disciplina ou módulo da faculdade */}
+          <div role="tablist" aria-label="O que você quer criar" className="grid grid-cols-2 gap-1.5 p-1 rounded-2xl bg-slate-100 dark:bg-slate-800/70">
+            {(
+              [
+                { id: 'subject', label: 'Disciplina', hint: isCycleMode ? 'formato e assuntos' : 'grande área e assuntos' },
+                { id: 'module', label: 'Módulo da faculdade', hint: 'assuntos próprios + vínculos' },
+              ] as const
+            ).map((k) => (
+              <button
+                key={k.id}
+                type="button"
+                role="tab"
+                id={`subject-kind-${k.id}`}
+                aria-selected={kind === k.id}
+                onClick={() => setKind(k.id)}
+                className={`min-h-[44px] rounded-xl px-3 text-left transition-colors ${kind === k.id ? 'bg-white dark:bg-slate-900 shadow-xs' : 'hover:bg-white/60 dark:hover:bg-slate-900/50'}`}
+              >
+                <span className={`block text-xs font-black ${kind === k.id ? 'text-sky-700 dark:text-sky-300' : 'text-slate-700 dark:text-slate-200'}`}>{k.label}</span>
+                <span className="block text-[10px] text-slate-500 dark:text-slate-400">{k.hint}</span>
+              </button>
+            ))}
+          </div>
+
+          {kind === 'module' ? (
+            <>
+              <div>
+                <label className={labelCls} htmlFor="module-name">Nome do módulo</label>
+                <input
+                  id="module-name"
+                  type="text"
+                  placeholder="Ex: Saúde da Criança, Módulo IV, Sistema Cardiovascular..."
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className={inputCls}
+                  required
+                />
+                <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                  O módulo tem os próprios assuntos (como uma disciplina) e pode juntar disciplinas, outros módulos e assuntos.
+                </p>
+              </div>
+              {linkable.length > 0 && (
+                <div>
+                  <span className={labelCls}>
+                    Vincular disciplinas agora <span className="font-medium text-slate-400">(opcional, dá para fazer depois)</span>
+                  </span>
+                  <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto">
+                    {linkable.map((x) => {
+                      const on = linkIds.includes(x.id);
+                      return (
+                        <button
+                          key={x.id}
+                          type="button"
+                          aria-pressed={on}
+                          onClick={() => setLinkIds((v) => (on ? v.filter((i) => i !== x.id) : [...v, x.id]))}
+                          className={`min-h-[36px] px-3 rounded-full border text-[11px] font-bold transition-colors ${
+                            on ? 'bg-sky-600 border-sky-600 text-white' : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-sky-400'
+                          }`}
+                        >
+                          {on ? '✓ ' : ''}
+                          {x.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </>
+          ) : isCycleMode ? (
             <CycleSubjectForm
               cycle={cycle}
               format={format}
@@ -158,7 +260,7 @@ export const AddSubjectModal: React.FC<AddSubjectModalProps> = ({ isOpen, onClos
               onTutorialCount={setTutorialCount}
             />
           ) : null}
-          {isCycleMode && cycle === 'ciclo_clinico' && (
+          {kind === 'subject' && isCycleMode && cycle === 'ciclo_clinico' && (
             <div>
               <label className={labelCls}>
                 Grande área <span className="font-medium text-slate-400">(opcional)</span>
@@ -186,7 +288,7 @@ export const AddSubjectModal: React.FC<AddSubjectModalProps> = ({ isOpen, onClos
               </div>
             </div>
           )}
-          {isCycleMode ? null : (
+          {kind === 'module' || isCycleMode ? null : (
           <>
           {/* 1. Grande área (define grupo e cor) */}
           <AreaPicker value={area} onChange={handleAreaChange} label="1. Grande Área" />
@@ -217,20 +319,38 @@ export const AddSubjectModal: React.FC<AddSubjectModalProps> = ({ isOpen, onClos
           </>
           )}
 
-          {/* Módulo / matéria da faculdade (opcional): agrupa na visão "Módulos" */}
-          <div>
-            <label className={labelCls} htmlFor="subject-module">
-              Módulo/matéria da faculdade <span className="font-medium text-slate-400">(opcional)</span>
-            </label>
-            <input
-              id="subject-module"
-              type="text"
-              placeholder="Ex: Saúde da Criança, Módulo IV..."
-              value={moduleName}
-              onChange={(e) => setModuleName(e.target.value)}
-              className={inputCls}
-            />
-          </div>
+          {/* Disciplina: entra num módulo da faculdade (opcional) */}
+          {kind === 'subject' && (
+            <div>
+              <label className={labelCls} htmlFor="subject-module">
+                Faz parte de um módulo da faculdade? <span className="font-medium text-slate-400">(opcional)</span>
+              </label>
+              {modules.length > 0 ? (
+                <select id="subject-module" value={moduleId} onChange={(e) => setModuleId(e.target.value)} className={inputCls}>
+                  <option value="">Não / nenhum</option>
+                  {modules.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <>
+                  <input
+                    id="subject-module"
+                    type="text"
+                    placeholder="Ex: Saúde da Criança, Módulo IV..."
+                    value={moduleName}
+                    onChange={(e) => setModuleName(e.target.value)}
+                    className={inputCls}
+                  />
+                  <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                    Dica: crie o módulo em "Módulo da faculdade" acima para ele ter os próprios assuntos e vínculos.
+                  </p>
+                </>
+              )}
+            </div>
+          )}
 
           <div className="app-modal-footer pt-3 flex items-center justify-end gap-2 border-t border-slate-100 dark:border-slate-800">
             <button
@@ -242,7 +362,7 @@ export const AddSubjectModal: React.FC<AddSubjectModalProps> = ({ isOpen, onClos
             </button>
             <button
               type="submit"
-              disabled={!name.trim() || (isCycleMode ? !format : !area)}
+              disabled={!name.trim() || (kind === 'module' ? false : isCycleMode ? !format : !area)}
               title={
                 isCycleMode
                   ? !format ? 'Escolha o formato' : !name.trim() ? 'Informe o nome' : undefined
@@ -250,7 +370,7 @@ export const AddSubjectModal: React.FC<AddSubjectModalProps> = ({ isOpen, onClos
               }
               className="px-5 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold text-xs shadow-xs"
             >
-              Criar Disciplina
+              {kind === 'module' ? 'Criar módulo' : 'Criar disciplina'}
             </button>
           </div>
         </form>

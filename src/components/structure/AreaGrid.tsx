@@ -19,7 +19,7 @@ export interface AreaGroup {
 /** Disciplinas agrupadas pelas grandes áreas, sempre na mesma ordem ("Outras" no fim) */
 export const groupByArea = (subjects: Subject[]): AreaGroup[] =>
   [...MEDICAL_AREAS, OTHER_AREA]
-    .map((area) => ({ area, items: subjects.filter((s) => getMedicalArea(s.majorArea).id === area.id) }))
+    .map((area) => ({ area, items: subjects.filter((s) => s.kind !== 'module' && getMedicalArea(s.majorArea).id === area.id) }))
     .filter((g) => g.items.length > 0);
 
 interface Props {
