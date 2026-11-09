@@ -59,6 +59,14 @@ export const SubjectBlocksPanel: React.FC<SubjectBlocksPanelProps> = ({ subject,
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   // Subtópicos abertos por tópico (com subtópicos, começa aberto)
   const [detailsOpen, setDetailsOpen] = useState<Record<string, boolean>>({});
+  // Editar o título do tópico (toque no nome)
+  const [editingTopic, setEditingTopic] = useState<{ id: string; value: string } | null>(null);
+  const saveTopicTitle = () => {
+    if (!editingTopic) return;
+    const v = editingTopic.value.trim();
+    if (v) updateTopic(editingTopic.id, { title: v });
+    setEditingTopic(null);
+  };
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
@@ -542,8 +550,29 @@ export const SubjectBlocksPanel: React.FC<SubjectBlocksPanelProps> = ({ subject,
                               {(isSeen || isBonus) && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
                               {isPending && <X className="h-3 w-3 text-white" strokeWidth={3} />}
                             </span>
+                            {editingTopic?.id === t.id ? (
+                              <input
+                                autoFocus
+                                id={`struct-topic-edit-${t.id}`}
+                                value={editingTopic.value}
+                                onChange={(e) => setEditingTopic({ id: t.id, value: e.target.value })}
+                                onBlur={saveTopicTitle}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') saveTopicTitle();
+                                  if (e.key === 'Escape') setEditingTopic(null);
+                                }}
+                                className="min-w-0 flex-1 bg-transparent text-xs font-semibold text-slate-900 dark:text-white border-b border-sky-500 focus:outline-hidden py-1"
+                                aria-label="Novo nome do tópico"
+                              />
+                            ) : (
                             <span
-                              className={`min-w-0 flex-1 text-xs break-words ${
+                              role="button"
+                              tabIndex={0}
+                              id={`struct-topic-title-${t.id}`}
+                              onClick={() => setEditingTopic({ id: t.id, value: t.title })}
+                              onKeyDown={(e) => e.key === 'Enter' && setEditingTopic({ id: t.id, value: t.title })}
+                              title="Toque para editar o nome"
+                              className={`cursor-text min-w-0 flex-1 text-xs break-words ${
                                 isSeen ? 'text-slate-400 line-through' : isPending ? 'text-rose-700 dark:text-rose-300 font-semibold' : isBonus ? 'text-slate-600 dark:text-slate-300 font-semibold' : 'text-slate-800 dark:text-slate-100 font-semibold'
                               }`}
                             >
@@ -554,6 +583,7 @@ export const SubjectBlocksPanel: React.FC<SubjectBlocksPanelProps> = ({ subject,
                                 </span>
                               )}
                             </span>
+                            )}
                             {(() => {
                               const pr = subItemsProgress(t.details);
                               const open = !!detailsOpen[t.id];
