@@ -52,6 +52,7 @@ import {
   studyPhaseOf,
 } from '../data/studyMethod';
 import { upgradeAvatarUrl } from '../data/avatars';
+import { sharedDetails, type SharedSubject } from '../data/share';
 import { matchSchool, schoolByCode } from '../data/medicalSchools';
 import { shrinkAvatarDataUrl, AVATAR_MAX_DATAURL } from '../data/avatarImage';
 import {
@@ -220,6 +221,8 @@ interface AppContextType {
   addTopicBlock: (subjectId: string, name: string) => string;
   /** Checklist (Básico/Clínico): adiciona vários tópicos de uma vez (colar lista) */
   addTopicsBulk: (tops: Omit<Topic, 'id'>[]) => void;
+  /** Importa uma disciplina/módulo recebido por link (só a lista, sem progresso). Devolve o id da nova disciplina */
+  importSharedSubject: (p: SharedSubject) => string;
   /** Checklist: transforma uma matéria vista em bloco do ciclo de revisões (Dia 0 = hoje) */
   sendModuleToReview: (subjectId: string, moduleName: string) => void;
   /** Muda a disciplina de Checklist para Blocos: cada matéria vira um bloco em estudo */
@@ -1904,6 +1907,53 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showNotification(created.length === 1 ? `Tópico "${created[0].title}" adicionado!` : `${created.length} tópicos adicionados!`, 'success');
   };
 
+  const importSharedSubject = (p: SharedSubject) => {
+    const stamp = Date.now();
+    let n = 0;
+    const mkId = (pre: string) => `${pre}-${stamp}-${n++}-${Math.random().toString(36).slice(2, 6)}`;
+    const subjectId = mkId('sub');
+    const sub: Subject = {
+      id: subjectId,
+      semesterId: currentSemester?.id,
+      name: p.s.name,
+      code: p.s.code || '',
+      color: p.s.color || '#0ea5e9',
+      targetGrade: 7,
+      ...(p.s.kind ? { kind: p.s.kind } : {}),
+      ...(p.s.majorArea ? { majorArea: p.s.majorArea } : {}),
+      ...(p.s.specialty ? { specialty: p.s.specialty } : {}),
+      ...(p.s.universitySubject ? { universitySubject: p.s.universitySubject } : {}),
+      ...(p.s.format ? { format: p.s.format } : {}),
+      ...(p.s.organization ? { organization: p.s.organization } : {}),
+      ...(p.s.checklistModules?.length ? { checklistModules: p.s.checklistModules } : {}),
+      ...(p.s.tutorials?.length ? { tutorials: p.s.tutorials.map((name) => ({ id: mkId('tut'), name })) } : {}),
+    };
+    const now = new Date().toISOString();
+    const newBlocks: TopicBlock[] = [];
+    const newTopics: Topic[] = [];
+    const mkTopic = (t: SharedSubject['t'][number], blockId?: string): Topic => ({
+      id: mkId('top'),
+      subjectId,
+      title: t.n,
+      status: 'nao_iniciado',
+      priority: 'media',
+      ...(blockId ? { blockId } : {}),
+      ...(t.m ? { moduleName: t.m } : {}),
+      ...(t.d?.length ? { details: sharedDetails(t.d, () => mkId('st')) } : {}),
+    });
+    p.b.forEach((b) => {
+      const id = mkId('blk');
+      newBlocks.push({ id, subjectId, name: b.n, createdAt: now, reviewStatus: 'estudando', reviewsDone: 0 });
+      b.t.forEach((t) => newTopics.push(mkTopic(t, id)));
+    });
+    p.t.forEach((t) => newTopics.push(mkTopic(t)));
+    setSubjects((prev) => [...prev, sub]);
+    if (newBlocks.length) setTopicBlocks((prev) => [...prev, ...newBlocks]);
+    if (newTopics.length) setTopics((prev) => [...prev, ...newTopics]);
+    showNotification(`"${sub.name}" foi adicionada às suas disciplinas.`, 'success');
+    return subjectId;
+  };
+
   const sendModuleToReview = (subjectId: string, moduleName: string) => {
     const list = topics.filter((t) => t.subjectId === subjectId && (t.moduleName || '') === moduleName && !t.blockId);
     if (list.length === 0) return;
@@ -3079,6 +3129,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         deleteQuestionLog,
         addTopicBlock,
         addTopicsBulk,
+        importSharedSubject,
         sendModuleToReview,
         convertChecklistToBlocks,
         renameTopicBlock,

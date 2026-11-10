@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { ChevronDown, MoreHorizontal, Pencil, Trash2, FolderTree, ArrowRight } from 'lucide-react';
+import { ChevronDown, MoreHorizontal, Pencil, Trash2, FolderTree, ArrowRight, Share2 } from 'lucide-react';
+import { ShareSubjectModal } from './ShareSubject';
 import { useApp } from '../../context/AppContext';
 import type { Subject } from '../../types';
 
@@ -25,6 +26,7 @@ export const SubjectSection: React.FC<Props> = ({ subject, standalone, defaultOp
   const [open, setOpen] = useState(!!(standalone || defaultOpen));
   const [menu, setMenu] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [sharing, setSharing] = useState(false);
   const [editingModule, setEditingModule] = useState(false);
   const [moduleDraft, setModuleDraft] = useState('');
 
@@ -109,6 +111,16 @@ export const SubjectSection: React.FC<Props> = ({ subject, standalone, defaultOp
                 <FolderTree className="h-3.5 w-3.5" /> Módulo da faculdade
               </button>
               <button
+                id={`struct-share-${subject.id}`}
+                onClick={() => {
+                  setMenu(false);
+                  setSharing(true);
+                }}
+                className={`${menuBtn} text-sky-700 dark:text-sky-300 hover:bg-sky-50 dark:hover:bg-sky-950/40`}
+              >
+                <Share2 className="h-3.5 w-3.5" /> Compartilhar com um amigo
+              </button>
+              <button
                 onClick={() => {
                   setMenu(false);
                   setConfirmDelete(true);
@@ -182,6 +194,7 @@ export const SubjectSection: React.FC<Props> = ({ subject, standalone, defaultOp
           )}
         </div>
       )}
+      <ShareSubjectModal subject={sharing ? subject : null} onClose={() => setSharing(false)} />
     </section>
   );
 };

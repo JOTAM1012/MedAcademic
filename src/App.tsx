@@ -38,6 +38,7 @@ import { AddSemesterModal } from './components/modals/AddSemesterModal';
 import { AddScheduleModal } from './components/modals/AddScheduleModal';
 import { OnboardingModal } from './components/modals/OnboardingModal';
 import { StudyRoutineModal } from './components/plan/StudyRoutineModal';
+import { ImportSharedGate } from './components/structure/ShareSubject';
 import { userLocalKey, writeLocal } from './components/plan/planShared';
 import { AuthModal } from './components/modals/AuthModal';
 
@@ -499,6 +500,9 @@ const AppContent: React.FC = () => {
       </div>
 
       <InstallAppModal isOpen={isInstallOpen} onClose={() => setIsInstallOpen(false)} />
+
+      {/* Disciplina recebida por link (só depois da pesquisa da conta nova) */}
+      {!isRoutineSurveyOpen && <ImportSharedGate />}
 
       {/* Conta nova: pesquisa de perfil e rotina (3 perguntas obrigatórias + opcionais) */}
       <StudyRoutineModal open={isRoutineSurveyOpen} required onClose={handleCloseRoutineSurvey} />

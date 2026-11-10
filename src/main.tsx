@@ -6,6 +6,14 @@ import { registerServiceWorker } from './registerServiceWorker';
 import { initPwaInstall } from './lib/pwaInstall';
 import { installSafeLocalStorage } from './lib/storageSafety';
 import { AppErrorBoundary } from './components/AppErrorBoundary';
+import { PENDING_IMPORT_KEY, SHARE_HASH } from './data/share';
+
+try {
+  if (window.location.hash.startsWith(SHARE_HASH)) {
+    localStorage.setItem(PENDING_IMPORT_KEY, window.location.hash.slice(SHARE_HASH.length));
+    history.replaceState(null, '', window.location.pathname + window.location.search);
+  }
+} catch {}
 
 // Armazenamento cheio (ex.: foto grande no iPhone) nunca mais derruba o app
 installSafeLocalStorage();
