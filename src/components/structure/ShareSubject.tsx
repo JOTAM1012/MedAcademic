@@ -227,3 +227,49 @@ export const ImportSharedGate: React.FC = () => {
     </PlanModal>
   );
 };
+
+// ---------------------------------------------------------------- botão rápido nos cards
+/** Ícone no card: no celular abre o "Enviar" do aparelho; no computador já copia o link */
+export const QuickShareButton: React.FC<{ subject: Subject; className?: string }> = ({ subject, className = '' }) => {
+  const { topicBlocks, topics, showNotification } = useApp();
+  const [modal, setModal] = useState(false);
+  const [done, setDone] = useState(false);
+  const go = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const link = shareLink(await encodeShared(buildSharedSubject(subject, topicBlocks, topics)));
+    const touch = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches;
+    if (touch && 'share' in navigator) {
+      try {
+        await navigator.share({ title: `${subject.name} no MedAcademic`, text: `Te mandei a lista de "${subject.name}". Abra para adicionar nas suas disciplinas:`, url: link });
+      } catch {
+        /* cancelado */
+      }
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(link);
+      setDone(true);
+      setTimeout(() => setDone(false), 1800);
+      showNotification(`Link de "${subject.name}" copiado. É só colar na conversa com seu amigo.`, 'success');
+    } catch {
+      setModal(true);
+    }
+  };
+  return (
+    <>
+      <button
+        type="button"
+        id={`struct-quick-share-${subject.id}`}
+        onClick={go}
+        aria-label={`Compartilhar ${subject.name} com um amigo`}
+        title="Compartilhar com um amigo (copia o link)"
+        className={`absolute top-3 right-12 z-10 h-9 w-9 rounded-xl flex items-center justify-center transition-colors ${
+          done ? 'text-emerald-500 bg-emerald-500/10' : 'text-slate-400 hover:text-sky-600 hover:bg-sky-50 dark:hover:text-sky-400 dark:hover:bg-sky-500/10'
+        } ${className}`}
+      >
+        {done ? <Check className="h-4 w-4" /> : <Share2 className="h-4 w-4" />}
+      </button>
+      <ShareSubjectModal subject={modal ? subject : null} onClose={() => setModal(false)} />
+    </>
+  );
+};

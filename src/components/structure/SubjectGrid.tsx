@@ -5,6 +5,7 @@ import type { Subject, Topic, TopicBlock } from '../../types';
 import { formatDM } from '../../data/blockReview';
 import { Bar, Ring, subjectColor, subjectName, topicStats } from './shared';
 import { DeleteSubjectButton } from './DeleteSubjectButton';
+import { QuickShareButton } from './ShareSubject';
 
 interface Props {
   subjects: Subject[];
@@ -51,7 +52,7 @@ export const SubjectGrid: React.FC<Props> = ({ subjects, topics, topicBlocks, on
                 {st.total} assunto{st.total === 1 ? '' : 's'} · {status}
               </p>
             </div>
-            <span className="w-7 shrink-0" aria-hidden="true" />
+            <span className="w-16 shrink-0" aria-hidden="true" />
           </div>
           <div className="mt-4 flex items-end justify-between gap-3">
             <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
@@ -60,6 +61,7 @@ export const SubjectGrid: React.FC<Props> = ({ subjects, topics, topicBlocks, on
           </div>
           <Bar pct={st.pct} color={color} className="mt-2" />
         </button>
+        <QuickShareButton subject={s} />
         <DeleteSubjectButton subject={s} className="!top-3 !bottom-auto" />
         </div>
       );
