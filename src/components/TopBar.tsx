@@ -9,7 +9,7 @@ import {
   Cloud,
   CloudOff,
   RefreshCw,
-  HelpCircle,
+  Compass,
   Smartphone,
   Repeat,
   NotebookPen,
@@ -31,7 +31,6 @@ interface TopBarProps {
 
 export const TopBar: React.FC<TopBarProps> = ({ onToggleMobileMenu, onOpenTour }) => {
   const { isInstalled: isAppInstalled } = usePwaInstall();
-  const [isHelpOpen, setIsHelpOpen] = useState(false);
   const {
     setCurrentTab,
     isDarkMode,
@@ -104,8 +103,6 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleMobileMenu, onOpenTour }
     .map((e) => ({ e, left: examReminderToday(e, today) }))
     .filter((x) => x.left !== undefined)
     .map(({ e, left }) => ({ id: e.id, text: examReminderText(e, left as number) }));
-  // Novo usuário (ainda não viu o guia do método): o botão de ajuda vira "Comece aqui"
-  const isNewcomer = !methodGuideSeen;
   const hasAlerts = upcomingExamsList.length > 0 || dueReviews > 0 || dueErrors > 0 || examReminders.length > 0;
   const examWhen = (date: string) => {
     const d = daysBetween(today, date);
@@ -397,96 +394,25 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleMobileMenu, onOpenTour }
                   )}
                 </div>
 
-                <button
-                  type="button"
-                  id="topbar-method-guide-link"
-                  onClick={closeAnd(() => openMethodGuide(0))}
-                  className="w-full mt-1 pt-2.5 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2 px-1 text-[11px] font-bold text-slate-600 dark:text-slate-300 hover:text-sky-700 dark:hover:text-sky-300 transition-colors"
-                >
-                  <BookOpen className="h-3.5 w-3.5 text-sky-600 dark:text-sky-400" />
-                  Como funciona o método
-                  <ChevronRight className="h-3.5 w-3.5 ml-auto" />
-                </button>
               </div>
             </>
           )}
         </div>
 
-        {/* Ajuda: um botão só (guia do método, tour guiado, instalar app). Novo usuário vê "Comece aqui" */}
-        <div className="relative">
+        {/* Tour guiado pelo site (a ajuda de cada aba fica dentro da própria aba) */}
+        {onOpenTour && (
           <button
             id="topbar-help-btn"
             type="button"
-            onClick={() => setIsHelpOpen((v) => !v)}
-            aria-expanded={isHelpOpen}
-            aria-label="Ajuda: como funciona e tour guiado"
-            className={`relative h-10 shrink-0 flex items-center justify-center gap-1.5 rounded-xl px-2.5 text-xs font-bold transition-colors ${
-              isNewcomer
-                ? 'bg-sky-600 hover:bg-sky-500 text-white shadow-sm shadow-sky-600/30'
-                : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-800 dark:hover:text-slate-100'
-            }`}
+            onClick={onOpenTour}
+            aria-label="Tour guiado pelo site"
+            title="Tour guiado: onde fica cada coisa, passo a passo"
+            className="h-10 shrink-0 flex items-center justify-center gap-1.5 rounded-xl px-2.5 text-xs font-bold transition-colors text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-800 dark:hover:text-slate-100"
           >
-            <HelpCircle className="h-4 w-4" />
-            <span className={isNewcomer ? 'inline' : 'hidden md:inline'}>{isNewcomer ? 'Comece aqui' : 'Ajuda'}</span>
-            {isNewcomer && (
-              <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-300 opacity-75" />
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-sky-300" />
-              </span>
-            )}
+            <Compass className="h-4 w-4" />
+            <span className="hidden md:inline">Tour guiado</span>
           </button>
-          {isHelpOpen && (
-            <>
-              <div className="fixed inset-0 z-40" onClick={() => setIsHelpOpen(false)} aria-hidden="true" />
-              <div
-                id="topbar-help-menu"
-                role="menu"
-                className="fixed left-3 right-3 top-16 sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-2 sm:w-72 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-2 shadow-xl z-50"
-              >
-                <button
-                  type="button"
-                  role="menuitem"
-                  id="topbar-method-guide-btn"
-                  onClick={() => {
-                    setIsHelpOpen(false);
-                    openMethodGuide(0);
-                  }}
-                  className="w-full flex items-start gap-3 p-2.5 rounded-xl text-left hover:bg-slate-50 dark:hover:bg-slate-800/70"
-                >
-                  <span className="p-2 rounded-lg bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 shrink-0">
-                    <BookOpen className="h-4 w-4" />
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block text-sm font-bold text-slate-900 dark:text-white">
-                      Como funciona o método {!methodGuideSeen && <span className="ml-1 text-[10px] font-black text-sky-600 dark:text-sky-400">COMECE AQUI</span>}
-                    </span>
-                    <span className="block text-[11px] text-slate-500 dark:text-slate-400">O guia do estudo: revisões, plano do dia, questões. 3 min.</span>
-                  </span>
-                </button>
-                {onOpenTour && (
-                  <button
-                    type="button"
-                    role="menuitem"
-                    id="topbar-tour-btn"
-                    onClick={() => {
-                      setIsHelpOpen(false);
-                      onOpenTour();
-                    }}
-                    className="w-full flex items-start gap-3 p-2.5 rounded-xl text-left hover:bg-slate-50 dark:hover:bg-slate-800/70"
-                  >
-                    <span className="p-2 rounded-lg bg-cyan-50 dark:bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 shrink-0">
-                      <HelpCircle className="h-4 w-4" />
-                    </span>
-                    <span className="min-w-0">
-                      <span className="block text-sm font-bold text-slate-900 dark:text-white">Tour guiado pelo site</span>
-                      <span className="block text-[11px] text-slate-500 dark:text-slate-400">Onde fica cada coisa, passo a passo.</span>
-                    </span>
-                  </button>
-                )}
-              </div>
-            </>
-          )}
-        </div>
+        )}
 
         {/* Dark Mode Toggle */}
         <button

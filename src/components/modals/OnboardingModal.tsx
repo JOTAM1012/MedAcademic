@@ -110,7 +110,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClos
       tag: 'Aplicativo',
       description:
         'O MedAcademic pode ser instalado direto pelo navegador, sem loja: ganha ícone na tela inicial, abre em tela cheia, funciona offline e continua sincronizando com a nuvem.',
-      actionTip: '💡 Dica: o botão "Instalar app" fica sempre no topo da tela, ao lado de "Ajuda & Tour".',
+      actionTip: '💡 Dica: o botão "Instalar app" fica sempre no topo da tela, ao lado de "Tour guiado".',
       bulletPoints: [],
       custom: <InstallAppGuide compact />,
     },

@@ -39,6 +39,7 @@ import { AddScheduleModal } from './components/modals/AddScheduleModal';
 import { OnboardingModal } from './components/modals/OnboardingModal';
 import { StudyRoutineModal } from './components/plan/StudyRoutineModal';
 import { ImportSharedGate } from './components/structure/ShareSubject';
+import { TabHelpBar } from './components/TabHelp';
 import { userLocalKey, writeLocal } from './components/plan/planShared';
 import { AuthModal } from './components/modals/AuthModal';
 
@@ -403,6 +404,7 @@ const AppContent: React.FC = () => {
               className="w-full"
             >
               <AnnouncementBanner />
+              <TabHelpBar tab={currentTab} />
               {renderActiveView()}
             </motion.div>
           </AnimatePresence>

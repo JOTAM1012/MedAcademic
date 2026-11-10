@@ -47,10 +47,10 @@ const TOUR_STEPS: TourStep[] = [
   {
     id: 'help',
     targetSelector: '#topbar-help-btn',
-    title: 'Comece por aqui',
+    title: 'Tour guiado',
     description:
-      'Em Ajuda você encontra “Como funciona o método” (o guia do estudo) e este tour. Volte quando quiser.',
-    badgeText: 'Ajuda 🧭',
+      'Este botão abre o tour sempre que você quiser. Em cada aba há também um botão “Ajuda”, que ensina a usar aquela tela.',
+    badgeText: 'Tour 🧭',
     icon: <HelpCircle className="w-5 h-5 text-amber-400" />,
     position: 'bottom',
   },
