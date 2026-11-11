@@ -15,6 +15,7 @@ import {
   reviewTechnique,
   suggestDifficulty,
   restDaysOf,
+  secondContactSteps,
 } from '../../data/studyMethod';
 import { todayYMD } from '../../hooks/useStudyPlan';
 import { ErrorNoteModal } from './ErrorNoteModal';
@@ -44,7 +45,12 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ block, expanded = true, 
   const today = todayYMD();
   const sub = subjects.find((s) => s.id === block.subjectId);
   const color = subjectColor(sub);
-  const tech = useMemo(() => reviewTechnique(block, sub?.format), [block, sub?.format]);
+  const tech = useMemo(() => {
+    const t = reviewTechnique(block, sub?.format);
+    // 1ª revisão: se o aluno definiu o "2º contato" no Meu método, valem os passos dele
+    return t.id === 'folha_branco' ? { ...t, steps: secondContactSteps(studyPrefs, t.steps) } : t;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [block, sub?.format, studyPrefs.secondContactSteps]);
   const blockTopics = topics.filter((t) => t.blockId === block.id);
   const pendingTopics = blockTopics.filter(isTopicPending);
   const isLegacyMastered = block.reviewStatus === 'dominado';

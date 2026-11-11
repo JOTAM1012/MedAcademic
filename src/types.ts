@@ -192,6 +192,10 @@ export interface StudyPlanPrefs {
   weekTurns?: TurnState[][];
   /** Turno em que o aluno rende mais (o plano sugere o tema novo nele) */
   bestTurn?: ExamShift;
+  /** Meu método: passos do 1º contato com o tema (tema novo). Sem isso, vale o padrão do guia */
+  firstContactSteps?: string[];
+  /** Meu método: passos do 2º contato (1ª revisão, 24 h depois) */
+  secondContactSteps?: string[];
   /** Modo detalhado da semana: cada turno livre pode ter matéria, assunto e forma de estudo */
   turnsDetailed?: boolean;
   /** Plano de cada turno. Chave "dia-turno" (ex.: "1-manha" = segunda de manhã) */

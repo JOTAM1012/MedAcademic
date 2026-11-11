@@ -10,6 +10,7 @@ import { OptionChip, PlanModal, blocksToHours } from './planShared';
 import { BlockPicker } from './BlockPicker';
 import { WeekTurnsEditor } from './WeekTurnsEditor';
 import { ExamWeeksPicker } from './ExamWeeksPicker';
+import { MethodEditor } from './MethodEditor';
 
 interface StudyRoutineModalProps {
   open: boolean;
@@ -409,6 +410,18 @@ export const StudyRoutineModal: React.FC<StudyRoutineModalProps> = ({ open, onCl
             Semanas de prova
           </SectionTitle>
           <ExamWeeksPicker value={draft.examWeeks} onChange={(v) => set('examWeeks', v)} />
+        </section>
+
+        {/* Meu método: passos do 1º e do 2º contato */}
+        <section id="routine-method-section">
+          <SectionTitle hint="Como você estuda um tema novo e como faz a 1ª revisão. O plano do dia mostra estes passos para marcar.">
+            Meu método de estudo
+          </SectionTitle>
+          <MethodEditor
+            first={draft.firstContactSteps}
+            second={draft.secondContactSteps}
+            onChange={(a, b) => setDraft((d) => ({ ...d, firstContactSteps: a, secondContactSteps: b }))}
+          />
         </section>
 
         {/* Meus blocos de foco */}

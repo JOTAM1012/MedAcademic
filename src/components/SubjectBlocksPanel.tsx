@@ -5,7 +5,7 @@ import { useApp } from '../context/AppContext';
 import { Subject, Topic, TopicBlock } from '../types';
 import { SPECIALTY_BLOCK_SUGGESTIONS } from '../data/areas';
 import { BLOCK_REVIEWS_TO_MASTER, cycleDay, formatDM, isBlockDue, isTopicPending, isTopicResolved, isTopicSeen, ymd } from '../data/blockReview';
-import { TECHNIQUES, reviewTechnique } from '../data/studyMethod';
+import { TECHNIQUES, firstContactSteps, reviewTechnique } from '../data/studyMethod';
 import { Bar, InlineConfirm, countsInProgress, subjectColor, topicStats, formatMin } from './structure/shared';
 import { BlockStatsModal } from './structure/BlockStatsModal';
 import { PlanBlockButton } from './structure/PlanBlockButton';
@@ -13,7 +13,6 @@ import { LinkedAreaBlocks } from './structure/LinkedAreaBlocks';
 
 /** Índice do passo "Feynman" no checklist do estudo inicial */
 const FEYNMAN_STEP = '2';
-const INITIAL_STEPS = TECHNIQUES.estudo_inicial.steps;
 const BONUS = '#f97316';
 
 /** "Pré-teste: tente 3 a 5..." → ["Pré-teste", "tente 3 a 5..."] */
@@ -50,6 +49,9 @@ export const SubjectBlocksPanel: React.FC<SubjectBlocksPanelProps> = ({ subject,
     openReviews,
   } = useApp();
 
+  // Passos do estudo inicial: os do "Meu método" ou o padrão do guia
+  const INITIAL_STEPS = firstContactSteps(studyPrefs);
+  const customFirst = !!studyPrefs.firstContactSteps?.length;
   const [search, setSearch] = useState('');
   const [stepsOpen, setStepsOpen] = useState<Record<string, boolean>>({});
   // Tema fechado (último tópico marcado) sem o passo Feynman: aviso leve, não bloqueia
@@ -123,7 +125,7 @@ export const SubjectBlocksPanel: React.FC<SubjectBlocksPanelProps> = ({ subject,
   const noteClosing = (t: Topic) => {
     if (isTopicResolved(t)) return;
     const block = willCloseBlock(t);
-    if (block && !(block.initialSteps || []).includes(FEYNMAN_STEP)) setClosedNoFeynman((c) => ({ ...c, [block.id]: true }));
+    if (!customFirst && block && !(block.initialSteps || []).includes(FEYNMAN_STEP)) setClosedNoFeynman((c) => ({ ...c, [block.id]: true }));
   };
 
   // Concluído / Ver depois / Aula bônus: clicar de novo no ativo volta para "não iniciado"
@@ -507,7 +509,7 @@ export const SubjectBlocksPanel: React.FC<SubjectBlocksPanelProps> = ({ subject,
                             </ol>
                           )}
                         </div>
-                        {counted.length > 0 && left > 0 && left <= 2 && !feynmanDone && (
+                        {counted.length > 0 && left > 0 && left <= 2 && !feynmanDone && !customFirst && (
                           <p className="mb-2 flex items-start gap-1.5 px-1 text-[11px] text-slate-600 dark:text-slate-300">
                             <Lightbulb className="h-3.5 w-3.5 shrink-0 text-amber-500 mt-px" />
                             <span>Antes de fechar o tema, explique de memória em voz alta (Feynman). É o passo 3 do estudo inicial.</span>

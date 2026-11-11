@@ -77,6 +77,9 @@ export const TodayPlanPanel: React.FC<TodayPlanPanelProps> = ({ compact, onOpenW
     showNotification,
     openPlannerToday,
     currentSemester,
+    subjects,
+    topicBlocks,
+    toggleInitialStep,
   } = app;
   const plan = useDayPlan();
   const date = plan.date;
@@ -92,7 +95,50 @@ export const TodayPlanPanel: React.FC<TodayPlanPanelProps> = ({ compact, onOpenW
     }
   });
   const [expanded, setExpanded] = useState<string | null>(null);
-  const [nowSteps, setNowSteps] = useState(false);
+  const [nowSteps, setNowSteps] = useState(true);
+  // Passo a passo da tarefa. No tema novo, cada passo tem um quadradinho (fica salvo no tema)
+  const StepList = (t: PlanTask) => {
+    const block = t.kind === 'new_block' && t.blockId ? topicBlocks.find((b) => b.id === t.blockId) : undefined;
+    const done = new Set(block?.initialSteps || []);
+    return (
+      <ol className="space-y-1">
+        {t.steps.map((s, i) => {
+          const checked = done.has(String(i));
+          const body = (
+            <>
+              <span
+                className={`h-5 w-5 shrink-0 rounded-full text-[10px] font-black flex items-center justify-center ${checked ? 'text-white' : 'ink'}`}
+                style={checked ? { backgroundColor: t.color } : ({ backgroundColor: `${t.color}22`, '--ink': t.color } as React.CSSProperties)}
+              >
+                {checked ? <Check className="h-3 w-3" strokeWidth={3} /> : i + 1}
+              </span>
+              <span className={`pt-0.5 ${checked ? 'line-through text-slate-400 dark:text-slate-500' : ''}`}>{s}</span>
+            </>
+          );
+          return (
+            <li key={i} className="text-[12px] text-slate-700 dark:text-slate-200">
+              {block ? (
+                <button
+                  type="button"
+                  id={`today-step-${t.blockId}-${i}`}
+                  aria-pressed={checked}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleInitialStep(block.id, String(i));
+                  }}
+                  className="w-full min-h-[32px] flex gap-2 text-left rounded-lg hover:bg-slate-100/70 dark:hover:bg-slate-800/60 px-1 -mx-1 py-0.5"
+                >
+                  {body}
+                </button>
+              ) : (
+                <span className="flex gap-2">{body}</span>
+              )}
+            </li>
+          );
+        })}
+      </ol>
+    );
+  };
   const [adding, setAdding] = useState<null | 'task' | 'patient'>(null);
   const [customTitle, setCustomTitle] = useState('');
   const [customBlocks, setCustomBlocks] = useState(1);
@@ -322,21 +368,7 @@ export const TodayPlanPanel: React.FC<TodayPlanPanelProps> = ({ compact, onOpenW
           <span>{t.reason}</span>
         </p>
       )}
-      {t.steps.length > 0 && (
-        <ol className="space-y-1">
-          {t.steps.map((s, i) => (
-            <li key={i} className="flex gap-2 text-[12px] text-slate-700 dark:text-slate-200">
-              <span
-                className="h-5 w-5 shrink-0 rounded-full text-[10px] font-black flex items-center justify-center ink"
-                style={{ backgroundColor: `${t.color}1f`, '--ink': t.color } as React.CSSProperties}
-              >
-                {i + 1}
-              </span>
-              <span className="pt-0.5">{s}</span>
-            </li>
-          ))}
-        </ol>
-      )}
+      {t.steps.length > 0 && StepList(t)}
       {t.questions && <p className="text-[11px] text-slate-500 dark:text-slate-400">Sugestão: {t.questions} questões (modelo para adaptar, não regra).</p>}
       {TaskActions({ t, inOverflow })}
     </div>
@@ -467,17 +499,10 @@ export const TodayPlanPanel: React.FC<TodayPlanPanelProps> = ({ compact, onOpenW
                 {nowSteps ? 'Esconder o passo a passo' : `Ver o passo a passo (${t.steps.length})`}
               </button>
               {nowSteps && (
-                <ol className="mt-1.5 space-y-1">
-                  {t.steps.map((s, i) => (
-                    <li key={i} className="flex gap-2 text-[12px] text-slate-700 dark:text-slate-200">
-                      <span className="h-5 w-5 shrink-0 rounded-full text-[10px] font-black flex items-center justify-center ink" style={{ backgroundColor: `${t.color}22`, '--ink': t.color } as React.CSSProperties}>
-                        {i + 1}
-                      </span>
-                      <span className="pt-0.5">{s}</span>
-                    </li>
-                  ))}
-                  {t.questions && <li className="text-[11px] text-slate-500 dark:text-slate-400 pl-7">Sugestão: {t.questions} questões (modelo para adaptar).</li>}
-                </ol>
+                <div className="mt-1.5">
+                  {StepList(t)}
+                  {t.questions && <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400 pl-7">Sugestão: {t.questions} questões (modelo para adaptar).</p>}
+                </div>
               )}
             </div>
           )}
@@ -905,9 +930,35 @@ export const TodayPlanPanel: React.FC<TodayPlanPanelProps> = ({ compact, onOpenW
         {listOpen && (
           <div className="px-3 pb-3">
             <ul id="today-list" className="space-y-1.5">
-              {plan.tasks.map((t) => (
-                <React.Fragment key={t.id}>{TaskRow({ t })}</React.Fragment>
-              ))}
+              {(() => {
+                // Organizado por disciplina: cada uma com as suas tarefas; o resto vai em "Rotina do dia"
+                const groups: Array<{ key: string; name: string; color: string; tasks: PlanTask[] }> = [];
+                plan.tasks.forEach((t) => {
+                  const sub = t.subjectId ? subjects.find((x) => x.id === t.subjectId) : undefined;
+                  const key = sub ? sub.id : '__rotina';
+                  let g = groups.find((x) => x.key === key);
+                  if (!g) {
+                    g = { key, name: sub ? sub.name : 'Rotina do dia', color: sub?.color || '#64748b', tasks: [] };
+                    groups.push(g);
+                  }
+                  g.tasks.push(t);
+                });
+                groups.sort((a, b) => Number(a.key === '__rotina') - Number(b.key === '__rotina'));
+                return groups.map((g) => (
+                  <React.Fragment key={g.key}>
+                    <li id={`today-group-${g.key}`} className="pt-2.5 first:pt-0 px-1 flex items-center gap-2 text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                      <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: g.color }} aria-hidden />
+                      <span className="truncate">{g.name}</span>
+                      <span className="font-bold normal-case tracking-normal">
+                        · {g.tasks.filter((t) => t.done).length}/{g.tasks.length}
+                      </span>
+                    </li>
+                    {g.tasks.map((t) => (
+                      <React.Fragment key={t.id}>{TaskRow({ t })}</React.Fragment>
+                    ))}
+                  </React.Fragment>
+                ));
+              })()}
             </ul>
             <p className="mt-2 px-1 text-[11px] text-slate-500 dark:text-slate-400">
               Revisões e temas se marcam sozinhos quando você registra. Toque numa tarefa para ver o passo a passo.

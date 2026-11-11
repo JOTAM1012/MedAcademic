@@ -137,6 +137,40 @@ export const TECHNIQUES: Record<ReviewTechniqueId, TechniqueInfo> = {
   },
 };
 
+// ---------- Meu método: passos do 1º e do 2º contato (o aluno pode trocar pelos dele)
+export const METHOD_PRESETS: Array<{ id: string; label: string; hint: string; first: string[]; second: string[] }> = [
+  { id: 'guia', label: 'Padrão do guia', hint: 'Pré-teste, mapa, Feynman, questões', first: TECHNIQUES.estudo_inicial.steps, second: TECHNIQUES.folha_branco.steps },
+  {
+    id: 'video',
+    label: 'Videoaula + resumo + questões',
+    hint: 'Pré-teste, aula, resumo, 30 questões',
+    first: [
+      'Pré-teste: faça 3 a 5 questões do tema antes de começar (errar é normal)',
+      'Videoaula: assista à aula do tema',
+      'Resumo: faça o seu resumo do tema',
+      'Questões: faça 30 questões do tema',
+      'Erros: corrija cada erro, lendo o comentário, e anote no caderno de erros',
+    ],
+    second: [
+      'Leia o seu resumo em voz alta',
+      'Folha em branco: sem consultar, escreva tudo o que lembra do tema',
+      'Questões: faça 10 a 20 questões do tema',
+      'Erros: corrija os erros e anote no caderno',
+    ],
+  },
+];
+const cleanSteps = (list?: string[]) => (list || []).map((x) => x.trim()).filter(Boolean);
+/** Passos do 1º contato (tema novo): os do aluno ou o padrão do guia */
+export const firstContactSteps = (prefs?: Pick<StudyPlanPrefs, 'firstContactSteps'>) => {
+  const own = cleanSteps(prefs?.firstContactSteps);
+  return own.length ? own : TECHNIQUES.estudo_inicial.steps;
+};
+/** Passos do 2º contato (1ª revisão): os do aluno, se houver; senão os da técnica */
+export const secondContactSteps = (prefs: Pick<StudyPlanPrefs, 'secondContactSteps'> | undefined, fallback: string[]) => {
+  const own = cleanSteps(prefs?.secondContactSteps);
+  return own.length ? own : fallback;
+};
+
 /** Etapa (técnica) da revisão nº (reviewsDone + 1) */
 export const techniqueIdForReview = (reviewNumber: number): ReviewTechniqueId =>
   reviewNumber <= 1 ? 'folha_branco' : reviewNumber === 2 ? 'questoes_tema' : reviewNumber === 3 ? 'questoes_novas' : 'misturadas';
@@ -1017,6 +1051,7 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
   const posPlantao = posPlantaoDay || posProva; // descanso depois do plantão ou da prova
   const plantao = plantaoDay || provaDay; // só o essencial
   const turnsDay = turnCapacity(prefs, dow);
+  const firstSteps = firstContactSteps(prefs);
   const examWeek = isExamWeek(prefs, date);
   const rest = prefs.restDay === dow || posPlantao || !!turnsDay?.allRest;
   const mixed = prefs.mixedDay === dow && !rest && !plantao;
@@ -1132,7 +1167,7 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
       title: `${tech.badge}: ${b.name}`,
       subtitle: [subjectName(subjects, b.subjectId), errs > 0 && tech.reviewNumber > 1 ? `${errs} erro${errs > 1 ? 's' : ''} do caderno para refazer` : ''].filter(Boolean).join(' · ') || undefined,
       reason: late > 0 ? `Remarcada (desde ${late} dia${late > 1 ? 's' : ''} atrás): revisões vêm antes de conteúdo novo.` : soon7.has(b.subjectId) ? 'Tem prova desta disciplina nos próximos dias.' : tech.why,
-      steps: tech.steps,
+      steps: tech.id === 'folha_branco' ? secondContactSteps(prefs, tech.steps) : tech.steps,
       pomodoros: tech.pomodoros,
       focus: shortFocus,
       technique: tech.id,
@@ -1431,7 +1466,7 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
                     title: `Objetivos da ${tut.name} (${s.name})`,
                     subtitle: `${pending.length} objetivo${pending.length > 1 ? 's' : ''} para estudar antes do fechamento`,
                     reason: 'Na tutoria, o conteúdo novo da semana são os objetivos da abertura.',
-                    steps: TECHNIQUES.estudo_inicial.steps,
+                    steps: firstSteps,
                     pomodoros: units(newFocus, Math.min(2, Math.max(1, Math.ceil(pending.length / 3)))),
                     sized: true,
                     focus: newFocus,
@@ -1455,7 +1490,7 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
                     .map((t) => t.title)
                     .join(' · '),
                   reason: 'O que ficou de cabide no fechamento entra como conteúdo para estudar.',
-                  steps: TECHNIQUES.estudo_inicial.steps,
+                  steps: firstSteps,
                   pomodoros: 1,
                   focus: shortFocus,
                   subjectId: s.id,
@@ -1491,7 +1526,7 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
               title: `Tema novo: ${b.name}`,
               subtitle: `${subjectName(subjects, b.subjectId)}${bt.length ? ` · ${seen}/${bt.length} tópicos vistos` : ''}`,
               reason: offFocus ? 'Véspera de prova: este tema pode esperar; foque na disciplina da prova.' : late > 0 ? `Remarcado: estava para ${late} dia${late > 1 ? 's' : ''} atrás.` : TECHNIQUES.estudo_inicial.why,
-              steps: TECHNIQUES.estudo_inicial.steps,
+              steps: firstSteps,
               pomodoros: units(newFocus, newTopicBlocks(newFocus)),
               sized: true,
               focus: newFocus,
@@ -1530,7 +1565,7 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
             title: `1º contato: ${list.length === 1 ? list[0].title : `${list.length} tópicos`}`,
             subtitle: `${subjectName(subjects, sid)}${list.length > 1 ? ' · ' + list.slice(0, 3).map((t) => t.title).join(' · ') : ''}`,
             reason: TECHNIQUES.estudo_inicial.why,
-            steps: TECHNIQUES.estudo_inicial.steps,
+            steps: firstSteps,
             pomodoros: units(newFocus, Math.min(2, Math.max(1, Math.ceil(list.length / 2)))),
             sized: true,
             focus: newFocus,
@@ -1560,7 +1595,7 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
               title: `Sugestão de tema novo: ${b.name}`,
               subtitle: subjectName(subjects, b.subjectId),
               reason: soon7.has(b.subjectId) ? 'Sugestão: tem prova desta disciplina em breve.' : 'Sugestão automática: é o tema em estudo mais antigo sem data.',
-              steps: TECHNIQUES.estudo_inicial.steps,
+              steps: firstSteps,
               pomodoros: units(newFocus, newTopicBlocks(newFocus)),
               sized: true,
               focus: newFocus,
