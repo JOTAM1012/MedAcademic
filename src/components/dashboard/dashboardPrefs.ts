@@ -2,25 +2,45 @@
 // As escolhas ficam em studyMethod.dashboard (nuvem) e valem para todos os semestres.
 import type { DashboardPrefs, DashboardWidgetId } from '../../types';
 
+/**
+ * Tamanho do bloco no grid "bento" (celular: sempre 1 coluna).
+ * - hero: plano de hoje — 2 colunas no tablet; 2 colunas × 2 linhas no desktop
+ * - wide: 2 colunas a partir do tablet (progresso, próximas provas, resumo da semana)
+ * - tall: 1 coluna × 2 linhas a partir do tablet (listas longas, como o checklist)
+ * - stat: bloco pequeno, quase quadrado, com um número grande
+ */
+export type BentoSize = 'hero' | 'wide' | 'tall' | 'stat';
+
+export const BENTO_SPAN: Record<BentoSize, string> = {
+  hero: 'md:col-span-2 xl:row-span-2',
+  wide: 'md:col-span-2',
+  tall: 'md:row-span-2',
+  stat: '',
+};
+
 export interface WidgetMeta {
   id: DashboardWidgetId;
   label: string;
   hint: string;
-  /** Classes de largura no grid (1 coluna no celular, 2 no tablet, 3 no desktop) */
+  /** Tamanho no grid bento */
+  size: BentoSize;
+  /** Classes de largura/altura no grid (derivadas de `size`) */
   span: string;
 }
 
+const meta = (id: DashboardWidgetId, label: string, hint: string, size: BentoSize): WidgetMeta => ({ id, label, hint, size, span: BENTO_SPAN[size] });
+
 export const WIDGETS: Record<DashboardWidgetId, WidgetMeta> = {
-  semester: { id: 'semester', label: 'Semestre', hint: 'Quanto do semestre já passou e o que tem hoje na grade', span: '' },
-  plan: { id: 'plan', label: 'Plano de hoje', hint: 'O próximo passo do dia, com o botão Começar', span: '' },
-  habits: { id: 'habits', label: 'Checklist do dia', hint: 'Os 7 hábitos do guia, tocáveis aqui', span: '' },
-  progress: { id: 'progress', label: 'Progresso das disciplinas', hint: 'Por grande área ou por módulo, com cada disciplina dentro', span: 'md:col-span-2' },
-  questions: { id: 'questions', label: 'Acertos em questões', hint: 'Questões e % de acerto por grande área ou módulo', span: '' },
-  reviews: { id: 'reviews', label: 'Revisões', hint: 'O que vence hoje, atrasadas e o ponto fraco', span: '' },
-  exams_upcoming: { id: 'exams_upcoming', label: 'Próximas provas', hint: 'Datas, dias que faltam e % dos assuntos', span: '' },
-  study_time: { id: 'study_time', label: 'Constância da semana', hint: 'Dias com estudo e blocos de foco na semana', span: '' },
-  grades_avg: { id: 'grades_avg', label: 'Média em provas', hint: 'Média das notas lançadas no período', span: '' },
-  concursos: { id: 'concursos', label: 'Provas de concurso', hint: 'Sua evolução nas provas de concurso e residência', span: '' },
+  semester: meta('semester', 'Semestre', 'Quanto do semestre já passou e o que tem hoje na grade', 'stat'),
+  plan: meta('plan', 'Plano de hoje', 'O próximo passo do dia, com o botão Começar', 'hero'),
+  habits: meta('habits', 'Checklist do dia', 'Os 7 hábitos do guia, tocáveis aqui', 'tall'),
+  progress: meta('progress', 'Progresso das disciplinas', 'Por grande área ou por módulo, com cada disciplina dentro', 'wide'),
+  questions: meta('questions', 'Acertos em questões', 'Questões e % de acerto por grande área ou módulo', 'stat'),
+  reviews: meta('reviews', 'Revisões', 'O que vence hoje, atrasadas e o ponto fraco', 'stat'),
+  exams_upcoming: meta('exams_upcoming', 'Próximas provas', 'Datas, dias que faltam e % dos assuntos', 'wide'),
+  study_time: meta('study_time', 'Constância da semana', 'Dias com estudo e blocos de foco na semana', 'stat'),
+  grades_avg: meta('grades_avg', 'Média em provas', 'Média das notas lançadas no período', 'stat'),
+  concursos: meta('concursos', 'Provas de concurso', 'Sua evolução nas provas de concurso e residência', 'stat'),
 };
 
 export const DEFAULT_WIDGETS: DashboardPrefs['widgets'] = [

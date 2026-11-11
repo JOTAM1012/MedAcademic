@@ -8,6 +8,7 @@ import { examProgress } from '../../data/examTopics';
 import { daysBetween, parseYMD, ymd } from '../../data/blockReview';
 import { ExamTopicsChecklist } from './ExamTopicsChecklist';
 import { MONTHS, MONTHS_SHORT, examMainTitle, examSubtitle, examTimeRange } from './semesterUtils';
+import { EmptyState } from '../shared/EmptyState';
 
 interface ExamGradesListProps {
   onEdit: (exam: Exam, opts?: { focusResult?: boolean; focusTopics?: boolean }) => void;
@@ -347,16 +348,25 @@ export const ExamGradesList: React.FC<ExamGradesListProps> = ({ onEdit, onNew })
       )}
 
       {semesterExams.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 p-8 text-center">
-          <GraduationCap className="h-8 w-8 mx-auto text-slate-400 mb-2" />
-          <p className="text-sm font-bold text-slate-900 dark:text-white">Nenhuma prova ainda</p>
-          <p className="text-xs text-slate-500 mt-1 mb-4">Ponha as provas do semestre. Elas aparecem no calendário e no Planner.</p>
-          <button onClick={onNew} className="inline-flex items-center gap-1.5 min-h-10 px-4 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold">
-            <Plus className="h-4 w-4" /> Adicionar prova
-          </button>
-        </div>
+        <EmptyState
+          icon={GraduationCap}
+          tone="rose"
+          title="Nenhuma prova ainda"
+          text="Adicione as provas do semestre. Elas aparecem no calendário e no Planner."
+          actionLabel="Adicionar prova"
+          actionIcon={Plus}
+          onAction={onNew}
+        />
       ) : filtered.length === 0 ? (
-        <p className="rounded-2xl border border-slate-200 dark:border-slate-800 p-6 text-center text-xs text-slate-500">Nenhuma prova aqui.</p>
+        <EmptyState
+          icon={ListChecks}
+          tone="slate"
+          size="sm"
+          title="Nenhuma prova aqui"
+          text="Nenhuma prova com este filtro."
+          actionLabel="Ver todas"
+          onAction={() => setStatus('todas')}
+        />
       ) : (
         <div className="space-y-4">
           {byMonth.map((g) => (

@@ -1,0 +1,71 @@
+/* Painel em grid "bento".
+   Regra: nada de transform / filter / backdrop-filter / contain / will-change nos blocos —
+   modais e menus dentro dos cartões usam position: fixed. Aqui só opacidade, cor e fundo. */
+
+/* Entrada suave dos blocos (só opacidade, em cascata curta) */
+@keyframes bento-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.bento-tile {
+  animation: bento-in 240ms ease-out both;
+  animation-delay: calc(var(--bento-i, 0) * 25ms);
+}
+.bento-fade {
+  animation: bento-in 180ms ease-out both;
+}
+
+/* No tablet/desktop cada cartão ocupa a altura toda do bloco */
+@media (min-width: 768px) {
+  .bento-grid > .bento-tile > * {
+    height: 100%;
+  }
+}
+
+/* Borda acende de leve ao passar o mouse (sem levantar o cartão) */
+.bento-card {
+  transition: border-color 160ms ease;
+}
+@media (hover: hover) {
+  .bento-card:hover {
+    border-color: rgb(186 230 253); /* sky-200 */
+  }
+  .dark .bento-card:hover {
+    border-color: rgb(7 89 133 / 0.7); /* sky-800 */
+  }
+}
+
+/* Cartões de outras partes do app dentro do grid: mesmo raio dos blocos */
+#dash-widget-plan > *,
+#dash-widget-habits > *,
+#dash-widget-concursos > * {
+  border-radius: 1.5rem;
+}
+
+/* Bloco principal: plano de hoje, com um brilho suave no canto */
+#dash-widget-plan > #today-plan-compact {
+  background-image:
+    radial-gradient(120% 80% at 100% 0%, rgb(14 165 233 / 0.10), transparent 60%),
+    radial-gradient(90% 70% at 0% 100%, rgb(99 102 241 / 0.06), transparent 65%);
+}
+.dark #dash-widget-plan > #today-plan-compact {
+  background-image:
+    radial-gradient(120% 80% at 100% 0%, rgb(14 165 233 / 0.16), transparent 60%),
+    radial-gradient(90% 70% at 0% 100%, rgb(99 102 241 / 0.10), transparent 65%);
+}
+@media (min-width: 768px) {
+  #dash-widget-plan > #today-plan-compact {
+    padding: 1.5rem;
+    gap: 1rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bento-tile,
+  .bento-fade {
+    animation: none;
+  }
+  .bento-card {
+    transition: none;
+  }
+}

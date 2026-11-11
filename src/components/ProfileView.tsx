@@ -46,6 +46,9 @@ import { getMedicalArea, getSpecialty } from '../data/areas';
 import { ymd } from '../data/blockReview';
 import { SemesterSummaryCard, SemesterHistoryModal } from './SemesterHistoryView';
 import { ContestsModal } from './contests/ContestsModal';
+import { CountUp } from './shared/CountUp';
+
+const fmtHours = (n: number) => n.toFixed(1);
 
 export const ProfileView: React.FC = () => {
   const { accounts, activeUser, activeUserId, openAuthModal, updateAccount, logout, deleteAccount } = useAuth();
@@ -408,7 +411,7 @@ export const ProfileView: React.FC = () => {
       {isPhotoModalOpen && <ChangePhotoModal onClose={() => setIsPhotoModalOpen(false)} />}
       {!isEditing ? (
         // --- DASHBOARD VIEW ---
-        <div className="space-y-6 animate-in fade-in zoom-in-95 duration-200">
+        <div className="space-y-6 animate-in fade-in duration-200">
           
           {/* Identity & Main Info Card */}
           <div className="relative overflow-hidden rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs flex flex-col md:flex-row items-center gap-6 p-6">
@@ -486,7 +489,7 @@ export const ProfileView: React.FC = () => {
                 <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/50 border border-slate-100 dark:border-slate-800">
                   <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Na Semana</div>
                   <div className="flex items-end gap-1.5">
-                    <span className="text-2xl font-black text-slate-900 dark:text-white">{hoursThisWeek}</span>
+                    <span className="text-2xl font-black text-slate-900 dark:text-white"><CountUp value={Number(hoursThisWeek)} format={fmtHours} /></span>
                     <span className="text-sm font-semibold text-slate-500 pb-0.5">horas</span>
                   </div>
                   <div className="w-full bg-slate-200 dark:bg-slate-800 h-1.5 rounded-full mt-3 overflow-hidden">
@@ -501,7 +504,7 @@ export const ProfileView: React.FC = () => {
                 <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/50 border border-slate-100 dark:border-slate-800 flex flex-col justify-center">
                   <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">No Mês</div>
                   <div className="flex items-end gap-1.5">
-                    <span className="text-2xl font-black text-slate-900 dark:text-white">{hoursThisMonth}</span>
+                    <span className="text-2xl font-black text-slate-900 dark:text-white"><CountUp value={Number(hoursThisMonth)} format={fmtHours} /></span>
                     <span className="text-sm font-semibold text-slate-500 pb-0.5">horas</span>
                   </div>
                 </div>
@@ -509,7 +512,7 @@ export const ProfileView: React.FC = () => {
                 <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/50 border border-slate-100 dark:border-slate-800 flex flex-col justify-center">
                   <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">No Ano</div>
                   <div className="flex items-end gap-1.5">
-                    <span className="text-2xl font-black text-slate-900 dark:text-white">{hoursThisYear}</span>
+                    <span className="text-2xl font-black text-slate-900 dark:text-white"><CountUp value={Number(hoursThisYear)} format={fmtHours} /></span>
                     <span className="text-sm font-semibold text-slate-500 pb-0.5">horas</span>
                   </div>
                 </div>
@@ -527,13 +530,13 @@ export const ProfileView: React.FC = () => {
                  <div className="flex-1 min-w-0">
                    <div className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Questões na Semana</div>
                    <div className="flex items-baseline gap-2 flex-wrap mt-0.5">
-                     <span className="text-xl font-black text-slate-900 dark:text-white">{weekTotal}</span>
+                     <span className="text-xl font-black text-slate-900 dark:text-white"><CountUp value={weekTotal} /></span>
                      <span className="text-xs text-slate-500">feitas</span>
                      {weekPct !== undefined && (
                        <>
                          <span className="text-slate-300 dark:text-slate-700">·</span>
                          <span className="text-sm font-bold text-slate-700 dark:text-slate-200">{weekCorrect} acertos</span>
-                         <span className={`text-xl font-black ${pctColor(weekPct)}`}>{weekPct}%</span>
+                         <span className={`text-xl font-black ${pctColor(weekPct)}`}><CountUp value={weekPct} format={(n) => `${Math.round(n)}%`} /></span>
                        </>
                      )}
                    </div>
@@ -575,7 +578,7 @@ export const ProfileView: React.FC = () => {
                  </div>
                  <div>
                    <div className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Revisões (Semana)</div>
-                   <div className="text-xl font-black text-slate-900 dark:text-white mt-0.5">{revisionsThisWeek}</div>
+                   <div className="text-xl font-black text-slate-900 dark:text-white mt-0.5"><CountUp value={revisionsThisWeek} /></div>
                  </div>
                </div>
 

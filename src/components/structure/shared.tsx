@@ -3,6 +3,7 @@ import type { Subject, Topic } from '../../types';
 import { OTHER_AREA, getMedicalArea, getSpecialty } from '../../data/areas';
 import { subjectFormatOf, subjectOrganization } from '../../data/subjectFormats';
 import { isTopicPending, isTopicSeen } from '../../data/blockReview';
+import { useGrowFromZero } from '../shared/CountUp';
 
 /** Tópico que conta no progresso (aula bônus fica de fora) */
 export const countsInProgress = (t: Topic) => !t.bonus;
@@ -49,26 +50,46 @@ export const subjectColor = (s: Subject) => {
   return s.color || OTHER_AREA.color;
 };
 
-export const Ring: React.FC<{ pct: number; color: string; size?: number }> = ({ pct, color, size = 40 }) => (
-  <div
-    className="shrink-0 rounded-full grid place-items-center"
-    style={{ width: size, height: size, background: `conic-gradient(${color} ${pct * 3.6}deg, rgba(148,163,184,0.2) 0deg)` }}
-    aria-label={`${pct}% concluído`}
-  >
-    <span
-      className="rounded-full bg-white dark:bg-slate-900 grid place-items-center text-[10px] font-black text-slate-700 dark:text-slate-200"
-      style={{ width: size - 7, height: size - 7 }}
-    >
-      {pct}%
-    </span>
-  </div>
-);
+/** Anel de progresso em SVG: enche de 0 até a % ao aparecer e anda suave quando muda */
+export const Ring: React.FC<{ pct: number; color: string; size?: number }> = ({ pct, color, size = 40 }) => {
+  const clamped = Math.max(0, Math.min(100, Number.isFinite(pct) ? pct : 0));
+  const shown = useGrowFromZero(clamped);
+  const stroke = 3.5;
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  const mid = size / 2;
+  return (
+    <div className="relative shrink-0 grid place-items-center" style={{ width: size, height: size }} aria-label={`${pct}% concluído`} role="img">
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="absolute inset-0" aria-hidden>
+        <circle cx={mid} cy={mid} r={r} fill="none" stroke="rgba(148,163,184,0.22)" strokeWidth={stroke} />
+        <circle
+          cx={mid}
+          cy={mid}
+          r={r}
+          fill="none"
+          stroke={color}
+          strokeWidth={stroke}
+          strokeLinecap={clamped > 0 ? 'round' : 'butt'}
+          strokeDasharray={c}
+          strokeDashoffset={c * (1 - shown / 100)}
+          transform={`rotate(-90 ${mid} ${mid})`}
+          className="transition-[stroke-dashoffset] duration-700 ease-out motion-reduce:transition-none"
+        />
+      </svg>
+      <span className="relative text-[10px] font-black tabular-nums text-slate-700 dark:text-slate-200">{pct}%</span>
+    </div>
+  );
+};
 
-export const Bar: React.FC<{ pct: number; color: string; className?: string }> = ({ pct, color, className = '' }) => (
-  <div className={`h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden ${className}`}>
-    <div className="h-full rounded-full transition-all duration-300" style={{ width: `${pct}%`, backgroundColor: color }} />
-  </div>
-);
+/** Barra de progresso: cresce de 0 ao aparecer */
+export const Bar: React.FC<{ pct: number; color: string; className?: string }> = ({ pct, color, className = '' }) => {
+  const shown = useGrowFromZero(Math.max(0, Math.min(100, Number.isFinite(pct) ? pct : 0)));
+  return (
+    <div className={`h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden ${className}`}>
+      <div className="h-full rounded-full transition-[width] duration-700 ease-out motion-reduce:transition-none" style={{ width: `${shown}%`, backgroundColor: color }} />
+    </div>
+  );
+};
 
 /** Confirmação inline (sem window.confirm) */
 export const InlineConfirm: React.FC<{ text: string; onYes: () => void; onNo: () => void; yesLabel?: string }> = ({ text, onYes, onNo, yesLabel = 'Excluir' }) => (

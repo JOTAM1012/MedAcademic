@@ -1,7 +1,7 @@
 // Aba "Estudos pessoais": projetos do aluno fora da grade (residência, liga, idioma, curso, leitura, pesquisa),
 // com metas pequenas por semana e o mesmo método (recuperação ativa + revisões espaçadas).
 import React, { useMemo, useState } from 'react';
-import { Archive, ChevronDown, Lightbulb, Plus, ShieldCheck, Sparkles } from 'lucide-react';
+import { Archive, ChevronDown, Lightbulb, Plus, ShieldCheck, Sparkles, Target } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import type { PersonalProject } from '../types';
 import { PHASE_INFO, PROJECT_KINDS, projectWeekPomodoros, weekStart } from '../data/studyMethod';
@@ -11,6 +11,7 @@ import { NewProjectModal } from './personal/NewProjectModal';
 import { ProjectCard } from './personal/ProjectCard';
 import { ProjectReviews, upcomingProjectReviews } from './personal/ProjectReviews';
 import { SUGGESTED_PRESETS, effectiveGoal, fmtMinutes, type ProjectPreset } from './personal/shared';
+import { EmptyState } from './shared/EmptyState';
 
 const PHASE_TIP: Record<string, string> = {
   ciclo_basico: 'Ciclo Básico: comece pequeno. Um projeto (liga ou idioma) com 2 blocos por semana já faz diferença.',
@@ -89,27 +90,20 @@ export const PersonalStudiesView: React.FC = () => {
       {active.length === 0 ? (
         /* Estado vazio acolhedor */
         <section id="personal-empty" className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 sm:p-7">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-            <div className="flex -space-x-2 shrink-0" aria-hidden="true">
-              {['🏫', '🎯', '✨'].map((e, i) => (
-                <span
-                  key={e}
-                  className="h-12 w-12 rounded-2xl flex items-center justify-center text-2xl border-2 border-white dark:border-slate-900 bg-slate-100 dark:bg-slate-800"
-                  style={{ transform: `rotate(${(i - 1) * 6}deg)` }}
-                >
-                  {e}
-                </span>
-              ))}
-            </div>
-            <div className="min-w-0">
-              <h2 className="text-lg font-black text-slate-900 dark:text-white">Que tal começar com algo pequeno?</h2>
-              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                Faculdade, residência ou outro estudo seu (curso, inglês, liga, um livro…). Escolha uma meta de poucos blocos por semana. O site lembra você nos dias certos.
-              </p>
-            </div>
-          </div>
+          <EmptyState
+            framed={false}
+            className="py-2! sm:py-4!"
+            icon={Target}
+            tone="sky"
+            title="Que tal começar com algo pequeno?"
+            text="Um curso, inglês, a liga ou um livro. Poucos blocos por semana já fazem diferença."
+            actionLabel="Criar estudo pessoal"
+            actionIcon={Plus}
+            onAction={() => openNew()}
+          />
 
-          <div className="mt-5 grid gap-2.5 sm:grid-cols-3">
+          <p className="mt-5 text-[11px] font-bold uppercase tracking-wide text-slate-400 text-center sm:text-left">Ou comece por um modelo</p>
+          <div className="mt-2 grid gap-2.5 sm:grid-cols-3">
             {SUGGESTED_PRESETS.map((pr) => {
               const k = PROJECT_KINDS[pr.kind];
               return (

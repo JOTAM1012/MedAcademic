@@ -283,17 +283,38 @@ const AppContent: React.FC = () => {
   // Show loading indicator while fetching user profile and academic state from Firestore
   if (!isInitialLoadComplete) {
     return (
-      <div className="min-h-screen w-full bg-slate-950 flex flex-col items-center justify-center text-slate-100 p-6">
-        <div className="flex flex-col items-center gap-4 text-center max-w-sm">
-          <div className="h-14 w-14 rounded-2xl bg-gradient-to-tr from-sky-500 to-blue-600 flex items-center justify-center animate-pulse shadow-xl shadow-sky-500/20">
-            <Stethoscope className="h-7 w-7 text-white" />
+      <div id="app-loading" role="status" aria-label="Carregando MedAcademic" className="app-bg flex h-screen h-[100dvh] w-screen overflow-hidden bg-slate-50 dark:bg-slate-950">
+        {/* Esqueleto da tela: mostra o formato do site enquanto os dados chegam */}
+        <div className="hidden lg:flex w-64 shrink-0 flex-col gap-3 bg-slate-900 p-4">
+          <div className="flex items-center gap-2.5 mb-3">
+            <div className="h-9 w-9 rounded-xl bg-gradient-to-tr from-sky-500 to-blue-600 flex items-center justify-center">
+              <Stethoscope className="h-5 w-5 text-white" />
+            </div>
+            <div className="skeleton h-4 w-28 rounded-md" />
           </div>
-          <div>
-            <h2 className="text-lg font-black text-white">Carregando MedAcademic</h2>
-            <p className="text-xs text-slate-400 mt-1">Sincronizando suas matérias, revisões e métricas com a nuvem...</p>
+          {[70, 55, 62, 80, 50, 66, 58].map((w, i) => (
+            <div key={i} className="skeleton h-8 rounded-xl" style={{ width: `${w}%` }} />
+          ))}
+          <div className="mt-auto skeleton h-16 rounded-xl" />
+          <div className="skeleton h-12 rounded-xl" />
+        </div>
+        <div className="flex-1 min-w-0 flex flex-col">
+          <div className="h-16 shrink-0 flex items-center gap-3 px-4 sm:px-8 border-b border-slate-200/60 dark:border-slate-800/60">
+            <div className="skeleton h-9 flex-1 max-w-sm rounded-xl" />
+            <div className="skeleton h-9 w-9 rounded-xl ml-auto" />
+            <div className="skeleton h-9 w-9 rounded-xl" />
           </div>
-          <div className="w-32 h-1 bg-slate-800 rounded-full overflow-hidden mt-2">
-            <div className="w-full h-full bg-sky-500 rounded-full animate-pulse" />
+          <div className="flex-1 overflow-hidden px-4 sm:px-8 pt-6 max-w-7xl w-full mx-auto space-y-4">
+            <div className="skeleton h-8 w-2/3 sm:w-1/3 rounded-xl" />
+            <div className="skeleton h-4 w-1/2 sm:w-1/4 rounded-lg" />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+              <div className="skeleton h-56 rounded-3xl md:col-span-2" />
+              <div className="skeleton h-56 rounded-3xl" />
+              <div className="skeleton h-40 rounded-3xl" />
+              <div className="skeleton h-40 rounded-3xl" />
+              <div className="skeleton h-40 rounded-3xl" />
+            </div>
+            <p className="text-center text-xs text-slate-500 dark:text-slate-400 pt-2">Carregando suas matérias, revisões e números…</p>
           </div>
         </div>
       </div>
@@ -378,7 +399,7 @@ const AppContent: React.FC = () => {
 
   return (
     <AccessGate>
-    <div className="flex h-screen h-[100dvh] w-screen overflow-hidden bg-slate-50 dark:bg-slate-950 font-sans text-slate-900 dark:text-slate-100 transition-colors">
+    <div id="app-shell" className="app-bg flex h-screen h-[100dvh] w-screen overflow-hidden bg-slate-50 dark:bg-slate-950 font-sans text-slate-900 dark:text-slate-100 transition-colors">
       {/* Navigation Sidebar */}
       <Sidebar
         isMobileOpen={isMobileMenuOpen}

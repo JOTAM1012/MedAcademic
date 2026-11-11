@@ -1,10 +1,11 @@
-// Constância da semana: em quais dias você estudou e quantos blocos de foco (≈ 25 min) fez.
+// Constância da semana (bloco pequeno): em quantos dias você estudou e quantos blocos de foco (≈ 25 min) fez.
 // Mais simples que horas por dia: o que importa é aparecer todo dia.
 import React, { useMemo } from 'react';
 import { CalendarCheck } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { addDaysYMD, ymd } from '../../data/blockReview';
-import { WidgetCard } from './ui';
+import { CountUp } from '../shared/CountUp';
+import { BigNumber, StatBody, StatLabel, StatNote, Trend, Unit, WidgetCard } from './ui';
 import { plural } from './dashboardData';
 
 const LETTERS = ['S', 'T', 'Q', 'Q', 'S', 'S', 'D'];
@@ -36,35 +37,45 @@ export const StudyTimeWidget: React.FC = () => {
     };
   }, [studySessions, questionLogs, today]);
 
+  const delta = studied - lastWeekDays;
+
   return (
     <WidgetCard id="dash-study-time" title="Constância da semana" icon={CalendarCheck} color="#10b981">
-      <div className="flex items-end gap-3">
-        <p className="text-3xl font-black leading-none text-slate-900 dark:text-white">
-          {studied}
-          <span className="text-lg text-slate-400 dark:text-slate-500">/7</span>
-        </p>
-        <p className="pb-0.5 text-[11px] text-slate-500 dark:text-slate-400">dias com estudo · {plural(blocks, 'bloco de foco', 'blocos de foco')}</p>
-      </div>
-      <div className="grid grid-cols-7 gap-1.5">
+      <StatBody>
+        <BigNumber>
+          <CountUp value={studied} />
+          <Unit>/7</Unit>
+        </BigNumber>
+        <StatLabel>dias com estudo · {plural(blocks, 'bloco de foco', 'blocos de foco')}</StatLabel>
+        <StatNote className="mt-0.5">
+          {delta !== 0 ? (
+            <>
+              <Trend delta={delta} suffix={Math.abs(delta) === 1 ? 'dia' : 'dias'} /> vs semana passada
+            </>
+          ) : (
+            `Semana passada: ${plural(lastWeekDays, 'dia', 'dias')}`
+          )}
+        </StatNote>
+      </StatBody>
+      {/* Mini semana: um traço por dia */}
+      <div className="grid grid-cols-7 gap-1" aria-hidden>
         {days.map((d, i) => (
-          <div key={d.date} className="flex flex-col items-center gap-1">
+          <div key={d.date} className="flex flex-col items-center gap-1" title={d.future ? '' : d.active ? `${d.blocks} blocos de foco` : 'sem estudo'}>
             <span
-              title={d.future ? '' : d.active ? `${d.blocks} blocos de foco` : 'sem estudo'}
-              className={`h-9 w-full max-w-[44px] rounded-xl flex items-center justify-center text-[11px] font-black ${
-                d.future
-                  ? 'border border-dashed border-slate-200 dark:border-slate-800'
-                  : d.active
-                    ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
-                    : 'bg-slate-100 dark:bg-slate-800/70 text-slate-400 dark:text-slate-500'
-              } ${d.date === today ? 'ring-2 ring-sky-500/60' : ''}`}
-            >
-              {d.active ? d.blocks || '✓' : ''}
-            </span>
-            <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500">{LETTERS[i]}</span>
+              className={`h-1.5 w-full rounded-full ${
+                d.future ? 'bg-slate-100 dark:bg-slate-800/60' : d.active ? 'bg-emerald-500' : 'bg-slate-200 dark:bg-slate-700'
+              }`}
+            />
+            <span className={`text-[10px] font-bold ${d.date === today ? 'text-sky-700 dark:text-sky-300' : 'text-slate-400 dark:text-slate-500'}`}>{LETTERS[i]}</span>
           </div>
         ))}
       </div>
-      <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-auto">Semana passada: {plural(lastWeekDays, 'dia', 'dias')} com estudo.</p>
+      <p className="sr-only">
+        {days
+          .filter((d) => !d.future)
+          .map((d, i) => `${LETTERS[i]}: ${d.active ? `estudou, ${d.blocks} blocos` : 'sem estudo'}`)
+          .join('. ')}
+      </p>
     </WidgetCard>
   );
 };

@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import { AnimatePresence, motion } from 'motion/react';
+import React, { useEffect, useRef, useState } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import './mobile-tab-bar.css';
 import {
   LayoutDashboard,
   Calendar,
@@ -30,6 +31,9 @@ export const MobileTabBar: React.FC = () => {
   const currentTab = rawTab === 'grades' || rawTab === 'schedule' ? 'semester' : rawTab === 'history' ? 'profile' : rawTab;
   const [isMoreOpen, setIsMoreOpen] = useState(false);
   const { isAdmin } = useAccess();
+  const reduceMotion = useReducedMotion();
+  // Marca quando o painel foi arrastado (para não abrir uma função sem querer)
+  const draggedRef = useRef(false);
 
   const todayStr = todayYMD();
   // Mesma contagem da aba Revisões (data local, só disciplinas que existem)
@@ -81,7 +85,7 @@ export const MobileTabBar: React.FC = () => {
 
   return (
     <>
-      {/* Painel com todas as funções */}
+      {/* Painel com todas as funções: vidro que sobe; arraste para baixo ou toque fora para fechar */}
       <AnimatePresence>
         {isMoreOpen && (
           <>
@@ -90,24 +94,54 @@ export const MobileTabBar: React.FC = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
+              transition={{ duration: reduceMotion ? 0 : 0.2 }}
               onClick={() => setIsMoreOpen(false)}
-              className="fixed inset-0 z-[43] bg-slate-950/70 backdrop-blur-xs lg:hidden"
+              className="more-sheet-backdrop fixed inset-0 z-[43] lg:hidden"
             />
             <motion.div
               key="more-sheet"
               id="mobile-more-sheet"
-              initial={{ y: '100%' }}
-              animate={{ y: 0 }}
-              exit={{ y: '100%' }}
-              transition={{ type: 'spring', stiffness: 380, damping: 36 }}
-              className="fixed inset-x-0 bottom-0 z-[44] lg:hidden rounded-t-3xl border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 pt-3 shadow-2xl"
-              style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 92px)' }}
+              role="dialog"
+              aria-label="Todas as funções"
+              initial={reduceMotion ? { opacity: 0 } : { y: '100%' }}
+              animate={reduceMotion ? { opacity: 1 } : { y: 0 }}
+              exit={reduceMotion ? { opacity: 0 } : { y: '100%' }}
+              transition={reduceMotion ? { duration: 0 } : { type: 'spring', stiffness: 520, damping: 42, mass: 0.9 }}
+              drag="y"
+              dragConstraints={{ top: 0, bottom: 0 }}
+              dragElastic={{ top: 0.04, bottom: 0.7 }}
+              dragMomentum={false}
+              onPointerDownCapture={() => {
+                draggedRef.current = false;
+              }}
+              onDragStart={() => {
+                draggedRef.current = true;
+              }}
+              onDragEnd={(_, info) => {
+                if (info.offset.y > 90 || info.velocity.y > 500) setIsMoreOpen(false);
+              }}
+              onClickCapture={(e) => {
+                // Depois de arrastar, o toque não abre a função embaixo do dedo
+                if (draggedRef.current) {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  draggedRef.current = false;
+                }
+              }}
+              className="glass-sheet fixed inset-x-0 bottom-0 z-[44] lg:hidden px-4 pt-2.5 touch-none select-none"
+              style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 96px)' }}
             >
-              <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-slate-300 dark:bg-slate-700" />
-              <div className="flex items-center justify-between mb-3">
+              <div className="flex justify-center py-1.5 cursor-grab active:cursor-grabbing" aria-hidden>
+                <span className="glass-sheet-handle" />
+              </div>
+              <div className="flex items-center justify-between mb-3 mt-1">
                 <p className="text-sm font-black text-slate-900 dark:text-white">Todas as funções</p>
-                <button onClick={() => setIsMoreOpen(false)} className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Fechar">
-                  <X className="h-5 w-5" />
+                <button
+                  onClick={() => setIsMoreOpen(false)}
+                  className="h-8 w-8 flex items-center justify-center rounded-full bg-slate-900/5 dark:bg-white/[0.07] text-slate-500 dark:text-slate-300 active:bg-slate-900/10 dark:active:bg-white/15"
+                  aria-label="Fechar"
+                >
+                  <X className="h-4 w-4" />
                 </button>
               </div>
               <div className="grid grid-cols-3 gap-2.5">
@@ -119,13 +153,11 @@ export const MobileTabBar: React.FC = () => {
                       key={item.id}
                       id={`mobile-more-${item.id}`}
                       onClick={() => go(item.id)}
-                      className={`relative flex flex-col items-center gap-2 rounded-2xl border p-3 transition-colors ${
-                        active
-                          ? 'border-blue-500/60 bg-blue-50 dark:bg-blue-950/40'
-                          : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50 active:bg-slate-100 dark:active:bg-slate-800'
+                      className={`glass-sheet-tile relative flex flex-col items-center gap-2 rounded-2xl border p-3 transition-colors duration-150 ${
+                        active ? 'is-active' : ''
                       }`}
                     >
-                      <span className={`flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br ${item.color} text-white shadow-md`}>
+                      <span className={`flex h-11 w-11 items-center justify-center rounded-[14px] bg-gradient-to-br ${item.color} text-white shadow-md ring-1 ring-inset ring-white/20`}>
                         <Icon className="h-5 w-5" />
                       </span>
                       <span className={`text-[11px] font-bold leading-tight text-center ${active ? 'text-blue-600 dark:text-blue-400' : 'text-slate-700 dark:text-slate-200'}`}>

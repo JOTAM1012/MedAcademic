@@ -42,8 +42,10 @@ export const SubjectGrid: React.FC<Props> = ({ subjects, topics, topicBlocks, on
           type="button"
           id={`struct-subject-${s.id}`}
           onClick={() => onOpen(s.id)}
-          className="group w-full h-full text-left rounded-3xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 hover:border-slate-200 dark:hover:border-slate-700 p-5 transition-colors"
+          className="group relative overflow-hidden w-full h-full text-left rounded-3xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 hover:border-slate-200 dark:hover:border-slate-700 p-5 transition-colors"
+          style={{ backgroundImage: `radial-gradient(70% 90% at 0% 0%, ${color}17 0%, transparent 70%)` }}
         >
+          <span aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-[3px]" style={{ background: `linear-gradient(90deg, ${color}, ${color}33)` }} />
           <div className="flex items-start gap-3">
             <Ring pct={st.pct} color={color} size={44} />
             <div className="min-w-0 flex-1">

@@ -26,8 +26,10 @@ export const ModuleGrid: React.FC<{ modules: Subject[]; topics: Topic[]; onOpen:
           type="button"
           id={`struct-module-${m.id}`}
           onClick={() => onOpen(m.id)}
-          className="group w-full h-full text-left rounded-3xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 hover:border-slate-200 dark:hover:border-slate-700 p-5 transition-colors"
+          className="group relative overflow-hidden w-full h-full text-left rounded-3xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 hover:border-slate-200 dark:hover:border-slate-700 p-5 transition-colors"
+          style={{ backgroundImage: `radial-gradient(70% 90% at 0% 0%, ${color}17 0%, transparent 70%)` }}
         >
+          <span aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-[3px]" style={{ background: `linear-gradient(90deg, ${color}, ${color}33)` }} />
           <div className="flex items-start gap-3">
             <Ring pct={st.pct} color={color} size={44} />
             <div className="min-w-0 flex-1">
@@ -106,8 +108,9 @@ export const ModuleList: React.FC<Props> = ({ subjects, topics, topicBlocks, onO
                   type="button"
                   id={`struct-module-subject-${s.id}`}
                   onClick={() => onOpen(s.id)}
-                  className="cycle-subject-card w-full text-left flex items-center gap-3 px-4 py-3.5 min-h-[64px] hover:bg-slate-50 dark:hover:bg-slate-800/40 first:rounded-t-3xl last:rounded-b-3xl transition-colors"
+                  className="cycle-subject-card relative w-full text-left flex items-center gap-3 px-4 py-3.5 min-h-[64px] hover:bg-slate-50 dark:hover:bg-slate-800/40 first:rounded-t-3xl last:rounded-b-3xl transition-colors"
                 >
+                  <span aria-hidden className="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 h-8 w-1 rounded-r-full" style={{ backgroundColor: color }} />
                   <Ring pct={st.pct} color={color} />
                   <div className="min-w-0 flex-1">
                     <p className="flex items-center gap-1 min-w-0 text-sm font-black text-slate-900 dark:text-white">

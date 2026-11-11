@@ -9,6 +9,7 @@ import { CERTAINTY_INFO, ERROR_TYPES, ERROR_TYPE_ORDER, isErrorDue, nextErrorRed
 import { todayYMD } from '../../hooks/useStudyPlan';
 import { ErrorNoteModal } from './ErrorNoteModal';
 import { subjectLabel } from './reviewShared';
+import { EmptyState } from '../shared/EmptyState';
 
 export type ErrorFilter = 'hoje' | 'abertos' | 'resolvidos' | 'todos';
 
@@ -285,17 +286,39 @@ export const ErrorNotebook: React.FC<ErrorNotebookProps> = ({ initialFilter }) =
 
       {/* Lista */}
       {list.length === 0 ? (
-        <div className="p-8 sm:p-10 text-center rounded-3xl border border-dashed border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-900">
-          <NotebookPen className="h-9 w-9 text-slate-300 dark:text-slate-700 mx-auto mb-3" />
-          <h3 className="text-sm font-bold text-slate-700 dark:text-slate-200">
-            {notes.length === 0 ? 'Seu caderno ainda está vazio' : filter === 'hoje' ? 'Nada para refazer hoje 🎉' : 'Nenhum erro neste filtro'}
-          </h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto">
-            {notes.length === 0
-              ? 'Depois de um bloco de questões, anote cada erro com o tipo e a regra certa em 1 linha. É o material de revisão mais valioso que existe.'
-              : 'Os erros voltam sozinhos na data certa.'}
-          </p>
-        </div>
+        notes.length === 0 ? (
+          <EmptyState
+            icon={NotebookPen}
+            tone="violet"
+            title="Seu caderno ainda está vazio"
+            text="Errou uma questão? Anote o tipo do erro e a regra certa em 1 linha."
+            actionLabel="Anotar erro"
+            actionIcon={Plus}
+            onAction={() => setModal({ open: true })}
+          />
+        ) : filter === 'hoje' ? (
+          <EmptyState
+            icon={BookOpenCheck}
+            tone="emerald"
+            title="Nada para refazer hoje"
+            text="Tudo em dia. Os erros voltam sozinhos na data certa."
+            actionLabel="Ver erros abertos"
+            onAction={() => setFilter('abertos')}
+          />
+        ) : (
+          <EmptyState
+            icon={NotebookPen}
+            tone="slate"
+            size="sm"
+            title="Nenhum erro neste filtro"
+            text="Os erros voltam sozinhos na data certa."
+            actionLabel="Ver todos"
+            onAction={() => {
+              setFilter('todos');
+              setSubjectFilter('all');
+            }}
+          />
+        )
       ) : (
         <ul className="space-y-2.5">
           {list.map((n) => {

@@ -6,6 +6,7 @@ import { addDaysYMD, parseYMD } from '../../data/blockReview';
 import { WEEKDAY_NAMES, projectReviewTechnique, reviewTechnique } from '../../data/studyMethod';
 import { todayYMD } from '../../hooks/useStudyPlan';
 import { subjectColor, subjectLabel, weekdayDM } from './reviewShared';
+import { EmptyState } from '../shared/EmptyState';
 
 interface AgendaRow {
   key: string;
@@ -21,7 +22,7 @@ interface AgendaRow {
 
 const DAYS = 14;
 
-export const ReviewAgenda: React.FC<{ onOpenBlock: (blockId: string) => void; onOpenPersonal?: () => void }> = ({ onOpenBlock, onOpenPersonal }) => {
+export const ReviewAgenda: React.FC<{ onOpenBlock: (blockId: string) => void; onOpenPersonal?: () => void; onOpenStructure?: () => void }> = ({ onOpenBlock, onOpenPersonal, onOpenStructure }) => {
   const { topicBlocks, subjects, studyMethod, studyPrefs } = useApp();
   const today = todayYMD();
 
@@ -117,11 +118,13 @@ export const ReviewAgenda: React.FC<{ onOpenBlock: (blockId: string) => void; on
       </div>
 
       {total === 0 ? (
-        <div className="p-8 text-center rounded-3xl border border-dashed border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-900">
-          <CalendarDays className="h-9 w-9 text-slate-300 dark:text-slate-700 mx-auto mb-3" />
-          <h3 className="text-sm font-bold text-slate-700 dark:text-slate-200">Nenhuma revisão nos próximos 14 dias</h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto">Quando você fecha o estudo inicial de um tema, a 1ª revisão aparece aqui para o dia seguinte.</p>
-        </div>
+        <EmptyState
+          icon={CalendarDays}
+          title="Nenhuma revisão nos próximos 14 dias"
+          text="Termine o estudo de um tema. A 1ª revisão aparece aqui no dia seguinte."
+          actionLabel={onOpenStructure ? 'Abrir disciplinas' : undefined}
+          onAction={onOpenStructure}
+        />
       ) : (
         <div className="space-y-4">
           {days

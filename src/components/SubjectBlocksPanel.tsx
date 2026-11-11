@@ -10,6 +10,7 @@ import { Bar, InlineConfirm, countsInProgress, subjectColor, topicStats, formatM
 import { BlockStatsModal } from './structure/BlockStatsModal';
 import { PlanBlockButton } from './structure/PlanBlockButton';
 import { LinkedAreaBlocks } from './structure/LinkedAreaBlocks';
+import { AnimatedCheck } from './shared/AnimatedCheck';
 
 /** Índice do passo "Feynman" no checklist do estudo inicial */
 const FEYNMAN_STEP = '2';
@@ -302,7 +303,14 @@ export const SubjectBlocksPanel: React.FC<SubjectBlocksPanelProps> = ({ subject,
         const studiedMin = (block.studyDays || []).reduce((a, d) => a + (d.minutes || 0), 0) || block.studyMinutes || 0;
 
         return (
-          <section key={block.id} id={`struct-block-${block.id}`} className="rounded-2xl bg-slate-50/70 dark:bg-slate-950/30 border border-slate-100 dark:border-slate-800/80">
+          <section
+            key={block.id}
+            id={`struct-block-${block.id}`}
+            className="relative rounded-2xl bg-slate-50/70 dark:bg-slate-950/30 border border-slate-100 dark:border-slate-800/80"
+            style={{ backgroundImage: `linear-gradient(100deg, ${accent}12 0%, ${accent}05 28%, transparent 55%)` }}
+          >
+            {/* Barrinha na cor da disciplina (decoração) */}
+            <span aria-hidden className="pointer-events-none absolute left-0 top-3 h-8 w-1 rounded-r-full" style={{ backgroundColor: accent }} />
             <header className="flex items-start gap-1.5 px-2 sm:px-3 pt-2.5 pb-2">
               <button
                 onClick={() => setCollapsed((c) => ({ ...c, [block.id]: !isCollapsed }))}
@@ -328,8 +336,9 @@ export const SubjectBlocksPanel: React.FC<SubjectBlocksPanelProps> = ({ subject,
                     className="w-full bg-transparent text-sm font-black text-slate-900 dark:text-white border-b border-sky-500 focus:outline-hidden"
                   />
                 ) : (
-                  <h3 className="text-sm font-black text-slate-900 dark:text-white truncate" onDoubleClick={() => setRenaming(block.id)}>
-                    {block.name}
+                  <h3 className="flex items-center gap-1.5 min-w-0 text-sm font-black text-slate-900 dark:text-white" onDoubleClick={() => setRenaming(block.id)}>
+                    <span aria-hidden className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: accent }} />
+                    <span className="truncate">{block.name}</span>
                   </h3>
                 )}
                 <Bar pct={st.pct} color={accent} className="mt-1.5" />
@@ -497,15 +506,14 @@ export const SubjectBlocksPanel: React.FC<SubjectBlocksPanelProps> = ({ subject,
                                         checked ? 'bg-emerald-500/10' : 'bg-white/70 dark:bg-slate-900/60 hover:bg-white dark:hover:bg-slate-900'
                                       }`}
                                     >
-                                      <span
-                                        className={`mt-0.5 h-4 w-4 shrink-0 rounded-md border-2 flex items-center justify-center ${
-                                          checked ? 'bg-emerald-500 border-emerald-500' : 'border-slate-300 dark:border-slate-600'
-                                        }`}
-                                        aria-hidden
-                                      >
-                                        {checked && <Check className="h-2.5 w-2.5 text-white" strokeWidth={4} />}
-                                      </span>
-                                      <span className={`text-[11px] leading-snug ${checked ? 'text-slate-500 dark:text-slate-400' : 'text-slate-700 dark:text-slate-200'}`}>
+                                      <AnimatedCheck
+                                        checked={checked}
+                                        size={16}
+                                        stroke={4}
+                                        className="mt-0.5 border-2"
+                                        offClassName="border-slate-300 dark:border-slate-600"
+                                      />
+                                      <span className={`text-[11px] leading-snug transition-colors duration-200 ${checked ? 'text-slate-500 dark:text-slate-400' : 'text-slate-700 dark:text-slate-200'}`}>
                                         <strong className={checked ? 'line-through' : 'text-slate-900 dark:text-white'}>
                                           {i + 1}. {head}
                                         </strong>
@@ -553,14 +561,16 @@ export const SubjectBlocksPanel: React.FC<SubjectBlocksPanelProps> = ({ subject,
                       <li key={t.id} className="group rounded-xl bg-white dark:bg-slate-900 px-2.5 py-2">
                         <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                           <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                            <span
-                              className="h-5 w-5 shrink-0 rounded-full border-2 flex items-center justify-center"
-                              style={{ borderColor: dot || '#cbd5e1', backgroundColor: dot || 'transparent' }}
-                              aria-hidden
+                            <AnimatedCheck
+                              checked={isSeen || isBonus}
+                              color={dot || '#10b981'}
+                              shape="round"
+                              size={20}
+                              className="border-2"
+                              offStyle={{ borderColor: dot || '#cbd5e1', backgroundColor: dot || 'transparent' }}
                             >
-                              {(isSeen || isBonus) && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
                               {isPending && <X className="h-3 w-3 text-white" strokeWidth={3} />}
-                            </span>
+                            </AnimatedCheck>
                             {editingTopic?.id === t.id ? (
                               <input
                                 autoFocus
@@ -583,7 +593,7 @@ export const SubjectBlocksPanel: React.FC<SubjectBlocksPanelProps> = ({ subject,
                               onClick={() => setEditingTopic({ id: t.id, value: t.title })}
                               onKeyDown={(e) => e.key === 'Enter' && setEditingTopic({ id: t.id, value: t.title })}
                               title="Toque para editar o nome"
-                              className={`cursor-text min-w-0 flex-1 text-xs break-words ${
+                              className={`cursor-text min-w-0 flex-1 text-xs break-words transition-colors duration-200 ${
                                 isSeen ? 'text-slate-400 line-through' : isPending ? 'text-rose-700 dark:text-rose-300 font-semibold' : isBonus ? 'text-slate-600 dark:text-slate-300 font-semibold' : 'text-slate-800 dark:text-slate-100 font-semibold'
                               }`}
                             >

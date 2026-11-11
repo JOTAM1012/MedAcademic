@@ -5,12 +5,23 @@ import { daysUntil, isVacation, nextPeriod, nextSemesterName, periodByCode, peri
 import { formatDM, ymd } from '../data/blockReview';
 import { getActivityCategory, occursOn } from '../data/planning';
 import { DatePickerField } from './DatePickerField';
+import { CountUp, useGrowFromZero } from './shared/CountUp';
 
 interface SemesterStatusCardProps {
   compact?: boolean;
   /** Cartão do Painel: % do semestre em destaque, dias que faltam, o que tem hoje na grade e "Ver semestre" */
   variant?: 'default' | 'widget';
 }
+
+/** Barra fina do cartão do Painel: cresce de 0 ao aparecer */
+const GrowBar: React.FC<{ pct: number }> = ({ pct }) => {
+  const shown = useGrowFromZero(Math.max(0, Math.min(100, pct)));
+  return (
+    <div className="mt-2 h-1 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+      <div className="h-full rounded-full bg-sky-500 transition-[width] duration-700 ease-out motion-reduce:transition-none" style={{ width: `${shown}%` }} />
+    </div>
+  );
+};
 
 const fieldCls =
   'rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-xs font-semibold text-slate-800 dark:text-slate-100';
@@ -22,6 +33,7 @@ export const SemesterStatusCard: React.FC<SemesterStatusCardProps> = ({ compact 
   const [confirmingTurnover, setConfirmingTurnover] = useState(false);
   const [start, setStart] = useState('');
   const [end, setEnd] = useState('');
+  const [showAllToday, setShowAllToday] = useState(false);
   if (!currentSemester) return null;
 
   const today = ymd(new Date());
@@ -138,7 +150,7 @@ export const SemesterStatusCard: React.FC<SemesterStatusCardProps> = ({ compact 
     return (
       <div
         id="semester-turnover-card"
-        className={`rounded-2xl border p-4 ${
+        className={`${variant === 'widget' ? 'h-full rounded-3xl' : 'rounded-2xl'} border p-4 ${
           vacation ? 'border-emerald-300 dark:border-emerald-700/50 bg-emerald-50/70 dark:bg-emerald-950/30' : 'border-amber-300 dark:border-amber-600/50 bg-amber-50/70 dark:bg-amber-950/30'
         }`}
       >
@@ -186,60 +198,77 @@ export const SemesterStatusCard: React.FC<SemesterStatusCardProps> = ({ compact 
     const now = new Date();
     const dow = now.getDay() === 0 ? 7 : now.getDay();
     const todays = schedule.filter((sc) => occursOn(sc, today, dow)).sort((a, b) => a.startTime.localeCompare(b.startTime));
+    const nextNow = todays[0];
     return (
-      <section id="semester-status-card" className="h-full min-w-0 rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs p-4 sm:p-5 flex flex-col gap-3">
+      <section
+        id="semester-status-card"
+        className="bento-card h-full min-w-0 rounded-3xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 md:p-5 flex flex-col gap-3"
+      >
         <header className="flex items-center justify-between gap-2 min-h-[32px]">
-          <h3 className="min-w-0 text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
-            <GraduationCap className="h-4 w-4 shrink-0 text-sky-500" />
+          <h3 className="min-w-0 text-[13px] font-bold text-slate-600 dark:text-slate-300 flex items-center gap-2">
+            <span className="h-7 w-7 shrink-0 rounded-lg grid place-items-center bg-sky-500/10">
+              <GraduationCap className="h-4 w-4 text-sky-500" />
+            </span>
             <span className="truncate">
-              {currentSemester.name} <span className="text-slate-400 dark:text-slate-500 font-bold">· {bounds.code}</span>
+              {currentSemester.name} <span className="text-slate-400 dark:text-slate-500">· {bounds.code}</span>
             </span>
           </h3>
           <button
             type="button"
             id="dash-semester-open"
             onClick={() => setCurrentTab('semester')}
-            className="shrink-0 min-h-[40px] -my-1.5 -mr-2 px-2 rounded-xl text-xs font-bold text-sky-700 dark:text-sky-300 hover:bg-sky-50 dark:hover:bg-sky-950/40 inline-flex items-center gap-1"
+            className="shrink-0 min-h-[40px] -my-1.5 -mr-2 px-2 md:min-w-[40px] md:justify-center rounded-xl text-xs font-bold text-sky-700 dark:text-sky-300 hover:bg-sky-50 dark:hover:bg-sky-950/40 inline-flex items-center gap-1"
           >
-            Ver semestre <ArrowRight className="h-3.5 w-3.5" />
+            <span className="md:sr-only">Ver semestre</span> <ArrowRight className="h-3.5 w-3.5" />
           </button>
         </header>
-        <div className="flex items-end justify-between gap-3">
-          <p className="text-3xl font-black leading-none text-slate-900 dark:text-white">
-            {progress}
-            <span className="text-lg text-slate-400 dark:text-slate-500">%</span>
+        <div className="mt-auto min-w-0">
+          <p className="text-4xl md:text-[2.6rem] font-black leading-none tracking-tight tabular-nums text-slate-900 dark:text-white">
+            <CountUp value={progress} />
+            <span className="ml-0.5 text-lg md:text-xl text-slate-400 dark:text-slate-500">%</span>
           </p>
-          <p className="pb-0.5 text-right text-[11px] font-bold text-slate-600 dark:text-slate-300">
-            {notStarted ? `começa em ${daysUntil(today, bounds.start)} dias` : left === 0 ? 'último dia' : `faltam ${left} dias`}
+          <p className="mt-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300 truncate">
+            do semestre · {notStarted ? `começa em ${daysUntil(today, bounds.start)} dias` : left === 0 ? 'último dia' : `faltam ${left} dias`}
+          </p>
+          <GrowBar pct={progress} />
+          <p className="mt-1.5 text-[11px] text-slate-500 dark:text-slate-400 truncate">
+            {formatDM(bounds.start)} a {formatDM(bounds.end)}
+            {custom ? ' (suas datas)' : bounds.half === 1 ? ' · férias em julho' : ''}
           </p>
         </div>
-        <div className="h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-          <div className="h-full rounded-full bg-sky-500" style={{ width: `${progress}%` }} />
-        </div>
-        <p className="text-[11px] text-slate-500 dark:text-slate-400">
-          {formatDM(bounds.start)} a {formatDM(bounds.end)}
-          {custom ? ' (suas datas)' : bounds.half === 1 ? ' · férias em julho' : ''}
-        </p>
-        <div className="mt-auto pt-3 border-t border-slate-100 dark:border-slate-800">
-          <p className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5 flex items-center gap-1.5">
-            <CalendarDays className="h-3.5 w-3.5" /> Hoje na grade
-          </p>
+        <div className="pt-2.5 border-t border-slate-100 dark:border-slate-800 min-w-0">
           {todays.length === 0 ? (
-            <p className="text-xs text-slate-400 dark:text-slate-500">Nada na grade hoje.</p>
+            <p className="text-[11px] text-slate-400 dark:text-slate-500 flex items-center gap-1.5">
+              <CalendarDays className="h-3.5 w-3.5 shrink-0" /> Nada na grade hoje.
+            </p>
           ) : (
-            <ul className="space-y-1">
-              {todays.slice(0, 3).map((sc) => {
-                const cat = getActivityCategory(sc);
-                return (
-                  <li key={sc.id} className="flex items-center gap-2 min-w-0 text-xs">
-                    <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: sc.color || cat.color }} />
-                    <span className="min-w-0 flex-1 truncate font-bold text-slate-700 dark:text-slate-200">{sc.title || cat.label}</span>
-                    <span className="shrink-0 font-mono text-[11px] text-slate-500 dark:text-slate-400">{sc.startTime}</span>
-                  </li>
-                );
-              })}
-              {todays.length > 3 && <li className="text-[11px] text-slate-400 dark:text-slate-500">+ {todays.length - 3} atividades</li>}
-            </ul>
+            <>
+              <p className="sr-only">Hoje na grade</p>
+              <ul className="space-y-1">
+                {(showAllToday ? todays : [nextNow]).map((sc) => {
+                  const cat = getActivityCategory(sc);
+                  return (
+                    <li key={sc.id} className="flex items-center gap-2 min-w-0 text-xs">
+                      <CalendarDays className="h-3.5 w-3.5 shrink-0 text-slate-400" aria-hidden />
+                      <span className="shrink-0 tabular-nums text-[11px] text-slate-500 dark:text-slate-400">{sc.startTime}</span>
+                      <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: sc.color || cat.color }} />
+                      <span className="min-w-0 flex-1 truncate font-bold text-slate-700 dark:text-slate-200">{sc.title || cat.label}</span>
+                    </li>
+                  );
+                })}
+              </ul>
+              {todays.length > 1 && (
+                <button
+                  type="button"
+                  id="dash-semester-today-toggle"
+                  aria-expanded={showAllToday}
+                  onClick={() => setShowAllToday((v) => !v)}
+                  className="mt-0.5 min-h-[36px] text-[11px] font-bold text-slate-500 dark:text-slate-400 hover:text-sky-700 dark:hover:text-sky-300"
+                >
+                  {showAllToday ? 'Mostrar menos' : `+ ${todays.length - 1} hoje na grade`}
+                </button>
+              )}
+            </>
           )}
         </div>
       </section>

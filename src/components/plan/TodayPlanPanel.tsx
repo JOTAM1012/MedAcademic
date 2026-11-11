@@ -39,6 +39,7 @@ import { WeeklyPlanModal } from './WeeklyPlanModal';
 import { DayPlanModal } from './DayPlanModal';
 import { UpcomingExamTopics } from '../semester/UpcomingExamTopics';
 import { semesterNumberOf } from '../../data/subjectFormats';
+import { AnimatedCheck } from '../shared/AnimatedCheck';
 
 interface TodayPlanPanelProps {
   /** Versão do Painel: só "Agora" + progresso + 3 próximas + "Abrir meu plano" */
@@ -106,13 +107,18 @@ export const TodayPlanPanel: React.FC<TodayPlanPanelProps> = ({ compact, onOpenW
           const checked = done.has(String(i));
           const body = (
             <>
-              <span
-                className={`h-5 w-5 shrink-0 rounded-full text-[10px] font-black flex items-center justify-center ${checked ? 'text-white' : 'ink'}`}
-                style={checked ? { backgroundColor: t.color } : ({ backgroundColor: `${t.color}22`, '--ink': t.color } as React.CSSProperties)}
+              <AnimatedCheck
+                checked={checked}
+                color={t.color}
+                shape="round"
+                size={20}
+                className="text-[10px] font-black"
+                offClassName="ink"
+                offStyle={{ backgroundColor: `${t.color}22`, '--ink': t.color } as React.CSSProperties}
               >
-                {checked ? <Check className="h-3 w-3" strokeWidth={3} /> : i + 1}
-              </span>
-              <span className={`pt-0.5 ${checked ? 'line-through text-slate-400 dark:text-slate-500' : ''}`}>{s}</span>
+                {i + 1}
+              </AnimatedCheck>
+              <span className={`pt-0.5 transition-colors duration-200 ${checked ? 'line-through text-slate-400 dark:text-slate-500' : ''}`}>{s}</span>
             </>
           );
           return (
@@ -278,17 +284,12 @@ export const TodayPlanPanel: React.FC<TodayPlanPanelProps> = ({ compact, onOpenW
         title={manual ? (t.done ? 'Desmarcar' : 'Marcar como feito') : hint!}
         className={`shrink-0 h-10 w-10 -m-1.5 flex items-center justify-center rounded-xl ${manual ? '' : 'cursor-default'}`}
       >
-        <span
-          className={`h-6 w-6 rounded-lg border-2 flex items-center justify-center transition-colors ${
-            t.done
-              ? 'bg-emerald-500 border-emerald-500 text-white'
-              : manual
-                ? 'border-slate-300 dark:border-slate-600 hover:border-emerald-500'
-                : 'border-dashed border-slate-300 dark:border-slate-600'
-          }`}
-        >
-          {t.done && <Check className="h-3.5 w-3.5" strokeWidth={3} />}
-        </span>
+        <AnimatedCheck
+          checked={t.done}
+          size={24}
+          className="border-2"
+          offClassName={manual ? 'border-slate-300 dark:border-slate-600 hover:border-emerald-500' : 'border-dashed border-slate-300 dark:border-slate-600'}
+        />
       </button>
     );
   };
@@ -394,7 +395,7 @@ export const TodayPlanPanel: React.FC<TodayPlanPanelProps> = ({ compact, onOpenW
             </div>
           )}
           <button type="button" onClick={() => setExpanded(open ? null : t.id)} aria-expanded={open} className="min-w-0 flex-1 text-left">
-            <span className={`block text-[13px] font-bold leading-snug line-clamp-2 ${t.done ? 'line-through text-slate-500 dark:text-slate-400' : 'text-slate-900 dark:text-white'}`}>
+            <span className={`block text-[13px] font-bold leading-snug line-clamp-2 transition-colors duration-200 ${t.done ? 'line-through text-slate-500 dark:text-slate-400' : 'text-slate-900 dark:text-white'}`}>
               {!inOverflow && (
                 <span className="mr-1" aria-hidden>
                   {t.emoji}
@@ -445,30 +446,51 @@ export const TodayPlanPanel: React.FC<TodayPlanPanelProps> = ({ compact, onOpenW
     return (
       <div
         id="today-now-card"
-        className="relative overflow-hidden rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm"
-        style={{ backgroundImage: `linear-gradient(135deg, ${t.color}22 0%, ${t.color}08 45%, transparent 75%)` }}
+        className="relative overflow-hidden rounded-[28px] border bg-white dark:bg-slate-900 shadow-lg shadow-slate-900/[0.06] dark:shadow-black/40"
+        style={{ borderColor: `${t.color}59` }}
       >
-        <span className="absolute inset-y-0 left-0 w-1.5" style={{ backgroundColor: t.color }} />
-        <div className={small ? 'p-4 pl-5' : 'p-4 pl-5 sm:p-5 sm:pl-6'}>
-          <div className="flex items-center justify-between gap-2">
-            <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.14em] px-2 py-1 rounded-full bg-sky-600 text-white">
-              <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" /> Agora
+        {/* Brilho na cor da disciplina: só decoração, atrás do conteúdo */}
+        <span
+          aria-hidden
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background: `radial-gradient(130% 90% at 0% 0%, ${t.color}38 0%, ${t.color}14 38%, transparent 70%), radial-gradient(70% 60% at 100% 100%, ${t.color}14 0%, transparent 70%)`,
+          }}
+        />
+        <span
+          aria-hidden
+          className="pointer-events-none absolute -top-20 -left-16 h-56 w-56 rounded-full blur-3xl opacity-40 dark:opacity-30"
+          style={{ backgroundColor: t.color }}
+        />
+        <span aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-1" style={{ background: `linear-gradient(90deg, ${t.color}, ${t.color}00)` }} />
+        <div className={`relative ${small ? 'p-4' : 'p-4 sm:p-6'}`}>
+          <div className="flex items-center justify-between gap-3">
+            <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.16em] px-2.5 py-1 rounded-full bg-sky-600 text-white shadow-sm">
+              <span className="h-1.5 w-1.5 rounded-full bg-white motion-safe:animate-pulse" /> Agora
             </span>
-            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 inline-flex items-center gap-1">
-              <Clock className="h-3.5 w-3.5" /> {taskSizeLabel(t)}
+            <span
+              id="today-now-size"
+              className={`inline-flex items-center gap-1.5 font-black tabular-nums tracking-tight text-slate-900 dark:text-white leading-none ${small ? 'text-lg' : 'text-2xl sm:text-3xl'}`}
+            >
+              <Clock className={small ? 'h-4 w-4' : 'h-5 w-5 sm:h-6 sm:w-6'} style={{ color: t.color }} aria-hidden />
+              <span className="sr-only">Tamanho: </span>
+              {taskSizeLabel(t)}
             </span>
           </div>
 
-          <div className="mt-3 flex items-start gap-3">
+          <div className={`flex items-start gap-3 ${small ? 'mt-3' : 'mt-4 sm:mt-5'}`}>
             <span
-              className={`shrink-0 rounded-2xl flex items-center justify-center ${small ? 'h-11 w-11 text-xl' : 'h-12 w-12 sm:h-14 sm:w-14 text-2xl'}`}
-              style={{ backgroundColor: `${t.color}22` }}
+              className={`shrink-0 rounded-2xl flex items-center justify-center border ${small ? 'h-11 w-11 text-xl' : 'h-14 w-14 sm:h-16 sm:w-16 text-3xl'}`}
+              style={{ backgroundColor: `${t.color}22`, borderColor: `${t.color}40` }}
               aria-hidden
             >
               {t.emoji}
             </span>
             <div className="min-w-0 flex-1">
-              <h2 id="today-now-title" className={`font-black text-slate-900 dark:text-white leading-snug line-clamp-3 ${small ? 'text-base' : 'text-lg sm:text-xl'}`}>
+              <h2
+                id="today-now-title"
+                className={`font-black text-slate-900 dark:text-white leading-tight tracking-tight line-clamp-3 break-words ${small ? 'text-base' : 'text-xl sm:text-2xl'}`}
+              >
                 {t.title}
               </h2>
               {t.subtitle && <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5 line-clamp-2">{t.subtitle}</p>}
@@ -477,7 +499,7 @@ export const TodayPlanPanel: React.FC<TodayPlanPanelProps> = ({ compact, onOpenW
           </div>
 
           {t.reason && !small && (
-            <p className="mt-3 text-[12px] text-slate-600 dark:text-slate-300 flex gap-1.5">
+            <p className="mt-4 text-[12px] text-slate-600 dark:text-slate-300 flex gap-1.5">
               <Lightbulb className="h-3.5 w-3.5 mt-0.5 shrink-0 text-amber-500" />
               <span>
                 <span className="font-bold text-slate-700 dark:text-slate-200">Por quê: </span>
@@ -487,7 +509,7 @@ export const TodayPlanPanel: React.FC<TodayPlanPanelProps> = ({ compact, onOpenW
           )}
 
           {!small && t.steps.length > 0 && (
-            <div className="mt-2">
+            <div className="mt-3 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white/75 dark:bg-slate-950/50 px-3 py-2">
               <button
                 type="button"
                 id="today-now-steps-toggle"
@@ -499,7 +521,7 @@ export const TodayPlanPanel: React.FC<TodayPlanPanelProps> = ({ compact, onOpenW
                 {nowSteps ? 'Esconder o passo a passo' : `Ver o passo a passo (${t.steps.length})`}
               </button>
               {nowSteps && (
-                <div className="mt-1.5">
+                <div className="mt-1 pb-1">
                   {StepList(t)}
                   {t.questions && <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400 pl-7">Sugestão: {t.questions} questões (modelo para adaptar).</p>}
                 </div>
@@ -507,57 +529,50 @@ export const TodayPlanPanel: React.FC<TodayPlanPanelProps> = ({ compact, onOpenW
             </div>
           )}
 
-          <div className="mt-4 flex flex-wrap items-center gap-2">
-            {t.kind === 'weekly_planning' && !pos ? (
-              <button
-                type="button"
-                id="today-start-btn"
-                onClick={() => planWeekFromTask(t)}
-                className="flex-1 sm:flex-none min-h-[48px] px-5 rounded-2xl bg-sky-600 hover:bg-sky-500 text-white text-sm font-black inline-flex items-center justify-center gap-2 shadow-md shadow-sky-600/20"
-              >
-                <CalendarRange className="h-4 w-4" /> Planejar a semana
-              </button>
-            ) : pos ? (
-              <button
-                type="button"
-                id="today-start-btn"
-                onClick={() => toggleTaskDone(date, t.id)}
-                className="flex-1 sm:flex-none min-h-[48px] px-5 rounded-2xl bg-sky-600 hover:bg-sky-500 text-white text-sm font-black inline-flex items-center justify-center gap-2"
-              >
-                <BedDouble className="h-4 w-4" /> Ok, vou descansar
-              </button>
-            ) : (
-              <button
-                type="button"
-                id="today-start-btn"
-                onClick={() => start(t)}
-                className="flex-1 sm:flex-none min-h-[48px] px-6 rounded-2xl bg-sky-600 hover:bg-sky-500 text-white text-sm font-black inline-flex items-center justify-center gap-2 shadow-md shadow-sky-600/20"
-              >
-                <Play className="h-4 w-4 fill-current" /> Começar
-              </button>
-            )}
-            {freeOk && (
-              <button type="button" id="today-start-free-btn" onClick={() => start(t, true)} className={`${btnGhost} min-h-[48px] rounded-2xl`}>
-                <Timer className="h-4 w-4" /> Livre (com alarme)
-              </button>
-            )}
-            {sec && (
-              <button type="button" id="today-now-secondary" onClick={sec.onClick} className={`${btnGhost} min-h-[48px] rounded-2xl`}>
-                {sec.icon} {sec.label}
-              </button>
-            )}
-            {canCheck(t) && !pos && (
-              <button
-                type="button"
-                id="today-now-done"
-                onClick={() => toggleTaskDone(date, t.id)}
-                title="Já fiz"
-                className={`${btnGhost} min-h-[48px] rounded-2xl`}
-              >
-                <Check className="h-4 w-4 text-emerald-500" /> {small ? 'Feito' : 'Já fiz'}
-              </button>
-            )}
-          </div>
+          {(() => {
+            // Botão principal largo (tela cheia no celular); os outros ficam discretos ao lado/abaixo
+            const primary = `w-full sm:w-auto sm:min-w-[220px] rounded-2xl bg-sky-600 hover:bg-sky-500 active:bg-sky-700 text-white font-black inline-flex items-center justify-center gap-2 transition-colors ${
+              small ? 'min-h-[48px] px-5 text-sm' : 'min-h-[52px] px-7 text-base'
+            }`;
+            const primaryStyle = { boxShadow: `0 12px 28px -12px ${t.color}, 0 4px 12px -6px rgba(2,132,199,0.45)` };
+            const quiet = `${small ? 'min-h-[40px]' : 'min-h-[44px]'} px-3 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 bg-white/70 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-700/80 hover:text-slate-900 dark:hover:text-white hover:border-slate-300 dark:hover:border-slate-600 inline-flex items-center gap-1.5 transition-colors`;
+            return (
+              <div className={`${small ? 'mt-3' : 'mt-5'} flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2`}>
+                {t.kind === 'weekly_planning' && !pos ? (
+                  <button type="button" id="today-start-btn" onClick={() => planWeekFromTask(t)} className={primary} style={primaryStyle}>
+                    <CalendarRange className="h-5 w-5" /> Planejar a semana
+                  </button>
+                ) : pos ? (
+                  <button type="button" id="today-start-btn" onClick={() => toggleTaskDone(date, t.id)} className={primary}>
+                    <BedDouble className="h-5 w-5" /> Ok, vou descansar
+                  </button>
+                ) : (
+                  <button type="button" id="today-start-btn" onClick={() => start(t)} className={primary} style={primaryStyle}>
+                    <Play className="h-5 w-5 fill-current" /> Começar
+                  </button>
+                )}
+                {(freeOk || sec || (canCheck(t) && !pos)) && (
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {freeOk && (
+                      <button type="button" id="today-start-free-btn" onClick={() => start(t, true)} className={quiet}>
+                        <Timer className="h-4 w-4" /> Livre (com alarme)
+                      </button>
+                    )}
+                    {sec && (
+                      <button type="button" id="today-now-secondary" onClick={sec.onClick} className={quiet}>
+                        {sec.icon} {sec.label}
+                      </button>
+                    )}
+                    {canCheck(t) && !pos && (
+                      <button type="button" id="today-now-done" onClick={() => toggleTaskDone(date, t.id)} title="Já fiz" className={quiet}>
+                        <Check className="h-4 w-4 text-emerald-500" /> {small ? 'Feito' : 'Já fiz'}
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
           {!canCheck(t) && !small && <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">{autoHint(t)}.</p>}
         </div>
       </div>

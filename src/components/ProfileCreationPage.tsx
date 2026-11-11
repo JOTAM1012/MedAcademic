@@ -1,4 +1,6 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import { motion, useMotionValue, useReducedMotion, useSpring } from 'motion/react';
+import './auth.css';
 import {
   Stethoscope,
   GraduationCap,
@@ -181,6 +183,36 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
     !signupMode && !!userProfile.avatarUrl && !CARTOON_AVATARS.some((a) => a.url === userProfile.avatarUrl)
   );
   const [avatarProcessing, setAvatarProcessing] = useState(false);
+
+  // Cartão de prévia inclina de leve com o mouse (só no computador, sem "reduzir movimento")
+  const reduceMotion = useReducedMotion();
+  const [canTilt, setCanTilt] = useState(false);
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const mq = window.matchMedia('(pointer: fine) and (hover: hover) and (min-width: 1024px)');
+    const update = () => setCanTilt(mq.matches);
+    update();
+    mq.addEventListener?.('change', update);
+    return () => mq.removeEventListener?.('change', update);
+  }, []);
+  const tiltEnabled = canTilt && !reduceMotion;
+  const tiltX = useMotionValue(0);
+  const tiltY = useMotionValue(0);
+  const rotateX = useSpring(tiltX, { stiffness: 260, damping: 24 });
+  const rotateY = useSpring(tiltY, { stiffness: 260, damping: 24 });
+  const MAX_TILT = 6;
+  const handleBadgeMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!tiltEnabled) return;
+    const r = e.currentTarget.getBoundingClientRect();
+    const px = (e.clientX - r.left) / r.width - 0.5;
+    const py = (e.clientY - r.top) / r.height - 0.5;
+    tiltY.set(px * 2 * MAX_TILT);
+    tiltX.set(-py * 2 * MAX_TILT);
+  };
+  const resetBadgeTilt = () => {
+    tiltX.set(0);
+    tiltY.set(0);
+  };
 
   const activeCycleConfig =
     MEDICAL_CYCLES.find((c) => c.id === selectedCycle) || MEDICAL_CYCLES[1];
@@ -406,7 +438,7 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
   }
 
   return (
-    <div className="min-h-screen w-full bg-slate-950 text-slate-100 flex flex-col justify-between relative overflow-x-hidden font-sans">
+    <div className="auth-stage dark min-h-screen w-full text-slate-100 flex flex-col justify-between relative overflow-x-hidden font-sans">
       {/* Hidden File Input for Custom Avatar */}
       <input
         type="file"
@@ -416,14 +448,10 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
         className="hidden"
       />
 
-      {/* Subtle Background Glows */}
-      <div className="absolute top-0 left-1/4 w-96 h-96 bg-sky-500/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-10 right-1/4 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
-
-      {/* Top Brand Header */}
-      <header className="relative z-10 w-full max-w-6xl mx-auto px-6 py-6 flex items-center justify-between border-b border-slate-800/80">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-tr from-sky-600 to-blue-600 shadow-md shadow-sky-600/20 text-white">
+      {/* Top Brand Header (o fundo com profundidade vem de .auth-stage) */}
+      <header className="profile-header-bar relative z-10 w-full max-w-6xl mx-auto px-4 sm:px-6 py-5 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-400 to-blue-600 shadow-lg shadow-sky-600/25 ring-1 ring-inset ring-white/20 text-white">
             <Stethoscope className="h-5 w-5" />
           </div>
           <div>
@@ -443,7 +471,7 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
             <button
               id="signup-back-to-login-btn"
               onClick={cancelSignup}
-              className="text-xs font-bold px-4 py-2 rounded-xl border border-slate-700 text-slate-300 hover:bg-slate-800 transition-colors flex items-center gap-1.5"
+              className="auth-btn-secondary shrink-0 text-xs font-bold px-3 sm:px-4 py-2 rounded-xl text-slate-200 flex items-center gap-1.5"
             >
               <ArrowLeft className="h-3.5 w-3.5" />
               Voltar ao Login
@@ -485,7 +513,7 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
       </header>
 
       {/* Main Content Area */}
-      <main className="relative z-10 flex-1 max-w-5xl w-full mx-auto px-6 py-8 flex flex-col justify-center">
+      <main className="relative z-10 flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8 flex flex-col justify-center">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
           
           {/* Form Wizard (Left / Main) */}
@@ -496,7 +524,10 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
                 <span><strong className="text-sky-300">Boas-vindas!</strong> Ao concluir, você responde uma pesquisa rápida de rotina e ganha o tutorial de boas-vindas.</span>
               </p>
             )}
-          <div className="flex-1 bg-slate-900/80 backdrop-blur-md rounded-3xl border border-slate-800 p-6 sm:p-8 shadow-xl space-y-6">
+          <div className="profile-glass-card relative flex-1 rounded-3xl">
+            {/* Vidro numa camada separada: a lista de faculdades (dentro do cartão) não fica presa ao desfoque */}
+            <div className="auth-glass-layer" aria-hidden />
+          <div className="relative p-5 sm:p-8 space-y-6">
             
             {/* Step 1: Identidade & Avatar */}
             {currentStep === 1 && (
@@ -526,7 +557,7 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       placeholder="Ex: Dra. Mariana Costa ou João Silva"
-                      className="w-full rounded-2xl bg-slate-950 border border-slate-800 px-4 py-3 text-sm text-white placeholder:text-slate-600 focus:outline-hidden focus:border-sky-500 transition-colors"
+                      className="w-full rounded-2xl bg-slate-950/55 border border-white/10 px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-hidden focus:border-sky-500 focus:ring-2 focus:ring-sky-500/30 transition-colors"
                       autoFocus
                     />
                   </div>
@@ -570,7 +601,7 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="Ex: mariana.costa@medicina.edu.br"
-                      className="w-full rounded-2xl bg-slate-950 border border-slate-800 px-4 py-3 text-sm text-white placeholder:text-slate-600 focus:outline-hidden focus:border-sky-500 transition-colors"
+                      className="w-full rounded-2xl bg-slate-950/55 border border-white/10 px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-hidden focus:border-sky-500 focus:ring-2 focus:ring-sky-500/30 transition-colors"
                     />
                   </div>
                   )}
@@ -868,7 +899,7 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
                           value={targetExam}
                           onChange={(e) => setTargetExam(e.target.value)}
                           placeholder="Ex: ENARE, USP-SP, UNIFESP"
-                          className="w-full rounded-2xl bg-slate-950 border border-slate-800 px-4 py-3 text-sm text-white placeholder:text-slate-600 focus:outline-hidden focus:border-sky-500 transition-colors"
+                          className="w-full rounded-2xl bg-slate-950/55 border border-white/10 px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-hidden focus:border-sky-500 focus:ring-2 focus:ring-sky-500/30 transition-colors"
                         />
                       </div>
 
@@ -883,7 +914,7 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
                           value={dreamSpecialty}
                           onChange={(e) => setDreamSpecialty(e.target.value)}
                           placeholder="Ex: Clínica Médica, Cirurgia Geral, Pediatria, Ginecologia e Obstetrícia..."
-                          className="w-full rounded-2xl bg-slate-950 border border-slate-800 px-4 py-3 text-sm text-white placeholder:text-slate-600 focus:outline-hidden focus:border-sky-500 transition-colors"
+                          className="w-full rounded-2xl bg-slate-950/55 border border-white/10 px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-hidden focus:border-sky-500 focus:ring-2 focus:ring-sky-500/30 transition-colors"
                           autoFocus
                         />
 
@@ -1095,7 +1126,7 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="Ex: mariana.costa@medicina.edu.br"
-                      className="w-full rounded-2xl bg-slate-950 border border-slate-800 px-4 py-3 text-sm text-white placeholder:text-slate-600 focus:outline-hidden focus:border-sky-500 transition-colors"
+                      className="w-full rounded-2xl bg-slate-950/55 border border-white/10 px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-hidden focus:border-sky-500 focus:ring-2 focus:ring-sky-500/30 transition-colors"
                       autoFocus
                     />
                   </div>
@@ -1111,7 +1142,7 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         placeholder="Mínimo 6 caracteres"
-                        className="w-full rounded-2xl bg-slate-950 border border-slate-800 px-4 py-3 text-sm text-white placeholder:text-slate-600 focus:outline-hidden focus:border-sky-500 transition-colors"
+                        className="w-full rounded-2xl bg-slate-950/55 border border-white/10 px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-hidden focus:border-sky-500 focus:ring-2 focus:ring-sky-500/30 transition-colors"
                       />
                     </div>
                     <div>
@@ -1125,7 +1156,7 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
                         placeholder="Repita a senha"
-                        className="w-full rounded-2xl bg-slate-950 border border-slate-800 px-4 py-3 text-sm text-white placeholder:text-slate-600 focus:outline-hidden focus:border-sky-500 transition-colors"
+                        className="w-full rounded-2xl bg-slate-950/55 border border-white/10 px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-hidden focus:border-sky-500 focus:ring-2 focus:ring-sky-500/30 transition-colors"
                       />
                     </div>
                   </div>
@@ -1196,13 +1227,13 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
             )}
 
             {/* Navigation Buttons */}
-            <div className="flex items-center justify-between pt-6 border-t border-slate-800">
+            <div className="flex items-center justify-between gap-2 pt-6 border-t border-white/[0.07]">
               <div className="flex items-center gap-2">
                 {currentStep > 1 && (
                   <button
                     type="button"
                     onClick={() => setCurrentStep((prev) => prev - 1)}
-                    className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-slate-800 text-xs font-bold text-slate-300 hover:bg-slate-800 transition-colors cursor-pointer"
+                    className="auth-btn-secondary flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold text-slate-200 cursor-pointer"
                   >
                     <ArrowLeft className="h-4 w-4" />
                     <span>Voltar</span>
@@ -1243,7 +1274,7 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
                     }
                     setCurrentStep((prev) => prev + 1);
                   }}
-                  className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-black shadow-lg shadow-sky-600/20 transition-colors cursor-pointer"
+                  className="auth-btn-primary flex items-center gap-2 px-5 sm:px-6 py-2.5 rounded-xl text-white text-xs font-black cursor-pointer"
                 >
                   <span>Próximo Passo</span>
                   <ArrowRight className="h-4 w-4" />
@@ -1254,7 +1285,7 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
                   id="profile-finish-btn"
                   onClick={signupMode ? handleSignupFinish : handleFinish}
                   disabled={isSubmitting}
-                  className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 text-white text-xs sm:text-sm font-black shadow-xl shadow-sky-600/30 transition-all scale-100 hover:scale-102 cursor-pointer disabled:opacity-60 disabled:cursor-wait"
+                  className="auth-btn-hero flex items-center gap-2 px-5 sm:px-6 py-3 rounded-2xl text-white text-xs sm:text-sm font-black cursor-pointer disabled:opacity-60 disabled:cursor-wait"
                 >
                   <Sparkles className="h-4 w-4" />
                   <span>
@@ -1271,10 +1302,17 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
             </div>
           </div>
           </div>
+          </div>
 
           {/* Live Preview Card (Right Sidebar) */}
           <div className="lg:col-span-4 flex flex-col">
-            <div id="profile-badge-card" className="flex-1 rounded-3xl border border-slate-800 bg-slate-900/60 backdrop-blur-md p-6 shadow-xl flex flex-col justify-center gap-5">
+            <motion.div
+              id="profile-badge-card"
+              onMouseMove={handleBadgeMove}
+              onMouseLeave={resetBadgeTilt}
+              style={tiltEnabled ? { rotateX, rotateY, transformPerspective: 900 } : undefined}
+              className={`profile-badge-glass flex-1 rounded-3xl p-6 flex flex-col justify-center gap-5 ${tiltEnabled ? 'will-change-transform' : ''}`}
+            >
 
               {/* Foto no centro e nome embaixo */}
               <div className="flex flex-col items-center text-center gap-3">
@@ -1291,7 +1329,7 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
               </div>
 
               {/* Badges preview */}
-              <div className="space-y-2.5 pt-3 border-t border-slate-800 text-xs">
+              <div className="space-y-2.5 pt-3 border-t border-white/[0.07] text-xs">
                 <div className="grid grid-cols-[1fr_auto] gap-2 pb-1">
                   <div className="min-w-0 rounded-xl bg-slate-800/60 px-3 py-2">
                     <span className="block text-[10px] uppercase tracking-wider font-bold text-slate-500">Faculdade</span>
@@ -1349,7 +1387,7 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
                 </div>
               </div>
 
-            </div>
+            </motion.div>
           </div>
 
         </div>

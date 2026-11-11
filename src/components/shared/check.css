@@ -1,0 +1,68 @@
+/* AnimatedCheck: o "visto" se desenha (~220ms) e a caixinha dá um pulso suave.
+   Só anima de desmarcado → marcado. Sem transform: a caixa pode estar dentro de qualquer coisa. */
+.ac-box {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition:
+    background-color 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease;
+}
+
+.ac-box::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: 0 0 0 0 transparent;
+}
+
+.ac-box.ac-pop::after {
+  animation: ac-ring 280ms ease-out;
+}
+
+.ac-tick {
+  display: block;
+  overflow: visible;
+}
+
+.ac-tick path {
+  stroke-dasharray: 22;
+  stroke-dashoffset: 0;
+}
+
+.ac-pop .ac-tick path {
+  animation: ac-draw 220ms cubic-bezier(0.65, 0, 0.35, 1) both;
+}
+
+@keyframes ac-draw {
+  from {
+    stroke-dashoffset: 22;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes ac-ring {
+  from {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--ac-color, #10b981) 55%, transparent);
+  }
+  to {
+    box-shadow: 0 0 0 7px color-mix(in srgb, var(--ac-color, #10b981) 0%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ac-box {
+    transition: none;
+  }
+  .ac-box.ac-pop::after,
+  .ac-pop .ac-tick path {
+    animation: none;
+  }
+}

@@ -8,7 +8,7 @@ import { EditSubjectModal } from './modals/EditSubjectModal';
 import { FOCUS_SUBJECT_KEY } from './TutoriaGradesSection';
 import { ContestsModal } from './contests/ContestsModal';
 import { PastExamsModal } from './contests/PastExamsModal';
-import { Bar, Ring, hasArea, moduleOf, topicStats } from './structure/shared';
+import { Bar, Ring, hasArea, moduleOf, subjectColor, topicStats } from './structure/shared';
 import { AreaGrid, groupByArea } from './structure/AreaGrid';
 import { ModuleGrid, ModuleList } from './structure/ModuleList';
 import { ModuleLinks } from './structure/ModuleLinks';
@@ -153,13 +153,29 @@ export const AcademicStructureView: React.FC<AcademicStructureViewProps> = ({ on
   // ===== Detalhe: uma disciplina =====
   const detailSubject = detail?.kind === 'subject' ? subjects.find((s) => s.id === detail.id) : undefined;
   if (detailSubject) {
+    const detailColor = subjectColor(detailSubject);
     return (
       <div className="space-y-4 pb-12 max-w-4xl">
         {detail?.kind === 'subject' && detail.fromArea
           ? backBar(detail.fromArea === OTHER_AREA.id ? 'Sem grande área' : detail.fromArea, { kind: 'area', id: detail.fromArea })
           : backBar('Disciplinas')}
-        <div className="rounded-3xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-4 sm:p-6">
-          <SubjectSection subject={detailSubject} standalone allowLinking={mode === 'module' && !isBasic} onEdit={setEditing} />
+        <div
+          className="relative rounded-3xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-4 sm:p-6"
+          style={{ borderTopColor: `${detailColor}66` }}
+        >
+          {/* Brilho suave na cor da disciplina, atrás do cabeçalho (só decoração) */}
+          <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-48 sm:h-56 overflow-hidden rounded-t-3xl">
+            <div
+              className="absolute inset-0 opacity-90 dark:opacity-100"
+              style={{
+                background: `radial-gradient(85% 100% at 12% 0%, ${detailColor}33 0%, ${detailColor}12 45%, transparent 75%), radial-gradient(60% 80% at 100% 0%, ${detailColor}14 0%, transparent 70%)`,
+              }}
+            />
+            <div className="absolute inset-x-0 top-0 h-1" style={{ background: `linear-gradient(90deg, ${detailColor}, ${detailColor}00 80%)` }} />
+          </div>
+          <div className="relative">
+            <SubjectSection subject={detailSubject} standalone allowLinking={mode === 'module' && !isBasic} onEdit={setEditing} />
+          </div>
         </div>
         {detailSubject.kind === 'module' && <ModuleLinks module={detailSubject} onOpenSubject={(id) => setDetail({ kind: 'subject', id })} />}
         {modals}

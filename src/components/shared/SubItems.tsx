@@ -5,6 +5,7 @@ import React, { useRef, useState } from 'react';
 import { Reorder, useDragControls } from 'motion/react';
 import { Check, GripVertical, Pencil, Plus, X } from 'lucide-react';
 import type { SubItem } from '../../types';
+import { AnimatedCheck } from './AnimatedCheck';
 
 const uid = () => (typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
 
@@ -93,11 +94,10 @@ const SubRow: React.FC<{
         type="button"
         id={`${idPrefix}-sub-${s.id}`}
         onClick={onToggle}
-        className="mt-[3px] h-4 w-4 shrink-0 rounded-full border-2 grid place-items-center transition-colors"
-        style={{ borderColor: s.done ? color : '#94a3b8', backgroundColor: s.done ? color : 'transparent' }}
+        className="mt-[3px] h-4 w-4 shrink-0 rounded-full grid place-items-center"
         aria-label={s.done ? `Desmarcar ${s.title}` : `Marcar ${s.title} como visto`}
       >
-        {s.done && <Check className="h-2.5 w-2.5 text-white" strokeWidth={4} />}
+        <AnimatedCheck checked={!!s.done} color={color} shape="round" size={16} stroke={4} className="border-2" offStyle={{ borderColor: '#94a3b8', backgroundColor: 'transparent' }} />
       </button>
       {editing?.id === s.id ? (
         <input
@@ -115,14 +115,14 @@ const SubRow: React.FC<{
         <button
           type="button"
           onClick={() => setEditing({ id: s.id, value: s.text ? `${s.title}: ${s.text}` : s.title })}
-          className={`ml-0.5 flex-1 min-w-0 text-left text-xs leading-relaxed break-words ${s.done ? 'text-slate-400 dark:text-slate-500 line-through' : 'text-slate-700 dark:text-slate-200'}`}
+          className={`ml-0.5 flex-1 min-w-0 text-left text-xs leading-relaxed break-words transition-colors duration-200 ${s.done ? 'text-slate-400 dark:text-slate-500 line-through' : 'text-slate-700 dark:text-slate-200'}`}
           title="Toque para editar"
         >
           <em className={`font-semibold ${s.done ? '' : 'text-slate-900 dark:text-white'}`}>{s.title}</em>
           {s.text && <span>: {s.text}</span>}
         </button>
       ) : (
-        <span className={`ml-0.5 flex-1 min-w-0 text-xs leading-relaxed break-words ${s.done ? 'text-slate-400 dark:text-slate-500 line-through' : 'text-slate-700 dark:text-slate-200'}`}>
+        <span className={`ml-0.5 flex-1 min-w-0 text-xs leading-relaxed break-words transition-colors duration-200 ${s.done ? 'text-slate-400 dark:text-slate-500 line-through' : 'text-slate-700 dark:text-slate-200'}`}>
           <em className={`font-semibold ${s.done ? '' : 'text-slate-900 dark:text-white'}`}>{s.title}</em>
           {s.text && <span>: {s.text}</span>}
         </span>

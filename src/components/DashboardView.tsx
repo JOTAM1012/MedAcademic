@@ -12,7 +12,8 @@ import { ContestsSummaryCard } from './contests/ContestsSummaryCard';
 import type { DashboardPrefs, DashboardWidgetId } from '../types';
 import { MEDICAL_AREAS, OTHER_AREA } from '../data/areas';
 import { PERIOD_OPTIONS, areaOfSubject, type PeriodFilter } from '../data/dashboardMetrics';
-import { DEFAULT_WIDGETS, WIDGETS, resolveWidgets } from './dashboard/dashboardPrefs';
+import { BENTO_SPAN, DEFAULT_WIDGETS, WIDGETS, resolveWidgets, type BentoSize } from './dashboard/dashboardPrefs';
+import './dashboard/bento.css';
 import { GroupMode, resolveGroupMode } from './dashboard/dashboardData';
 import { DashboardEditor } from './dashboard/DashboardEditor';
 import { ProgressWidget } from './dashboard/ProgressWidget';
@@ -128,6 +129,18 @@ export const DashboardView: React.FC = () => {
         return null;
     }
   };
+
+  // Blocos do grid: os cartões escolhidos (na ordem do usuário) + o resumo da semana como bloco largo,
+  // logo depois do plano de hoje (ou no começo, se o plano estiver escondido)
+  const tiles: Array<{ key: string; size: BentoSize; node: React.ReactNode }> = [];
+  shown.forEach((w) => {
+    const node = renderWidget(w.id);
+    if (node) tiles.push({ key: w.id, size: WIDGETS[w.id].size, node });
+  });
+  if (subjects.length > 0 && !editing) {
+    const planAt = tiles.findIndex((t) => t.key === 'plan');
+    tiles.splice(planAt + 1, 0, { key: 'week', size: 'wide', node: <WeekSummaryCard /> });
+  }
 
   const chip = (active: boolean) =>
     `min-h-[40px] px-3 rounded-lg text-[11px] font-bold transition-colors ${
@@ -315,11 +328,8 @@ export const DashboardView: React.FC = () => {
         />
       )}
 
-      {/* ---------- Resumo da semana ---------- */}
-      {subjects.length > 0 && !editing && <WeekSummaryCard />}
-
-      {/* ---------- Cartões ---------- */}
-      {shown.length === 0 ? (
+      {/* ---------- Cartões (grid bento) ---------- */}
+      {shown.length === 0 && (
         <div className="rounded-3xl border border-dashed border-slate-200 dark:border-slate-800 p-6 text-center">
           <p className="text-xs text-slate-500 dark:text-slate-400">Todos os cartões estão escondidos.</p>
           <button
@@ -330,17 +340,23 @@ export const DashboardView: React.FC = () => {
             Escolher cartões
           </button>
         </div>
-      ) : (
-        <div id="dash-grid" className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 md:grid-flow-row-dense">
-          {shown.map((w) => {
-            const node = renderWidget(w.id);
-            if (!node) return null;
-            return (
-              <div key={w.id} id={`dash-widget-${w.id}`} className={`min-w-0 ${WIDGETS[w.id].span}`}>
-                {node}
-              </div>
-            );
-          })}
+      )}
+      {tiles.length > 0 && (
+        <div
+          id="dash-grid"
+          className="bento-grid grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-4 xl:grid-cols-3 2xl:grid-cols-4 md:grid-flow-row-dense md:auto-rows-[minmax(11rem,auto)]"
+        >
+          {tiles.map((t, i) => (
+            <div
+              key={t.key}
+              id={`dash-widget-${t.key}`}
+              data-bento={t.size}
+              className={`bento-tile min-w-0 ${BENTO_SPAN[t.size]}`}
+              style={{ '--bento-i': Math.min(i, 8) } as React.CSSProperties}
+            >
+              {t.node}
+            </div>
+          ))}
         </div>
       )}
     </div>

@@ -1,6 +1,5 @@
 import React, { useMemo, useState } from 'react';
 import {
-  Check,
   Plus,
   Trash2,
   Star,
@@ -16,6 +15,7 @@ import {
 } from 'lucide-react';
 import { SubItemsEditor, subItemsProgress } from './shared/SubItems';
 import { ShareChecklistButton } from './shared/ShareChecklistButton';
+import { AnimatedCheck } from './shared/AnimatedCheck';
 import { useApp } from '../context/AppContext';
 import { ChecklistItem } from '../types';
 import { CHECKLIST_COLORS, CHECKLIST_TEMPLATES, formatDateBR, toYMD } from '../data/planning';
@@ -56,6 +56,21 @@ export const ChecklistView: React.FC = () => {
   const [editingBlock, setEditingBlock] = useState<string | null>(null);
   const [editingItem, setEditingItem] = useState<{ id: string; text: string } | null>(null);
   const [detailsOpen, setDetailsOpen] = useState<Record<string, boolean>>({});
+  // Item recém-marcado fica um instante no lugar para o "visto" aparecer, depois vai para Concluídos
+  const [settling, setSettling] = useState<Record<string, boolean>>({});
+  const toggleItem = (item: ChecklistItem) => {
+    if (!item.done) {
+      setSettling((s) => ({ ...s, [item.id]: true }));
+      window.setTimeout(() => {
+        setSettling((s) => {
+          const next = { ...s };
+          delete next[item.id];
+          return next;
+        });
+      }, 420);
+    }
+    toggleChecklistItem(item.id);
+  };
   const [creator, setCreator] = useState<{ open: boolean; name: string; color: string; emoji: string }>({
     open: false,
     name: '',
@@ -82,7 +97,7 @@ export const ChecklistView: React.FC = () => {
   const doneCount = checklist.filter((i) => i.done).length;
   const percent = total > 0 ? Math.round((doneCount / total) * 100) : 0;
   const focus = checklist
-    .filter((i) => !i.done && (i.important || (i.dueDate && i.dueDate <= todayStr)))
+    .filter((i) => (!i.done || settling[i.id]) && (i.important || (i.dueDate && i.dueDate <= todayStr)))
     .sort(sortItems);
 
   const submitItem = (blockId: string) => {
@@ -126,12 +141,11 @@ export const ChecklistView: React.FC = () => {
     return (
       <li key={item.id} className="group flex flex-wrap items-start gap-x-2.5 rounded-xl px-2 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800/50">
         <button
-          onClick={() => toggleChecklistItem(item.id)}
-          className="mt-0.5 h-[18px] w-[18px] shrink-0 rounded-md border-2 flex items-center justify-center transition-colors"
-          style={{ borderColor: color, backgroundColor: item.done ? color : 'transparent' }}
+          onClick={() => toggleItem(item)}
+          className="mt-0.5 h-[18px] w-[18px] shrink-0 rounded-md flex items-center justify-center"
           aria-label={item.done ? 'Desmarcar' : 'Marcar como feito'}
         >
-          {item.done && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
+          <AnimatedCheck checked={item.done} color={color} size={18} className="border-2" offStyle={{ borderColor: color, backgroundColor: 'transparent' }} />
         </button>
 
         <div className="min-w-0 flex-1">
@@ -150,7 +164,7 @@ export const ChecklistView: React.FC = () => {
           ) : (
             <span
               onDoubleClick={() => setEditingItem({ id: item.id, text: item.text })}
-              className={`block text-sm break-words ${
+              className={`block text-sm break-words transition-colors duration-200 ${
                 item.done ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-800 dark:text-slate-100'
               }`}
               title="Clique duas vezes para editar"
@@ -247,8 +261,8 @@ export const ChecklistView: React.FC = () => {
 
   const renderBlock = (block: BlockView) => {
     const items = checklist.filter((i) => ownerOf(i) === block.id);
-    const pending = items.filter((i) => !i.done).sort(sortItems);
-    const done = items.filter((i) => i.done);
+    const pending = items.filter((i) => !i.done || settling[i.id]).sort(sortItems);
+    const done = items.filter((i) => i.done && !settling[i.id]);
     const pct = items.length > 0 ? Math.round((done.length / items.length) * 100) : 0;
     const isEditing = editingBlock === block.id;
 

@@ -15,6 +15,7 @@ import { ErrorNotebook, type ErrorFilter } from './review/ErrorNotebook';
 import { GuidedReviewSession, guidedStorageKey, loadGuided, saveGuided, type GuidedState, type QueueEntry } from './review/GuidedReviewSession';
 import { subjectLabel, taskDuration } from './review/reviewShared';
 import { startPlanTask } from './plan/planShared';
+import { EmptyState } from './shared/EmptyState';
 
 interface SpacedRepetitionViewProps {
   onOpenAddTopic?: () => void;
@@ -484,16 +485,23 @@ export const SpacedRepetitionView: React.FC<SpacedRepetitionViewProps> = () => {
                 </div>
               </>
             ) : (
-              <div id="review-today-empty" className="rounded-3xl border border-emerald-200 dark:border-emerald-900/50 bg-white dark:bg-slate-900 p-6 sm:p-8 text-center space-y-3">
-                <CheckCircle2 className="h-10 w-10 text-emerald-500 mx-auto" />
-                <div>
-                  <h3 className="text-base font-black text-slate-900 dark:text-white">{doneToday > 0 ? 'Revisões de hoje feitas! 🎉' : 'Nenhuma revisão para hoje'}</h3>
-                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-md mx-auto">
-                    {cycleBlocks.length === 0
-                      ? 'Quando você terminar o estudo inicial de um tema (todos os tópicos vistos), a 1ª revisão aparece aqui no dia seguinte.'
-                      : 'Revisões em dia. Siga o próximo passo do seu plano.'}
-                  </p>
-                </div>
+              <EmptyState
+                id="review-today-empty"
+                icon={CheckCircle2}
+                tone="emerald"
+                title={doneToday > 0 ? 'Revisões de hoje feitas' : 'Nenhuma revisão para hoje'}
+                text={
+                  cycleBlocks.length === 0
+                    ? 'Termine o estudo de um tema. A 1ª revisão aparece aqui no dia seguinte.'
+                    : 'Tudo em dia. Volte amanhã.'
+                }
+                actionLabel={cycleBlocks.length === 0 ? 'Abrir disciplinas' : plan.next && plan.next.kind !== 'review' ? undefined : 'Ver a agenda'}
+                onAction={cycleBlocks.length === 0 ? () => setCurrentTab('structure') : () => setTab('agenda')}
+                actionIcon={cycleBlocks.length === 0 ? undefined : CalendarDays}
+                secondaryLabel={cycleBlocks.length === 0 || (plan.next && plan.next.kind !== 'review') ? 'Ver a agenda' : undefined}
+                onSecondary={() => setTab('agenda')}
+                secondaryIcon={CalendarDays}
+              >
                 {plan.next && plan.next.kind !== 'review' && (
                   <div className="max-w-md mx-auto rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50 p-3 flex items-center gap-3 text-left">
                     <span className="h-10 w-10 shrink-0 rounded-xl flex items-center justify-center text-lg" style={{ backgroundColor: plan.next.color + '1a' }}>
@@ -514,25 +522,7 @@ export const SpacedRepetitionView: React.FC<SpacedRepetitionViewProps> = () => {
                     </button>
                   </div>
                 )}
-                <div className="flex flex-wrap justify-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setTab('agenda')}
-                    className="inline-flex items-center gap-1.5 min-h-[40px] px-4 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
-                  >
-                    <CalendarDays className="h-4 w-4" /> Ver a agenda
-                  </button>
-                  {cycleBlocks.length === 0 && (
-                    <button
-                      type="button"
-                      onClick={() => setCurrentTab('structure')}
-                      className="inline-flex items-center gap-1.5 min-h-[40px] px-4 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
-                    >
-                      Abrir disciplinas
-                    </button>
-                  )}
-                </div>
-              </div>
+              </EmptyState>
             )}
 
             {/* Feitas hoje (com desfazer) */}
@@ -591,7 +581,7 @@ export const SpacedRepetitionView: React.FC<SpacedRepetitionViewProps> = () => {
         ))}
 
       {/* ---------------- AGENDA ---------------- */}
-      {tab === 'agenda' && <ReviewAgenda onOpenBlock={openBlockInAll} onOpenPersonal={() => setCurrentTab('personal')} />}
+      {tab === 'agenda' && <ReviewAgenda onOpenBlock={openBlockInAll} onOpenPersonal={() => setCurrentTab('personal')} onOpenStructure={() => setCurrentTab('structure')} />}
 
       {/* ---------------- TODOS ---------------- */}
       {tab === 'todos' && (
@@ -649,20 +639,29 @@ export const SpacedRepetitionView: React.FC<SpacedRepetitionViewProps> = () => {
           </div>
 
           {filteredBlocks.length === 0 ? (
-            <div className="p-8 sm:p-10 text-center rounded-3xl border border-dashed border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-900">
-              <BookmarkCheck className="h-9 w-9 text-slate-300 dark:text-slate-700 mx-auto mb-3" />
-              <h3 className="text-sm font-bold text-slate-700 dark:text-slate-200">{cycleBlocks.length === 0 ? 'Nenhum tema nas revisões ainda' : 'Nenhum tema neste filtro'}</h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto mb-4">
-                Marque todos os tópicos de um tema como vistos na aba Disciplinas: esse dia vira o Dia 0 e a 1ª revisão aparece aqui no dia seguinte (24 h).
-              </p>
-              <button
-                type="button"
-                onClick={() => setCurrentTab('structure')}
-                className="min-h-[40px] px-4 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold"
-              >
-                Abrir disciplinas
-              </button>
-            </div>
+            cycleBlocks.length === 0 ? (
+              <EmptyState
+                icon={BookmarkCheck}
+                title="Nenhum tema nas revisões ainda"
+                text="Marque todos os tópicos de um tema como vistos. A 1ª revisão aparece no dia seguinte."
+                actionLabel="Abrir disciplinas"
+                onAction={() => setCurrentTab('structure')}
+              />
+            ) : (
+              <EmptyState
+                icon={Search}
+                tone="slate"
+                size="sm"
+                title="Nenhum tema neste filtro"
+                text="Tente outro filtro ou limpe a busca."
+                actionLabel="Ver todos"
+                onAction={() => {
+                  setAllFilter('all');
+                  setSearch('');
+                  setSubjectFilter('all');
+                }}
+              />
+            )
           ) : (
             <div id="review-all-list" className="space-y-3">
               {filteredBlocks.map((b) => (

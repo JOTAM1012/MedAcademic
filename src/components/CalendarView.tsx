@@ -43,6 +43,7 @@ import { WeeklyPlanModal } from './plan/WeeklyPlanModal';
 import { DayPlanModal } from './plan/DayPlanModal';
 import { StudyRoutineModal } from './plan/StudyRoutineModal';
 import { DAY_KIND_INFO, blocksToHours, readLocal, userLocalKey, writeLocal } from './plan/planShared';
+import { EmptyState } from './shared/EmptyState';
 
 interface CalendarViewProps {
   onOpenAddExam?: (date?: string) => void;
@@ -1205,7 +1206,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 {agendaOpen && (
                   <div className="px-3 pb-3 space-y-1.5">
                     {agenda.length === 0 ? (
-                      <p className="px-1 pb-1 text-xs text-slate-500 dark:text-slate-400">Nada na agenda hoje. Bom dia para seguir o plano com calma.</p>
+                      <EmptyState framed={false} size="sm" className="py-3!" icon={CalendarDays} tone="violet" title="Nada na agenda hoje" text="Bom dia para seguir o plano com calma." />
                     ) : (
                       agenda.map((item) => (
                         <button
@@ -1445,10 +1446,16 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 
             {/* Activities (ordered by time) */}
             {dayItems.length === 0 ? (
-              <div className="h-48 border border-dashed border-slate-200 dark:border-slate-800/80 rounded-2xl flex flex-col items-center justify-center text-center bg-slate-50 dark:bg-slate-950/20">
-                <CalendarIcon className="h-7 w-7 text-slate-700 mb-2" />
-                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Nenhuma atividade neste dia.</p>
-              </div>
+              <EmptyState
+                framed={false}
+                className="rounded-2xl border border-dashed border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-950/20"
+                icon={CalendarIcon}
+                title="Nenhuma atividade neste dia"
+                text={activeDay.isToday ? 'Dia livre. Bom para seguir o plano com calma.' : 'Dia livre. Adicione uma aula ou atividade se precisar.'}
+                actionLabel={onOpenAddSchedule ? 'Adicionar atividade' : undefined}
+                actionIcon={Plus}
+                onAction={onOpenAddSchedule ? () => onOpenAddSchedule(activeDay.dayNum, activeDay.dateStr) : undefined}
+              />
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                 {dayItems.map((item) => renderItemCard(item))}
@@ -1551,6 +1558,20 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
               );
             })}
           </div>
+
+          {!monthGrid.some((c) => c.inMonth && getItemsForDay(c).length > 0) && (
+            <EmptyState
+              framed={false}
+              size="sm"
+              className="mt-3 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/30"
+              icon={CalendarDays}
+              title="Nada neste mês"
+              text="Adicione aulas, atividades ou provas. Elas aparecem aqui."
+              actionLabel={onOpenAddSchedule ? 'Adicionar atividade' : undefined}
+              actionIcon={Plus}
+              onAction={onOpenAddSchedule ? () => onOpenAddSchedule() : undefined}
+            />
+          )}
 
           {/* Legend */}
           <div className="flex flex-wrap items-center gap-3 mt-3 px-1 text-[10px] text-slate-500 dark:text-slate-400">
