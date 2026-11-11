@@ -500,6 +500,15 @@ export const turnCapacity = (prefs: StudyPlanPrefs, dow: number): { capacity: nu
   return { capacity, allRest, turns };
 };
 const TURN_WORD: Record<TurnState, string> = { livre: 'livre', ocupado: 'ocupada', descanso: 'de descanso' };
+/** Dias da semana de descanso: o dia fixo + os dias com os três turnos em descanso */
+export const restDaysOf = (prefs: Pick<StudyPlanPrefs, 'restDay' | 'weekTurns'>): number[] => {
+  const out = new Set<number>();
+  if (prefs.restDay !== null && prefs.restDay !== undefined) out.add(prefs.restDay);
+  prefs.weekTurns?.forEach((d, i) => {
+    if (d?.length === 3 && d.every((t) => t === 'descanso')) out.add(i);
+  });
+  return Array.from(out);
+};
 export const turnKey = (dow: number, turn: ExamShift) => `${dow}-${turn}`;
 export const TURN_METHODS: Array<{ id: TurnMethod; label: string; emoji: string }> = [
   { id: 'tema_novo', label: 'Tema novo', emoji: '📘' },
@@ -541,6 +550,14 @@ export const normalizeStudyMethod = (raw: any): StudyMethodState => {
  * erros e projetos por id (a nuvem vale; itens que só existem aqui são mantidos). O que foi
  * excluído em qualquer aparelho (lista `deleted`) sai dos dois lados.
  */
+const mergeByDate = <T,>(local: Record<string, T> | undefined, cloud: Record<string, T> | undefined, join: (l: T, c: T) => T): Record<string, T> => {
+  const out: Record<string, T> = { ...(local || {}) };
+  Object.entries(cloud || {}).forEach(([k, c]) => {
+    out[k] = k in out ? join(out[k], c) : c;
+  });
+  return out;
+};
+
 export const mergeStudyMethod = (local: StudyMethodState, cloudRaw: any, _today = ymd(new Date())): StudyMethodState => {
   const cloud = normalizeStudyMethod(cloudRaw);
   const deleted = { ...(local.deleted || {}), ...(cloud.deleted || {}) };
@@ -553,8 +570,12 @@ export const mergeStudyMethod = (local: StudyMethodState, cloudRaw: any, _today 
     prefs: cloud.prefs || local.prefs,
     errorNotes: byId(cloud.errorNotes, local.errorNotes),
     projects: byId(cloud.projects, local.projects),
-    habits: { ...local.habits, ...cloud.habits },
-    dayPlans: { ...local.dayPlans, ...cloud.dayPlans },
+    habits: mergeByDate(local.habits, cloud.habits, (l, c) => (Array.isArray(l) && Array.isArray(c) ? (Array.from(new Set([...c, ...l])) as typeof c) : c)),
+    dayPlans: mergeByDate(local.dayPlans, cloud.dayPlans, (l, c) => {
+      const uni = (a?: string[], b?: string[]) => (a || b ? Array.from(new Set([...(b || []), ...(a || [])])) : undefined);
+      const custom = c.custom || l.custom ? [...(c.custom || []), ...(l.custom || []).filter((x) => !(c.custom || []).some((y) => y.id === x.id))] : undefined;
+      return { ...l, ...c, done: uni(l.done, c.done), skipped: uni(l.skipped, c.skipped), ...(custom ? { custom } : {}) };
+    }),
     guideSeen: cloud.guideSeen || local.guideSeen,
     deleted: Object.keys(deleted).length ? deleted : undefined,
     dashboard: cloud.dashboard || local.dashboard,
@@ -647,7 +668,7 @@ export const spreadOverdueReviews = (
   subjects: Subject[],
   today: string,
   perDay: number,
-  restDay: number | null = null,
+  restDay: number | null | number[] = null,
   projects: PersonalProject[] = []
 ) => {
   const limit = Math.max(1, perDay);
@@ -687,7 +708,8 @@ export const spreadOverdueReviews = (
   queue.forEach((e) => {
     for (let guard = 0; guard < 400; guard++) {
       const date = addDaysYMD(day, today);
-      const isRest = restDay !== null && parseYMD(date).getDay() === restDay;
+      const rd = Array.isArray(restDay) ? restDay : restDay === null ? [] : [restDay];
+      const isRest = rd.length < 7 && rd.includes(parseYMD(date).getDay());
       const used = usedOn[date] || 0;
       // Um dia sempre aceita pelo menos uma revisão (evita laço infinito com revisões grandes)
       if (!isRest && (used === 0 || used + e.cost <= limit)) {
@@ -821,7 +843,7 @@ export const startItemReviews = (item: PersonalProjectItem, today = ymd(new Date
 });
 
 /** Revisão de um item de projeto feita (mesmo motor de intervalos dos blocos) */
-export const reviewProjectItemResult = (item: PersonalProjectItem, difficulty: TopicDifficulty, opts: { today?: string; restDay?: number | null; longTerm?: boolean } = {}): PersonalProjectItem => {
+export const reviewProjectItemResult = (item: PersonalProjectItem, difficulty: TopicDifficulty, opts: { today?: string; restDay?: number | null | number[]; longTerm?: boolean } = {}): PersonalProjectItem => {
   const today = opts.today || ymd(new Date());
   const done = (item.reviewsDone || 0) + 1;
   return {
@@ -965,7 +987,7 @@ export const blockLabel = (focus: number, rest: number) => `${focus}/${rest}`;
 export const isPlantaoDay = (schedule: ScheduleClass[], date: string) => {
   const d = parseYMD(date);
   const dayNum = d.getDay() === 0 ? 7 : d.getDay();
-  return schedule.some((sc) => occursOn(sc, date, dayNum) && getActivityCategory(sc).id === 'plantao');
+  return schedule.some((sc) => occursOn(sc, date, dayNum) && (sc.category ? sc.category === 'plantao' : /plant[aã]o/i.test(`${sc.type || ''} ${sc.title || ''}`)));
 };
 
 export const SLEEP_NOTE = 'Noite: dormir em horário regular. O sono consolida o que você estudou hoje.';
@@ -1088,9 +1110,9 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
   // 2. Revisões de temas (qualquer semestre, disciplina existente)
   const reviewBlocks = blocks.filter((b) => {
     if (!subjectIds.has(b.subjectId) || b.reviewStatus === 'estudando') return false;
-    if (isToday) return isBlockDue(b, today) || b.lastReviewDate === today;
+    if (isToday) return (!b.paused && isBlockDue(b, today)) || b.lastReviewDate === today;
     if (isPast) return b.lastReviewDate === date;
-    return b.nextReviewDate === date;
+    return !b.paused && b.nextReviewDate === date;
   });
   const reviewTasks = reviewBlocks.map((b) => {
     const reviewedThatDay = b.lastReviewDate === date;
@@ -1171,12 +1193,18 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
   );
 
   // 2b. Turnos planejados (modo detalhado): matéria, assunto e forma de estudo de cada turno livre
-  if (prefs.turnsDetailed && prefs.turnPlans && !rest) {
+  if (prefs.turnsDetailed && prefs.turnPlans && !rest && !plantao && !lowEnergy) {
     const freeIdx = TURN_KEYS.map((_, i) => i).filter((i) => !turnsDay || turnsDay.turns[i] === 'livre');
-    const share = Math.max(1, Math.min(4, Math.floor(capacity / Math.max(1, freeIdx.length))));
-    freeIdx.forEach((i) => {
+    const planned = freeIdx.filter((i) => {
       const tp = prefs.turnPlans?.[turnKey(dow, TURN_KEYS[i])];
-      if (!tp || (!tp.subjectId && !tp.method && !tp.note)) return;
+      return !!tp && !!(tp.subjectId || tp.method || tp.note);
+    });
+    // O que já está no plano (flashcards, resumo, revisões) sai da conta antes de dividir
+    const taken = all.filter((t) => !t.optional && !t.skipped).reduce((a, t) => a + t.pomodoros, 0);
+    const share = Math.max(1, Math.min(4, Math.floor(Math.max(0, capacity - taken) / Math.max(1, planned.length))));
+    planned.forEach((i) => {
+      const tp = prefs.turnPlans?.[turnKey(dow, TURN_KEYS[i])];
+      if (!tp) return;
       const m = TURN_METHODS.find((x) => x.id === tp.method);
       const subj = tp.subjectId ? subjectName(subjects, tp.subjectId) : '';
       const topic = tp.topicId ? topics.find((t) => t.id === tp.topicId)?.title : '';
@@ -1229,7 +1257,7 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
       if (n.status === 'resolvido') return false;
       if (n.blockId) {
         const b = blocks.find((x) => x.id === n.blockId);
-        if (b && b.reviewStatus !== 'estudando') return false;
+        if (b && b.reviewStatus !== 'estudando' && !b.paused) return false;
       }
       return isToday ? isErrorDue(n, today) : nextErrorRedo(n) === date;
     });
@@ -1740,7 +1768,7 @@ export const autoDistributeNewTopics = (input: Omit<PlanInput, 'date'>, blockIds
     const already = every.filter((t) => (t.kind === 'new_block' || t.kind === 'new_topics') && !t.suggested).length + Object.values(result).filter((d) => d === date).length;
     const load = every.filter((t) => !t.optional && t.kind !== 'new_block' && t.kind !== 'new_topics').reduce((a, t) => a + t.pomodoros, 0);
     let slots = Math.max(0, input.prefs.newTopicsPerDay - already);
-    const free = p.capacity - load;
+    const free = p.capacity - load - already * per;
     slots = Math.min(slots, Math.max(Math.floor(free / per), already === 0 ? 1 : 0));
     for (let k = 0; k < slots && queue.length > 0; k++) result[queue.shift()!] = date;
   }

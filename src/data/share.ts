@@ -98,8 +98,21 @@ export const decodeShared = async (code: string): Promise<SharedSubject | null> 
     const bytes = fromB64Url(c.slice(1));
     const raw = c[0] === 'z' ? await pipe(bytes, new DecompressionStream('deflate-raw')) : bytes;
     const p = JSON.parse(new TextDecoder().decode(raw)) as SharedSubject;
-    if (p?.v !== 1 || !p.s?.name || !Array.isArray(p.b) || !Array.isArray(p.t)) return null;
-    return p;
+    if (p?.v !== 1 || !p.s || typeof p.s.name !== 'string' || !p.s.name.trim() || !Array.isArray(p.b) || !Array.isArray(p.t)) return null;
+    const cleanTopics = (list: unknown): SharedTopic[] =>
+      (Array.isArray(list) ? list : [])
+        .filter((t): t is SharedTopic => !!t && typeof t === 'object' && typeof (t as SharedTopic).n === 'string')
+        .map((t) => ({
+          n: t.n,
+          ...(typeof t.m === 'string' ? { m: t.m } : {}),
+          ...(Array.isArray(t.d) ? { d: t.d.filter((x) => Array.isArray(x) && typeof x[0] === 'string') } : {}),
+        }));
+    return {
+      v: 1,
+      s: { ...p.s, color: typeof p.s.color === 'string' && p.s.color ? p.s.color : '#0ea5e9' },
+      b: p.b.filter((b) => !!b && typeof b === 'object' && typeof b.n === 'string').map((b) => ({ n: b.n, t: cleanTopics(b.t) })),
+      t: cleanTopics(p.t),
+    };
   } catch {
     return null;
   }

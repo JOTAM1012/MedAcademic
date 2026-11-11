@@ -43,6 +43,7 @@ import {
   normalizeStudyMethod,
   pruneStudyMethod,
   resolvePrefs,
+  restDaysOf,
   reviewProjectItemResult,
   reviewTechnique,
   sessionDate,
@@ -1551,7 +1552,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const residencyPrep = isResidencyPrep(studyPhase, userProfile, studyMethod.projects);
   const currentSubjectIds = subjects.filter((s) => !s.semesterId || s.semesterId === currentSemester?.id).map((s) => s.id);
   /** Próxima revisão: N dias a partir de hoje, pulando o dia de descanso */
-  const reviewDateIn = (days: number, from?: string) => scheduleReviewDate(days, { from, restDay: studyPrefs.restDay });
+  const reviewDateIn = (days: number, from?: string) => scheduleReviewDate(days, { from, restDay: restDaysOf(studyPrefs) });
 
   // Grade de horários do semestre atual (as de semestres anteriores ficam guardadas no histórico)
   const currentSchedule = schedule.filter((s) => !s.semesterId || !currentSemester || s.semesterId === currentSemester.id);
@@ -2801,7 +2802,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const today = ymd(new Date());
     // Espaço de revisão por dia = capacidade do dia menos o bloco dos flashcards
     const perDay = Math.max(2, studyPrefs.dailyPomodoros - (studyPrefs.usesFlashcards ? 1 : 0));
-    const { blocks: map, items } = spreadOverdueReviews(topicBlocks, subjects, today, perDay, studyPrefs.restDay, studyMethod.projects);
+    const { blocks: map, items } = spreadOverdueReviews(topicBlocks, subjects, today, perDay, restDaysOf(studyPrefs), studyMethod.projects);
     const n = Object.keys(map).length + Object.keys(items).length;
     if (n === 0) {
       showNotification('As revisões de hoje já cabem no seu dia. Nada precisou mudar de data.', 'info');
@@ -2895,7 +2896,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
   const reviewProjectItem = (projectId: string, itemId: string, difficulty: TopicDifficulty) => {
     mapItems(projectId, (items) =>
-      items.map((it) => (it.id === itemId ? reviewProjectItemResult(it, difficulty, { restDay: studyPrefs.restDay, longTerm: studyPrefs.longTermGoal }) : it))
+      items.map((it) => (it.id === itemId ? reviewProjectItemResult(it, difficulty, { restDay: restDaysOf(studyPrefs), longTerm: studyPrefs.longTermGoal }) : it))
     );
     showNotification('Revisão registrada.', 'success');
   };

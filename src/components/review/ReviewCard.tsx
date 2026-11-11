@@ -14,6 +14,7 @@ import {
   redoableErrorsOfBlock,
   reviewTechnique,
   suggestDifficulty,
+  restDaysOf,
 } from '../../data/studyMethod';
 import { todayYMD } from '../../hooks/useStudyPlan';
 import { ErrorNoteModal } from './ErrorNoteModal';
@@ -96,7 +97,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ block, expanded = true, 
   const nextTech = reviewTechnique({ reviewsDone: block.reviewsDone + 1 }, sub?.format);
   const preview = (level: TopicDifficulty) => {
     const days = nextIntervalDays(level, block.reviewsDone + 1, studyPrefs.longTermGoal);
-    const date = scheduleReviewDate(days, { from: today, restDay: studyPrefs.restDay });
+    const date = scheduleReviewDate(days, { from: today, restDay: restDaysOf(studyPrefs) });
     const d = daysBetween(today, date);
     return { date, text: d === 1 ? 'amanhã' : `em ${d} dias` };
   };

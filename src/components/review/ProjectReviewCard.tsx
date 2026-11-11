@@ -4,7 +4,7 @@ import { ChevronDown, Play } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import type { PersonalProject, PersonalProjectItem, TopicDifficulty } from '../../types';
 import { daysBetween, formatDM, nextIntervalDays, scheduleReviewDate } from '../../data/blockReview';
-import { projectReviewTechnique } from '../../data/studyMethod';
+import { projectReviewTechnique, restDaysOf } from '../../data/studyMethod';
 import { todayYMD } from '../../hooks/useStudyPlan';
 import { DIFF_ORDER, DIFF_UI, StepList } from './reviewShared';
 
@@ -32,7 +32,7 @@ export const ProjectReviewCard: React.FC<ProjectReviewCardProps> = ({ project, i
 
   const preview = (level: TopicDifficulty) => {
     const days = nextIntervalDays(level, n, studyPrefs.longTermGoal);
-    const d = daysBetween(today, scheduleReviewDate(days, { from: today, restDay: studyPrefs.restDay }));
+    const d = daysBetween(today, scheduleReviewDate(days, { from: today, restDay: restDaysOf(studyPrefs) }));
     return d === 1 ? 'amanhã' : `em ${d} dias`;
   };
 

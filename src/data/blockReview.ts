@@ -52,10 +52,12 @@ export const REVIEW_INTERVALS: Record<TopicDifficulty, number[]> = {
  * Data da próxima revisão. Se cair no dia de descanso, vai para o dia seguinte
  * (revisar um pouco tarde rende mais do que revisar cedo demais).
  */
-export const scheduleReviewDate = (days: number, opts: { from?: Date | string; restDay?: number | null } = {}) => {
+export const scheduleReviewDate = (days: number, opts: { from?: Date | string; restDay?: number | null | number[] } = {}) => {
   const d = opts.from ? (typeof opts.from === 'string' ? parseYMD(opts.from) : new Date(opts.from)) : new Date();
   d.setDate(d.getDate() + days);
-  if (opts.restDay !== undefined && opts.restDay !== null && d.getDay() === opts.restDay) d.setDate(d.getDate() + 1);
+  const rest = Array.isArray(opts.restDay) ? opts.restDay : opts.restDay === undefined || opts.restDay === null ? [] : [opts.restDay];
+  // Pula todos os dias de descanso seguidos (a semana toda em descanso não trava)
+  for (let i = 0; i < 7 && rest.length < 7 && rest.includes(d.getDay()); i++) d.setDate(d.getDate() + 1);
   return ymd(d);
 };
 

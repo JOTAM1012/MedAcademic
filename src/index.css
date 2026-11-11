@@ -398,3 +398,12 @@ html {
 .text-\[11px\] { font-size: 12.5px !important; }
 .text-\[12px\] { font-size: 13.5px !important; }
 .text-\[13px\] { font-size: 14.5px !important; }
+
+/* Celular: campo com letra menor que 16px faz o iPhone dar zoom ao tocar */
+@media (max-width: 767px) {
+  input:not([type='checkbox']):not([type='radio']):not([type='range']),
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
