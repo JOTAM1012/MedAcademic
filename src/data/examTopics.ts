@@ -16,6 +16,8 @@ export const DEFAULT_TOPIC_QUESTIONS = 10;
 
 /** Dias antes da prova em que o site lembra (se ainda não começou) */
 export const EXAM_REMINDER_DAYS = [30, 15, 7, 3, 1];
+/** Na última semana (6 dias ou menos, incluindo o dia da prova) o lembrete aparece todo dia */
+export const EXAM_LAST_WEEK_DAYS = 6;
 
 export const newExamTopicId = () => 'etp-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
 
@@ -55,14 +57,14 @@ export const upcomingExams = (exams: Exam[], today = ymd(new Date()), withinDays
     .sort((a, b) => a.date.localeCompare(b.date));
 
 /**
- * Lembrete de hoje para uma prova: se faltam 30/15/7/3/1 dias (ou menos de 7 e nada feito) e o aluno
+ * Lembrete de hoje para uma prova: se faltam 30/15/7/3/1 dias, ou todo dia quando faltam 6 ou menos, e o aluno
  * ainda não começou os assuntos. Devolve os dias que faltam ou undefined.
  */
 export const examReminderToday = (exam: Exam, today = ymd(new Date())): number | undefined => {
   if (exam.remindersOff || exam.grade !== undefined || exam.date < today) return undefined;
   const left = daysBetween(today, exam.date);
   if (examStarted(exam)) return undefined;
-  if (EXAM_REMINDER_DAYS.includes(left)) return left;
+  if (EXAM_REMINDER_DAYS.includes(left) || left <= EXAM_LAST_WEEK_DAYS) return left;
   return undefined;
 };
 
@@ -70,6 +72,9 @@ export const examReminderToday = (exam: Exam, today = ymd(new Date())): number |
 export const examReminderText = (exam: Exam, left: number) => {
   const when = left === 0 ? 'hoje' : left === 1 ? 'amanhã' : `em ${left} dias`;
   const hasTopics = (exam.examTopics || []).length > 0;
+  if (left === 0) {
+    return `Prova hoje: ${exam.title || exam.subjectName || 'prova'}. Revise o principal com calma. Boa prova!`;
+  }
   return hasTopics
     ? `Prova ${when}: ${exam.title || exam.subjectName || 'prova'}. Você ainda não marcou nenhum assunto. Que tal começar hoje?`
     : `Prova ${when}: ${exam.title || exam.subjectName || 'prova'}. Liste os assuntos para o site montar o check list e encaixar na rotina.`;

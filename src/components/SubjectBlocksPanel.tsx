@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Plus, Search, ChevronDown, Check, Trash2, Clock3, MoreHorizontal, Pencil, RotateCcw, Repeat, Trophy, Layers, X, Star, Play, Lightbulb, Gift, BarChart3, ListTree } from 'lucide-react';
+import { Plus, Search, ChevronDown, Check, Trash2, Clock3, MoreHorizontal, Pencil, RotateCcw, Repeat, Trophy, Layers, X, Star, Play, Lightbulb, Gift, BarChart3, ListTree, StickyNote } from 'lucide-react';
 import { SubItemsEditor, subItemsProgress } from './shared/SubItems';
 import { useApp } from '../context/AppContext';
 import { Subject, Topic, TopicBlock } from '../types';
@@ -68,6 +68,15 @@ export const SubjectBlocksPanel: React.FC<SubjectBlocksPanelProps> = ({ subject,
     const v = editingTopic.value.trim();
     if (v) updateTopic(editingTopic.id, { title: v });
     setEditingTopic(null);
+  };
+  // Anotação curta do tópico (link da aula, página do livro…)
+  const [editingNote, setEditingNote] = useState<{ id: string; value: string } | null>(null);
+  const saveNote = () => {
+    if (!editingNote) return;
+    const v = editingNote.value.trim().slice(0, 200);
+    const cur = topics.find((x) => x.id === editingNote.id)?.note || '';
+    if (v !== cur) updateTopic(editingNote.id, { note: v || undefined });
+    setEditingNote(null);
   };
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [menuFor, setMenuFor] = useState<string | null>(null);
@@ -586,6 +595,22 @@ export const SubjectBlocksPanel: React.FC<SubjectBlocksPanelProps> = ({ subject,
                               )}
                             </span>
                             )}
+                            <button
+                              type="button"
+                              id={`struct-note-${t.id}`}
+                              onMouseDown={(e) => editingNote?.id === t.id && e.preventDefault()}
+                              onClick={() => (editingNote?.id === t.id ? saveNote() : setEditingNote({ id: t.id, value: t.note || '' }))}
+                              aria-expanded={editingNote?.id === t.id}
+                              className={`h-8 shrink-0 inline-flex items-center gap-1 px-1.5 rounded-lg text-[11px] font-bold transition-colors sm:order-last ${
+                                t.note || editingNote?.id === t.id
+                                  ? 'text-sky-600 dark:text-sky-400 hover:bg-sky-500/10'
+                                  : 'text-slate-300 dark:text-slate-600 sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100 hover:text-sky-500'
+                              }`}
+                              aria-label={t.note ? `Editar anotação de ${t.title}` : `Anotação em ${t.title}`}
+                              title={t.note ? 'Editar anotação' : 'Adicionar anotação (opcional)'}
+                            >
+                              <StickyNote className="h-3.5 w-3.5" />
+                            </button>
                             {(() => {
                               const pr = subItemsProgress(t.details);
                               const open = !!detailsOpen[t.id];
@@ -653,6 +678,35 @@ export const SubjectBlocksPanel: React.FC<SubjectBlocksPanelProps> = ({ subject,
                             </button>
                           </div>
                         </div>
+                        {editingNote?.id === t.id ? (
+                          <input
+                            autoFocus
+                            id={`struct-note-input-${t.id}`}
+                            value={editingNote.value}
+                            maxLength={200}
+                            onChange={(e) => setEditingNote({ id: t.id, value: e.target.value })}
+                            onBlur={saveNote}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') saveNote();
+                              if (e.key === 'Escape') setEditingNote(null);
+                            }}
+                            placeholder="Anotação: link da aula, página do livro…"
+                            aria-label={`Anotação de ${t.title}`}
+                            className="mt-1.5 ml-7 w-[calc(100%-1.75rem)] min-h-[36px] rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-2.5 text-[11px] text-slate-700 dark:text-slate-200 focus:outline-hidden focus:border-sky-500"
+                          />
+                        ) : (
+                          t.note && (
+                            <p className="mt-1 ml-7 text-[11px] text-slate-500 dark:text-slate-400 break-words">
+                              {/^https?:\/\//i.test(t.note) ? (
+                                <a href={t.note} target="_blank" rel="noopener noreferrer" className="text-sky-600 dark:text-sky-400 underline underline-offset-2 break-all">
+                                  {t.note}
+                                </a>
+                              ) : (
+                                t.note
+                              )}
+                            </p>
+                          )
+                        )}
                         {detailsOpen[t.id] && (
                           <SubItemsEditor idPrefix={`topic-${t.id}`} items={t.details} onChange={(d) => updateTopic(t.id, { details: d })} color="#10b981" />
                         )}

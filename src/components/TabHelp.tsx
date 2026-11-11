@@ -1,6 +1,7 @@
-// Linha de ajuda no topo de cada aba: botão "Ajuda" (tutorial simples daquela aba) e,
-// no Semestre, "Como funciona o método?" (Dashboard e Planner já têm o botão no cabeçalho).
-import React, { useState } from 'react';
+// Ajuda de cada aba: um botão pequeno ao lado do título da aba abre um tutorial simples daquela tela.
+// No Semestre aparece também "Como funciona o método?" (Dashboard e Planner já têm o botão no cabeçalho).
+import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { BookOpen, HelpCircle, Lightbulb } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { TAB_HELP } from '../data/tabHelp';
@@ -11,24 +12,69 @@ const ALIAS: Record<string, string> = { grades: 'semester', schedule: 'semester'
 export const TabHelpBar: React.FC<{ tab: string }> = ({ tab }) => {
   const { openMethodGuide } = useApp();
   const [open, setOpen] = useState(false);
+  const [slot, setSlot] = useState<HTMLElement | null>(null);
+  // Tela sem título (ex.: dentro de uma disciplina): o botão aparece numa linha discreta no topo
+  const [noTitle, setNoTitle] = useState(false);
   const key = ALIAS[tab] || tab;
   const help = TAB_HELP[key];
+
+  // Acha o título (h1) da aba e coloca o botão logo depois dele
+  useEffect(() => {
+    setSlot(null);
+    setNoTitle(false);
+    if (!help) return;
+    let el: HTMLSpanElement | null = null;
+    let tries = 0;
+    const place = () => {
+      const h1 = document.querySelector('main h1');
+      if (!h1) {
+        if (tries++ < 8) timer = window.setTimeout(place, 120);
+        else setNoTitle(true);
+        return;
+      }
+      el = document.createElement('span');
+      el.className = 'tab-help-slot';
+      h1.appendChild(el);
+      setSlot(el);
+      setNoTitle(false);
+    };
+    let timer = window.setTimeout(place, 60);
+    // Se a tela trocar o título (o h1 é recriado), coloca o botão de novo
+    const watch = window.setInterval(() => {
+      if ((el && !el.isConnected) || (!el && document.querySelector('main h1'))) {
+        el = null;
+        setSlot(null);
+        tries = 0;
+        place();
+      }
+    }, 800);
+    return () => {
+      window.clearInterval(watch);
+      window.clearTimeout(timer);
+      el?.remove();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+
   if (!help) return null;
-  const btn =
-    'min-h-[36px] inline-flex items-center gap-1.5 px-3 rounded-xl text-xs font-bold border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:text-sky-700 dark:hover:text-sky-300 hover:border-sky-400 transition-colors';
+  const pill =
+    'align-middle ml-2 inline-flex items-center gap-1 h-8 px-2.5 rounded-full text-xs font-bold tracking-normal normal-case border border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/70 text-slate-600 dark:text-slate-300 hover:text-sky-700 dark:hover:text-sky-300 hover:border-sky-400 transition-colors';
+  const buttons = (
+    <>
+      <button type="button" id="tab-help-btn" onClick={() => setOpen(true)} className={pill} aria-label={help.title} title={help.title}>
+        <HelpCircle className="h-4 w-4 text-sky-600 dark:text-sky-400" /> Ajuda
+      </button>
+      {key === 'semester' && (
+        <button type="button" id="tab-method-guide-btn" onClick={() => openMethodGuide(0)} className={pill} title="Como funciona o método?">
+          <BookOpen className="h-4 w-4 text-sky-600 dark:text-sky-400" /> Método
+        </button>
+      )}
+    </>
+  );
 
   return (
     <>
-      <div id="tab-help-bar" className="mb-3 flex justify-end gap-2">
-        {key === 'semester' && (
-          <button type="button" id="tab-method-guide-btn" onClick={() => openMethodGuide(0)} className={btn}>
-            <BookOpen className="h-4 w-4 text-sky-600 dark:text-sky-400" /> Como funciona o método?
-          </button>
-        )}
-        <button type="button" id="tab-help-btn" onClick={() => setOpen(true)} className={btn} aria-label={help.title}>
-          <HelpCircle className="h-4 w-4 text-sky-600 dark:text-sky-400" /> Ajuda
-        </button>
-      </div>
+      {slot ? createPortal(buttons, slot) : noTitle ? <div id="tab-help-bar" className="-mt-2 mb-2 flex justify-end">{buttons}</div> : null}
 
       <PlanModal
         id="tab-help-modal"
@@ -45,9 +91,9 @@ export const TabHelpBar: React.FC<{ tab: string }> = ({ tab }) => {
       >
         <div className="space-y-4">
           {help.sections.map((s) => (
-            <section key={s.title} className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50 p-3.5">
+            <section key={s.title} className="rounded-2xl bg-slate-50 dark:bg-slate-950/50 p-3.5">
               <h3 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
-                <span aria-hidden>{s.emoji}</span> {s.title}
+                <span className="h-4 w-1 rounded-full bg-sky-500" aria-hidden /> {s.title}
               </h3>
               <ol className="mt-2 space-y-1.5">
                 {s.steps.map((st, i) => (

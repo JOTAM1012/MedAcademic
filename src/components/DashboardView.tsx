@@ -21,6 +21,7 @@ import { ReviewsWidget } from './dashboard/ReviewsWidget';
 import { UpcomingExamsWidget } from './dashboard/UpcomingExamsWidget';
 import { StudyTimeWidget } from './dashboard/StudyTimeWidget';
 import { GradesAvgWidget } from './dashboard/GradesAvgWidget';
+import { WeekSummaryCard } from './dashboard/WeekSummaryCard';
 
 // Filtros do painel (período e grande área): conveniência deste aparelho
 const FILTER_KEY = 'medacademic_dashboard_filters';
@@ -183,9 +184,9 @@ export const DashboardView: React.FC = () => {
       )}
 
       {subjects.length > 0 && (
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3">
           <div className="min-w-0">
-            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white leading-snug">
+            <h1 className="text-lg sm:text-2xl font-bold text-slate-900 dark:text-white leading-snug">
               Seja {welcome} novamente, <OwnerName name={firstName} />{' '}
               {isOwnerAccount ? (
                 <Crown
@@ -194,10 +195,10 @@ export const DashboardView: React.FC = () => {
                   aria-label="Dono"
                 />
               ) : (
-                '🩺'
+                <Stethoscope className="inline h-[0.9em] w-[0.9em] -mt-1 text-sky-500" aria-hidden />
               )}
             </h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{GREETING_SUBTITLE}</p>
+            <p className="hidden sm:block text-xs text-slate-500 dark:text-slate-400 mt-0.5">{GREETING_SUBTITLE}</p>
             {askGreeting && (
               <div id="greeting-quick-choice" className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px]">
                 <span className="text-slate-500 dark:text-slate-400">Como prefere ser saudado(a)?</span>
@@ -219,22 +220,24 @@ export const DashboardView: React.FC = () => {
             )}
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 shrink-0">
             <button
               id="dashboard-method-btn"
               onClick={() => openMethodGuide(0)}
-              className="flex items-center gap-1.5 px-3.5 min-h-[40px] rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:border-sky-400 dark:hover:border-sky-600 text-xs font-bold transition-all cursor-pointer"
+              className="flex items-center justify-center gap-1.5 px-3 min-h-[40px] rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:border-sky-400 dark:hover:border-sky-600 text-xs font-bold transition-all cursor-pointer"
             >
-              <HelpCircle className="w-4 h-4 text-sky-500" />
-              <span>Como funciona o método?</span>
+              <HelpCircle className="w-4 h-4 shrink-0 text-sky-500" />
+              <span className="sm:hidden">O método</span>
+              <span className="hidden sm:inline">Como funciona o método?</span>
             </button>
             <button
               id="dashboard-how-to-use-btn"
               onClick={() => setIsOnboardingOpen(true)}
-              className="flex items-center gap-1.5 px-3.5 min-h-[40px] rounded-xl bg-sky-50 dark:bg-sky-950/40 border border-sky-200 dark:border-sky-800/80 text-sky-700 dark:text-sky-300 hover:bg-sky-100 dark:hover:bg-sky-900/60 text-xs font-bold transition-all cursor-pointer"
+              className="flex items-center justify-center gap-1.5 px-3 min-h-[40px] rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:border-sky-400 dark:hover:border-sky-600 text-xs font-bold transition-all cursor-pointer"
             >
-              <Sparkles className="w-4 h-4 text-sky-500" />
-              <span>Como usar a plataforma</span>
+              <Sparkles className="w-4 h-4 shrink-0 text-sky-500" />
+              <span className="sm:hidden">Como usar</span>
+              <span className="hidden sm:inline">Como usar a plataforma</span>
             </button>
           </div>
         </div>
@@ -311,6 +314,9 @@ export const DashboardView: React.FC = () => {
           onDone={() => setEditing(false)}
         />
       )}
+
+      {/* ---------- Resumo da semana ---------- */}
+      {subjects.length > 0 && !editing && <WeekSummaryCard />}
 
       {/* ---------- Cartões ---------- */}
       {shown.length === 0 ? (

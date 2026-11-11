@@ -40,6 +40,7 @@ import { OnboardingModal } from './components/modals/OnboardingModal';
 import { StudyRoutineModal } from './components/plan/StudyRoutineModal';
 import { ImportSharedGate } from './components/structure/ShareSubject';
 import { TabHelpBar } from './components/TabHelp';
+import { NotificationToast } from './components/shared/NotificationToast';
 import { userLocalKey, writeLocal } from './components/plan/planShared';
 import { AuthModal } from './components/modals/AuthModal';
 
@@ -502,6 +503,9 @@ const AppContent: React.FC = () => {
       </div>
 
       <InstallAppModal isOpen={isInstallOpen} onClose={() => setIsInstallOpen(false)} />
+
+      {/* Avisos rápidos do app (com "Desfazer" quando existe) */}
+      <NotificationToast />
 
       {/* Disciplina recebida por link (só depois da pesquisa da conta nova) */}
       {!isRoutineSurveyOpen && <ImportSharedGate />}

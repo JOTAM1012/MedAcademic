@@ -15,6 +15,7 @@ import {
   ListTree,
 } from 'lucide-react';
 import { SubItemsEditor, subItemsProgress } from './shared/SubItems';
+import { ShareChecklistButton } from './shared/ShareChecklistButton';
 import { useApp } from '../context/AppContext';
 import { ChecklistItem } from '../types';
 import { CHECKLIST_COLORS, CHECKLIST_TEMPLATES, formatDateBR, toYMD } from '../data/planning';
@@ -280,6 +281,7 @@ export const ChecklistView: React.FC = () => {
               <span className="text-[11px] font-bold text-slate-500">
                 {done.length}/{items.length}
               </span>
+              {!block.virtual && <ShareChecklistButton block={block} />}
               {!block.virtual && (
                 <button
                   onClick={() => setMenuFor(menuFor === block.id ? null : block.id)}

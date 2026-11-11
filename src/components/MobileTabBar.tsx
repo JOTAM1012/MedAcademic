@@ -148,7 +148,7 @@ export const MobileTabBar: React.FC = () => {
       {/* Barra de abas */}
       <nav
         id="mobile-tab-bar"
-        className="fixed inset-x-0 bottom-0 z-[45] lg:hidden border-t border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md shadow-[0_-6px_24px_rgba(0,0,0,0.12)]"
+        className="glass-bar fixed inset-x-0 bottom-0 z-[45] lg:hidden"
         style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
       >
         <div className="grid grid-cols-5 h-[68px] px-1 max-w-2xl mx-auto">
@@ -167,11 +167,18 @@ export const MobileTabBar: React.FC = () => {
                 aria-label={isMore ? 'Mais funções' : item.label}
               >
                 <span
-                  className={`relative flex h-9 w-14 items-center justify-center rounded-2xl transition-all duration-200 ${
-                    active ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30' : 'text-slate-500 dark:text-slate-400'
+                  className={`relative flex h-9 w-14 items-center justify-center rounded-2xl transition-colors duration-200 ${
+                    active ? 'text-white' : 'text-slate-500 dark:text-slate-400'
                   }`}
                 >
-                  <Icon className="h-5 w-5" />
+                  {active && (
+                    <motion.span
+                      layoutId="mobile-tab-pill"
+                      className="absolute inset-0 rounded-2xl bg-blue-600 shadow-lg shadow-blue-600/30"
+                      transition={{ type: 'spring', stiffness: 420, damping: 34 }}
+                    />
+                  )}
+                  <Icon className="relative h-5 w-5" />
                   {badge && <span className="absolute top-1 right-3 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-white dark:ring-slate-900" />}
                 </span>
                 <span className={`text-[11px] leading-none truncate max-w-full px-0.5 ${active ? 'font-black text-blue-600 dark:text-blue-400' : 'font-semibold text-slate-500 dark:text-slate-400'}`}>

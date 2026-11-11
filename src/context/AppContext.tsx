@@ -53,7 +53,25 @@ import {
   studyPhaseOf,
 } from '../data/studyMethod';
 import { upgradeAvatarUrl } from '../data/avatars';
-import { sharedDetails, type SharedSubject } from '../data/share';
+import { sharedDetails, type SharedChecklist, type SharedSubject } from '../data/share';
+
+/** Ação opcional no aviso (ex.: "Desfazer") */
+export interface NotifyOptions {
+  actionLabel?: string;
+  onAction?: () => void;
+  /** tempo na tela em ms (padrão 4000; com ação, 8000) */
+  durationMs?: number;
+}
+export interface AppNotification {
+  message: string;
+  type: 'success' | 'info' | 'warning';
+  actionLabel?: string;
+  onAction?: () => void;
+  /** muda a cada aviso: ajuda a reiniciar animações */
+  id: number;
+}
+
+const UNDO_WINDOW_MS = 8000;
 import { matchSchool, schoolByCode } from '../data/medicalSchools';
 import { shrinkAvatarDataUrl, AVATAR_MAX_DATAURL } from '../data/avatarImage';
 import {
@@ -224,6 +242,12 @@ interface AppContextType {
   addTopicsBulk: (tops: Omit<Topic, 'id'>[]) => void;
   /** Importa uma disciplina/módulo recebido por link (só a lista, sem progresso). Devolve o id da nova disciplina */
   importSharedSubject: (p: SharedSubject) => string;
+  /** Importa um bloco do Checklist recebido por link (nada marcado como feito). Devolve o id do novo bloco */
+  importSharedChecklist: (p: SharedChecklist) => string;
+  /** Desfaz a última exclusão (disciplina, tópico ou bloco do Checklist), se ainda estiver no prazo (~8 s) */
+  undoLastDelete: () => void;
+  /** Há uma exclusão que ainda pode ser desfeita (some depois de ~8 s) */
+  canUndoDelete: boolean;
   /** Checklist: transforma uma matéria vista em bloco do ciclo de revisões (Dia 0 = hoje) */
   sendModuleToReview: (subjectId: string, moduleName: string) => void;
   /** Muda a disciplina de Checklist para Blocos: cada matéria vira um bloco em estudo */
@@ -331,8 +355,10 @@ interface AppContextType {
   setSearchQuery: (q: string) => void;
 
   // Quick Notification
-  notification: { message: string; type: 'success' | 'info' | 'warning' } | null;
-  showNotification: (message: string, type?: 'success' | 'info' | 'warning') => void;
+  notification: AppNotification | null;
+  showNotification: (message: string, type?: 'success' | 'info' | 'warning', opts?: NotifyOptions) => void;
+  /** Fecha o aviso atual (ex.: depois de tocar na ação) */
+  dismissNotification: () => void;
 
   // Tutor Chat Messages State
   tutorMessages: Array<{ role: 'user' | 'assistant'; text: string; time: string }>;
@@ -447,7 +473,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isOnboardingOpen, setIsOnboardingOpen] = useState<boolean>(false);
   const [isEditingProfileSetup, setIsEditingProfileSetup] = useState<boolean>(false);
-  const [notification, setNotification] = useState<{ message: string; type: 'success' | 'info' | 'warning' } | null>(null);
+  const [notification, setNotification] = useState<AppNotification | null>(null);
+  const notificationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Desfazer exclusão: guarda o que saiu por ~8 s
+  type DeleteSnapshot = {
+    subjects: Subject[];
+    topicBlocks: TopicBlock[];
+    topics: Topic[];
+    checklistBlocks: ChecklistBlock[];
+    checklist: ChecklistItem[];
+    /** blocos de tópicos que continuam existindo, mas mudaram com a exclusão (volta a versão antiga) */
+    blocksBefore: TopicBlock[];
+  };
+  const undoRef = useRef<DeleteSnapshot | null>(null);
+  const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [canUndoDelete, setCanUndoDelete] = useState(false);
 
   // States
   const [semesters, setSemesters] = useState<Semester[]>(INITIAL_SEMESTERS);
@@ -1436,11 +1476,74 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [timer.isRunning, timer.mode, timer.timeLeftSeconds]);
 
-  const showNotification = (message: string, type: 'success' | 'info' | 'warning' = 'info') => {
-    setNotification({ message, type });
-    setTimeout(() => {
+  const showNotification = (message: string, type: 'success' | 'info' | 'warning' = 'info', opts?: NotifyOptions) => {
+    const withAction = !!(opts?.actionLabel && opts.onAction);
+    setNotification({
+      message,
+      type,
+      id: Date.now(),
+      ...(withAction ? { actionLabel: opts!.actionLabel, onAction: opts!.onAction } : {}),
+    });
+    if (notificationTimerRef.current) clearTimeout(notificationTimerRef.current);
+    notificationTimerRef.current = setTimeout(() => {
       setNotification(null);
-    }, 4000);
+      notificationTimerRef.current = null;
+    }, opts?.durationMs ?? (withAction ? UNDO_WINDOW_MS : 4000));
+  };
+
+  const dismissNotification = () => {
+    if (notificationTimerRef.current) clearTimeout(notificationTimerRef.current);
+    notificationTimerRef.current = null;
+    setNotification(null);
+  };
+
+  // ---------- Desfazer exclusão (disciplina, tópico, bloco do Checklist)
+  // Os dados vão para a nuvem como listas inteiras (sem "lápide" de excluído),
+  // então devolver os itens com os mesmos ids basta para restaurar.
+  const clearUndo = () => {
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+    undoTimerRef.current = null;
+    undoRef.current = null;
+    setCanUndoDelete(false);
+  };
+
+  const undoLastDelete = () => {
+    const snap = undoRef.current;
+    if (!snap) return;
+    clearUndo();
+    const addBack = <T extends { id: string }>(prev: T[], back: T[]) => {
+      if (!back.length) return prev;
+      const ids = new Set(prev.map((x) => x.id));
+      const missing = back.filter((x) => !ids.has(x.id));
+      return missing.length ? [...prev, ...missing] : prev;
+    };
+    if (snap.subjects.length) setSubjects((prev) => addBack(prev, snap.subjects));
+    if (snap.topicBlocks.length) setTopicBlocks((prev) => addBack(prev, snap.topicBlocks));
+    if (snap.topics.length) setTopics((prev) => addBack(prev, snap.topics));
+    // Tópico excluído pode ter fechado o bloco: o bloco volta como estava antes
+    if (snap.blocksBefore.length) {
+      const byId = new Map(snap.blocksBefore.map((b) => [b.id, b]));
+      setTopicBlocks((prev) => prev.map((b) => byId.get(b.id) || b));
+    }
+    if (snap.checklistBlocks.length) setChecklistBlocks((prev) => addBack(prev, snap.checklistBlocks));
+    if (snap.checklist.length) setChecklist((prev) => addBack(prev, snap.checklist));
+    showNotification('Pronto, voltou.', 'success');
+  };
+
+  /** Guarda o que foi excluído e mostra o aviso com "Desfazer" */
+  const offerUndo = (snap: Partial<DeleteSnapshot>, message: string) => {
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+    undoRef.current = {
+      subjects: snap.subjects || [],
+      topicBlocks: snap.topicBlocks || [],
+      topics: snap.topics || [],
+      checklistBlocks: snap.checklistBlocks || [],
+      checklist: snap.checklist || [],
+      blocksBefore: snap.blocksBefore || [],
+    };
+    setCanUndoDelete(true);
+    undoTimerRef.current = setTimeout(clearUndo, UNDO_WINDOW_MS);
+    showNotification(message, 'info', { actionLabel: 'Desfazer', onAction: undoLastDelete, durationMs: UNDO_WINDOW_MS });
   };
 
   const triggerConfetti = () => {
@@ -1750,10 +1853,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const deleteSubjects = (ids: string[]) => {
     if (!ids.length) return;
     const set = new Set(ids);
+    const snap = {
+      subjects: subjects.filter((s) => set.has(s.id)),
+      topicBlocks: topicBlocks.filter((b) => set.has(b.subjectId)),
+      topics: topics.filter((t) => set.has(t.subjectId)),
+    };
     setSubjects((prev) => prev.filter((s) => !set.has(s.id)));
     setTopicBlocks((prev) => prev.filter((b) => !set.has(b.subjectId)));
     setTopics((prev) => prev.filter((t) => !set.has(t.subjectId)));
-    showNotification(`${ids.length} disciplina${ids.length > 1 ? 's' : ''} excluída${ids.length > 1 ? 's' : ''}, com os assuntos.`, 'info');
+    const msg =
+      ids.length === 1 && snap.subjects[0]
+        ? `"${snap.subjects[0].name}" foi excluída.`
+        : `${ids.length} disciplina${ids.length > 1 ? 's' : ''} excluída${ids.length > 1 ? 's' : ''}, com os assuntos.`;
+    offerUndo(snap, msg);
   };
 
   const addTopic = (top: Omit<Topic, 'id'>) => {
@@ -1776,7 +1888,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     if (Object.keys(rest).length > 0) {
       setTopics((prev) => prev.map((t) => (t.id === id ? { ...t, ...rest } : t)));
-      if (!status) showNotification('Tópico atualizado!', 'success');
+      // Subtópicos, anotação e marcações pequenas salvam em silêncio (senão o aviso apareceria a cada toque)
+      const quiet = Object.keys(rest).every((k) => ['details', 'note', 'bonus', 'pending'].includes(k));
+      if (!status && !quiet) showNotification('Tópico atualizado!', 'success');
     }
   };
 
@@ -1784,8 +1898,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const t = topics.find((x) => x.id === id);
     const next = topics.filter((x) => x.id !== id);
     setTopics(next);
-    showNotification('Tópico removido.', 'info');
-    if (t) syncBlockStatus(t.blockId, next);
+    if (!t) return showNotification('Tópico removido.', 'info');
+    const blockBefore = t.blockId ? topicBlocks.find((b) => b.id === t.blockId) : undefined;
+    offerUndo({ topics: [t], blocksBefore: blockBefore ? [blockBefore] : [] }, `Tópico "${t.title}" removido.`);
+    syncBlockStatus(t.blockId, next);
   };
 
   // Ciclo: Visto (1º contato) → 4 revisões espaçadas → Dominado.
@@ -2388,9 +2504,43 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const deleteChecklistBlock = (id: string) => {
+    const block = checklistBlocks.find((b) => b.id === id);
+    const items = checklist.filter((item) => item.blockId === id);
     setChecklistBlocks((prev) => prev.filter((b) => b.id !== id));
     setChecklist((prev) => prev.filter((item) => item.blockId !== id));
-    showNotification('Bloco removido do checklist.', 'info');
+    if (!block) return showNotification('Bloco removido do checklist.', 'info');
+    offerUndo({ checklistBlocks: [block], checklist: items }, `Bloco "${block.name}" removido do checklist.`);
+  };
+
+  const importSharedChecklist = (p: SharedChecklist) => {
+    const stamp = Date.now();
+    let n = 0;
+    const mkId = (pre: string) => `${pre}-${stamp}-${n++}-${Math.random().toString(36).slice(2, 6)}`;
+    const id = mkId('blk');
+    const now = new Date().toISOString();
+    const block: ChecklistBlock = {
+      id,
+      name: p.c.name,
+      color: p.c.color || '#0ea5e9',
+      ...(p.c.emoji ? { emoji: p.c.emoji } : {}),
+      createdAt: now,
+    };
+    // createdAt decrescente: a lista aparece na mesma ordem em que foi enviada
+    const items: ChecklistItem[] = p.i.map((it, i) => {
+      const details = sharedDetails(it.d, () => mkId('st'));
+      return {
+        id: mkId('chk'),
+        text: it.x,
+        done: false,
+        createdAt: new Date(stamp - i).toISOString(),
+        blockId: id,
+        ...(details ? { details } : {}),
+      };
+    });
+    setChecklistBlocks((prev) => [...prev, block]);
+    if (items.length) setChecklist((prev) => [...items, ...prev]);
+    showNotification(`"${block.name}" foi adicionado ao seu Checklist.`, 'success');
+    return id;
   };
 
   const toggleChecklistItem = (id: string) => {
@@ -3119,6 +3269,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setSearchQuery,
         notification,
         showNotification,
+        dismissNotification,
         tutorMessages,
         setTutorMessages,
         checklist,
@@ -3131,6 +3282,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addTopicBlock,
         addTopicsBulk,
         importSharedSubject,
+        importSharedChecklist,
+        undoLastDelete,
+        canUndoDelete,
         sendModuleToReview,
         convertChecklistToBlocks,
         renameTopicBlock,

@@ -35,6 +35,8 @@ export interface Topic {
   cycleStep?: number; // 1, 2, 3, 4 (R1, R2, R3, R4...)
   /** Subtópicos (opcional): detalhes do assunto como no plano de ensino */
   details?: SubItem[];
+  /** Anotação curta e pessoal (link da aula, página do livro…). Não vai no link de compartilhar. */
+  note?: string;
   reviewsDone?: number; // revisões espaçadas concluídas (0–4); na 4ª o assunto vira "dominado"
   intervalDays?: number; // 1, 3, 7, 15, 30, 60
   lastStudiedDate?: string;

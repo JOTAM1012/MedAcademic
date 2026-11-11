@@ -407,3 +407,54 @@ html {
     font-size: 16px !important;
   }
 }
+
+/* =====================================================================
+   Visual 2.0 (prévia): vidro, cartões leves, menos tamanhos de letra
+   ===================================================================== */
+
+/* Letras pequenas em só 2 tamanhos (antes eram 6) */
+.text-\[8\.5px\], .text-\[9px\], .text-\[10px\], .text-\[10\.5px\] { font-size: 11.5px !important; }
+.text-\[11px\], .text-\[12px\], .text-\[13px\] { font-size: 12.5px !important; }
+
+/* Cartões mais leves: borda quase invisível, sem caixa dentro de caixa pesada */
+html:not(.dark) main .border-slate-200, html:not(.dark) main .border-slate-100 { border-color: rgba(15, 23, 42, 0.07) !important; }
+.dark main .border-slate-800, .dark main .border-slate-700 { border-color: rgba(148, 163, 184, 0.11) !important; }
+main .rounded-3xl.border { box-shadow: 0 1px 2px rgba(2, 6, 23, 0.04); transition: border-color 0.2s ease, box-shadow 0.25s ease; }
+html:not(.dark) main .rounded-3xl.border:hover { box-shadow: 0 10px 30px -12px rgba(2, 6, 23, 0.14); }
+.dark main .rounded-3xl.border:hover { border-color: rgba(56, 189, 248, 0.22) !important; box-shadow: 0 12px 34px -14px rgba(14, 165, 233, 0.25); }
+
+/* Vidro líquido: barra de baixo do celular flutuando sobre o conteúdo */
+.glass-bar {
+  margin: 0 10px calc(8px + env(safe-area-inset-bottom, 0px));
+  border-radius: 26px;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(255, 255, 255, 0.58));
+  -webkit-backdrop-filter: blur(22px) saturate(1.8);
+  backdrop-filter: blur(22px) saturate(1.8);
+  box-shadow: 0 10px 34px -8px rgba(2, 6, 23, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  padding-bottom: 0 !important;
+}
+.dark .glass-bar {
+  border-color: rgba(148, 163, 184, 0.16);
+  background: linear-gradient(180deg, rgba(30, 41, 59, 0.62), rgba(15, 23, 42, 0.5));
+  box-shadow: 0 14px 40px -10px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+/* Vidro no topo e nas janelas: fundo desfocado atrás */
+#tour-topbar {
+  background: rgba(255, 255, 255, 0.72) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(1.6);
+  backdrop-filter: blur(18px) saturate(1.6);
+  border-bottom-color: rgba(15, 23, 42, 0.06) !important;
+}
+.dark #tour-topbar { background: rgba(10, 16, 32, 0.6) !important; border-bottom-color: rgba(148, 163, 184, 0.1) !important; }
+.app-modal { -webkit-backdrop-filter: blur(10px) saturate(1.3); backdrop-filter: blur(10px) saturate(1.3); }
+.app-modal-panel { box-shadow: 0 30px 80px -20px rgba(2, 6, 23, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.06) !important; }
+
+/* Movimento: janelas entram com leve subida; botões respondem ao toque */
+@keyframes modal-in { from { opacity: 0; scale: 0.97; } to { opacity: 1; scale: 1; } }
+.app-modal-panel { animation: modal-in 0.22s cubic-bezier(0.16, 1, 0.3, 1); }
+main button:active:not(:disabled) { scale: 0.98; }
+@media (prefers-reduced-motion: reduce) {
+  .app-modal-panel { animation: none; }
+  main button:active:not(:disabled) { scale: 1; }
+}

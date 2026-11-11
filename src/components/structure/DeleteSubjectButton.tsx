@@ -1,4 +1,5 @@
 // Lixeira no canto do quadrado da disciplina/módulo: um toque pergunta "Excluir?" e outro confirma.
+// Depois de excluir, o aviso mostra "Desfazer" por alguns segundos (deleteSubjects guarda o que saiu).
 import React, { useState } from 'react';
 import { Trash2 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
@@ -43,7 +44,7 @@ export const DeleteSubjectButton: React.FC<{ subject: Subject; className?: strin
         className={`absolute inset-0 z-10 rounded-3xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-xs flex flex-col items-center justify-center gap-3 p-4 text-center`}
       >
         <p className="text-sm font-black text-slate-900 dark:text-white">Excluir {label} "{subject.name}"?</p>
-        <p className="text-[11px] text-slate-500 dark:text-slate-400">Os assuntos, blocos e revisões dela também saem. Não dá para desfazer.</p>
+        <p className="text-[11px] text-slate-500 dark:text-slate-400">Os assuntos, blocos e revisões dela também saem. Você pode desfazer logo depois.</p>
         <div className="flex gap-2">
           <button type="button" onClick={() => setConfirm(false)} className="min-h-[40px] px-4 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800">
             Cancelar

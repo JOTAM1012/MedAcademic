@@ -1,11 +1,23 @@
 // Compartilhar disciplina/módulo por link e importar o que um amigo mandou.
 // Vai só a lista (blocos, tópicos e subtópicos). Quem recebe fica com uma cópia só dele.
 import React, { useEffect, useState } from 'react';
-import { Check, Copy, Download, Layers, Link2, Send, Share2 } from 'lucide-react';
+import { Check, Copy, Download, Layers, Link2, ListChecks, Send, Share2 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import type { Subject } from '../../types';
 import { PlanModal } from '../plan/planShared';
-import { PENDING_IMPORT_KEY, SHARE_HASH, buildSharedSubject, decodeShared, encodeShared, shareLink, sharedCounts, type SharedSubject } from '../../data/share';
+import {
+  PENDING_IMPORT_KEY,
+  SHARE_HASH,
+  buildSharedSubject,
+  decodeShared,
+  encodeShared,
+  isSharedChecklist,
+  shareLink,
+  sharedCounts,
+  type SharedChecklist,
+  type SharedPayload,
+  type SharedSubject,
+} from '../../data/share';
 
 const countText = (p: SharedSubject) => {
   const c = sharedCounts(p);
@@ -130,8 +142,8 @@ export const ShareSubjectModal: React.FC<{ subject: Subject | null; onClose: () 
 
 // ---------------------------------------------------------------- importar (quem recebeu o link)
 export const ImportSharedGate: React.FC = () => {
-  const { importSharedSubject, setCurrentTab, currentSemester } = useApp();
-  const [payload, setPayload] = useState<SharedSubject | null>(null);
+  const { importSharedSubject, importSharedChecklist, setCurrentTab, currentSemester } = useApp();
+  const [payload, setPayload] = useState<SharedPayload | null>(null);
   const [bad, setBad] = useState(false);
 
   useEffect(() => {
@@ -164,7 +176,7 @@ export const ImportSharedGate: React.FC = () => {
 
   if (bad)
     return (
-      <PlanModal id="import-shared-bad" open onClose={clear} icon={<Download className="h-5 w-5" />} title="Link incompleto" subtitle="Esse link de disciplina não abriu. Peça para seu amigo copiar e mandar de novo.">
+      <PlanModal id="import-shared-bad" open onClose={clear} icon={<Download className="h-5 w-5" />} title="Link incompleto" subtitle="Esse link não abriu. Peça para seu amigo copiar e mandar de novo.">
         <div className="flex justify-end">
           <button type="button" onClick={clear} className="min-h-[44px] px-5 rounded-xl bg-sky-600 text-white text-sm font-black">
             Entendi
@@ -173,6 +185,8 @@ export const ImportSharedGate: React.FC = () => {
       </PlanModal>
     );
   if (!payload) return null;
+
+  if (isSharedChecklist(payload)) return <ImportChecklist payload={payload} onClose={clear} onImport={() => { importSharedChecklist(payload); clear(); setCurrentTab('checklist'); }} />;
 
   return (
     <PlanModal
@@ -219,6 +233,59 @@ export const ImportSharedGate: React.FC = () => {
               <li key={i} className="flex items-center justify-between gap-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 px-3 py-2">
                 <span className="font-bold truncate">{b.n}</span>
                 <span className="shrink-0 text-slate-500 dark:text-slate-400">{b.t.length} tópico{b.t.length === 1 ? '' : 's'}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </PlanModal>
+  );
+};
+
+/** Bloco do Checklist recebido por link */
+const ImportChecklist: React.FC<{ payload: SharedChecklist; onClose: () => void; onImport: () => void }> = ({ payload, onClose, onImport }) => {
+  const n = payload.i.length;
+  return (
+    <PlanModal
+      id="import-checklist-modal"
+      open
+      onClose={onClose}
+      icon={<Download className="h-5 w-5" />}
+      title="Checklist recebido"
+      subtitle="Um amigo te mandou esta lista. Ela vira um bloco seu, com nada marcado como feito."
+      footer={
+        <>
+          <button type="button" id="import-checklist-cancel" onClick={onClose} className="min-h-[44px] px-4 rounded-xl text-sm font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">
+            Agora não
+          </button>
+          <button
+            type="button"
+            id="import-checklist-confirm"
+            onClick={onImport}
+            className="min-h-[44px] px-5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-sm font-black inline-flex items-center gap-1.5"
+          >
+            <Check className="h-4 w-4" /> Adicionar ao meu Checklist
+          </button>
+        </>
+      }
+    >
+      <div className="space-y-3">
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50 p-3.5 flex items-start gap-3">
+          <span className="h-10 w-10 shrink-0 rounded-xl grid place-items-center text-white text-lg" style={{ backgroundColor: payload.c.color }}>
+            {payload.c.emoji || <ListChecks className="h-5 w-5" />}
+          </span>
+          <div className="min-w-0">
+            <p className="text-sm font-black text-slate-900 dark:text-white">{payload.c.name}</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              {n} {n === 1 ? 'item' : 'itens'}
+            </p>
+          </div>
+        </div>
+        {n > 0 && (
+          <ul className="max-h-48 overflow-y-auto space-y-1 text-xs text-slate-700 dark:text-slate-200">
+            {payload.i.map((it, i) => (
+              <li key={i} className="rounded-lg bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 px-3 py-2 truncate">
+                {it.x}
               </li>
             ))}
           </ul>

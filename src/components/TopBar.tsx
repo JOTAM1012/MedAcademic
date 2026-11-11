@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
   Menu,
-  Search,
   Moon,
   Sun,
   Bell,
@@ -18,6 +17,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { GlobalSearch } from './GlobalSearch';
 import { openInstallGuide, usePwaInstall } from '../lib/pwaInstall';
 import { daysBetween, formatDM } from '../data/blockReview';
 import { isErrorDue } from '../data/studyMethod';
@@ -35,10 +35,6 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleMobileMenu, onOpenTour }
     setCurrentTab,
     isDarkMode,
     toggleDarkMode,
-    searchQuery,
-    setSearchQuery,
-    subjects,
-    topics,
     exams,
     cloudSyncStatus,
     forceCloudSync,
@@ -49,7 +45,6 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleMobileMenu, onOpenTour }
     methodGuideSeen,
   } = useApp();
 
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isTopBarPop, setIsTopBarPop] = useState(false);
   const prevTopBarSyncRef = React.useRef(cloudSyncStatus);
@@ -70,19 +65,6 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleMobileMenu, onOpenTour }
       if (timer) clearTimeout(timer);
     };
   }, [cloudSyncStatus]);
-
-  // Search Results
-  const filteredSubjects = searchQuery.trim()
-    ? subjects.filter((s) => s.name.toLowerCase().includes(searchQuery.toLowerCase()) || s.code.toLowerCase().includes(searchQuery.toLowerCase()))
-    : [];
-
-  const filteredTopics = searchQuery.trim()
-    ? topics.filter((t) => t.title.toLowerCase().includes(searchQuery.toLowerCase()) || t.tags?.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase())))
-    : [];
-
-  const filteredExams = searchQuery.trim()
-    ? exams.filter((e) => e.title.toLowerCase().includes(searchQuery.toLowerCase()))
-    : [];
 
   // Notifications (datas locais)
   const today = todayYMD();
@@ -130,134 +112,7 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleMobileMenu, onOpenTour }
         </button>
 
         {/* Global Search Bar */}
-        <div className="relative w-full max-w-sm sm:max-w-md">
-          <div className="flex items-center rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 px-3 py-1.5 focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500 transition-all">
-            <Search className="h-4 w-4 text-slate-400 shrink-0 mr-2" />
-            <input
-              id="topbar-global-search-input"
-              type="text"
-              placeholder="Buscar matérias, tópicos clínicos, ECG..."
-              value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
-                setIsSearchOpen(true);
-              }}
-              onFocus={() => setIsSearchOpen(true)}
-              className="w-full bg-transparent text-xs text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:outline-hidden"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => {
-                  setSearchQuery('');
-                  setIsSearchOpen(false);
-                }}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            )}
-          </div>
-
-          {/* Search Results Dropdown */}
-          {isSearchOpen && searchQuery.trim().length > 0 && (
-            <div
-              id="topbar-search-dropdown"
-              className="absolute left-0 right-0 top-full mt-2 max-h-96 overflow-y-auto rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 shadow-xl z-50"
-            >
-              <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100 dark:border-slate-800">
-                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                  Resultados
-                </span>
-                <button
-                  onClick={() => setIsSearchOpen(false)}
-                  className="text-xs text-slate-400 hover:text-slate-600"
-                >
-                  Fechar
-                </button>
-              </div>
-
-              {filteredSubjects.length === 0 && filteredTopics.length === 0 && filteredExams.length === 0 ? (
-                <div className="py-4 text-center text-xs text-slate-500">
-                  Nenhum resultado para "{searchQuery}".
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {filteredSubjects.length > 0 && (
-                    <div>
-                      <div className="text-[10px] font-bold uppercase text-blue-600 dark:text-blue-400 mb-1">
-                        Disciplinas ({filteredSubjects.length})
-                      </div>
-                      <div className="space-y-1">
-                        {filteredSubjects.map((s) => (
-                          <div
-                            key={s.id}
-                            onClick={() => {
-                              setCurrentTab('structure');
-                              setIsSearchOpen(false);
-                            }}
-                            className="flex items-center gap-2 p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer text-xs font-medium text-slate-800 dark:text-slate-200"
-                          >
-                            <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: s.color }} />
-                            <span>{s.name}</span>
-                            <span className="text-[10px] text-slate-400 ml-auto">{s.code}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {filteredTopics.length > 0 && (
-                    <div>
-                      <div className="text-[10px] font-bold uppercase text-emerald-600 dark:text-emerald-400 mb-1">
-                        Tópicos ({filteredTopics.length})
-                      </div>
-                      <div className="space-y-1">
-                        {filteredTopics.map((t) => (
-                          <div
-                            key={t.id}
-                            onClick={() => {
-                              setCurrentTab('structure');
-                              setIsSearchOpen(false);
-                            }}
-                            className="p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer text-xs text-slate-800 dark:text-slate-200"
-                          >
-                            <div className="font-semibold">{t.title}</div>
-                            {t.description && (
-                              <div className="text-[11px] text-slate-500 truncate">{t.description}</div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {filteredExams.length > 0 && (
-                    <div>
-                      <div className="text-[10px] font-bold uppercase text-rose-600 dark:text-rose-400 mb-1">
-                        Provas ({filteredExams.length})
-                      </div>
-                      <div className="space-y-1">
-                        {filteredExams.map((e) => (
-                          <div
-                            key={e.id}
-                            onClick={() => {
-                              setCurrentTab('semester');
-                              setIsSearchOpen(false);
-                            }}
-                            className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer text-xs text-slate-800 dark:text-slate-200"
-                          >
-                            <span className="font-semibold">{e.title}</span>
-                            <span className="text-[10px] text-slate-400">{e.date}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+        <GlobalSearch />
       </div>
 
       {/* Right section: Cloud Sync, Notifications & Dark Mode */}

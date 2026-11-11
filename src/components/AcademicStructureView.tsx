@@ -75,6 +75,31 @@ export const AcademicStructureView: React.FC<AcademicStructureViewProps> = ({ on
       return null;
     }
   });
+  // vindo da busca do topo: abre a disciplina pedida (também se esta tela já estiver aberta)
+  useEffect(() => {
+    const OPEN_KEY = 'medacademic_open_subject';
+    const openFrom = (d?: { subjectId?: string } | null) => {
+      if (d?.subjectId) setDetail({ kind: 'subject', id: d.subjectId });
+    };
+    try {
+      const raw = sessionStorage.getItem(OPEN_KEY);
+      sessionStorage.removeItem(OPEN_KEY);
+      if (raw) openFrom(JSON.parse(raw));
+    } catch {
+      /* sem armazenamento */
+    }
+    const onOpen = (e: Event) => {
+      try {
+        sessionStorage.removeItem(OPEN_KEY);
+        sessionStorage.removeItem(FOCUS_SUBJECT_KEY);
+      } catch {
+        /* sem armazenamento */
+      }
+      openFrom((e as CustomEvent).detail);
+    };
+    window.addEventListener('medacademic:open-subject', onOpen);
+    return () => window.removeEventListener('medacademic:open-subject', onOpen);
+  }, []);
   const [editing, setEditing] = useState<Subject | null>(null);
   const [contestsOpen, setContestsOpen] = useState(false);
   const [pastOpen, setPastOpen] = useState(false);
