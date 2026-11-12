@@ -401,6 +401,7 @@ interface AppContextType {
   setDayShift: (date: string, shift?: 'plantao' | 'pos_plantao' | 'normal') => void;
   /** "Passar para amanhã": muda a data do próprio bloco/tema/item/tarefa */
   moveTaskToTomorrow: (task: PlanTask) => void;
+  moveTaskToDate: (task: PlanTask, from: string, to: string) => void;
   /** "Bem-vindo de volta": espalha as revisões atrasadas pelos próximos dias; devolve quantas mudou */
   replanOverdueReviews: () => number;
   // Checklist diário
@@ -2972,32 +2973,39 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const setLowEnergy = (date: string, on: boolean) => setDayPlanState(date, (d) => ({ ...d, lowEnergy: on || undefined }));
   const setDayShift = (date: string, shift?: 'plantao' | 'pos_plantao' | 'normal') => setDayPlanState(date, (d) => ({ ...d, shift }));
 
-  const moveTaskToTomorrow = (task: PlanTask) => {
+  /** Passa uma tarefa do plano de um dia para outro (revisão, tema novo, tarefa sua...) */
+  const moveTaskToDate = (task: PlanTask, from: string, to: string) => {
+    if (!to || to === from) return;
     const today = ymd(new Date());
-    // "Amanhã" pula o dia de descanso
-    const tomorrow = reviewDateIn(1, today);
-    if (task.movable === 'review' && task.blockId) updateTopicBlock(task.blockId, { nextReviewDate: tomorrow });
-    else if (task.movable === 'new_block' && task.blockId) updateTopicBlock(task.blockId, { plannedDate: tomorrow });
+    if (task.movable === 'review' && task.blockId) updateTopicBlock(task.blockId, { nextReviewDate: to });
+    else if (task.movable === 'new_block' && task.blockId) updateTopicBlock(task.blockId, { plannedDate: to });
     else if (task.movable === 'new_topics' && task.topicIds?.length) {
       const ids = new Set(task.topicIds);
-      setTopics((prev) => prev.map((t) => (ids.has(t.id) ? { ...t, firstContactDate: tomorrow, scheduleFirstContact: true } : t)));
-    } else if (task.movable === 'project_review' && task.projectId && task.itemId) updateProjectItem(task.projectId, task.itemId, { nextReviewDate: tomorrow });
+      setTopics((prev) => prev.map((t) => (ids.has(t.id) ? { ...t, firstContactDate: to, scheduleFirstContact: true } : t)));
+    } else if (task.movable === 'project_review' && task.projectId && task.itemId) updateProjectItem(task.projectId, task.itemId, { nextReviewDate: to });
     else if (task.movable === 'custom' && task.customId) {
-      const c = (studyMethod.dayPlans[today]?.custom || []).find((x) => x.id === task.customId);
+      const c = (studyMethod.dayPlans[from]?.custom || []).find((x) => x.id === task.customId);
       if (c)
         patchMethod((s) => ({
           ...s,
           dayPlans: {
             ...s.dayPlans,
-            [today]: { ...(s.dayPlans[today] || {}), custom: (s.dayPlans[today]?.custom || []).filter((x) => x.id !== c.id) },
-            [tomorrow]: { ...(s.dayPlans[tomorrow] || {}), custom: [...(s.dayPlans[tomorrow]?.custom || []), { ...c, done: false }] },
+            [from]: { ...(s.dayPlans[from] || {}), custom: (s.dayPlans[from]?.custom || []).filter((x) => x.id !== c.id) },
+            [to]: { ...(s.dayPlans[to] || {}), custom: [...(s.dayPlans[to]?.custom || []), { ...c, done: false }] },
           },
         }));
     } else {
-      skipTask(today, task.id);
+      skipTask(from, task.id);
       return;
     }
-    showNotification(`"${task.title}" foi para ${tomorrow === addDaysYMD(1, today) ? 'amanhã' : formatDM(tomorrow)}.`, 'info');
+    const label = to === today ? 'hoje' : to === addDaysYMD(1, today) ? 'amanhã' : formatDM(to);
+    showNotification(`"${task.title}" foi para ${label}.`, 'info');
+  };
+
+  const moveTaskToTomorrow = (task: PlanTask) => {
+    const today = ymd(new Date());
+    // "Amanhã" pula o dia de descanso
+    moveTaskToDate(task, today, reviewDateIn(1, today));
   };
 
   const replanOverdueReviews = () => {
@@ -3368,6 +3376,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setLowEnergy,
         setDayShift,
         moveTaskToTomorrow,
+        moveTaskToDate,
         replanOverdueReviews,
         toggleHabit,
         addErrorNote,

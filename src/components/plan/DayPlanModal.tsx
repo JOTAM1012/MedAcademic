@@ -3,7 +3,7 @@
 import React, { useMemo, useState } from 'react';
 import { ArrowDown, ArrowUp, ArrowUpToLine, BookOpen, CalendarClock, Layers, Minus, Pin, PinOff, Plus, RotateCcw, SlidersHorizontal, Undo2, X } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
-import { formatDM, parseYMD } from '../../data/blockReview';
+import { addDaysYMD, formatDM, parseYMD, ymd } from '../../data/blockReview';
 import { WEEKDAY_NAMES, type PlanTask } from '../../data/studyMethod';
 import { semesterNumberOf } from '../../data/subjectFormats';
 import { useDayPlan } from '../../hooks/useStudyPlan';
@@ -33,11 +33,15 @@ const FIXED_KINDS: Array<{ kind: string; label: string }> = [
 interface DayPlanModalProps {
   open: boolean;
   onClose: () => void;
+  /** Dia a planejar (padrão: hoje). Usado pelo "Planejar semana" */
+  date?: string;
+  /** Aberto por cima de outra janela */
+  stacked?: boolean;
 }
 
 type DayType = 'normal' | 'dificil' | 'prova' | 'pos_prova' | 'plantao' | 'pos_plantao';
 
-export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose }) => {
+export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose, date: dateProp, stacked }) => {
   const {
     studyMethod,
     studyPrefs,
@@ -50,14 +54,19 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose }) => 
     setDayShift,
     skipTask,
     removeCustomTask,
-    moveTaskToTomorrow,
+    moveTaskToDate,
     addCustomTask,
     updateTopicBlock,
     showNotification,
     userProfile,
   } = useApp();
-  const plan = useDayPlan();
+  const plan = useDayPlan(dateProp);
   const date = plan.date;
+  const todayStr = ymd(new Date());
+  const isToday = date === todayStr;
+  // "hoje" quando é o dia de hoje; nos outros dias, "neste dia"
+  const H = isToday ? 'hoje' : 'neste dia';
+  const nextDay = addDaysYMD(1, date);
   const state = studyMethod.dayPlans[date] || {};
   const [title, setTitle] = useState('');
   const [blocks, setBlocks] = useState(1);
@@ -116,7 +125,7 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose }) => 
     const skipped = all.find((t) => t.skipped && (t.title === b.title || b.kinds.includes(t.kind)));
     if (skipped) skipTask(date, skipped.id, false);
     else addCustomTask(date, b.title, b.blocks);
-    showNotification(`"${b.title}" entrou no plano de hoje.`, 'success');
+    showNotification(`"${b.title}" entrou no plano ${isToday ? 'de hoje' : 'deste dia'}.`, 'success');
   };
   // X: tarefa que você somou sai de vez; as do plano saem só de hoje
   const removeOrSkip = (t: PlanTask) => {
@@ -145,7 +154,7 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose }) => 
     const b = topicBlocks.find((x) => x.id === id);
     if (!b) return;
     updateTopicBlock(id, { plannedDate: date });
-    showNotification(`"${b.name}" entrou no plano de hoje.`, 'success');
+    showNotification(`"${b.name}" entrou no plano ${isToday ? 'de hoje' : 'deste dia'}.`, 'success');
   };
 
   const submitTask = () => {
@@ -161,11 +170,11 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose }) => 
     { id: 'dificil', label: 'Dia difícil', hint: 'só o essencial' },
     ...(showPlantao
       ? ([
-          { id: 'plantao', label: 'Plantão hoje', hint: 'pouco tempo' },
+          { id: 'plantao', label: isToday ? 'Plantão hoje' : 'Dia de plantão', hint: 'pouco tempo' },
           { id: 'pos_plantao', label: 'Pós-plantão', hint: 'descanso' },
         ] as const)
       : ([
-          { id: 'prova', label: 'Prova hoje', hint: 'revisão leve' },
+          { id: 'prova', label: isToday ? 'Prova hoje' : 'Dia de prova', hint: 'revisão leve' },
           { id: 'pos_prova', label: 'Pós-prova', hint: 'descanso' },
         ] as const)),
   ];
@@ -198,7 +207,7 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose }) => 
         <div className="min-w-0 flex-1">
           <p className={`text-[13px] font-bold truncate ${t.done ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-900 dark:text-white'}`}>{t.title}</p>
           <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-            {taskSizeLabel(t)} · {t.skipped ? 'fora de hoje' : isIn ? (pinned.has(t.id) ? 'fixada hoje' : 'cabe hoje') : 'não coube'}
+            {taskSizeLabel(t)} · {t.skipped ? (isToday ? 'fora de hoje' : 'fora deste dia') : isIn ? (pinned.has(t.id) ? 'fixada' : 'cabe no dia') : 'não coube'}
           </p>
         </div>
         <div className="flex items-center gap-0.5 shrink-0">
@@ -219,8 +228,8 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose }) => 
               type="button"
               id={`dayplan-pin-${t.id}`}
               aria-pressed={pinned.has(t.id)}
-              aria-label={pinned.has(t.id) ? 'Desafixar de hoje' : 'Fixar hoje mesmo se não couber'}
-              title={pinned.has(t.id) ? 'Desafixar' : 'Fixar hoje'}
+              aria-label={pinned.has(t.id) ? 'Desafixar' : 'Fixar no dia mesmo se não couber'}
+              title={pinned.has(t.id) ? 'Desafixar' : 'Fixar no dia'}
               onClick={() => togglePin(t.id)}
               className={`h-10 w-10 flex items-center justify-center rounded-xl ${pinned.has(t.id) ? 'text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-500/10' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
             >
@@ -230,9 +239,9 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose }) => 
           {t.movable && !t.done && !t.skipped && (
             <button
               type="button"
-              aria-label="Passar para amanhã"
-              title="Passar para amanhã"
-              onClick={() => moveTaskToTomorrow(t)}
+              aria-label={isToday ? 'Passar para amanhã' : 'Passar para o dia seguinte'}
+              title={isToday ? 'Passar para amanhã' : 'Passar para o dia seguinte'}
+              onClick={() => moveTaskToDate(t, date, nextDay)}
               className="h-10 w-10 flex items-center justify-center rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
             >
               <CalendarClock className="h-4 w-4" />
@@ -242,8 +251,8 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose }) => 
             <button
               type="button"
               id={`dayplan-skip-${t.id}`}
-              aria-label={t.skipped ? 'Voltar para hoje' : t.kind === 'custom' ? 'Remover' : 'Tirar de hoje'}
-              title={t.skipped ? 'Voltar para hoje' : t.kind === 'custom' ? 'Remover' : 'Tirar de hoje'}
+              aria-label={t.skipped ? 'Voltar para o dia' : t.kind === 'custom' ? 'Remover' : 'Tirar do dia'}
+              title={t.skipped ? 'Voltar para o dia' : t.kind === 'custom' ? 'Remover' : 'Tirar do dia'}
               onClick={() => removeOrSkip(t)}
               className="h-10 w-10 flex items-center justify-center rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
             >
@@ -261,6 +270,7 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose }) => 
         id="dayplan-modal"
         open={open}
         onClose={onClose}
+        stacked={stacked}
         maxWidth="max-w-2xl"
         icon={<SlidersHorizontal className="h-5 w-5" />}
         title={`Planejar meu dia · ${WEEKDAY_NAMES[parseYMD(date).getDay()]}, ${formatDM(date)}`}
@@ -304,7 +314,7 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose }) => 
 
           {/* Tipo do dia */}
           <section>
-            <p className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Como é o seu dia hoje?</p>
+            <p className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">{isToday ? 'Como é o seu dia hoje?' : 'Como vai ser este dia?'}</p>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
               {typeChips.map((c) => (
                 <OptionChip key={c.id} id={`dayplan-type-${c.id}`} active={dayType === c.id} onClick={() => setType(c.id)} className="min-h-[48px] text-left">
@@ -317,7 +327,7 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose }) => 
 
           {/* Tempo */}
           <section>
-            <p className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Quanto tempo de foco você tem hoje?</p>
+            <p className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Quanto tempo de foco você tem {H}?</p>
             <div className="flex items-center gap-3">
               <button
                 type="button"
@@ -330,7 +340,7 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose }) => 
               <div className="flex-1 text-center">
                 <p id="dayplan-time" className="text-2xl font-black text-slate-900 dark:text-white leading-none">{blocksToHours(capacity)}</p>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                  {state.capacity ? 'só para hoje' : `padrão da sua rotina (${blocksToHours(studyPrefs.dailyPomodoros)})`} · previsto {blocksToHours(plan.planned)}
+                  {state.capacity ? (isToday ? 'só para hoje' : 'só para este dia') : `padrão da sua rotina (${blocksToHours(studyPrefs.dailyPomodoros)})`} · previsto {blocksToHours(plan.planned)}
                 </p>
               </div>
               <button
@@ -390,7 +400,7 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose }) => 
                   );
                 })}
               </div>
-              <p className="mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">Desligado sai só de hoje. Amanhã o plano volta ao padrão da sua rotina.</p>
+              <p className="mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">Desligado sai só deste dia. No dia seguinte o plano volta ao padrão da sua rotina.</p>
             </section>
           )}
 
@@ -399,11 +409,11 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose }) => 
             <div className="flex items-end justify-between gap-2 mb-2">
               <p className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">{mode === 'detalhado' ? 'Tarefas, ordem e prioridade' : 'Seu dia'}</p>
               <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                {mode === 'detalhado' ? 'Setas mudam a ordem · ⤒ prioridade · alfinete fixa hoje · X tira de hoje' : 'X tira de hoje · relógio passa para amanhã'}
+                {mode === 'detalhado' ? 'Setas mudam a ordem · ⤒ prioridade · alfinete fixa no dia · X tira do dia' : 'X tira do dia · relógio passa para o dia seguinte'}
               </p>
             </div>
             {all.length === 0 ? (
-              <p className="rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 p-4 text-sm text-center text-slate-600 dark:text-slate-300">Nada no plano de hoje ainda.</p>
+              <p className="rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 p-4 text-sm text-center text-slate-600 dark:text-slate-300">Nada no plano {isToday ? 'de hoje' : 'deste dia'} ainda.</p>
             ) : (
               <ul id="dayplan-list" className="rounded-2xl border border-slate-200 dark:border-slate-800 divide-y divide-slate-200 dark:divide-slate-800">
                 {all.map(row)}
@@ -413,7 +423,7 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose }) => 
 
           {/* Tema novo + conteúdos */}
           <section>
-            <p className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Estudar um tema hoje</p>
+            <p className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Estudar um tema {H}</p>
             <div className="space-y-2">
               <select
                 id="dayplan-theme"

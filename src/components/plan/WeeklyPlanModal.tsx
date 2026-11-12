@@ -1,13 +1,14 @@
 // "Planejar semana": os próximos 7 dias (tipo do dia, revisões previstas, temas novos, se cabe
 // no dia, provas) + temas em estudo sem data, com dia por tema e "Distribuir automaticamente".
 import React, { useMemo, useState } from 'react';
-import { AlertTriangle, CalendarRange, GraduationCap, Layers, Plus, Repeat, Sparkles, Sprout, Wand2 } from 'lucide-react';
+import { AlertTriangle, CalendarRange, ChevronDown, GraduationCap, Layers, Plus, Repeat, SlidersHorizontal, Sparkles, Sprout, Wand2 } from 'lucide-react';
+import { DayPlanModal } from './DayPlanModal';
 import { StudyContentModal } from './StudyContentModal';
 import { useApp } from '../../context/AppContext';
 import { addDaysYMD, formatDM, parseYMD } from '../../data/blockReview';
 import { WEEKDAY_NAMES, WEEKDAY_SHORT, autoDistributeNewTopics } from '../../data/studyMethod';
 import { todayYMD, usePlanInput, useWeekLoad } from '../../hooks/useStudyPlan';
-import { DAY_KIND_INFO, PlanModal, blocksToHours } from './planShared';
+import { DAY_KIND_INFO, PlanModal, blocksToHours, taskSizeLabel } from './planShared';
 import { QuickThemeModal } from './QuickThemeModal';
 
 interface WeeklyPlanModalProps {
@@ -16,7 +17,11 @@ interface WeeklyPlanModalProps {
 }
 
 export const WeeklyPlanModal: React.FC<WeeklyPlanModalProps> = ({ open, onClose }) => {
-  const { topicBlocks, subjects, currentSubjectIds, exams, updateTopicBlock, showNotification, studyPrefs } = useApp();
+  const { topicBlocks, subjects, currentSubjectIds, exams, updateTopicBlock, showNotification, studyPrefs, moveTaskToDate, addCustomTask } = useApp();
+  // Dias fechados (padrão: todos abertos, para ver e mexer nas tarefas de cada dia)
+  const [closed, setClosed] = useState<Record<string, boolean>>({});
+  const [planDate, setPlanDate] = useState<string | null>(null);
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
   const input = usePlanInput();
   const today = todayYMD();
   const dates = useMemo(() => Array.from({ length: 7 }, (_, i) => addDaysYMD(i, today)), [today]);
@@ -88,7 +93,7 @@ export const WeeklyPlanModal: React.FC<WeeklyPlanModalProps> = ({ open, onClose 
         onClose={onClose}
         icon={<CalendarRange className="h-5 w-5" />}
         title="Planejar semana"
-        subtitle="20 minutos que poupam a semana inteira: veja as revisões que vencem, distribua os temas novos e confira as provas."
+        subtitle="20 minutos que poupam a semana inteira. Veja as tarefas de cada dia, passe o que quiser para outro dia e ajuste cada dia do seu jeito."
         maxWidth="max-w-2xl"
         footer={
           <button type="button" id="weekly-plan-done" onClick={onClose} className="min-h-[40px] px-5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-black">
@@ -108,7 +113,6 @@ export const WeeklyPlanModal: React.FC<WeeklyPlanModalProps> = ({ open, onClose 
                 const kind = DAY_KIND_INFO[l.dayKind];
                 const dayExams = examsOn(l.date);
                 const pct = l.capacity > 0 ? Math.min(100, Math.round((l.demand / l.capacity) * 100)) : 0;
-                const newNames = [...l.plan.tasks, ...l.plan.overflow].filter((t) => (t.kind === 'new_block' || t.kind === 'new_topics') && !t.suggested);
                 return (
                   <li
                     key={l.date}
@@ -174,11 +178,101 @@ export const WeeklyPlanModal: React.FC<WeeklyPlanModalProps> = ({ open, onClose 
                           </span>
                         )}
                       </div>
-                      {newNames.length > 0 && (
-                        <p className="mt-1 text-[11px] text-slate-600 dark:text-slate-300 truncate">🌱 {newNames.map((t) => t.title.replace(/^Tema novo: |^1º contato: /, '')).join(' · ')}</p>
-                      )}
                       {l.overloaded && <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">Revisões vêm primeiro. Passe um tema novo para um dia mais leve.</p>}
                     </div>
+
+                    {/* Tarefas do dia: ver, mover de dia e somar uma tarefa sua */}
+                    {(() => {
+                      const dayTasks = [...l.plan.tasks, ...l.plan.overflow.filter((t) => !t.skipped)];
+                      const open = !closed[l.date];
+                      const inPlan = new Set(l.plan.tasks.map((t) => t.id));
+                      return (
+                        <div className="mt-2.5 border-t border-slate-200/70 dark:border-slate-800 pt-2">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <button
+                              type="button"
+                              id={`weekly-day-toggle-${l.date}`}
+                              onClick={() => setClosed((c) => ({ ...c, [l.date]: open }))}
+                              aria-expanded={open}
+                              className="min-h-[36px] inline-flex items-center gap-1 text-[11px] font-bold text-slate-600 dark:text-slate-300 hover:text-sky-700 dark:hover:text-sky-300"
+                            >
+                              <ChevronDown className={`h-4 w-4 transition-transform ${open ? 'rotate-180' : ''}`} />
+                              {dayTasks.length} tarefa{dayTasks.length === 1 ? '' : 's'}
+                            </button>
+                            <button
+                              type="button"
+                              id={`weekly-day-plan-${l.date}`}
+                              onClick={() => setPlanDate(l.date)}
+                              className="min-h-[36px] inline-flex items-center gap-1.5 px-3 rounded-xl border border-sky-500/40 bg-sky-500/10 text-[11px] font-black text-sky-700 dark:text-sky-300 hover:bg-sky-500/20"
+                            >
+                              <SlidersHorizontal className="h-3.5 w-3.5" /> Planejar este dia
+                            </button>
+                          </div>
+                          {open && (
+                            <>
+                              {dayTasks.length === 0 ? (
+                                <p className="py-1.5 text-[11px] text-slate-500 dark:text-slate-400">Nada neste dia ainda.</p>
+                              ) : (
+                                <ul className="mt-1 space-y-1">
+                                  {dayTasks.map((t) => (
+                                    <li key={t.id} className="flex items-center gap-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800 px-2 py-1.5">
+                                      <span className="shrink-0 h-7 w-7 rounded-lg grid place-items-center text-sm" style={{ backgroundColor: `${t.color}1f` }} aria-hidden>
+                                        {t.emoji}
+                                      </span>
+                                      <span className="min-w-0 flex-1">
+                                        <span className={`block text-[12px] font-bold leading-snug truncate ${t.done ? 'line-through text-slate-400' : 'text-slate-900 dark:text-white'}`}>{t.title}</span>
+                                        <span className="block text-[10px] text-slate-500 dark:text-slate-400">
+                                          {taskSizeLabel(t)}
+                                          {!inPlan.has(t.id) && <span className="font-bold text-amber-700 dark:text-amber-300"> · não coube</span>}
+                                          {t.optional && inPlan.has(t.id) && ' · opcional'}
+                                        </span>
+                                      </span>
+                                      {t.movable && !t.done && (
+                                        <select
+                                          id={`weekly-move-${l.date}-${t.id}`}
+                                          value={l.date}
+                                          onChange={(e) => moveTaskToDate(t, l.date, e.target.value)}
+                                          aria-label={`Passar "${t.title}" para outro dia`}
+                                          title="Passar para outro dia"
+                                          className="shrink-0 min-h-[36px] max-w-[104px] rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-1.5 text-[11px] font-bold text-slate-700 dark:text-slate-200"
+                                        >
+                                          {dates.map((d) => (
+                                            <option key={d} value={d}>
+                                              {d === l.date ? 'Mover…' : d === today ? 'Hoje' : `${WEEKDAY_SHORT[parseYMD(d).getDay()]} ${formatDM(d)}`}
+                                            </option>
+                                          ))}
+                                        </select>
+                                      )}
+                                    </li>
+                                  ))}
+                                </ul>
+                              )}
+                              <form
+                                onSubmit={(e) => {
+                                  e.preventDefault();
+                                  const v = (drafts[l.date] || '').trim();
+                                  if (!v) return;
+                                  addCustomTask(l.date, v, 1);
+                                  setDrafts((d) => ({ ...d, [l.date]: '' }));
+                                }}
+                                className="mt-1.5 flex items-center gap-2 rounded-xl border border-dashed border-slate-200 dark:border-slate-700 px-2"
+                              >
+                                <Plus className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+                                <input
+                                  id={`weekly-add-${l.date}`}
+                                  value={drafts[l.date] || ''}
+                                  onChange={(e) => setDrafts((d) => ({ ...d, [l.date]: e.target.value }))}
+                                  placeholder="Somar uma tarefa sua e apertar Enter"
+                                  maxLength={80}
+                                  className="flex-1 min-w-0 h-9 bg-transparent text-xs text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-hidden"
+                                  aria-label={`Somar tarefa em ${dayLabel(l.date)}`}
+                                />
+                              </form>
+                            </>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </li>
                 );
               })}
@@ -285,6 +379,8 @@ export const WeeklyPlanModal: React.FC<WeeklyPlanModalProps> = ({ open, onClose 
         </div>
       </PlanModal>
       <QuickThemeModal open={open && quickOpen} onClose={() => setQuickOpen(false)} defaultDate={quickDate} stacked />
+      {/* O mesmo "Planejar dia", aberto para o dia escolhido */}
+      <DayPlanModal open={open && planDate !== null} date={planDate || undefined} onClose={() => setPlanDate(null)} stacked />
       <StudyContentModal open={open && contentOpen} onClose={() => setContentOpen(false)} stacked />
     </>
   );
