@@ -324,6 +324,8 @@ interface AppContextType {
   setTimerSubject: (subjectId: string, topicId?: string) => void;
   startStudyCycle: (steps: StudyCycleStep[], startIndex?: number, subjectId?: string) => void;
   stopStudyCycle: () => void;
+  /** Ciclo de estudos: pula o resto do foco (vai para a pausa) ou o resto da pausa (vai para a próxima etapa) */
+  skipCycleStep: () => void;
   pomodoroSettings: {
     workMinutes: number;
     shortBreakMinutes: number;
@@ -2862,6 +2864,56 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showNotification(`Ciclo iniciado: ${steps[index].title} (${steps[index].workMins} min)`, 'info');
   };
 
+  const skipCycleStep = () => {
+    if (!timer.cycle) return;
+    const { steps, index, phase } = timer.cycle;
+    const step = steps[index];
+    const isLast = index === steps.length - 1;
+    const left = timer.isRunning && timer.endsAt ? remainingSeconds(timer.endsAt) : timer.timeLeftSeconds;
+    if (phase === 'work') {
+      // Conta só o tempo que foi estudado de verdade
+      const studiedMin = Math.floor(Math.max(0, step.workMins * 60 - left) / 60);
+      if (studiedMin >= 1) {
+        logStudySession({
+          subjectId: timer.selectedSubjectId,
+          topicId: timer.selectedTopicId,
+          durationMinutes: studiedMin,
+          type: 'pomodoro',
+          xpEarned: 0,
+          notes: `Ciclo de Estudos • ${step.title} (etapa pulada)`,
+          blockId: timer.task?.blockId,
+          projectId: timer.task?.projectId,
+          activity: timer.task?.kind,
+        });
+      }
+      if (isLast) {
+        showNotification('Ciclo encerrado na última etapa.', 'info');
+        setTimer((prev) => ({ ...prev, mode: 'pomodoro', isRunning: false, endsAt: undefined, timeLeftSeconds: pomodoroSettings.workMinutes * 60, customDurationSeconds: undefined, cycle: undefined }));
+      } else if (step.breakMins > 0) {
+        const breakEndsAt = Date.now() + step.breakMins * 60 * 1000;
+        showNotification(`Etapa pulada. Pausa de ${step.breakMins} min iniciada.`, 'info');
+        setTimer((prev) => ({
+          ...prev,
+          mode: 'short_break',
+          isRunning: true,
+          endsAt: breakEndsAt,
+          timeLeftSeconds: step.breakMins * 60,
+          customDurationSeconds: step.breakMins * 60,
+          cycle: { steps, index, phase: 'break' },
+        }));
+      } else {
+        const next = steps[index + 1];
+        showNotification(`Etapa pulada. Próxima: ${next.title}.`, 'info');
+        setTimer((prev) => ({ ...prev, mode: 'pomodoro', isRunning: false, endsAt: undefined, timeLeftSeconds: next.workMins * 60, customDurationSeconds: next.workMins * 60, cycle: { steps, index: index + 1, phase: 'work' } }));
+      }
+    } else {
+      const next = steps[index + 1];
+      if (!next) return;
+      showNotification(`Pausa pulada. Quando estiver pronto, inicie: ${next.title}.`, 'info');
+      setTimer((prev) => ({ ...prev, mode: 'pomodoro', isRunning: false, endsAt: undefined, timeLeftSeconds: next.workMins * 60, customDurationSeconds: next.workMins * 60, cycle: { steps, index: index + 1, phase: 'work' } }));
+    }
+  };
+
   const stopStudyCycle = () => {
     setTimer((prev) => ({
       ...prev,
@@ -3251,6 +3303,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setTimerSubject,
         startStudyCycle,
         stopStudyCycle,
+        skipCycleStep,
         pomodoroSettings,
         updatePomodoroSettings,
         isDarkMode: themeMode === 'dark',

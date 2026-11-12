@@ -24,6 +24,7 @@ import {
   Lightbulb,
   NotebookPen,
   Plus,
+  SkipForward,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { StudyCycleModal } from './modals/StudyCycleModal';
@@ -62,6 +63,7 @@ export const StudyStopwatchView: React.FC = () => {
     updatePomodoroSettings,
     startStudyCycle,
     stopStudyCycle,
+    skipCycleStep,
     startTask,
     clearFocusTask,
     openReviews,
@@ -607,7 +609,7 @@ export const StudyStopwatchView: React.FC = () => {
           onClick={() => openPlannerToday({ routine: true })}
           className="mt-2 min-h-[36px] text-[11px] font-bold text-sky-700 dark:text-sky-400 hover:underline"
         >
-          Mudar meus blocos (ex.: 60/10, 45/15)
+          Mudar meus blocos
         </button>
 
         {/* Alarme do cronômetro livre */}
@@ -700,31 +702,56 @@ export const StudyStopwatchView: React.FC = () => {
                   )}
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={stopStudyCycle}
-                className="shrink-0 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 text-[11px] font-bold text-slate-600 dark:text-slate-400 hover:text-rose-600 hover:border-rose-400 transition-colors"
-              >
-                Encerrar ciclo
-              </button>
+              <div className="shrink-0 flex flex-col sm:flex-row gap-1.5">
+                <button
+                  type="button"
+                  id="cycle-skip-btn"
+                  onClick={skipCycleStep}
+                  title={cycle.phase === 'work' ? 'Termina o foco agora e vai para a pausa' : 'Termina a pausa agora e vai para a próxima etapa'}
+                  className="px-3 py-2 rounded-lg border border-amber-500/50 bg-amber-500/10 text-[11px] font-bold text-amber-700 dark:text-amber-300 hover:bg-amber-500/20 transition-colors inline-flex items-center justify-center gap-1"
+                >
+                  <SkipForward className="h-3.5 w-3.5" /> {cycle.phase === 'work' ? 'Pular etapa' : 'Pular pausa'}
+                </button>
+                <button
+                  type="button"
+                  onClick={stopStudyCycle}
+                  className="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 text-[11px] font-bold text-slate-600 dark:text-slate-400 hover:text-rose-600 hover:border-rose-400 transition-colors"
+                >
+                  Encerrar ciclo
+                </button>
+              </div>
             </div>
-            <div className="flex gap-1.5">
-              {cycle.steps.map((s, i) => (
-                <div
-                  key={i}
-                  title={s.title}
-                  className={`h-1.5 flex-1 rounded-full ${
-                    i < cycle.index
-                      ? 'bg-emerald-500'
-                      : i === cycle.index
-                        ? cycle.phase === 'break'
-                          ? 'bg-emerald-400 animate-pulse'
-                          : 'bg-amber-500'
-                        : 'bg-slate-200 dark:bg-slate-800'
-                  }`}
-                />
-              ))}
+            {/* Barra do ciclo: cada etapa tem o trecho de foco (largo) e o de pausa (curto) */}
+            <div id="cycle-bar" className="flex items-center gap-1">
+              {cycle.steps.map((s, i) => {
+                const hasBreak = s.breakMins > 0 && i < cycle.steps.length - 1;
+                const workDone = i < cycle.index || (i === cycle.index && cycle.phase === 'break');
+                const workNow = i === cycle.index && cycle.phase === 'work';
+                const breakDone = i < cycle.index;
+                const breakNow = i === cycle.index && cycle.phase === 'break';
+                return (
+                  <React.Fragment key={i}>
+                    <div
+                      title={`${s.title} · foco de ${s.workMins} min`}
+                      className={`h-2 rounded-full ${workDone ? 'bg-emerald-500' : workNow ? 'bg-amber-500' : 'bg-slate-200 dark:bg-slate-800'}`}
+                      style={{ flex: `${Math.max(1, s.workMins)} 1 0%` }}
+                    />
+                    {hasBreak && (
+                      <div
+                        title={`Pausa de ${s.breakMins} min`}
+                        className={`h-2 rounded-full ${breakDone ? 'bg-sky-500' : breakNow ? 'bg-sky-400 animate-pulse' : 'bg-sky-500/20'}`}
+                        style={{ flex: `${Math.max(1, s.breakMins)} 1 0%`, minWidth: 10 }}
+                      />
+                    )}
+                  </React.Fragment>
+                );
+              })}
             </div>
+            <p className="flex items-center gap-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400">
+              <span className="inline-flex items-center gap-1"><span className="h-2 w-4 rounded-full bg-amber-500" /> foco</span>
+              <span className="inline-flex items-center gap-1"><span className="h-2 w-3 rounded-full bg-sky-400" /> pausa</span>
+              <span className="inline-flex items-center gap-1"><span className="h-2 w-4 rounded-full bg-emerald-500" /> feito</span>
+            </p>
           </div>
         )}
 

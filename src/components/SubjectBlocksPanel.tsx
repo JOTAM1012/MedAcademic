@@ -495,15 +495,20 @@ export const SubjectBlocksPanel: React.FC<SubjectBlocksPanelProps> = ({ subject,
                             <ol className="px-2.5 pb-2.5 space-y-1">
                               {INITIAL_STEPS.map((s, i) => {
                                 const checked = done.has(String(i));
+                                const skipped = !checked && done.has(`x${i}`);
                                 const [head, rest] = splitStep(s);
                                 return (
-                                  <li key={i}>
+                                  <li key={i} className="flex items-stretch gap-1">
                                     <button
                                       type="button"
-                                      onClick={() => toggleInitialStep(block.id, String(i))}
+                                      onClick={() => {
+                                        if (done.has(`x${i}`)) toggleInitialStep(block.id, `x${i}`);
+                                        toggleInitialStep(block.id, String(i));
+                                      }}
                                       aria-pressed={checked}
-                                      className={`w-full min-h-[40px] flex items-start gap-2 rounded-lg px-2 py-1.5 text-left transition-colors ${
-                                        checked ? 'bg-emerald-500/10' : 'bg-white/70 dark:bg-slate-900/60 hover:bg-white dark:hover:bg-slate-900'
+                                      aria-label={`${checked ? 'Desmarcar' : 'Marcar como feito'}: ${head}`}
+                                      className={`flex-1 min-w-0 min-h-[40px] flex items-start gap-2 rounded-lg px-2 py-1.5 text-left transition-colors ${
+                                        checked ? 'bg-emerald-500/10' : skipped ? 'bg-rose-500/10' : 'bg-white/70 dark:bg-slate-900/60 hover:bg-white dark:hover:bg-slate-900'
                                       }`}
                                     >
                                       <AnimatedCheck
@@ -514,11 +519,30 @@ export const SubjectBlocksPanel: React.FC<SubjectBlocksPanelProps> = ({ subject,
                                         offClassName="border-slate-300 dark:border-slate-600"
                                       />
                                       <span className={`text-[11px] leading-snug transition-colors duration-200 ${checked ? 'text-slate-500 dark:text-slate-400' : 'text-slate-700 dark:text-slate-200'}`}>
-                                        <strong className={checked ? 'line-through' : 'text-slate-900 dark:text-white'}>
+                                        <strong className={checked ? 'line-through' : skipped ? 'text-rose-700 dark:text-rose-300' : 'text-slate-900 dark:text-white'}>
                                           {i + 1}. {head}
                                         </strong>
                                         {rest && <span>: {rest}</span>}
+                                        {skipped && <span className="ml-1 font-bold text-rose-600 dark:text-rose-400">(não fiz)</span>}
                                       </span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      id={`struct-step-skip-${block.id}-${i}`}
+                                      onClick={() => {
+                                        if (done.has(String(i))) toggleInitialStep(block.id, String(i));
+                                        toggleInitialStep(block.id, `x${i}`);
+                                      }}
+                                      aria-pressed={skipped}
+                                      aria-label={`${skipped ? 'Tirar a marca de não fiz' : 'Marcar como não fiz'}: ${head}`}
+                                      title={skipped ? 'Não fiz (toque para desfazer)' : 'Não fiz este passo'}
+                                      className={`shrink-0 w-10 min-h-[40px] grid place-items-center rounded-lg border transition-colors ${
+                                        skipped
+                                          ? 'bg-rose-600 border-rose-600 text-white'
+                                          : 'border-slate-200 dark:border-slate-700 text-slate-400 hover:text-rose-600 hover:border-rose-400 bg-white/70 dark:bg-slate-900/60'
+                                      }`}
+                                    >
+                                      <X className="h-4 w-4" strokeWidth={3} />
                                     </button>
                                   </li>
                                 );

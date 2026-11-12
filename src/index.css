@@ -494,3 +494,24 @@ html:not(.dark) .glass-bar { border-color: rgba(15, 23, 42, 0.06); }
   animation: skeleton-shine 1.4s ease-in-out infinite;
 }
 @media (prefers-reduced-motion: reduce) { .skeleton { animation: none; } }
+
+/* A casca do app nunca rola (só o conteúdo de dentro). Sem isto, pular até um item
+   (scrollIntoView) podia empurrar a tela inteira para cima e deixar um vazio embaixo. */
+#app-shell,
+#app-shell > .overflow-hidden {
+  overflow: clip !important;
+}
+html:has(#app-shell),
+html:has(#app-shell) body {
+  overflow: hidden;
+  height: 100%;
+}
+/* Itens "absolute" dentro do conteúdo (ex.: textos só para leitor de tela) ficam presos ao
+   conteúdo que rola, e não à página: era isso que deixava a página mais alta que a tela. */
+#app-shell main {
+  position: relative;
+}
+html:has(#app-shell),
+html:has(#app-shell) body {
+  overflow: clip;
+}
