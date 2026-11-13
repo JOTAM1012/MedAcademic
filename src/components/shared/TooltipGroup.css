@@ -1,0 +1,69 @@
+/* "Tooltip open/close remix" (transitions.dev): uma única dica que desliza e
+   muda de largura entre os botões do grupo. Aqui ela abre para baixo (barra do topo). */
+:root {
+  --p17-in-dur: 150ms;
+  --p17-out-dur: 50ms;
+  --p17-scale-from: 0.98;
+  --p17-delay: 80ms;
+  --p17-in-ease: ease-out;
+  --p17-out-ease: ease-out;
+  --p17-move-dur: 160ms;
+  --p17-move-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --p17-bg: #ffffff;
+  --p17-fg: #334155;
+}
+.dark {
+  --p17-bg: #1e293b;
+  --p17-fg: #f1f5f9;
+}
+
+.p17-group {
+  position: relative;
+}
+.p17-tooltip {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 60;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 0;
+  overflow: hidden;
+  translate: var(--p17-x, 0px) 0;
+  scale: var(--p17-scale-from);
+  transform-origin: 50% 0%;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: var(--p17-bg);
+  color: var(--p17-fg);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+  white-space: nowrap;
+  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.06), 0 2px 6px 0 rgba(15, 23, 42, 0.05), 0 4px 42px 0 rgba(15, 23, 42, 0.06);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--p17-out-dur) var(--p17-out-ease), scale var(--p17-out-dur) var(--p17-out-ease),
+    translate var(--p17-move-dur) var(--p17-move-ease), width var(--p17-move-dur) var(--p17-move-ease);
+}
+.dark .p17-tooltip {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06), 0 1px 1px 0 rgba(0, 0, 0, 0.08), 0 2px 6px 0 rgba(0, 0, 0, 0.25);
+}
+.p17-tooltip[data-show='true'] {
+  opacity: 1;
+  scale: 1;
+  transition: opacity var(--p17-in-dur) var(--p17-in-ease) var(--p17-delay),
+    scale var(--p17-in-dur) var(--p17-in-ease) var(--p17-delay), translate var(--p17-move-dur) var(--p17-move-ease),
+    width var(--p17-move-dur) var(--p17-move-ease);
+}
+.p17-tooltip-text {
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .p17-tooltip {
+    transform: none !important;
+    filter: none !important;
+  }
+}

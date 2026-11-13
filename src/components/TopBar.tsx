@@ -17,6 +17,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import TooltipGroup from './shared/TooltipGroup';
 import SquishSwitch from './shared/SquishSwitch';
 import { NotificationBadge } from './shared/NotificationBadge';
 import { GlobalSearch } from './GlobalSearch';
@@ -120,7 +121,7 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleMobileMenu, onOpenTour }
       </div>
 
       {/* Right section: Cloud Sync, Notifications & Dark Mode */}
-      <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
+      <TooltipGroup className="flex items-center gap-0.5 sm:gap-1 shrink-0" suppressed={isNotificationsOpen}>
         {/* Instalar como aplicativo (some quando já está instalado) */}
         {!isAppInstalled && (
           <button
@@ -129,7 +130,7 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleMobileMenu, onOpenTour }
             onClick={openInstallGuide}
             className="relative h-10 shrink-0 flex items-center justify-center gap-1.5 rounded-xl px-2.5 text-xs font-bold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-800 dark:hover:text-slate-100 transition-colors"
             aria-label="Instalar o MedAcademic como aplicativo"
-            title="Instalar como aplicativo"
+            data-tooltip="Instalar como aplicativo"
           >
             <Smartphone className="h-4 w-4" />
             <span className="hidden md:inline">Instalar app</span>
@@ -144,6 +145,7 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleMobileMenu, onOpenTour }
             className="relative h-10 w-10 shrink-0 flex items-center justify-center rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-800 dark:hover:text-slate-100 transition-colors"
             aria-label={hasAlerts ? `Notificações: ${alertCount} aviso${alertCount === 1 ? '' : 's'}` : 'Notificações'}
             aria-expanded={isNotificationsOpen}
+            data-tooltip={hasAlerts ? `${alertCount} aviso${alertCount === 1 ? '' : 's'}` : 'Avisos'}
           >
             <Bell className="h-4 w-4" />
             <NotificationBadge count={alertCount} />
@@ -260,7 +262,7 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleMobileMenu, onOpenTour }
             type="button"
             onClick={onOpenTour}
             aria-label="Tour guiado pelo site"
-            title="Tour guiado: onde fica cada coisa, passo a passo"
+            data-tooltip="Tour guiado pelo site"
             className="h-10 shrink-0 flex items-center justify-center gap-1.5 rounded-xl px-2.5 text-xs font-bold transition-colors text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-800 dark:hover:text-slate-100"
           >
             <Compass className="h-4 w-4" />
@@ -269,12 +271,12 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleMobileMenu, onOpenTour }
         )}
 
         {/* Dark Mode Toggle */}
+        <span className="inline-flex" data-tooltip={isDarkMode ? 'Mudar para o modo claro' : 'Mudar para o modo escuro'}>
         <SquishSwitch
           id="topbar-theme-toggle-btn"
           checked={isDarkMode}
           onChange={() => toggleDarkMode()}
           ariaLabel={isDarkMode ? 'Ativar modo claro' : 'Ativar modo escuro'}
-          title={isDarkMode ? 'Modo escuro (toque para o claro)' : 'Modo claro (toque para o escuro)'}
           width={50}
           height={28}
           radius={14}
@@ -285,7 +287,8 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleMobileMenu, onOpenTour }
           className="shrink-0 ml-1"
           thumbIcon={isDarkMode ? <Moon className="h-3 w-3 text-sky-300" /> : <Sun className="h-3 w-3 text-amber-500" />}
         />
-      </div>
+        </span>
+      </TooltipGroup>
     </header>
   );
 };

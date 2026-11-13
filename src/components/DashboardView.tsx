@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Crown, Sparkles, Plus, Stethoscope, HelpCircle, Pencil } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import GooeyNav from './shared/GooeyNav';
 import { OwnerName } from './OwnerName';
 import { useAccess } from '../context/AccessContext';
 import { CARTOON_AVATARS } from '../data/avatars';
@@ -48,6 +49,7 @@ export const DashboardView: React.FC = () => {
     setDashboardPrefs,
     studyPhase,
     contestsActive,
+    isDarkMode,
   } = useApp();
 
   const { isOwner: isOwnerAccount } = useAccess();
@@ -142,10 +144,6 @@ export const DashboardView: React.FC = () => {
     tiles.splice(planAt + 1, 0, { key: 'week', size: 'wide', node: <WeekSummaryCard /> });
   }
 
-  const chip = (active: boolean) =>
-    `min-h-[40px] px-3 rounded-lg text-[11px] font-bold transition-colors ${
-      active ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
-    }`;
 
   return (
     <div id="tour-dashboard" className="space-y-5 pb-12">
@@ -260,20 +258,30 @@ export const DashboardView: React.FC = () => {
       <div id="dash-toolbar" className="flex flex-wrap items-center justify-between gap-2">
         <div id="dash-filters" className="flex flex-wrap items-center gap-2 min-w-0">
           {showPeriod && (
-            <div role="group" aria-label="Período" className="inline-flex rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50 p-0.5">
-              {PERIOD_OPTIONS.map((p) => (
-                <button
-                  key={p.id}
-                  type="button"
-                  id={`dash-period-${p.id}`}
-                  aria-pressed={period === p.id}
-                  onClick={() => setFilters((f) => ({ ...f, period: p.id }))}
-                  className={chip(period === p.id)}
-                >
-                  {p.label}
-                </button>
-              ))}
-            </div>
+            <GooeyNav
+              ariaLabel="Período"
+              idPrefix="dash-period"
+              items={PERIOD_OPTIONS.map((p) => ({ label: p.label }))}
+              activeIndex={Math.max(0, PERIOD_OPTIONS.findIndex((p) => p.id === period))}
+              onChange={(i) => setFilters((f) => ({ ...f, period: PERIOD_OPTIONS[i].id }))}
+              theme={isDarkMode ? 'dark' : 'light'}
+              size="sm"
+              color="#0284c7"
+              activeTextColor="#ffffff"
+              particleCount={12}
+              spread={40}
+              style={
+                {
+                  '--gn-font': '12px',
+                  '--gn-frame': isDarkMode ? 'rgba(2, 6, 23, 0.5)' : '#f8fafc',
+                  '--gn-frame-edge': isDarkMode ? '#1e293b' : '#e2e8f0',
+                  '--gn-frame-highlight': 'transparent',
+                  '--gn-frame-shadow': 'none',
+                  '--gn-ink': isDarkMode ? '#ffffff' : '#0f172a',
+                  '--gn-muted': isDarkMode ? '#94a3b8' : '#64748b',
+                } as React.CSSProperties
+              }
+            />
           )}
           {showArea && (
             <select

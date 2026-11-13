@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Bell, BellOff, Link2, Plus, X } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import BounceSwitch from '../shared/BounceSwitch';
 import { ExamTaskKind, ExamTopic } from '../../types';
 import { DEFAULT_TOPIC_QUESTIONS, EXAM_TASKS, EXAM_TASK_ORDER, newExamTopicId, topicsFromSource } from '../../data/examTopics';
 
@@ -292,9 +293,7 @@ export const ExamTopicsEditor: React.FC<ExamTopicsEditorProps> = ({
       >
         {remindersOff ? <BellOff className="h-4 w-4 text-slate-400 shrink-0" /> : <Bell className="h-4 w-4 text-sky-500 shrink-0" />}
         <span className="min-w-0 flex-1 text-xs font-semibold text-slate-700 dark:text-slate-200">Lembretes antes da prova (30, 15, 7, 3 e 1 dia)</span>
-        <span className={`shrink-0 relative h-6 w-10 rounded-full transition-colors ${remindersOff ? 'bg-slate-300 dark:bg-slate-700' : 'bg-sky-600'}`}>
-          <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${remindersOff ? 'left-0.5' : 'left-[18px]'}`} />
-        </span>
+        <BounceSwitch checked={!remindersOff} decorative />
       </button>
     </div>
   );

@@ -34,6 +34,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import BounceSwitch from './shared/BounceSwitch';
 import { useAuth } from '../context/AuthContext';
 import { CARTOON_AVATARS } from '../data/avatars';
 import { fileToAvatarDataUrl, avatarErrorMessage } from '../data/avatarImage';
@@ -597,19 +598,14 @@ export const ProfileView: React.FC = () => {
                        </p>
                      </div>
                      {studyPhase === 'ciclo_clinico' ? (
-                       <button
-                         type="button"
-                         id="profile-contests-toggle"
-                         role="switch"
-                         aria-checked={!!userProfile.contestsEnabled}
-                         aria-label="Ativar provas de concurso"
-                         onClick={toggleContests}
-                         className="shrink-0 h-10 w-14 flex items-center justify-center"
-                       >
-                         <span className={`relative h-6 w-11 rounded-full transition-colors ${userProfile.contestsEnabled ? 'bg-sky-600' : 'bg-slate-300 dark:bg-slate-700'}`}>
-                           <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${userProfile.contestsEnabled ? 'left-[22px]' : 'left-0.5'}`} />
-                         </span>
-                       </button>
+                       <span className="shrink-0 h-10 w-14 flex items-center justify-center">
+                         <BounceSwitch
+                           id="profile-contests-toggle"
+                           checked={!!userProfile.contestsEnabled}
+                           onChange={() => toggleContests()}
+                           ariaLabel="Ativar provas de concurso"
+                         />
+                       </span>
                      ) : (
                        <span id="profile-contests-toggle" className="shrink-0 text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-400">
                          Ligada automaticamente

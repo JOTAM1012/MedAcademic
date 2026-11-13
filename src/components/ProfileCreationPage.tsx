@@ -26,6 +26,7 @@ import {
   Trophy,
 } from 'lucide-react';
 import { useApp, seedNewUserData } from '../context/AppContext';
+import BounceSwitch from './shared/BounceSwitch';
 import { useAuth } from '../context/AuthContext';
 import { UserProfile, Semester } from '../types';
 import { INITIAL_USER_PROFILE, INITIAL_SEMESTERS } from '../mockData';
@@ -982,19 +983,14 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
                           </p>
                         </div>
                         {selectedCycle === 'ciclo_clinico' ? (
-                          <button
-                            type="button"
-                            id="profile-setup-contests-toggle"
-                            role="switch"
-                            aria-checked={contestsEnabled}
-                            aria-label="Ativar provas de concurso"
-                            onClick={() => setContestsEnabled((v) => !v)}
-                            className="shrink-0 h-10 w-14 flex items-center justify-center cursor-pointer"
-                          >
-                            <span className={`relative h-6 w-11 rounded-full transition-colors ${contestsEnabled ? 'bg-sky-500' : 'bg-slate-700'}`}>
-                              <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${contestsEnabled ? 'left-[22px]' : 'left-0.5'}`} />
-                            </span>
-                          </button>
+                          <span className="shrink-0 h-10 w-14 flex items-center justify-center">
+                            <BounceSwitch
+                              id="profile-setup-contests-toggle"
+                              checked={contestsEnabled}
+                              onChange={setContestsEnabled}
+                              ariaLabel="Ativar provas de concurso"
+                            />
+                          </span>
                         ) : (
                           <span className="shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400">Ligada</span>
                         )}

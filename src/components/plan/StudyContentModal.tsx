@@ -4,6 +4,7 @@
 import React, { useMemo, useState } from 'react';
 import { BookOpen, CalendarPlus, Layers, Plus, Sparkles, Wand2 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import BounceSwitch from '../shared/BounceSwitch';
 import { addDaysYMD, formatDM, parseYMD } from '../../data/blockReview';
 import { WEEKDAY_SHORT, autoDistributeNewTopics } from '../../data/studyMethod';
 import { todayYMD, usePlanInput } from '../../hooks/useStudyPlan';
@@ -18,19 +19,9 @@ interface StudyContentModalProps {
 }
 
 const Switch: React.FC<{ id: string; on: boolean; onChange: (v: boolean) => void; label: string }> = ({ id, on, onChange, label }) => (
-  <button
-    type="button"
-    id={id}
-    role="switch"
-    aria-checked={on}
-    aria-label={label}
-    onClick={() => onChange(!on)}
-    className="shrink-0 min-h-[40px] min-w-[52px] flex items-center justify-center"
-  >
-    <span className={`relative h-6 w-11 rounded-full transition-colors ${on ? 'bg-sky-600' : 'bg-slate-300 dark:bg-slate-700'}`}>
-      <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${on ? 'left-[22px]' : 'left-0.5'}`} />
-    </span>
-  </button>
+  <span className="shrink-0 min-h-[40px] min-w-[52px] flex items-center justify-center">
+    <BounceSwitch id={id} checked={on} onChange={onChange} ariaLabel={label} />
+  </span>
 );
 
 export const StudyContentModal: React.FC<StudyContentModalProps> = ({ open, onClose, stacked }) => {
