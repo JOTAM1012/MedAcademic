@@ -167,11 +167,10 @@ export const ChecklistView: React.FC = () => {
   };
 
   // "Geral" não é um bloco salvo: excluir apaga os itens antigos que estão nele
-  const removeBlock = (block: BlockView, count: number) => {
-    const msg = count > 0 ? `Excluir o bloco "${block.name}" e seus ${count} ${count === 1 ? 'item' : 'itens'}?` : `Excluir o bloco "${block.name}"?`;
-    if (!window.confirm(msg)) return;
+  // Sem janela de confirmação do navegador (alguns aparelhos/app instalado bloqueiam): exclui e oferece "Desfazer"
+  const removeBlock = (block: BlockView, _count: number) => {
     if (block.virtual) {
-      checklist.filter((i) => ownerOf(i) === GENERAL_ID).forEach((i) => deleteChecklistItem(i.id));
+      checklist.filter((i) => ownerOf(i) === GENERAL_ID).forEach((i) => deleteChecklistItem(i.id, { undo: true }));
     } else {
       deleteChecklistBlock(block.id);
     }
