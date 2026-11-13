@@ -431,3 +431,26 @@
     transition-duration: 0.01ms;
   }
 }
+
+/* ---- MedAcademic: trilho em pílula e passo atual em azul do site ---- */
+.stepper__track {
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 1px var(--stepper-well-edge, transparent);
+}
+.stepper__segment,
+.stepper__glider {
+  border-radius: 999px;
+}
+.stepper__glider {
+  background: var(--stepper-solid);
+  box-shadow:
+    0 6px 16px -6px color-mix(in srgb, var(--stepper-solid) 70%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+.stepper__segment[data-status='active'] .stepper__title {
+  color: var(--stepper-solid-ink);
+}
+.stepper__segment[data-status='active'] .stepper__badge {
+  box-shadow: inset 0 0 0 1.5px var(--stepper-solid-ink);
+  color: var(--stepper-solid-ink);
+}
