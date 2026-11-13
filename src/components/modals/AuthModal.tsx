@@ -1,3 +1,4 @@
+import IconSwap from '../shared/IconSwap';
 import React, { useState, useEffect } from 'react';
 import { shakeElement } from '../shared/ErrorShake';
 import {
@@ -318,7 +319,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isPage = false }) => {
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600"
                   >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    <IconSwap swapped={showPassword} from={<Eye className="h-4 w-4" />} to={<EyeOff className="h-4 w-4" />} />
                   </button>
                 </div>
               </div>
@@ -442,7 +443,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isPage = false }) => {
                       onClick={() => setShowPassword(!showPassword)}
                       className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600"
                     >
-                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      <IconSwap swapped={showPassword} from={<Eye className="h-4 w-4" />} to={<EyeOff className="h-4 w-4" />} />
                     </button>
                   </div>
 

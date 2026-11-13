@@ -1,3 +1,4 @@
+import IconSwap from './shared/IconSwap';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Crown,
@@ -361,7 +362,7 @@ export const OwnerPanelView: React.FC = () => {
                             u.blocked ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-300' : 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
                           }`}
                         >
-                          {u.blocked ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Ban className="h-3.5 w-3.5" />}
+                          <IconSwap swapped={u.blocked} from={<Ban className="h-3.5 w-3.5" />} to={<CheckCircle2 className="h-3.5 w-3.5" />} />
                           {u.blocked ? 'Reativar' : 'Suspender'}
                         </button>
                         {access.isOwner && (
@@ -433,7 +434,7 @@ export const OwnerPanelView: React.FC = () => {
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   <button onClick={() => toggleAnn(a)} className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500" title={a.active ? 'Ocultar' : 'Mostrar'}>
-                    {a.active ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    <IconSwap swapped={a.active} from={<Eye className="h-4 w-4" />} to={<EyeOff className="h-4 w-4" />} />
                   </button>
                   <button onClick={() => deleteAnn(a)} className="p-2 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/30 text-rose-500" title="Apagar">
                     <Trash2 className="h-4 w-4" />

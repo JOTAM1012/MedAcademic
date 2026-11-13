@@ -1,6 +1,7 @@
 // Compartilhar disciplina/módulo por link e importar o que um amigo mandou.
 // Vai só a lista (blocos, tópicos e subtópicos). Quem recebe fica com uma cópia só dele.
 import React, { useEffect, useState } from 'react';
+import IconSwap from '../shared/IconSwap';
 import { Check, Copy, Download, Layers, Link2, ListChecks, Send, Share2 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import type { Subject } from '../../types';
@@ -96,7 +97,7 @@ export const ShareSubjectModal: React.FC<{ subject: Subject | null; onClose: () 
             onClick={copy}
             className="min-h-[44px] px-5 rounded-xl bg-sky-600 hover:bg-sky-500 disabled:opacity-40 text-white text-sm font-black inline-flex items-center gap-1.5"
           >
-            {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />} {copied ? 'Copiado' : 'Copiar link'}
+            <IconSwap swapped={copied} from={<Copy className="h-4 w-4" />} to={<Check className="h-4 w-4" />} /> {copied ? 'Copiado' : 'Copiar link'}
           </button>
         </>
       }
@@ -334,7 +335,7 @@ export const QuickShareButton: React.FC<{ subject: Subject; className?: string }
           done ? 'text-emerald-500 bg-emerald-500/10' : 'text-slate-400 hover:text-sky-600 hover:bg-sky-50 dark:hover:text-sky-400 dark:hover:bg-sky-500/10'
         } ${className}`}
       >
-        {done ? <Check className="h-4 w-4" /> : <Share2 className="h-4 w-4" />}
+        <IconSwap swapped={done} from={<Share2 className="h-4 w-4" />} to={<Check className="h-4 w-4" />} />
       </button>
       <ShareSubjectModal subject={modal ? subject : null} onClose={() => setModal(false)} />
     </>

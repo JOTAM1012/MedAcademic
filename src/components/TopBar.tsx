@@ -1,3 +1,4 @@
+import IconSwap from './shared/IconSwap';
 import React, { useState, useEffect } from 'react';
 import {
   Menu,
@@ -133,7 +134,7 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleMobileMenu, onOpenTour }
           title={sidebarCollapsed ? 'Abrir barra lateral' : 'Recolher barra lateral'}
           className="hidden lg:flex h-10 w-10 shrink-0 -mr-1 items-center justify-center rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-800 dark:hover:text-slate-100 transition-colors"
         >
-          {sidebarCollapsed ? <PanelLeftOpen className="h-[18px] w-[18px]" /> : <PanelLeftClose className="h-[18px] w-[18px]" />}
+          <IconSwap swapped={sidebarCollapsed} from={<PanelLeftClose className="h-[18px] w-[18px]" />} to={<PanelLeftOpen className="h-[18px] w-[18px]" />} />
         </button>
 
         {/* Global Search Bar */}
@@ -300,7 +301,7 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleMobileMenu, onOpenTour }
           data-tooltip={wideLayout ? 'Voltar ao layout padrão' : 'Usar layout largo'}
           className={`hidden xl:flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors hover:bg-slate-100 dark:hover:bg-slate-800 ${wideLayout ? 'text-sky-600 dark:text-sky-400' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-100'}`}
         >
-          {wideLayout ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+          <IconSwap swapped={wideLayout} from={<Maximize2 className="h-4 w-4" />} to={<Minimize2 className="h-4 w-4" />} />
         </button>
 
         {/* Dark Mode Toggle */}
@@ -318,7 +319,7 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleMobileMenu, onOpenTour }
           thumbColor="#ffffff"
           thumbOnColor="#0f172a"
           className="shrink-0 ml-1"
-          thumbIcon={isDarkMode ? <Moon className="h-3 w-3 text-sky-300" /> : <Sun className="h-3 w-3 text-amber-500" />}
+          thumbIcon=<IconSwap swapped={isDarkMode} from={<Sun className="h-3 w-3 text-amber-500" />} to={<Moon className="h-3 w-3 text-sky-300" />} />
         />
         </span>
       </TooltipGroup>

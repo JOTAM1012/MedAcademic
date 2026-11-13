@@ -1,5 +1,6 @@
 // Provas de semestres passados: organização pessoal (assuntos para revisar e questões para tirar dúvida)
 import React, { useEffect, useMemo, useState } from 'react';
+import IconSwap from '../shared/IconSwap';
 import { createPortal } from 'react-dom';
 import {
   FileText,
@@ -497,7 +498,7 @@ const PastExamItem: React.FC<ItemProps> = ({ exam, open, onToggle, onEdit, confi
                       q.resolved ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400 hover:text-emerald-600'
                     }`}
                   >
-                    {q.resolved ? <CheckCircle2 className="h-4 w-4" /> : <Circle className="h-4 w-4" />}
+                    <IconSwap swapped={q.resolved} from={<Circle className="h-4 w-4" />} to={<CheckCircle2 className="h-4 w-4" />} />
                     {q.resolved ? 'Resolvida' : 'Marcar como resolvida'}
                   </button>
                 </li>

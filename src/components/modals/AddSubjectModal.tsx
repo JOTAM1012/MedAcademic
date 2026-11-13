@@ -8,6 +8,7 @@ import { CycleSubjectForm } from './CycleSubjectForm';
 import { cycleOfSemester, getSubjectFormat } from '../../data/subjectFormats';
 import type { SubjectFormat, SubjectOrganization } from '../../types';
 import Segmented from '../shared/Segmented';
+import Stepper, { Step } from '../shared/Stepper';
 
 interface AddSubjectModalProps {
   isOpen: boolean;
@@ -34,6 +35,8 @@ export const AddSubjectModal: React.FC<AddSubjectModalProps> = ({ isOpen, onClos
   const [tutorialCount, setTutorialCount] = useState(5);
   // Módulo / matéria da faculdade (opcional) → universitySubject
   const [moduleName, setModuleName] = useState('');
+  // Passo atual do Stepper (1 Tipo → 2 Dados → 3 Vínculos)
+  const [step, setStep] = useState(1);
 
   if (!isOpen) return null;
   const cycle = cycleOfSemester(currentSemester);
@@ -62,6 +65,7 @@ export const AddSubjectModal: React.FC<AddSubjectModalProps> = ({ isOpen, onClos
     setKind('subject');
     setModuleId('');
     setLinkIds([]);
+    setStep(1);
   };
 
   const handleClose = () => {
@@ -84,8 +88,33 @@ export const AddSubjectModal: React.FC<AddSubjectModalProps> = ({ isOpen, onClos
     setSpecialty(next);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Campos obrigatórios do passo "Dados" (mesma regra do antigo botão de salvar)
+  const dataValid = !!name.trim() && (kind === 'module' ? true : isCycleMode ? !!format : !!area);
+  const dataHint =
+    kind === 'module'
+      ? !name.trim() ? 'Informe o nome do módulo' : undefined
+      : isCycleMode
+        ? !format ? 'Escolha o formato' : !name.trim() ? 'Informe o nome' : undefined
+        : !area ? 'Escolha a grande área' : !name.trim() ? 'Informe o nome da disciplina' : undefined;
+  const nextDisabled = step >= 2 && !dataValid;
+
+  const goToStep = (next: number) => {
+    // Pelos indicadores do topo também não dá para pular "Dados" incompleto
+    if (next > 2 && !dataValid) return;
+    setStep(next);
+  };
+
+  // Enter num campo avança o passo (ou cria, no último) em vez de salvar direto
+  const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (step < 3) {
+      if (!nextDisabled) goToStep(step + 1);
+      return;
+    }
+    handleSave();
+  };
+
+  const handleSave = () => {
     if (kind === 'module') {
       if (!name.trim()) return;
       addSubject({
@@ -166,7 +195,20 @@ export const AddSubjectModal: React.FC<AddSubjectModalProps> = ({ isOpen, onClos
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="mt-4 space-y-4">
+        <form onSubmit={handleFormSubmit} className="mt-4">
+          <Stepper
+            key={kind}
+            step={step}
+            onStepChange={goToStep}
+            onFinalStepCompleted={handleSave}
+            linear
+            transition="slide"
+            completeButtonText={kind === 'module' ? 'Criar módulo' : 'Criar disciplina'}
+            nextButtonProps={{ disabled: nextDisabled, title: nextDisabled ? dataHint : undefined }}
+          >
+          {/* Passo 1: semestre + o que criar */}
+          <Step title="Tipo">
+          <div className="space-y-4">
           {/* Semestre vinculado */}
           <div className="px-3 py-2.5 rounded-2xl bg-sky-50/70 dark:bg-sky-950/40 border border-sky-100 dark:border-sky-900/50 flex items-center justify-between">
             <div className="flex items-center gap-2 min-w-0">
@@ -193,7 +235,12 @@ export const AddSubjectModal: React.FC<AddSubjectModalProps> = ({ isOpen, onClos
             onChange={(id) => setKind(id)}
             idFor={(id) => `subject-kind-${id}`}
           />
+          </div>
+          </Step>
 
+          {/* Passo 2: campos obrigatórios (nome, área/especialidade ou formato/organização) */}
+          <Step title="Dados">
+          <div className="space-y-4">
           {kind === 'module' ? (
             <>
               <div>
@@ -211,32 +258,6 @@ export const AddSubjectModal: React.FC<AddSubjectModalProps> = ({ isOpen, onClos
                   O módulo tem os próprios assuntos (como uma disciplina) e pode juntar disciplinas, outros módulos e assuntos.
                 </p>
               </div>
-              {linkable.length > 0 && (
-                <div>
-                  <span className={labelCls}>
-                    Vincular disciplinas agora <span className="font-medium text-slate-400">(opcional, dá para fazer depois)</span>
-                  </span>
-                  <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto">
-                    {linkable.map((x) => {
-                      const on = linkIds.includes(x.id);
-                      return (
-                        <button
-                          key={x.id}
-                          type="button"
-                          aria-pressed={on}
-                          onClick={() => setLinkIds((v) => (on ? v.filter((i) => i !== x.id) : [...v, x.id]))}
-                          className={`min-h-[36px] px-3 rounded-full border text-[11px] font-bold transition-colors ${
-                            on ? 'bg-sky-600 border-sky-600 text-white' : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-sky-400'
-                          }`}
-                        >
-                          {on ? '✓ ' : ''}
-                          {x.name}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
             </>
           ) : isCycleMode ? (
             <CycleSubjectForm
@@ -309,6 +330,63 @@ export const AddSubjectModal: React.FC<AddSubjectModalProps> = ({ isOpen, onClos
           </div>
           </>
           )}
+          </div>
+          </Step>
+
+          {/* Passo 3: vínculos opcionais + resumo; o botão final cria */}
+          <Step title="Vínculos">
+          <div className="space-y-4">
+          {/* Resumo do que vai ser criado */}
+          <div className="px-3 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
+            <div className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+              {kind === 'module' ? 'Módulo' : 'Disciplina'} · {currentSemester?.name || 'Semestre Vigente'}
+            </div>
+            <div className="mt-0.5 text-sm font-black text-slate-900 dark:text-white truncate">{name.trim() || 'Sem nome'}</div>
+            {kind === 'subject' && (
+              <div className="mt-0.5 text-[11px] font-medium text-slate-500 dark:text-slate-400 truncate">
+                {[
+                  isCycleMode && format ? getSubjectFormat(format).label : null,
+                  area,
+                  isCM && specialty ? specialty : null,
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
+              </div>
+            )}
+          </div>
+
+          {/* Módulo: vincula disciplinas existentes (opcional) */}
+          {kind === 'module' &&
+            (linkable.length > 0 ? (
+              <div>
+                <span className={labelCls}>
+                  Vincular disciplinas agora <span className="font-medium text-slate-400">(opcional, dá para fazer depois)</span>
+                </span>
+                <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto">
+                  {linkable.map((x) => {
+                    const on = linkIds.includes(x.id);
+                    return (
+                      <button
+                        key={x.id}
+                        type="button"
+                        aria-pressed={on}
+                        onClick={() => setLinkIds((v) => (on ? v.filter((i) => i !== x.id) : [...v, x.id]))}
+                        className={`min-h-[36px] px-3 rounded-full border text-[11px] font-bold transition-colors ${
+                          on ? 'bg-sky-600 border-sky-600 text-white' : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-sky-400'
+                        }`}
+                      >
+                        {on ? '✓ ' : ''}
+                        {x.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                Ainda não há disciplinas neste semestre para vincular. Dá para vincular depois.
+              </p>
+            ))}
 
           {/* Disciplina: entra num módulo da faculdade (opcional) */}
           {kind === 'subject' && (
@@ -343,27 +421,9 @@ export const AddSubjectModal: React.FC<AddSubjectModalProps> = ({ isOpen, onClos
             </div>
           )}
 
-          <div className="app-modal-footer pt-3 flex items-center justify-end gap-2 border-t border-slate-100 dark:border-slate-800">
-            <button
-              type="button"
-              onClick={handleClose}
-              className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={!name.trim() || (kind === 'module' ? false : isCycleMode ? !format : !area)}
-              title={
-                isCycleMode
-                  ? !format ? 'Escolha o formato' : !name.trim() ? 'Informe o nome' : undefined
-                  : !area ? 'Escolha a grande área' : !name.trim() ? 'Informe o nome da disciplina' : undefined
-              }
-              className="px-5 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold text-xs shadow-xs"
-            >
-              {kind === 'module' ? 'Criar módulo' : 'Criar disciplina'}
-            </button>
           </div>
+          </Step>
+          </Stepper>
         </form>
       </div>
     </div>

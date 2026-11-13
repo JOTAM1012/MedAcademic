@@ -14,9 +14,6 @@
   --glow-opacity: 0.42;
   --glow-spread: 1.5;
 }
-.dark {
-  --glow-opacity: 0.85;
-}
 
 .t-clear {
   position: relative;
@@ -61,6 +58,11 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .t-clear-mirror,
+  .t-clear-placeholder {
+    transform: none !important;
+    filter: none !important;
+  }
   .t-clear-glow {
     opacity: 0 !important;
   }

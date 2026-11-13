@@ -1,6 +1,7 @@
 // Compartilhar um bloco do Checklist por link. Vai só a lista (itens e subitens), sem o que já foi feito.
 // No celular abre o "Enviar" do aparelho; no computador copia o link. Se não der, mostra o link numa janela.
 import React, { useState } from 'react';
+import IconSwap from './IconSwap';
 import { Check, Copy, Link2, Share2 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import type { ChecklistBlock } from '../../types';
@@ -62,7 +63,7 @@ export const ShareChecklistButton: React.FC<{ block: Pick<ChecklistBlock, 'id' |
           done ? 'text-emerald-500 bg-emerald-500/10' : 'text-slate-400 hover:text-sky-600 hover:bg-sky-50 dark:hover:text-sky-400 dark:hover:bg-sky-500/10'
         } ${className}`}
       >
-        {done ? <Check className="h-4 w-4" /> : <Share2 className="h-4 w-4" />}
+        <IconSwap swapped={done} from={<Share2 className="h-4 w-4" />} to={<Check className="h-4 w-4" />} />
       </button>
       <PlanModal
         id="share-checklist-modal"

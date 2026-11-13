@@ -1,6 +1,7 @@
 // Módulo da faculdade: o que está vinculado a ele (disciplinas, outros módulos e assuntos/blocos de outras
 // disciplinas), com progresso, e um seletor com busca para vincular/desvincular.
 import React, { useMemo, useState } from 'react';
+import IconSwap from '../shared/IconSwap';
 import { Check, ChevronRight, Link2, Plus, Search, X } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import type { Subject, TopicBlock } from '../../types';
@@ -57,7 +58,7 @@ export const ModuleLinks: React.FC<{ module: Subject; onOpenSubject: (id: string
           aria-expanded={open}
           className="shrink-0 min-h-[40px] px-3 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-black inline-flex items-center gap-1.5"
         >
-          {open ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />} {open ? 'Pronto' : 'Vincular'}
+          <IconSwap swapped={open} from={<Plus className="h-4 w-4" />} to={<Check className="h-4 w-4" />} /> {open ? 'Pronto' : 'Vincular'}
         </button>
       </div>
 

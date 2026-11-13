@@ -1,5 +1,6 @@
 // Personalizar o Painel: mostrar/esconder cartões e mudar a ordem (setas), com "Restaurar padrão".
 import React from 'react';
+import IconSwap from '../shared/IconSwap';
 import { ArrowDown, ArrowUp, Check, Eye, EyeOff, RotateCcw } from 'lucide-react';
 import type { DashboardPrefs, DashboardWidgetId } from '../../types';
 import { WIDGETS } from './dashboardPrefs';
@@ -66,7 +67,7 @@ export const DashboardEditor: React.FC<{
                     w.visible ? 'bg-sky-500/10 text-sky-600 dark:text-sky-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500'
                   }`}
                 >
-                  {w.visible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                  <IconSwap swapped={w.visible} from={<EyeOff className="h-4 w-4" />} to={<Eye className="h-4 w-4" />} />
                 </span>
                 <span className="min-w-0">
                   <span className={`block text-xs font-bold truncate ${w.visible ? 'text-slate-800 dark:text-slate-100' : 'text-slate-400 dark:text-slate-500 line-through'}`}>

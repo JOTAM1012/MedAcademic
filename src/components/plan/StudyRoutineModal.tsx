@@ -2,7 +2,7 @@
 // dia das misturadas, temas novos, flashcards, meta de longo prazo). Versão "primeira vez" com
 // 3 perguntas grandes. Salva só o que mudou (updateStudyPrefs); o resto segue os padrões da fase.
 import React, { useEffect, useState } from 'react';
-import { Check, Minus, Plus, RotateCcw, Settings2, Sparkles } from 'lucide-react';
+import { Minus, Plus, RotateCcw, Settings2, Sparkles } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { PHASE_INFO, ROUTINE_DISCLAIMER, TURN_KEYS, TURN_LABELS, WEEKDAY_NAMES, WEEKDAY_SHORT } from '../../data/studyMethod';
 import type { ExamShift, StudyPlanPrefs, TurnState } from '../../types';
@@ -13,6 +13,20 @@ import SquishSwitch from '../shared/SquishSwitch';
 import { shakeElement, shakeField } from '../shared/ErrorShake';
 import { ExamWeeksPicker } from './ExamWeeksPicker';
 import { MethodEditor } from './MethodEditor';
+import Stepper, { Step } from '../shared/Stepper';
+
+// Passo do questionário completo onde fica cada seção com id (para abrir o passo certo antes de rolar até ela)
+const FULL_SECTION_STEP: Record<string, number> = {
+  'routine-turns-section': 2,
+  'routine-method-section': 3,
+  'routine-blocks-section': 4,
+};
+// Passo da versão rápida onde fica cada pergunta obrigatória
+const QUICK_FIELD_STEP: Record<string, number> = {
+  'routine-q-hours': 1,
+  'routine-q-weekday': 2,
+  'routine-q-rest': 2,
+};
 
 interface StudyRoutineModalProps {
   open: boolean;
@@ -76,6 +90,7 @@ export const StudyRoutineModal: React.FC<StudyRoutineModalProps> = ({ open, onCl
   const [weekendFree, setWeekendFree] = useState<ExamShift[] | null>(null);
   const [confirmReset, setConfirmReset] = useState(false);
   const [touched, setTouched] = useState({ hours: false, rest: false });
+  const [step, setStep] = useState(1);
 
   useEffect(() => {
     if (!open) return;
@@ -85,6 +100,11 @@ export const StudyRoutineModal: React.FC<StudyRoutineModalProps> = ({ open, onCl
     setWeekendFree(freeTurnsOf(studyPrefs.weekTurns?.[6]));
     setConfirmReset(false);
     setTouched({ hours: false, rest: false });
+    // Link direto para uma seção (#routine-turns-section etc.): abre o passo dela e rola até lá
+    const target = typeof window !== 'undefined' ? window.location.hash.slice(1) : '';
+    const targetStep = !firstTime ? FULL_SECTION_STEP[target] : undefined;
+    setStep(targetStep ?? 1);
+    if (targetStep) window.setTimeout(() => document.getElementById(target)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 120);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, firstTime]);
 
@@ -97,14 +117,26 @@ export const StudyRoutineModal: React.FC<StudyRoutineModalProps> = ({ open, onCl
   const sameDay = mode === 'full' && draft.restDay !== null && draft.restDay === draft.mixedDay;
 
   const missing = required ? [!touched.hours && 'tempo por dia', weekdayFree === null && 'turnos livres', !touched.rest && 'dia de descanso'].filter(Boolean) as string[] : [];
+  // Perguntas obrigatórias sem resposta (só na pesquisa de conta nova)
+  const missingFields = required
+    ? ([!touched.hours && 'routine-q-hours', weekdayFree === null && 'routine-q-weekday', !touched.rest && 'routine-q-rest'].filter(Boolean) as string[])
+    : [];
+  /** Balança as perguntas obrigatórias que faltam (só as de `onlyStep`, se informado) e rola até a 1ª */
+  const shakeMissing = (onlyStep?: number, delay = 0) => {
+    const fields = onlyStep ? missingFields.filter((f) => QUICK_FIELD_STEP[f] === onlyStep) : missingFields;
+    if (fields.length === 0) return;
+    fields.forEach((f) => shakeField(f, delay, false));
+    shakeElement(document.getElementById('routine-missing'));
+    window.setTimeout(() => document.querySelector(`[data-shake-field="${fields[0]}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), delay);
+  };
   const save = () => {
     if (missing.length > 0) {
-      // Balança as perguntas obrigatórias que faltam
-      if (!touched.hours) shakeField('routine-q-hours', 0, false);
-      if (weekdayFree === null) shakeField('routine-q-weekday', 0, false);
-      if (!touched.rest) shakeField('routine-q-rest', 0, false);
-      shakeElement(document.getElementById('routine-missing'));
-      document.querySelector(`[data-shake-field="${!touched.hours ? 'routine-q-hours' : weekdayFree === null ? 'routine-q-weekday' : 'routine-q-rest'}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      // Na versão rápida, abre o passo da 1ª pergunta que falta antes de balançar
+      const target = QUICK_FIELD_STEP[missingFields[0]] ?? 1;
+      if (mode === 'quick' && step !== target) {
+        setStep(target);
+        shakeMissing(target, 140);
+      } else shakeMissing(mode === 'quick' ? target : undefined);
       return;
     }
     if (sameDay) return;
@@ -126,6 +158,9 @@ export const StudyRoutineModal: React.FC<StudyRoutineModalProps> = ({ open, onCl
 
   // ---------------------------------------------------------------- versão rápida (1ª vez): pesquisa de rotina
   if (mode === 'quick') {
+    const QUICK_STEPS = 3;
+    // Passo atual com obrigatória sem resposta (no último passo: qualquer uma, como o antigo botão Pronto)
+    const quickStepBlocked = step >= QUICK_STEPS ? missing.length > 0 : missingFields.some((f) => QUICK_FIELD_STEP[f] === step);
     const turnChip = (list: ExamShift[] | null, setList: (v: ExamShift[]) => void, k: ExamShift, idPrefix: string, i: number) => {
       const on = !!list?.includes(k);
       return (
@@ -173,18 +208,28 @@ export const StudyRoutineModal: React.FC<StudyRoutineModalProps> = ({ open, onCl
                 Agora não
               </button>
             )}
-            <button
-              type="button"
-              id="routine-quick-save"
-              onClick={save}
-              aria-disabled={missing.length > 0}
-              className={`min-h-[44px] px-5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-sm font-black flex items-center gap-1.5 ${missing.length > 0 ? 'opacity-50' : ''}`}
-            >
-              <Check className="h-4 w-4" /> Pronto, montar meu plano
-            </button>
           </>
         }
       >
+        <Stepper
+          step={step}
+          onStepChange={setStep}
+          onFinalStepCompleted={save}
+          completeButtonText="Pronto, montar meu plano"
+          nextButtonProps={{
+            id: step === QUICK_STEPS ? 'routine-quick-save' : 'routine-quick-next',
+            'aria-disabled': quickStepBlocked || undefined,
+            className: quickStepBlocked ? 'opacity-50' : '',
+            onClick: (e: React.MouseEvent<HTMLButtonElement>) => {
+              // Obrigatórias deste passo sem resposta: não avança, só balança (no último passo o save cuida)
+              if (step < QUICK_STEPS && quickStepBlocked) {
+                e.preventDefault();
+                shakeMissing(step);
+              }
+            },
+          }}
+        >
+          <Step title="Tempo">
         <div className="space-y-6">
           <section>
             <Q n={1}>Quanto tempo por dia você consegue estudar?</Q>
@@ -216,7 +261,22 @@ export const StudyRoutineModal: React.FC<StudyRoutineModalProps> = ({ open, onCl
           </section>
 
           <section>
-            <Q n={2}>De segunda a sexta, quais turnos ficam livres para estudar?</Q>
+            <Q n={2} optional>Qual bloco de foco funciona para você?</Q>
+            <BlockPicker
+              idPrefix="routine-quick-long"
+              focus={draft.focusMinutes}
+              rest={draft.breakMinutes}
+              onChange={(fo, re) => setDraft((d) => ({ ...d, focusMinutes: fo, breakMinutes: re }))}
+            />
+            <p className="mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">Foco/pausa em minutos. Na dúvida, 25/5 é um ótimo começo.</p>
+          </section>
+        </div>
+          </Step>
+
+          <Step title="Semana">
+        <div className="space-y-6">
+          <section>
+            <Q n={3}>De segunda a sexta, quais turnos ficam livres para estudar?</Q>
             <div data-shake-field="routine-q-weekday" className="grid grid-cols-4 gap-2">
               {TURN_KEYS.map((k, i) => turnChip(weekdayFree, setWeekdayFree, k, 'routine-wd', i))}
               <OptionChip id="routine-wd-none" active={weekdayFree?.length === 0} onClick={() => setWeekdayFree([])} className="min-h-[44px] text-sm">
@@ -227,30 +287,15 @@ export const StudyRoutineModal: React.FC<StudyRoutineModalProps> = ({ open, onCl
           </section>
 
           <section>
-            <Q n={3} optional>E no sábado e domingo?</Q>
+            <Q n={4} optional>E no sábado e domingo?</Q>
             <div className="grid grid-cols-3 gap-2">{TURN_KEYS.map((k, i) => turnChip(weekendFree, setWeekendFree, k, 'routine-we', i))}</div>
             <p className="mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">
               {weekendFree === null
-                ? 'Se o fim de semana for todo ocupado, deixe sem marcar e toque em Pronto.'
+                ? 'Se o fim de semana for todo ocupado, deixe sem marcar e siga em frente.'
                 : quickMixed === null
                   ? 'Sem dia fixo para questões misturadas: elas entram aos poucos nos outros dias.'
                   : `${WEEKDAY_NAMES[quickMixed]} vira o dia das questões misturadas + caderno de erros.`}
             </p>
-          </section>
-
-          <section>
-            <Q n={4} optional>Em qual turno você rende mais?</Q>
-            <div className="grid grid-cols-4 gap-2">
-              {TURN_KEYS.map((k, i) => (
-                <OptionChip key={k} id={`routine-quick-best-${k}`} active={draft.bestTurn === k} onClick={() => set('bestTurn', k)} className="min-h-[44px] text-sm">
-                  {TURN_LABELS[i]}
-                </OptionChip>
-              ))}
-              <OptionChip id="routine-quick-best-none" active={!draft.bestTurn} onClick={() => set('bestTurn', undefined)} className="min-h-[44px] text-sm">
-                Tanto faz
-              </OptionChip>
-            </div>
-            <p className="mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">O plano sugere o tema novo nesse turno.</p>
           </section>
 
           <section>
@@ -283,16 +328,24 @@ export const StudyRoutineModal: React.FC<StudyRoutineModalProps> = ({ open, onCl
             </div>
             <p className="mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">Descanso de verdade também faz parte do método: só 20 min para planejar a semana.</p>
           </section>
+        </div>
+          </Step>
 
+          <Step title="Hábitos">
+        <div className="space-y-6">
           <section>
-            <Q n={6} optional>Qual bloco de foco funciona para você?</Q>
-            <BlockPicker
-              idPrefix="routine-quick-long"
-              focus={draft.focusMinutes}
-              rest={draft.breakMinutes}
-              onChange={(fo, re) => setDraft((d) => ({ ...d, focusMinutes: fo, breakMinutes: re }))}
-            />
-            <p className="mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">Foco/pausa em minutos. Na dúvida, 25/5 é um ótimo começo.</p>
+            <Q n={6} optional>Em qual turno você rende mais?</Q>
+            <div className="grid grid-cols-4 gap-2">
+              {TURN_KEYS.map((k, i) => (
+                <OptionChip key={k} id={`routine-quick-best-${k}`} active={draft.bestTurn === k} onClick={() => set('bestTurn', k)} className="min-h-[44px] text-sm">
+                  {TURN_LABELS[i]}
+                </OptionChip>
+              ))}
+              <OptionChip id="routine-quick-best-none" active={!draft.bestTurn} onClick={() => set('bestTurn', undefined)} className="min-h-[44px] text-sm">
+                Tanto faz
+              </OptionChip>
+            </div>
+            <p className="mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">O plano sugere o tema novo nesse turno.</p>
           </section>
 
           <section className="space-y-2">
@@ -307,17 +360,21 @@ export const StudyRoutineModal: React.FC<StudyRoutineModalProps> = ({ open, onCl
             onClick={() => {
               setDraft((d) => ({ ...d, mixedDay: quickMixed, weekTurns: quickTurns ?? d.weekTurns }));
               setMode('full');
+              setStep(1);
             }}
             className="min-h-[40px] text-sm font-bold text-sky-700 dark:text-sky-400 hover:underline flex items-center gap-1.5">
             <Settings2 className="h-4 w-4" /> Quero ajustar mais detalhes (turno por turno de cada dia)
           </button>
         </div>
+          </Step>
+        </Stepper>
       </PlanModal>
     );
   }
 
   // ---------------------------------------------------------------- versão completa
   const focusLabel = `${draft.focusMinutes}/${draft.breakMinutes}`;
+  const FULL_STEPS = 4;
   return (
     <PlanModal
       id="routine-modal"
@@ -331,18 +388,23 @@ export const StudyRoutineModal: React.FC<StudyRoutineModalProps> = ({ open, onCl
           <button type="button" onClick={onClose} className="min-h-[40px] px-4 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">
             Cancelar
           </button>
-          <button
-            type="button"
-            id="routine-save"
-            onClick={save}
-            disabled={sameDay}
-            className="min-h-[40px] px-4 rounded-xl bg-sky-600 hover:bg-sky-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-black flex items-center gap-1.5"
-          >
-            <Check className="h-4 w-4" /> Salvar rotina
-          </button>
         </>
       }
     >
+      <div className="space-y-5">
+      <Stepper
+        step={step}
+        onStepChange={setStep}
+        onFinalStepCompleted={save}
+        completeButtonText="Salvar rotina"
+        nextButtonProps={{
+          id: step === FULL_STEPS ? 'routine-save' : 'routine-next',
+          // Descanso e misturadas no mesmo dia: não salva (o aviso fica no passo "Semana")
+          disabled: step === FULL_STEPS && sameDay,
+          className: 'disabled:opacity-40 disabled:cursor-not-allowed',
+        }}
+      >
+        <Step title="Tempo">
       <div className="space-y-5">
         {/* Fase atual */}
         <div className="rounded-2xl border p-3.5 flex items-start gap-3" style={{ borderColor: `${phase.color}55`, backgroundColor: `${phase.color}12` }}>
@@ -391,6 +453,22 @@ export const StudyRoutineModal: React.FC<StudyRoutineModalProps> = ({ open, onCl
           </div>
         </section>
 
+        {/* Temas novos */}
+        <section>
+          <SectionTitle hint="Revisões vêm antes. Se o dia apertar, o tema novo é o que espera.">Temas novos por dia</SectionTitle>
+          <div className="grid grid-cols-3 gap-2">
+            {([1, 2, 3] as const).map((n) => (
+              <OptionChip key={n} id={`routine-new-${n}`} active={draft.newTopicsPerDay === n} onClick={() => set('newTopicsPerDay', n)} className="min-h-[44px] text-sm">
+                {n}
+              </OptionChip>
+            ))}
+          </div>
+        </section>
+      </div>
+        </Step>
+
+        <Step title="Semana">
+      <div className="space-y-5">
         {/* Semana por turnos */}
         <section id="routine-turns-section">
           <SectionTitle hint="Marque cada turno como livre, ocupado (aula, estágio, trabalho) ou descanso. O plano usa isso para saber quanto cabe em cada dia.">
@@ -406,49 +484,6 @@ export const StudyRoutineModal: React.FC<StudyRoutineModalProps> = ({ open, onCl
             turnPlans={draft.turnPlans}
             onTurnPlans={(v) => set('turnPlans', v)}
           />
-        </section>
-
-        {/* Semanas de prova */}
-        <section>
-          <SectionTitle hint="Na semana de prova o plano aumenta seu tempo de foco em 50% e dá prioridade às matérias da prova. Toque para marcar.">
-            Semanas de prova
-          </SectionTitle>
-          <ExamWeeksPicker value={draft.examWeeks} onChange={(v) => set('examWeeks', v)} />
-        </section>
-
-        {/* Meu método: passos do 1º e do 2º contato */}
-        <section id="routine-method-section">
-          <SectionTitle hint="Como você estuda um tema novo e como faz a 1ª revisão. O plano do dia mostra estes passos para marcar.">
-            Meu método de estudo
-          </SectionTitle>
-          <MethodEditor
-            first={draft.firstContactSteps}
-            second={draft.secondContactSteps}
-            onChange={(a, b) => setDraft((d) => ({ ...d, firstContactSteps: a, secondContactSteps: b }))}
-          />
-        </section>
-
-        {/* Meus blocos de foco */}
-        <section id="routine-blocks-section">
-          <SectionTitle hint="Escolha o tempo que funciona para você. O plano, o Pomodoro e o ciclo de estudos usam estes blocos.">
-            Meu bloco longo (tema novo, imersão)
-          </SectionTitle>
-          <BlockPicker
-            idPrefix="routine-long"
-            focus={draft.focusMinutes}
-            rest={draft.breakMinutes}
-            onChange={(fo, re) => setDraft((d) => ({ ...d, focusMinutes: fo, breakMinutes: re }))}
-          />
-        </section>
-        <section>
-          <SectionTitle hint="Revisões, questões e flashcards. No dia difícil e no plantão, o plano usa só este.">Meu bloco curto (revisões e questões)</SectionTitle>
-          <BlockPicker
-            idPrefix="routine-short"
-            focus={draft.shortFocusMinutes}
-            rest={draft.shortBreakMinutes}
-            onChange={(fo, re) => setDraft((d) => ({ ...d, shortFocusMinutes: fo, shortBreakMinutes: re }))}
-          />
-          <span className="sr-only">Blocos atuais: longo {focusLabel}, curto {draft.shortFocusMinutes}/{draft.shortBreakMinutes}</span>
         </section>
 
         {/* Descanso */}
@@ -482,16 +517,28 @@ export const StudyRoutineModal: React.FC<StudyRoutineModalProps> = ({ open, onCl
           {sameDay && <p className="mt-1.5 text-[11px] font-bold text-amber-700 dark:text-amber-300">O dia de descanso e o das misturadas não podem ser o mesmo.</p>}
         </section>
 
-        {/* Temas novos */}
+        {/* Semanas de prova */}
         <section>
-          <SectionTitle hint="Revisões vêm antes. Se o dia apertar, o tema novo é o que espera.">Temas novos por dia</SectionTitle>
-          <div className="grid grid-cols-3 gap-2">
-            {([1, 2, 3] as const).map((n) => (
-              <OptionChip key={n} id={`routine-new-${n}`} active={draft.newTopicsPerDay === n} onClick={() => set('newTopicsPerDay', n)} className="min-h-[44px] text-sm">
-                {n}
-              </OptionChip>
-            ))}
-          </div>
+          <SectionTitle hint="Na semana de prova o plano aumenta seu tempo de foco em 50% e dá prioridade às matérias da prova. Toque para marcar.">
+            Semanas de prova
+          </SectionTitle>
+          <ExamWeeksPicker value={draft.examWeeks} onChange={(v) => set('examWeeks', v)} />
+        </section>
+      </div>
+        </Step>
+
+        <Step title="Método">
+      <div className="space-y-5">
+        {/* Meu método: passos do 1º e do 2º contato */}
+        <section id="routine-method-section">
+          <SectionTitle hint="Como você estuda um tema novo e como faz a 1ª revisão. O plano do dia mostra estes passos para marcar.">
+            Meu método de estudo
+          </SectionTitle>
+          <MethodEditor
+            first={draft.firstContactSteps}
+            second={draft.secondContactSteps}
+            onChange={(a, b) => setDraft((d) => ({ ...d, firstContactSteps: a, secondContactSteps: b }))}
+          />
         </section>
 
         <section className="space-y-2">
@@ -505,6 +552,46 @@ export const StudyRoutineModal: React.FC<StudyRoutineModalProps> = ({ open, onCl
             hint="Revisões de manutenção com intervalos mais longos"
           />
         </section>
+      </div>
+        </Step>
+
+        <Step title="Blocos">
+      <div className="space-y-5">
+        {/* Meus blocos de foco */}
+        <section id="routine-blocks-section">
+          <SectionTitle hint="Escolha o tempo que funciona para você. O plano, o Pomodoro e o ciclo de estudos usam estes blocos.">
+            Meu bloco longo (tema novo, imersão)
+          </SectionTitle>
+          <BlockPicker
+            idPrefix="routine-long"
+            focus={draft.focusMinutes}
+            rest={draft.breakMinutes}
+            onChange={(fo, re) => setDraft((d) => ({ ...d, focusMinutes: fo, breakMinutes: re }))}
+          />
+        </section>
+        <section>
+          <SectionTitle hint="Revisões, questões e flashcards. No dia difícil e no plantão, o plano usa só este.">Meu bloco curto (revisões e questões)</SectionTitle>
+          <BlockPicker
+            idPrefix="routine-short"
+            focus={draft.shortFocusMinutes}
+            rest={draft.shortBreakMinutes}
+            onChange={(fo, re) => setDraft((d) => ({ ...d, shortFocusMinutes: fo, shortBreakMinutes: re }))}
+          />
+          <span className="sr-only">Blocos atuais: longo {focusLabel}, curto {draft.shortFocusMinutes}/{draft.shortBreakMinutes}</span>
+        </section>
+
+        {sameDay && (
+          <p className="text-[11px] font-bold text-amber-700 dark:text-amber-300">
+            Para salvar, escolha dias diferentes para descanso e misturadas no passo{' '}
+            <button type="button" onClick={() => setStep(2)} className="underline hover:text-amber-600 dark:hover:text-amber-200">
+              Semana
+            </button>
+            .
+          </p>
+        )}
+      </div>
+        </Step>
+      </Stepper>
 
         {/* Voltar aos padrões */}
         <div className="rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 p-3">

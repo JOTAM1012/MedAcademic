@@ -10,6 +10,7 @@ import { WEEKDAY_NAMES, WEEKDAY_SHORT, autoDistributeNewTopics } from '../../dat
 import { todayYMD, usePlanInput, useWeekLoad } from '../../hooks/useStudyPlan';
 import { DAY_KIND_INFO, PlanModal, blocksToHours, taskSizeLabel } from './planShared';
 import { QuickThemeModal } from './QuickThemeModal';
+import Stepper, { Step } from '../shared/Stepper';
 
 interface WeeklyPlanModalProps {
   open: boolean;
@@ -29,6 +30,12 @@ export const WeeklyPlanModal: React.FC<WeeklyPlanModalProps> = ({ open, onClose 
   const [quickOpen, setQuickOpen] = useState(false);
   const [contentOpen, setContentOpen] = useState(false);
   const [quickDate, setQuickDate] = useState<string | undefined>(undefined);
+  // Passos: Sua semana → Temas novos → Conferir (volta ao primeiro ao fechar)
+  const [step, setStep] = useState(1);
+  const handleClose = () => {
+    setStep(1);
+    onClose();
+  };
 
   const subjectOf = (id: string) => subjects.find((s) => s.id === id);
   const unscheduled = useMemo(
@@ -90,19 +97,15 @@ export const WeeklyPlanModal: React.FC<WeeklyPlanModalProps> = ({ open, onClose 
       <PlanModal
         id="weekly-plan-modal"
         open={open}
-        onClose={onClose}
+        onClose={handleClose}
         icon={<CalendarRange className="h-5 w-5" />}
         title="Planejar semana"
         subtitle="20 minutos que poupam a semana inteira. Veja as tarefas de cada dia, passe o que quiser para outro dia e ajuste cada dia do seu jeito."
         maxWidth="max-w-2xl"
-        footer={
-          <button type="button" id="weekly-plan-done" onClick={onClose} className="min-h-[40px] px-5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-black">
-            Pronto
-          </button>
-        }
       >
-        <div className="space-y-6">
-          {/* ---------- Próximos 7 dias ---------- */}
+        <Stepper id="weekly-plan-stepper" step={step} onStepChange={setStep} onFinalStepCompleted={handleClose} completeButtonText="Pronto">
+          {/* ---------- Passo 1: próximos 7 dias ---------- */}
+          <Step title="Sua semana">
           <section>
             <div className="flex items-center justify-between gap-2 mb-2">
               <p className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Próximos 7 dias</p>
@@ -278,8 +281,11 @@ export const WeeklyPlanModal: React.FC<WeeklyPlanModalProps> = ({ open, onClose 
               })}
             </ul>
           </section>
+          </Step>
 
-          {/* ---------- Temas sem data ---------- */}
+          {/* ---------- Passo 2: temas sem data ---------- */}
+          <Step title="Temas novos">
+          <div className="space-y-4">
           <section id="weekly-plan-unscheduled">
             <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
               <div>
@@ -332,28 +338,6 @@ export const WeeklyPlanModal: React.FC<WeeklyPlanModalProps> = ({ open, onClose 
             )}
           </section>
 
-          {/* ---------- Já programados nesta semana ---------- */}
-          {scheduledThisWeek.length > 0 && (
-            <section>
-              <p className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Já programados nesta semana</p>
-              <ul className="space-y-1.5">
-                {scheduledThisWeek.map((b) => {
-                  const sub = subjectOf(b.subjectId);
-                  return (
-                    <li key={b.id} className="flex items-center gap-2 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/40 p-2 pl-3">
-                      <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: sub?.color || '#64748b' }} />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-[13px] font-bold text-slate-900 dark:text-white truncate">{b.name}</p>
-                        <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">{sub?.universitySubject || sub?.name}</p>
-                      </div>
-                      {daySelect(b.plannedDate || '', (v) => updateTopicBlock(b.id, { plannedDate: v || undefined }), `weekly-plan-move-${b.id}`)}
-                    </li>
-                  );
-                })}
-              </ul>
-            </section>
-          )}
-
           <button
             type="button"
             id="weekly-plan-content"
@@ -376,7 +360,55 @@ export const WeeklyPlanModal: React.FC<WeeklyPlanModalProps> = ({ open, onClose 
               <Plus className="h-4 w-4" /> Novo tema
             </button>
           )}
-        </div>
+          </div>
+          </Step>
+
+          {/* ---------- Passo 3: conferir a semana ---------- */}
+          <Step title="Conferir">
+          <div className="space-y-4">
+            <div id="weekly-plan-summary" className="grid grid-cols-3 gap-2">
+              {[
+                { label: 'previstos', value: `≈ ${blocksToHours(load.reduce((s, l) => s + l.demand, 0))}` },
+                { label: 'dias cheios', value: String(load.filter((l) => l.overloaded).length) },
+                { label: 'provas', value: String(dates.reduce((s, d) => s + examsOn(d).length, 0)) },
+              ].map((c) => (
+                <div key={c.label} className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/40 p-3 text-center">
+                  <p className="text-lg font-black text-slate-900 dark:text-white leading-none">{c.value}</p>
+                  <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">{c.label}</p>
+                </div>
+              ))}
+            </div>
+            {load.some((l) => l.overloaded) && (
+              <p className="text-[11px] text-amber-700 dark:text-amber-300 flex items-center gap-1">
+                <AlertTriangle className="h-3 w-3 shrink-0" /> Há dia cheio. Volte em "Sua semana" e passe um tema novo para um dia mais leve.
+              </p>
+            )}
+          {/* ---------- Já programados nesta semana ---------- */}
+          {scheduledThisWeek.length === 0 ? (
+            <p className="rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 p-4 text-xs text-center text-slate-600 dark:text-slate-300">Nenhum tema novo com data nesta semana.</p>
+          ) : (
+            <section>
+              <p className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Já programados nesta semana</p>
+              <ul className="space-y-1.5">
+                {scheduledThisWeek.map((b) => {
+                  const sub = subjectOf(b.subjectId);
+                  return (
+                    <li key={b.id} className="flex items-center gap-2 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/40 p-2 pl-3">
+                      <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: sub?.color || '#64748b' }} />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[13px] font-bold text-slate-900 dark:text-white truncate">{b.name}</p>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">{sub?.universitySubject || sub?.name}</p>
+                      </div>
+                      {daySelect(b.plannedDate || '', (v) => updateTopicBlock(b.id, { plannedDate: v || undefined }), `weekly-plan-move-${b.id}`)}
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          )}
+          </div>
+          </Step>
+        </Stepper>
       </PlanModal>
       <QuickThemeModal open={open && quickOpen} onClose={() => setQuickOpen(false)} defaultDate={quickDate} stacked />
       {/* O mesmo "Planejar dia", aberto para o dia escolhido */}

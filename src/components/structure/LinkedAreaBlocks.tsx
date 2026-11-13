@@ -1,3 +1,4 @@
+import IconSwap from '../shared/IconSwap';
 import React, { useMemo, useState } from 'react';
 import { Link2, Plus, Search, X, Check } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
@@ -108,7 +109,7 @@ export const LinkedAreaBlocks: React.FC<{ block: TopicBlock; subject: Subject }>
                       </span>
                     </span>
                     <span className={`h-6 w-6 shrink-0 rounded-full grid place-items-center ${on ? 'bg-sky-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}`}>
-                      {on ? <Check className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
+                      <IconSwap swapped={on} from={<Plus className="h-3.5 w-3.5" />} to={<Check className="h-3.5 w-3.5" />} />
                     </span>
                   </button>
                 </li>

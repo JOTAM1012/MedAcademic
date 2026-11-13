@@ -1,5 +1,6 @@
 // Card de um estudo pessoal: meta da semana, próximo item, Começar, +1 bloco e a lista de itens com revisões.
 import React, { useState } from 'react';
+import IconSwap from '../shared/IconSwap';
 import {
   Archive,
   ArchiveRestore,
@@ -181,7 +182,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project: p, today, wee
                     onClick={toggleArchive}
                     className="w-full flex items-center gap-2 px-2.5 h-10 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
                   >
-                    {p.archived ? <ArchiveRestore className="h-3.5 w-3.5" /> : <Archive className="h-3.5 w-3.5" />}
+                    <IconSwap swapped={p.archived} from={<Archive className="h-3.5 w-3.5" />} to={<ArchiveRestore className="h-3.5 w-3.5" />} />
                     {p.archived ? 'Desarquivar' : 'Arquivar'}
                   </button>
                   <button

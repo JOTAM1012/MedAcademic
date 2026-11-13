@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { useApp, seedNewUserData } from '../context/AppContext';
 import BounceSwitch from './shared/BounceSwitch';
+import Stepper, { Step } from './shared/Stepper';
 import { useAuth } from '../context/AuthContext';
 import { UserProfile, Semester } from '../types';
 import { INITIAL_USER_PROFILE, INITIAL_SEMESTERS } from '../mockData';
@@ -173,6 +174,34 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
     const moved = step !== undefined && step !== currentStep;
     if (moved) setCurrentStep(step);
     shakeField(field, moved ? 120 : 0);
+  };
+  // Validação de cada passo antes de avançar (botão "Próximo Passo" e cliques no indicador do Stepper)
+  const validateStep = (step: number): boolean => {
+    if (step === 1) {
+      if (!name.trim()) {
+        flagField('name', 'Escreva seu nome para continuar.', 1);
+        return false;
+      }
+      if (!signupMode && !editMode && (!email.trim() || !email.includes('@'))) {
+        flagField('email', 'Escreva um e-mail válido (com @).', 1);
+        return false;
+      }
+    }
+    if (step === 2 && (!editMode || editAcademic)) {
+      if (!university.trim()) {
+        flagField('university', 'Escolha sua faculdade para continuar.', 2);
+        return false;
+      }
+    }
+    return true;
+  };
+  // Voltar é livre; avançar valida todos os passos do atual até o destino
+  const goToStep = (target: number) => {
+    const next = Math.min(4, Math.max(1, target));
+    if (next > currentStep) {
+      for (let s = currentStep; s < next; s++) if (!validateStep(s)) return;
+    }
+    setCurrentStep(next);
   };
   useEffect(() => {
     if (signupError) shakeElement(document.getElementById('signup-error'));
@@ -473,7 +502,7 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
           </div>
         </div>
 
-        {/* Action / Step Indicator */}
+        {/* Ações (voltar ao login / cancelar edição) */}
         <div className="flex items-center gap-4">
           {signupMode && (
             <button
@@ -495,28 +524,6 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
               Cancelar edição
             </button>
           )}
-          <div className="flex items-center gap-2 hidden sm:flex">
-            {[1, 2, 3, 4].map((step) => (
-            <div
-              key={step}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold transition-all ${
-                currentStep === step
-                  ? 'bg-sky-600 text-white shadow-sm'
-                  : currentStep > step
-                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                  : 'bg-slate-900 text-slate-500 border border-slate-800'
-              }`}
-            >
-              {currentStep > step ? <Check className="h-3 w-3" /> : <span>{step}</span>}
-              <span className="hidden sm:inline">
-                {step === 1 && (editMode ? 'Nome & Avatar' : 'Identidade & Foto')}
-                {step === 2 && 'Faculdade & Ciclo'}
-                {step === 3 && (editMode ? 'Metas' : 'Residência R1')}
-                {step === 4 && (signupMode ? 'E-mail & Senha' : isEditingProfileSetup ? 'Salvar' : 'Concluir')}
-              </span>
-            </div>
-          ))}
-          </div>
         </div>
       </header>
 
@@ -536,14 +543,23 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
             {/* Vidro numa camada separada: a lista de faculdades (dentro do cartão) não fica presa ao desfoque */}
             <div className="auth-glass-layer" aria-hidden />
           <div className="relative p-5 sm:p-8 space-y-6">
-            
+            {/* Passos: o Stepper só mostra o indicador e anima a troca; a navegação fica nos botões abaixo */}
+            <Stepper
+              id="profile-stepper"
+              step={currentStep}
+              onStepChange={goToStep}
+              linear
+              theme="dark"
+              showFooter={false}
+              // a lista de faculdades (absoluta) não pode ser cortada pelo recorte da animação
+            >
             {/* Step 1: Identidade & Avatar */}
-            {currentStep === 1 && (
-              <div className="space-y-6 animate-in fade-in duration-300">
+            <Step title="Você">
+              <div className="space-y-6">
                 <div>
                   <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-500/10 text-sky-400 text-xs font-bold border border-sky-500/20 mb-2">
                     <User className="h-3.5 w-3.5" />
-                    <span>{editMode ? 'Passo 1 de 4: Nome, avatar e saudação' : 'Passo 1 de 4: Identificação e Foto do Estudante'}</span>
+                    <span>{editMode ? 'Nome, avatar e saudação' : 'Identificação e Foto do Estudante'}</span>
                   </div>
                   <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
                     {editMode ? 'Seu nome e seu avatar' : 'Como podemos chamar você?'}
@@ -710,15 +726,15 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
                   </div>
                 </div>
               </div>
-            )}
+            </Step>
 
             {/* Step 2: Faculdade & Ciclo Médico */}
-            {currentStep === 2 && (
-              <div className="space-y-6 animate-in fade-in duration-300">
+            <Step title="Faculdade">
+              <div className="space-y-6">
                 <div>
                   <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/10 text-blue-400 text-xs font-bold border border-blue-500/20 mb-2">
                     <GraduationCap className="h-3.5 w-3.5" />
-                    <span>Passo 2 de 4: Faculdade & Ciclo</span>
+                    <span>Faculdade & Ciclo</span>
                   </div>
                   <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
                     Onde e em que fase você está estudando?
@@ -882,18 +898,18 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
                 </div>
                 )}
               </div>
-            )}
+            </Step>
 
             {/* Step 3: Residência Médica (R1) & Especialidade e Metas */}
-            {currentStep === 3 && (
-              <div className="space-y-6 animate-in fade-in duration-300">
+            <Step title="Metas">
+              <div className="space-y-6">
                 <div>
                   <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 text-xs font-bold border border-emerald-500/20 mb-2">
                     <Target className="h-3.5 w-3.5" />
                     <span>
                       {selectedCycle === 'internato' 
-                        ? 'Passo 3 de 4: Residência Médica (R1) & Metas'
-                        : 'Passo 3 de 4: Metas Acadêmicas & de Estudos'}
+                        ? 'Residência Médica (R1) & Metas'
+                        : 'Metas Acadêmicas & de Estudos'}
                     </span>
                   </div>
                   <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
@@ -1107,15 +1123,16 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
                   </div>
                 </div>
               </div>
-            )}
+            </Step>
 
             {/* Step 4 (sign-up): e-mail & password used to log in */}
-            {currentStep === 4 && signupMode && (
-              <div className="space-y-6 animate-in fade-in duration-300">
+            <Step title={signupMode ? 'Acesso' : isEditingProfileSetup ? 'Salvar' : 'Pronto'}>
+            {signupMode ? (
+              <div className="space-y-6">
                 <div>
                   <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-500/10 text-purple-400 text-xs font-bold border border-purple-500/20 mb-2">
                     <ShieldCheck className="h-3.5 w-3.5" />
-                    <span>Passo 4 de 4: Acesso ao Perfil</span>
+                    <span>Acesso ao Perfil</span>
                   </div>
                   <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
                     Defina seu e-mail e senha
@@ -1191,15 +1208,13 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
                   <button type="submit" className="hidden" aria-hidden="true" tabIndex={-1} />
                 </form>
               </div>
-            )}
-
-            {/* Step 4: Inicialização - Sempre Painel Zerado Limpo */}
-            {currentStep === 4 && !signupMode && (
-              <div className="space-y-6 animate-in fade-in duration-300">
+            ) : (
+              /* Step 4 (fora do cadastro): tudo pronto / salvar edição — nunca apaga dados */
+              <div className="space-y-6">
                 <div>
                   <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-500/10 text-purple-400 text-xs font-bold border border-purple-500/20 mb-2">
                     <Sparkles className="h-3.5 w-3.5" />
-                    <span>Passo 4 de 4: {isEditingProfileSetup ? 'Salvar alterações' : 'Tudo pronto'}</span>
+                    <span>{isEditingProfileSetup ? 'Salvar alterações' : 'Tudo pronto'}</span>
                   </div>
                   <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
                     {isEditingProfileSetup ? 'Salvar seu perfil' : 'Tudo pronto para começar'}
@@ -1248,6 +1263,8 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
 
               </div>
             )}
+            </Step>
+            </Stepper>
 
             {/* Navigation Buttons */}
             <div className="flex items-center justify-between gap-2 pt-6 border-t border-white/[0.07]">
@@ -1278,25 +1295,7 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
               {currentStep < 4 ? (
                 <button
                   type="button"
-                  onClick={() => {
-                    if (currentStep === 1) {
-                      if (!name.trim()) {
-                        flagField('name', 'Escreva seu nome para continuar.');
-                        return;
-                      }
-                      if (!signupMode && !editMode && (!email.trim() || !email.includes('@'))) {
-                        flagField('email', 'Escreva um e-mail válido (com @).');
-                        return;
-                      }
-                    }
-                    if (currentStep === 2 && (!editMode || editAcademic)) {
-                      if (!university.trim()) {
-                        flagField('university', 'Escolha sua faculdade para continuar.');
-                        return;
-                      }
-                    }
-                    setCurrentStep((prev) => prev + 1);
-                  }}
+                  onClick={() => goToStep(currentStep + 1)}
                   className="auth-btn-primary flex items-center gap-2 px-5 sm:px-6 py-2.5 rounded-xl text-white text-xs font-black cursor-pointer"
                 >
                   <span>Próximo Passo</span>

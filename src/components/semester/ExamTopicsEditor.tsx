@@ -1,3 +1,4 @@
+import IconSwap from '../shared/IconSwap';
 import React, { useMemo, useState } from 'react';
 import { Bell, BellOff, Link2, Plus, X } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
@@ -291,7 +292,7 @@ export const ExamTopicsEditor: React.FC<ExamTopicsEditorProps> = ({
         onClick={() => onRemindersOffChange(!remindersOff)}
         className="w-full min-h-10 flex items-center gap-2.5 rounded-xl border border-slate-200 dark:border-slate-800 px-3 py-2 text-left"
       >
-        {remindersOff ? <BellOff className="h-4 w-4 text-slate-400 shrink-0" /> : <Bell className="h-4 w-4 text-sky-500 shrink-0" />}
+        <IconSwap swapped={remindersOff} from={<Bell className="h-4 w-4 text-sky-500 shrink-0" />} to={<BellOff className="h-4 w-4 text-slate-400 shrink-0" />} />
         <span className="min-w-0 flex-1 text-xs font-semibold text-slate-700 dark:text-slate-200">Lembretes antes da prova (30, 15, 7, 3 e 1 dia)</span>
         <BounceSwitch checked={!remindersOff} decorative />
       </button>

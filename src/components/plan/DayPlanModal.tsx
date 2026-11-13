@@ -11,6 +11,7 @@ import { OptionChip, PlanModal, blocksToHours, readLocal, taskSizeLabel, userLoc
 import { StudyContentModal } from './StudyContentModal';
 import { QuickThemeModal } from './QuickThemeModal';
 import Segmented from '../shared/Segmented';
+import Stepper, { Step } from '../shared/Stepper';
 
 /** "Somar o básico" do método (modo simples): só aparece o que ainda não está no plano de hoje */
 const BASICS: Array<{ id: string; title: string; blocks: number; kinds: string[] }> = [
@@ -73,6 +74,12 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose, date:
   const [blocks, setBlocks] = useState(1);
   const [contentOpen, setContentOpen] = useState(false);
   const [themeOpen, setThemeOpen] = useState(false);
+  // Passos: Tipo do dia → Tempo → Conteúdo → Revisão (volta ao primeiro ao fechar)
+  const [step, setStep] = useState(1);
+  const handleClose = () => {
+    setStep(1);
+    onClose();
+  };
   const modeKey = userLocalKey('dayplan_mode', userProfile?.email);
   const [mode, setModeState] = useState<'simples' | 'detalhado'>(() => (readLocal(modeKey) === 'detalhado' ? 'detalhado' : 'simples'));
   const setMode = (m: 'simples' | 'detalhado') => {
@@ -270,22 +277,12 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose, date:
       <PlanModal
         id="dayplan-modal"
         open={open}
-        onClose={onClose}
+        onClose={handleClose}
         stacked={stacked}
         maxWidth="max-w-2xl"
         icon={<SlidersHorizontal className="h-5 w-5" />}
         title={`Planejar meu dia · ${WEEKDAY_NAMES[parseYMD(date).getDay()]}, ${formatDM(date)}`}
         subtitle="O plano automático é o ponto de partida. Aqui você deixa o dia do seu jeito."
-        footer={
-          <>
-            <button type="button" id="dayplan-reset" onClick={resetDay} className="min-h-[40px] px-3 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 inline-flex items-center gap-1.5">
-              <RotateCcw className="h-4 w-4" /> Voltar ao automático
-            </button>
-            <button type="button" id="dayplan-done" onClick={onClose} className="min-h-[40px] px-4 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-black">
-              Pronto
-            </button>
-          </>
-        }
       >
         <div className="space-y-5">
           {/* Modo */}
@@ -302,7 +299,9 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose, date:
             idFor={(id) => `dayplan-mode-${id}`}
           />
 
-          {/* Tipo do dia */}
+          <Stepper id="dayplan-stepper" step={step} onStepChange={setStep} onFinalStepCompleted={handleClose} completeButtonText="Pronto">
+          {/* Passo 1: tipo do dia */}
+          <Step title="Tipo do dia">
           <section>
             <p className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">{isToday ? 'Como é o seu dia hoje?' : 'Como vai ser este dia?'}</p>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
@@ -314,8 +313,10 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose, date:
               ))}
             </div>
           </section>
+          </Step>
 
-          {/* Tempo */}
+          {/* Passo 2: tempo */}
+          <Step title="Tempo">
           <section>
             <p className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Quanto tempo de foco você tem {H}?</p>
             <div className="flex items-center gap-3">
@@ -343,7 +344,11 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose, date:
               </button>
             </div>
           </section>
+          </Step>
 
+          {/* Passo 3: conteúdo (o que entra no dia) */}
+          <Step title="Conteúdo">
+          <div className="space-y-5">
           {/* Simples: somar o básico do método */}
           {mode === 'simples' && (
             <section>
@@ -393,23 +398,6 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose, date:
               <p className="mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">Desligado sai só deste dia. No dia seguinte o plano volta ao padrão da sua rotina.</p>
             </section>
           )}
-
-          {/* Tarefas */}
-          <section>
-            <div className="flex items-end justify-between gap-2 mb-2">
-              <p className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">{mode === 'detalhado' ? 'Tarefas, ordem e prioridade' : 'Seu dia'}</p>
-              <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                {mode === 'detalhado' ? 'Setas mudam a ordem · ⤒ prioridade · alfinete fixa no dia · X tira do dia' : 'X tira do dia · relógio passa para o dia seguinte'}
-              </p>
-            </div>
-            {all.length === 0 ? (
-              <p className="rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 p-4 text-sm text-center text-slate-600 dark:text-slate-300">Nada no plano {isToday ? 'de hoje' : 'deste dia'} ainda.</p>
-            ) : (
-              <ul id="dayplan-list" className="rounded-2xl border border-slate-200 dark:border-slate-800 divide-y divide-slate-200 dark:divide-slate-800">
-                {all.map(row)}
-              </ul>
-            )}
-          </section>
 
           {/* Tema novo + conteúdos */}
           <section>
@@ -486,6 +474,33 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose, date:
               </div>
             </form>
           </section>
+          </div>
+          </Step>
+
+          {/* Passo 4: revisão (ordem, prioridade e o que sai do dia) */}
+          <Step title="Revisão">
+          <section>
+            <div className="flex items-end justify-between gap-2 mb-2">
+              <p className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">{mode === 'detalhado' ? 'Tarefas, ordem e prioridade' : 'Seu dia'}</p>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                {mode === 'detalhado' ? 'Setas mudam a ordem · ⤒ prioridade · alfinete fixa no dia · X tira do dia' : 'X tira do dia · relógio passa para o dia seguinte'}
+              </p>
+            </div>
+            {all.length === 0 ? (
+              <p className="rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 p-4 text-sm text-center text-slate-600 dark:text-slate-300">Nada no plano {isToday ? 'de hoje' : 'deste dia'} ainda.</p>
+            ) : (
+              <ul id="dayplan-list" className="rounded-2xl border border-slate-200 dark:border-slate-800 divide-y divide-slate-200 dark:divide-slate-800">
+                {all.map(row)}
+              </ul>
+            )}
+            <div className="mt-3 flex justify-end">
+              <button type="button" id="dayplan-reset" onClick={resetDay} className="min-h-[40px] px-3 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 inline-flex items-center gap-1.5">
+                <RotateCcw className="h-4 w-4" /> Voltar ao automático
+              </button>
+            </div>
+          </section>
+          </Step>
+          </Stepper>
         </div>
       </PlanModal>
       <StudyContentModal open={contentOpen} onClose={() => setContentOpen(false)} stacked />

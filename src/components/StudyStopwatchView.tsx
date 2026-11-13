@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import IconSwap from './shared/IconSwap';
 import { motion } from 'motion/react';
 import {
   Play,
@@ -815,7 +816,7 @@ export const StudyStopwatchView: React.FC = () => {
                   : 'bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-700 hover:to-indigo-700 shadow-sky-600/20'
             }`}
           >
-            {timer.isRunning ? <Pause className="h-5 w-5" /> : isBreak ? <Coffee className="h-5 w-5" /> : <Play className="h-5 w-5 fill-current ml-0.5" />}
+            <IconSwap swapped={timer.isRunning} from={isBreak ? <Coffee className="h-5 w-5" /> : <Play className="h-5 w-5 fill-current ml-0.5" />} to={<Pause className="h-5 w-5" />} />
             <span>{mainLabel}</span>
           </button>
 
