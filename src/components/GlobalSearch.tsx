@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Search, X } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import InputClearDissolve, { type InputClearDissolveHandle } from './shared/InputClearDissolve';
 import { FOCUS_SUBJECT_KEY } from './TutoriaGradesSection';
 import {
   OPEN_SUBJECT_EVENT,
@@ -28,7 +29,7 @@ export const GlobalSearch: React.FC = () => {
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
   const wrapRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<InputClearDissolveHandle>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
   // Só disciplinas do semestre atual (as antigas não abrem na tela de Disciplinas)
@@ -129,7 +130,7 @@ export const GlobalSearch: React.FC = () => {
     <div ref={wrapRef} className="relative w-full max-w-sm sm:max-w-md">
       <div className="flex items-center rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 px-3 py-1.5 focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500 transition-all">
         <Search className="h-4 w-4 text-slate-400 shrink-0 mr-2" />
-        <input
+        <InputClearDissolve
           ref={inputRef}
           id="topbar-global-search-input"
           type="text"
@@ -141,10 +142,13 @@ export const GlobalSearch: React.FC = () => {
           autoComplete="off"
           placeholder="Buscar matérias, tópicos clínicos, ECG..."
           value={searchQuery}
-          onChange={(e) => {
-            setSearchQuery(e.target.value);
-            setOpen(true);
+          onValueChange={(v) => {
+            setSearchQuery(v);
+            setOpen(v.length > 0);
           }}
+          wrapperClassName="flex-1 min-w-0"
+          textClassName="text-xs text-slate-800 dark:text-slate-200"
+          placeholderClassName="text-xs text-slate-400"
           onFocus={() => setOpen(true)}
           onKeyDown={onKeyDown}
           className="w-full bg-transparent text-xs text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:outline-hidden"
@@ -152,10 +156,12 @@ export const GlobalSearch: React.FC = () => {
         {searchQuery && (
           <button
             type="button"
+            id="topbar-search-clear-btn"
+            onPointerDown={(e) => e.preventDefault()}
+            onMouseDown={(e) => e.preventDefault()}
             onClick={() => {
-              setSearchQuery('');
               setOpen(false);
-              inputRef.current?.focus();
+              inputRef.current?.clear();
             }}
             className="p-1 -m-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
             aria-label="Limpar busca"
