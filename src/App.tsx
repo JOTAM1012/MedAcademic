@@ -43,6 +43,7 @@ import { TabHelpBar } from './components/TabHelp';
 import { NotificationToast } from './components/shared/NotificationToast';
 import { userLocalKey, writeLocal } from './components/plan/planShared';
 import { AuthModal } from './components/modals/AuthModal';
+import { useWideLayout } from './hooks/useWideLayout';
 
 const AppContent: React.FC = () => {
   const { activeUserId, activeUser, logout, isDeleting, isSigningUp } = useAuth();
@@ -63,6 +64,7 @@ const AppContent: React.FC = () => {
     methodGuideSeen,
     tourRequestAt,
   } = useApp();
+  const [wideLayout] = useWideLayout();
 
   // Mobile menu state
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -415,7 +417,8 @@ const AppContent: React.FC = () => {
         />
 
         {/* Dynamic Scrollable Page Content with Smooth Page Transitions */}
-        <main className="flex-1 overflow-y-auto px-4 sm:px-8 pt-6 pb-36 lg:pb-6 max-w-7xl w-full mx-auto">
+        <main className="flex-1 overflow-y-auto px-4 sm:px-8 pt-6 pb-36 lg:pb-6 w-full">
+          <div className={`w-full mx-auto ${wideLayout ? 'max-w-[1760px]' : 'max-w-7xl'}`}>
           <AnimatePresence mode="wait">
             <motion.div
               key={currentTab}
@@ -430,6 +433,7 @@ const AppContent: React.FC = () => {
               {renderActiveView()}
             </motion.div>
           </AnimatePresence>
+          </div>
         </main>
       </div>
 

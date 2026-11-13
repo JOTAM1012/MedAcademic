@@ -61,6 +61,19 @@ export const DashboardView: React.FC = () => {
   const firstName = userProfile.name.split(' ')[0];
   const GREETING_SUBTITLE = 'Cada dia de estudo é um passo a mais rumo ao profissional que você deseja ser.';
 
+  // Saudação pela hora do dia + data de hoje (atualiza a cada minuto)
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const t = window.setInterval(() => setNow(new Date()), 60_000);
+    return () => window.clearInterval(t);
+  }, []);
+  const hour = now.getHours();
+  const dayGreeting = hour >= 5 && hour < 12 ? 'Bom dia' : hour >= 12 && hour < 18 ? 'Boa tarde' : 'Boa noite';
+  const todayLabel = (() => {
+    const txt = now.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
+    return txt.charAt(0).toUpperCase() + txt.slice(1);
+  })();
+
   // ---------- Cartões (ordem/visibilidade salvas na nuvem) ----------
   const prefs = studyMethod.dashboard;
   const widgets = useMemo(() => resolveWidgets(prefs), [prefs]);
@@ -156,8 +169,11 @@ export const DashboardView: React.FC = () => {
                 <Stethoscope className="w-6 h-6" />
               </div>
               <div>
+                {isReturning && (
+                  <p id="greeting-date" className="text-[11px] font-bold uppercase tracking-wider text-sky-600 dark:text-sky-400 mb-0.5">{todayLabel}</p>
+                )}
                 <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
-                  Seja {welcome} {isReturning ? 'novamente' : 'ao MedAcademic'}, <OwnerName name={firstName} />{' '}
+                  {isReturning ? dayGreeting : `Seja ${welcome} ao MedAcademic`}, <OwnerName name={firstName} />{' '}
                   {isOwnerAccount ? (
                     <Crown className="inline h-[1em] w-[1em] -mt-1 text-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.8)]" aria-label="Dono" />
                   ) : (
@@ -196,8 +212,9 @@ export const DashboardView: React.FC = () => {
       {subjects.length > 0 && (
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3">
           <div className="min-w-0">
-            <h1 className="text-lg sm:text-2xl font-bold text-slate-900 dark:text-white leading-snug">
-              Seja {welcome} novamente, <OwnerName name={firstName} />{' '}
+            <p id="greeting-date" className="text-[11px] sm:text-xs font-bold uppercase tracking-wider text-sky-600 dark:text-sky-400">{todayLabel}</p>
+            <h1 id="greeting-title" className="text-lg sm:text-2xl font-bold text-slate-900 dark:text-white leading-snug">
+              {dayGreeting}, <OwnerName name={firstName} />{' '}
               {isOwnerAccount ? (
                 <Crown
                   id="greeting-owner-crown"
@@ -209,25 +226,6 @@ export const DashboardView: React.FC = () => {
               )}
             </h1>
             <p className="hidden sm:block text-xs text-slate-500 dark:text-slate-400 mt-0.5">{GREETING_SUBTITLE}</p>
-            {askGreeting && (
-              <div id="greeting-quick-choice" className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px]">
-                <span className="text-slate-500 dark:text-slate-400">Como prefere ser saudado(a)?</span>
-                <button
-                  id="greeting-quick-masculino"
-                  onClick={() => updateUserProfile({ greetingGender: 'masculino' })}
-                  className="min-h-[40px] px-2.5 rounded-lg font-bold bg-sky-500/10 text-sky-600 dark:text-sky-300 border border-sky-500/30 hover:bg-sky-500/20"
-                >
-                  Bem-vindo
-                </button>
-                <button
-                  id="greeting-quick-feminino"
-                  onClick={() => updateUserProfile({ greetingGender: 'feminino' })}
-                  className="min-h-[40px] px-2.5 rounded-lg font-bold bg-pink-500/10 text-pink-600 dark:text-pink-300 border border-pink-500/30 hover:bg-pink-500/20"
-                >
-                  Bem-vinda
-                </button>
-              </div>
-            )}
           </div>
 
           <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 shrink-0">

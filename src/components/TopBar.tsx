@@ -15,7 +15,12 @@ import {
   GraduationCap,
   BookOpen,
   ChevronRight,
+  Maximize2,
+  Minimize2,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from 'lucide-react';
+import { useSidebarCollapsed, useWideLayout } from '../hooks/useWideLayout';
 import { useApp } from '../context/AppContext';
 import TooltipGroup from './shared/TooltipGroup';
 import SquishSwitch from './shared/SquishSwitch';
@@ -33,6 +38,8 @@ interface TopBarProps {
 }
 
 export const TopBar: React.FC<TopBarProps> = ({ onToggleMobileMenu, onOpenTour }) => {
+  const [wideLayout, toggleWide] = useWideLayout();
+  const [sidebarCollapsed, toggleSidebar] = useSidebarCollapsed();
   const { isInstalled: isAppInstalled } = usePwaInstall();
   const {
     setCurrentTab,
@@ -114,6 +121,19 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleMobileMenu, onOpenTour }
           aria-label="Abrir Menu Lateral"
         >
           <Menu className="h-5 w-5" />
+        </button>
+
+        {/* Abre/recolhe a barra lateral (computador) */}
+        <button
+          id="sidebar-toggle-collapse-btn"
+          type="button"
+          onClick={toggleSidebar}
+          aria-pressed={!sidebarCollapsed}
+          aria-label={sidebarCollapsed ? 'Abrir barra lateral' : 'Recolher barra lateral'}
+          title={sidebarCollapsed ? 'Abrir barra lateral' : 'Recolher barra lateral'}
+          className="hidden lg:flex h-10 w-10 shrink-0 -mr-1 items-center justify-center rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-800 dark:hover:text-slate-100 transition-colors"
+        >
+          {sidebarCollapsed ? <PanelLeftOpen className="h-[18px] w-[18px]" /> : <PanelLeftClose className="h-[18px] w-[18px]" />}
         </button>
 
         {/* Global Search Bar */}
@@ -269,6 +289,19 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleMobileMenu, onOpenTour }
             <span className="hidden md:inline">Tour guiado</span>
           </button>
         )}
+
+        {/* Layout largo x padrão (só em telas grandes) */}
+        <button
+          id="topbar-wide-layout-btn"
+          type="button"
+          onClick={toggleWide}
+          aria-pressed={wideLayout}
+          aria-label={wideLayout ? 'Voltar ao layout padrão' : 'Usar layout largo'}
+          data-tooltip={wideLayout ? 'Voltar ao layout padrão' : 'Usar layout largo'}
+          className={`hidden xl:flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors hover:bg-slate-100 dark:hover:bg-slate-800 ${wideLayout ? 'text-sky-600 dark:text-sky-400' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-100'}`}
+        >
+          {wideLayout ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+        </button>
 
         {/* Dark Mode Toggle */}
         <span className="inline-flex" data-tooltip={isDarkMode ? 'Mudar para o modo claro' : 'Mudar para o modo escuro'}>

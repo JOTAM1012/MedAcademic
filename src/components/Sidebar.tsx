@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useSidebarCollapsed } from '../hooks/useWideLayout';
 import { motion, useReducedMotion } from 'motion/react';
 import './sidebar.css';
 import {
@@ -13,8 +14,6 @@ import {
   Sparkles,
   User,
   SlidersHorizontal,
-  PanelLeftClose,
-  PanelLeftOpen,
   ListChecks,
   Crown,
   Rocket,
@@ -49,28 +48,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
   const { logout } = useAuth();
   const reduceMotion = useReducedMotion();
 
-  // Collapsed sidebar state with localStorage persistence
-  const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem('medstudy_sidebar_collapsed') === 'true';
-    } catch {
-      return false;
-    }
-  });
-  const [isHovered, setIsHovered] = useState<boolean>(false);
-
-  // Computed expanded state: if not collapsed OR when hovered while collapsed
-  const isExpanded = !isCollapsed || isHovered || isMobileOpen;
-
-  const toggleCollapse = () => {
-    setIsCollapsed((prev) => {
-      const next = !prev;
-      try {
-        localStorage.setItem('medstudy_sidebar_collapsed', String(next));
-      } catch (e) {}
-      return next;
-    });
-  };
+  // Recolhida ou aberta: o botão fica na barra do topo, ao lado da pesquisa
+  const [isCollapsed] = useSidebarCollapsed();
+  const isExpanded = !isCollapsed || isMobileOpen;
 
   // Revisões vencidas (mesma regra da aba Revisões, data local)
   const todayStr = todayYMD();
@@ -262,21 +242,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
         />
       )}
 
-      {/* Barra lateral: recolhida mostra só ícones e abre ao passar o mouse */}
+      {/* Barra lateral: recolhida mostra só ícones */}
       <aside
         id="tour-sidebar"
-        onMouseEnter={() => {
-          if (isCollapsed) setIsHovered(true);
-        }}
-        onMouseLeave={() => {
-          if (isCollapsed) setIsHovered(false);
-        }}
         className={`sb-root fixed top-0 bottom-0 left-0 z-[70] flex shrink-0 flex-col text-slate-300 transition-[width,transform,box-shadow] duration-200 ease-out motion-reduce:transition-none lg:static lg:translate-x-0 ${
           isMobileOpen ? 'translate-x-0' : '-translate-x-full'
-        } ${isExpanded ? 'w-60' : 'w-[68px]'} ${isCollapsed && isHovered ? 'sb-root--floating' : ''}`}
+        } ${isExpanded ? 'w-60' : 'w-[68px]'}`}
       >
-        {/* Marca e botão de recolher */}
-        <div className={`flex items-center px-3.5 h-16 shrink-0 ${isExpanded ? 'justify-between' : 'justify-center relative'}`}>
+        {/* Marca */}
+        <div className={`flex items-center px-3.5 h-16 shrink-0 ${isExpanded ? 'justify-between' : 'justify-center'}`}>
           <div className="flex items-center gap-2.5 min-w-0 overflow-hidden">
             <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-sky-500 to-blue-600 flex items-center justify-center shadow-lg shadow-sky-600/25 ring-1 ring-inset ring-white/20 text-white shrink-0">
               <Stethoscope className="w-[18px] h-[18px]" />
@@ -288,19 +262,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
             )}
           </div>
 
-          <button
-            id="sidebar-toggle-collapse-btn"
-            onClick={toggleCollapse}
-            title={isCollapsed ? 'Fixar barra lateral aberta (Expandir)' : 'Minimizar barra lateral (Manter apenas ícones)'}
-            aria-label={isCollapsed ? 'Expandir barra lateral' : 'Minimizar barra lateral'}
-            className={`flex items-center justify-center rounded-lg transition-colors duration-150 shrink-0 cursor-pointer ${
-              isExpanded
-                ? 'h-7 w-7 text-slate-500 hover:text-white hover:bg-white/[0.06]'
-                : 'absolute right-1 top-1.5 h-5 w-5 bg-sky-600 hover:bg-sky-500 text-white shadow-sm'
-            }`}
-          >
-            {isCollapsed ? <PanelLeftOpen className="w-3.5 h-3.5" /> : <PanelLeftClose className="w-4 h-4" />}
-          </button>
         </div>
 
         {/* Navegação */}
