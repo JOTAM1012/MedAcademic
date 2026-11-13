@@ -1,0 +1,135 @@
+/* Checklist como blocos de anotação: papel, argolas de espiral e pilha de folhas.
+   Cores seguem o site (slate para superfícies, sky-600 como acento). */
+
+.nb {
+  --nb-paper: #fffdf8;
+  --nb-paper-2: #f8f5ee;
+  --nb-paper-3: #f1ede4;
+  --nb-border: #e2e8f0;
+  --nb-line: #e9edf3;
+  --nb-hover: #f6f8fb;
+  --nb-hole: #dfe5ee;
+
+  position: relative;
+  margin-top: 12px;
+  background: var(--nb-paper);
+  border: 1px solid var(--nb-border);
+  border-radius: 14px;
+  /* Pilha de folhas: duas bordas deslocadas embaixo */
+  box-shadow:
+    0 5px 0 -2px var(--nb-paper-2),
+    0 5px 0 -1px var(--nb-border),
+    0 10px 0 -5px var(--nb-paper-3),
+    0 10px 0 -4px var(--nb-border),
+    0 14px 22px -14px rgb(15 23 42 / 0.25);
+}
+
+.dark .nb {
+  --nb-paper: #162032;
+  --nb-paper-2: #131c2c;
+  --nb-paper-3: #101828;
+  --nb-border: #263247;
+  --nb-line: rgb(148 163 184 / 0.13);
+  --nb-hover: #1b2639;
+  --nb-hole: #020617;
+  box-shadow:
+    0 5px 0 -2px var(--nb-paper-2),
+    0 5px 0 -1px var(--nb-border),
+    0 10px 0 -5px var(--nb-paper-3),
+    0 10px 0 -4px var(--nb-border),
+    0 14px 22px -12px rgb(0 0 0 / 0.6);
+}
+
+/* Variante "Foco agora": papel âmbar suave */
+.nb.nb--focus {
+  --nb-paper: #fffbeb;
+  --nb-paper-2: #fdf4d8;
+  --nb-paper-3: #faedc6;
+  --nb-border: #fde68a;
+  --nb-line: #fbe9b5;
+  --nb-hover: #fff6d6;
+}
+.dark .nb.nb--focus {
+  --nb-paper: #1f1b14;
+  --nb-paper-2: #1a1711;
+  --nb-paper-3: #16130e;
+  --nb-border: rgb(245 158 11 / 0.28);
+  --nb-line: rgb(245 158 11 / 0.14);
+  --nb-hover: #26211a;
+}
+
+/* Argolas */
+.nb-rings {
+  position: absolute;
+  top: -10px;
+  left: 16px;
+  right: 16px;
+  display: flex;
+  justify-content: space-between;
+  pointer-events: none;
+  z-index: 2;
+}
+.nb-ring {
+  position: relative;
+  width: 9px;
+  height: 22px;
+}
+.nb-ring::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background: linear-gradient(90deg, #64748b 0%, #f8fafc 38%, #cbd5e1 62%, #475569 100%) border-box;
+  -webkit-mask: linear-gradient(#000 0 0) padding-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) padding-box exclude, linear-gradient(#000 0 0);
+}
+.dark .nb-ring::before {
+  background: linear-gradient(90deg, #334155 0%, #cbd5e1 40%, #94a3b8 62%, #1e293b 100%) border-box;
+}
+/* Furo no papel por onde a argola passa */
+.nb-ring::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 1px;
+  width: 7px;
+  height: 7px;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: var(--nb-hole);
+  box-shadow: inset 0 1px 1.5px rgb(0 0 0 / 0.35);
+  z-index: -1;
+}
+
+/* Linhas pautadas: cada item tem uma linha fina embaixo */
+.nb-ruled > li {
+  border-bottom: 1px solid var(--nb-line);
+}
+
+/* Fundo da linha (opaco, cobre a ação de deslizar) */
+@media (hover: hover) and (pointer: fine) {
+  .nb .nb-row:hover {
+    background: var(--nb-hover);
+  }
+}
+
+.nb-progress {
+  height: 2px;
+  background: var(--nb-line);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.nb-progress > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  transition: width 500ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nb-progress > span {
+    transition: none;
+  }
+}

@@ -288,6 +288,8 @@ export interface StudyMethodState {
   dashboard?: DashboardPrefs;
   /** Barra de baixo no celular/tablet: as 4 abas escolhidas (o "Mais" fica sempre) */
   mobileTabs?: string[];
+  /** Barra lateral personalizada (ordem, abas escondidas, ícones, seções) */
+  sidebar?: SidebarPrefs;
   /** Provas de concurso feitas fora da plataforma */
   contests?: ContestExam[];
   /** Provas de semestres passados (organização pessoal) */
@@ -584,4 +586,16 @@ export interface ChatMessage {
   content: string;
   timestamp: string;
   suggestedFollowUps?: string[];
+}
+
+/** Barra lateral personalizada pelo aluno */
+export interface SidebarPrefs {
+  /** ids das abas na ordem escolhida */
+  order?: string[];
+  /** ids das abas escondidas */
+  hidden?: string[];
+  /** esconde os ícones (com a barra aberta) */
+  hideIcons?: boolean;
+  /** lista única, sem os títulos das seções */
+  flat?: boolean;
 }

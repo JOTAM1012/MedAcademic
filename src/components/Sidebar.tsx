@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useSidebarCollapsed } from '../hooks/useWideLayout';
+import { SIDEBAR_SECTIONS, isSidebarItemHidden, orderedSidebarItems, type SidebarSection } from './sidebarItems';
 import { motion, useReducedMotion } from 'motion/react';
 import './sidebar.css';
 import {
@@ -42,6 +43,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
     currentSemester,
     userProfile,
     cloudSyncStatus,
+    studyMethod,
   } = useApp();
   const pendingChecklistCount = checklist.filter((i) => !i.done).length;
   const { isAdmin, isOwner } = useAccess();
@@ -88,87 +90,24 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
   // Abas antigas que agora moram em outra (links antigos continuam funcionando)
   const activeTab = currentTab === 'grades' || currentTab === 'schedule' ? 'semester' : currentTab === 'history' ? 'profile' : currentTab;
 
-  const academicItems = [
-    {
-      id: 'dashboard',
-      label: 'Dashboard',
-      icon: LayoutDashboard,
-      badge: null,
-    },
-    {
-      id: 'calendar',
-      label: 'Planner',
-      icon: Calendar,
-      badge: planLeft > 0 ? `faltam ${planLeft}` : null,
-      badgeColor: 'bg-violet-500/20 text-violet-300 border border-violet-400/30',
-    },
-    {
-      id: 'semester',
-      label: 'Semestre',
-      icon: GraduationCap,
-      badge: upcomingExamsCount > 0 ? `${upcomingExamsCount} próx.` : null,
-      badgeColor: 'bg-rose-500/20 text-rose-300 border border-rose-400/30',
-    },
-  ];
+  // Contadores de cada aba
+  const BADGES: Record<string, { badge: string | null; badgeColor?: string }> = {
+    calendar: { badge: planLeft > 0 ? `faltam ${planLeft}` : null, badgeColor: 'bg-violet-500/20 text-violet-300 border border-violet-400/30' },
+    semester: { badge: upcomingExamsCount > 0 ? `${upcomingExamsCount} próx.` : null, badgeColor: 'bg-rose-500/20 text-rose-300 border border-rose-400/30' },
+    spaced_repetition: { badge: dueTopicsCount > 0 ? `${dueTopicsCount} hoje` : null, badgeColor: 'bg-blue-500/20 text-blue-300 border border-blue-400/30' },
+    checklist: { badge: pendingChecklistCount > 0 ? String(pendingChecklistCount) : null, badgeColor: 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/30' },
+    admin: { badge: '👑', badgeColor: 'bg-amber-500/20 text-amber-300 border border-amber-400/40' },
+  };
+  const DOT: Record<SidebarSection, string> = { rotina: 'bg-sky-400', ferramentas: 'bg-rose-500', config: 'bg-amber-400' };
 
-  const toolsItems = [
-    {
-      id: 'structure',
-      label: 'Disciplinas & assuntos',
-      icon: Layers,
-      badge: null,
-    },
-    {
-      id: 'spaced_repetition',
-      label: 'Revisões',
-      icon: Repeat,
-      badge: dueTopicsCount > 0 ? `${dueTopicsCount} hoje` : null,
-      badgeColor: 'bg-blue-500/20 text-blue-300 border border-blue-400/30',
-    },
-    {
-      id: 'personal',
-      label: 'Estudos pessoais',
-      icon: Rocket,
-      badge: null,
-    },
-    {
-      id: 'stopwatch',
-      label: 'Pomodoro',
-      icon: Timer,
-      badge: null,
-    },
-    {
-      id: 'checklist',
-      label: 'Checklist',
-      icon: ListChecks,
-      badge: pendingChecklistCount > 0 ? String(pendingChecklistCount) : null,
-      badgeColor: 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/30',
-    },
-  ];
+  // Personalização da barra (Personalizar → Barra lateral)
+  const sidebarPrefs = studyMethod.sidebar;
+  const showIcons = !sidebarPrefs?.hideIcons || !isExpanded;
+  const visibleItems = orderedSidebarItems(sidebarPrefs, isAdmin)
+    .filter((i) => !isSidebarItemHidden(sidebarPrefs, i))
+    .map((i) => ({ id: i.id, label: i.label, icon: i.icon, section: i.section, ...(BADGES[i.id] || { badge: null }) }));
 
-  const aiItems: Array<{
-    id: string;
-    label: string;
-    icon: any;
-    badge: string | null;
-    badgeColor?: string;
-  }> = [
-    {
-      id: 'profile',
-      label: 'Perfil',
-      icon: User,
-      badge: null,
-    },
-    {
-      id: 'customize',
-      label: 'Personalizar',
-      icon: SlidersHorizontal,
-      badge: null,
-    },
-    ...(isAdmin ? [{ id: 'admin', label: 'Painel do Dono', icon: Crown, badge: '👑', badgeColor: 'bg-amber-500/20 text-amber-300 border border-amber-400/40' }] : []),
-  ];
-
-  type SideItem = { id: string; label: string; icon: any; badge: string | null; badgeColor?: string };
+  type SideItem = { id: string; label: string; icon: any; badge: string | null; badgeColor?: string; section: SidebarSection };
 
   // Um item da navegação: ícone + nome; o item ativo ganha a pílula que desliza entre os itens
   const renderItem = (item: SideItem, dotColor: string) => {
@@ -196,14 +135,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
           />
         )}
         <span className="relative flex min-w-0 items-center gap-2.5">
-          <span
-            className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors duration-150 ${
-              isActive ? 'text-sky-300' : 'text-slate-500 group-hover:text-slate-200'
-            }`}
-          >
-            <Icon className="h-[18px] w-[18px] lg:h-4 lg:w-4" />
-          </span>
-          {isExpanded && <span className="truncate whitespace-nowrap">{item.label}</span>}
+          {showIcons && (
+            <span
+              className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors duration-150 ${
+                isActive ? 'text-sky-300' : 'text-slate-500 group-hover:text-slate-200'
+              }`}
+            >
+              <Icon className="h-[18px] w-[18px] lg:h-4 lg:w-4" />
+            </span>
+          )}
+          {isExpanded && <span className={`truncate whitespace-nowrap ${showIcons ? '' : 'py-1 pl-1.5'}`}>{item.label}</span>}
         </span>
 
         {isExpanded && item.badge && (
@@ -266,18 +207,21 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
 
         {/* Navegação */}
         <nav className={`flex-1 overflow-y-auto overflow-x-hidden pt-1 pb-3 space-y-3 ${isExpanded ? 'px-2.5' : 'px-2'}`}>
-          <div>
-            {sectionLabel('Rotina', true)}
-            <div className="space-y-0.5">{academicItems.map((item) => renderItem(item, 'bg-sky-400'))}</div>
-          </div>
-          <div>
-            {sectionLabel('Ferramentas de estudo')}
-            <div className="space-y-0.5">{toolsItems.map((item) => renderItem(item, 'bg-rose-500'))}</div>
-          </div>
-          <div>
-            {sectionLabel('Configurações')}
-            <div className="space-y-0.5">{aiItems.map((item) => renderItem(item, 'bg-amber-400'))}</div>
-          </div>
+          {sidebarPrefs?.flat ? (
+            <div className="space-y-0.5">{visibleItems.map((item) => renderItem(item, DOT[item.section]))}</div>
+          ) : (
+            SIDEBAR_SECTIONS.map((sec) => {
+              const list = visibleItems.filter((i) => i.section === sec.id);
+              if (!list.length) return null;
+              const first = visibleItems[0]?.section === sec.id;
+              return (
+                <div key={sec.id}>
+                  {sectionLabel(sec.label, first)}
+                  <div className="space-y-0.5">{list.map((item) => renderItem(item, DOT[sec.id]))}</div>
+                </div>
+              );
+            })
+          )}
         </nav>
 
         {/* Semestre atual (abre a aba Semestre) */}

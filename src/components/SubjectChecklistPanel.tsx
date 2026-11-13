@@ -21,6 +21,7 @@ import { DatePickerField } from './DatePickerField';
 import { formatDM, isBlockDue, isTopicPending, isTopicResolved, isTopicSeen, ymd } from '../data/blockReview';
 import { subjectFormatOf } from '../data/subjectFormats';
 import { reviewTechnique } from '../data/studyMethod';
+import { ReorderList } from './shared/ReorderList';
 
 interface Props {
   subject: Subject;
@@ -43,6 +44,7 @@ export const SubjectChecklistPanel: React.FC<Props> = ({ subject }) => {
     updateSubject,
     sendModuleToReview,
     openReviews,
+    reorderTopics,
   } = useApp();
   const fmt = subjectFormatOf(subject);
   const accent = fmt.color;
@@ -366,13 +368,21 @@ export const SubjectChecklistPanel: React.FC<Props> = ({ subject }) => {
 
               {!isCollapsed && (
                 <div className="border-t border-slate-100 dark:border-slate-800 px-3 py-2 space-y-1">
-                  {list.map((t) => {
+                  <ReorderList<Topic>
+                    items={list}
+                    onCommit={reorderTopics}
+                    as="div"
+                    itemAs="div"
+                    className="space-y-1"
+                    itemProps={() => ({ className: 'checklist-topic group rounded-lg bg-white dark:bg-slate-900' })}
+                    renderItem={(t, handle) => {
                     const isSeen = isTopicSeen(t);
                     const isPend = isTopicPending(t);
                     const sched = !isSeen && t.scheduleFirstContact && t.firstContactDate;
                     return (
-                      <div key={t.id} className="checklist-topic group">
+                      <>
                         <div className="flex items-center gap-2 py-1">
+                          {handle({ id: `checklist-topic-drag-${t.id}`, disabled: !!q || onlyOpen, disabledTitle: 'Limpe o filtro para reordenar', className: 'h-7 w-5 -ml-1.5 -mr-1' })}
                           <button
                             type="button"
                             onClick={() => toggleSeen(t)}
@@ -431,9 +441,10 @@ export const SubjectChecklistPanel: React.FC<Props> = ({ subject }) => {
                             )}
                           </div>
                         )}
-                      </div>
+                      </>
                     );
-                  })}
+                    }}
+                  />
                   {all.length === 0 && <p className="text-[11px] text-slate-400 py-1">Nenhum {fmt.item.toLowerCase()} ainda.</p>}
 
                   {pasteFor === m ? (

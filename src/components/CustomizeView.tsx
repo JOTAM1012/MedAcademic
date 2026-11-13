@@ -8,6 +8,7 @@ import { TURN_LABELS, WEEKDAY_SHORT } from '../data/studyMethod';
 import { useApp } from '../context/AppContext';
 import type { DashboardPrefs, DashboardWidgetId } from '../types';
 import { DashboardEditor } from './dashboard/DashboardEditor';
+import { SidebarEditor } from './SidebarEditor';
 import { DEFAULT_WIDGETS, resolveWidgets } from './dashboard/dashboardPrefs';
 import { DEFAULT_MOBILE_TABS, MOBILE_TAB_OPTIONS, MOBILE_TABS_MAX, resolveMobileTabs } from './navTabs';
 
@@ -108,6 +109,9 @@ export const CustomizeView: React.FC = () => {
         </div>
         <DashboardEditor widgets={widgets} unavailable={unavailable} onChange={saveWidgets} onReset={resetWidgets} onDone={() => setCurrentTab('dashboard')} />
       </section>
+
+      {/* Barra lateral (computador) */}
+      <SidebarEditor />
 
       {/* 2. Barra de baixo no celular/tablet */}
       <section id="customize-mobile-tabs" className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs p-4 sm:p-5 space-y-4">

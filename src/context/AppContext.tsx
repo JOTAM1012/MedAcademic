@@ -1,3 +1,4 @@
+import type { SidebarPrefs } from '../types';
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import confetti from 'canvas-confetti';
 import {
@@ -253,6 +254,10 @@ interface AppContextType {
   /** Muda a disciplina de Checklist para Blocos: cada matéria vira um bloco em estudo */
   convertChecklistToBlocks: (subjectId: string) => void;
   renameTopicBlock: (id: string, name: string) => void;
+  /** Nova ordem dos tópicos (arrastar): só esses ids trocam de lugar entre si; o resto da lista fica igual */
+  reorderTopics: (orderedIds: string[]) => void;
+  /** Nova ordem dos blocos de uma disciplina (arrastar pelo cabeçalho) */
+  reorderTopicBlocks: (orderedIds: string[]) => void;
   deleteTopicBlock: (id: string) => void;
   reviewTopicBlock: (
     id: string,
@@ -289,6 +294,8 @@ interface AppContextType {
   setDashboardPrefs: (prefs: DashboardPrefs | null) => void;
   /** Abas da barra de baixo no celular (null = padrão) */
   setMobileTabs: (tabs: string[] | null) => void;
+  /** Barra lateral personalizada (null = padrão) */
+  setSidebarPrefs: (prefs: SidebarPrefs | null) => void;
   /** Ferramenta "Provas de concurso" disponível (internato sempre; clínico se ligar no perfil; básico não) */
   contestsActive: boolean;
   addContest: (c: Omit<ContestExam, 'id' | 'createdAt'>) => string;
@@ -2132,6 +2139,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setTopicBlocks((prev) => prev.map((bk) => (bk.id === id ? { ...bk, name: name.trim() } : bk)));
   };
 
+  // Reordenar (arrastar): só os itens citados trocam de lugar entre si, nas mesmas posições do array.
+  // Ids, datas de revisão e progresso ficam intactos; o salvamento (local + nuvem) segue o fluxo normal.
+  const reorderSlots = <T extends { id: string }>(prev: T[], orderedIds: string[]): T[] => {
+    const byId = new Map(prev.map((x) => [x.id, x] as const));
+    const queue = orderedIds.filter((id, i) => byId.has(id) && orderedIds.indexOf(id) === i).map((id) => byId.get(id) as T);
+    if (queue.length < 2) return prev;
+    const wanted = new Set(queue.map((x) => x.id));
+    let i = 0;
+    let changed = false;
+    const next = prev.map((x) => {
+      if (!wanted.has(x.id)) return x;
+      const y = queue[i++];
+      if (y !== x) changed = true;
+      return y;
+    });
+    return changed ? next : prev;
+  };
+  const reorderTopics = (orderedIds: string[]) => setTopics((prev) => reorderSlots(prev, orderedIds));
+  const reorderTopicBlocks = (orderedIds: string[]) => setTopicBlocks((prev) => reorderSlots(prev, orderedIds));
+
   const deleteTopicBlock = (id: string) => {
     setTopicBlocks((prev) => prev.filter((bk) => bk.id !== id));
     setTopics((prev) => prev.filter((t) => t.blockId !== id));
@@ -2436,6 +2463,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const setDashboardPrefs = (prefs: DashboardPrefs | null) => patchMethod((s) => ({ ...s, dashboard: prefs || undefined }));
   const setMobileTabs = (tabs: string[] | null) => patchMethod((s) => ({ ...s, mobileTabs: tabs && tabs.length ? tabs.slice(0, 4) : undefined }));
+  const setSidebarPrefs = (prefs: SidebarPrefs | null) => patchMethod((s) => ({ ...s, sidebar: prefs || undefined }));
 
   const newMiscId = (p: string) => p + '-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
   const addContest: AppContextType['addContest'] = (c) => {
@@ -3290,6 +3318,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         toggleExamTopicTask,
         setDashboardPrefs,
         setMobileTabs,
+        setSidebarPrefs,
         contestsActive,
         addContest,
         updateContest,
@@ -3356,6 +3385,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         sendModuleToReview,
         convertChecklistToBlocks,
         renameTopicBlock,
+        reorderTopics,
+        reorderTopicBlocks,
         deleteTopicBlock,
         reviewTopicBlock,
         restartBlockReviews,

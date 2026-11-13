@@ -157,9 +157,12 @@
 
 /* Altura automática: o conteúdo do site manda no layout */
 .swipe-row--auto .swipe-row__surface {
-  display: block;
   height: auto;
   padding: 0;
+}
+/* linhas que já pedem flex (ex.: checklist) continuam lado a lado */
+.swipe-row--auto .swipe-row__surface:not(.flex) {
+  display: block;
 }
 
 @media (hover: hover) and (pointer: fine) {

@@ -12,6 +12,7 @@ import { BlockStatsModal } from './structure/BlockStatsModal';
 import { PlanBlockButton } from './structure/PlanBlockButton';
 import { LinkedAreaBlocks } from './structure/LinkedAreaBlocks';
 import { AnimatedCheck } from './shared/AnimatedCheck';
+import { ReorderList } from './shared/ReorderList';
 
 /** Índice do passo "Feynman" no checklist do estudo inicial */
 const FEYNMAN_STEP = '2';
@@ -42,6 +43,8 @@ export const SubjectBlocksPanel: React.FC<SubjectBlocksPanelProps> = ({ subject,
     markTopicPending,
     addTopicBlock,
     renameTopicBlock,
+    reorderTopics,
+    reorderTopicBlocks,
     deleteTopicBlock,
     restartBlockReviews,
     toggleInitialStep,
@@ -89,10 +92,8 @@ export const SubjectBlocksPanel: React.FC<SubjectBlocksPanelProps> = ({ subject,
   const todayStr = ymd(new Date());
   const accent = subjectColor(subject);
 
-  const blocks = useMemo(
-    () => topicBlocks.filter((b) => b.subjectId === subject.id).sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
-    [topicBlocks, subject.id]
-  );
+  // Ordem do array (o aluno pode reordenar arrastando; blocos novos entram no fim, como antes)
+  const blocks = useMemo(() => topicBlocks.filter((b) => b.subjectId === subject.id), [topicBlocks, subject.id]);
   const subjectTopics = topics.filter((t) => t.subjectId === subject.id);
   const subjectStats = topicStats(subjectTopics);
   const inReview = blocks.filter((b) => b.reviewStatus === 'revisao').length;
@@ -290,7 +291,18 @@ export const SubjectBlocksPanel: React.FC<SubjectBlocksPanelProps> = ({ subject,
       )}
 
       {/* Blocos */}
-      {blocks.map((block) => {
+      <ReorderList<TopicBlock>
+        items={q ? blocks.filter((b) => b.name.toLowerCase().includes(q) || subjectTopics.some((t) => t.blockId === b.id && t.title.toLowerCase().includes(q))) : blocks}
+        onCommit={reorderTopicBlocks}
+        as="div"
+        itemAs="section"
+        className="space-y-3"
+        itemProps={(block) => ({
+          id: `struct-block-${block.id}`,
+          className: 'relative rounded-2xl bg-slate-50/70 dark:bg-slate-950/30 border border-slate-100 dark:border-slate-800/80',
+          style: { backgroundImage: `linear-gradient(100deg, ${accent}12 0%, ${accent}05 28%, transparent 55%)` },
+        })}
+        renderItem={(block, blockHandle) => {
         const list = subjectTopics.filter((t) => t.blockId === block.id);
         const shown = q ? list.filter((t) => t.title.toLowerCase().includes(q)) : list;
         if (q && shown.length === 0 && !block.name.toLowerCase().includes(q)) return null;
@@ -304,15 +316,11 @@ export const SubjectBlocksPanel: React.FC<SubjectBlocksPanelProps> = ({ subject,
         const studiedMin = (block.studyDays || []).reduce((a, d) => a + (d.minutes || 0), 0) || block.studyMinutes || 0;
 
         return (
-          <section
-            key={block.id}
-            id={`struct-block-${block.id}`}
-            className="relative rounded-2xl bg-slate-50/70 dark:bg-slate-950/30 border border-slate-100 dark:border-slate-800/80"
-            style={{ backgroundImage: `linear-gradient(100deg, ${accent}12 0%, ${accent}05 28%, transparent 55%)` }}
-          >
+          <>
             {/* Barrinha na cor da disciplina (decoração) */}
             <span aria-hidden className="pointer-events-none absolute left-0 top-3 h-8 w-1 rounded-r-full" style={{ backgroundColor: accent }} />
             <header className="flex items-start gap-1.5 px-2 sm:px-3 pt-2.5 pb-2">
+              {blockHandle({ id: `struct-block-drag-${block.id}`, disabled: !!q, className: 'h-10 w-6 -mr-1.5' })}
               <button
                 onClick={() => setCollapsed((c) => ({ ...c, [block.id]: !isCollapsed }))}
                 className="h-10 w-8 shrink-0 grid place-items-center rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
@@ -575,15 +583,18 @@ export const SubjectBlocksPanel: React.FC<SubjectBlocksPanelProps> = ({ subject,
                   </div>
                 )}
                 {shown.length === 0 && !q && <p className="text-[11px] text-slate-400 px-1 pb-1">Nenhum tópico ainda. Adicione abaixo.</p>}
-                <ul className="space-y-1.5">
-                  {shown.map((t) => {
+                <ReorderList<Topic>
+                  items={shown}
+                  onCommit={reorderTopics}
+                  className="space-y-1.5"
+                  itemProps={() => ({ className: 'list-none rounded-xl' })}
+                  renderItem={(t, handle) => {
                     const isBonus = !!t.bonus;
                     const isSeen = isTopicSeen(t) && !isBonus;
                     const isPending = isTopicPending(t);
                     const dot = isBonus ? BONUS : isSeen ? '#10b981' : isPending ? '#e11d48' : undefined;
                     const pill = 'h-10 sm:h-8 min-w-0 inline-flex items-center justify-center gap-1 px-2 sm:px-2.5 rounded-lg text-[11px] font-bold transition-colors';
                     return (
-                      <li key={t.id} className="list-none">
                       <SwipeRow
                         label={t.title}
                         actions={[{ id: 'delete', label: 'Excluir' }]}
@@ -594,6 +605,7 @@ export const SubjectBlocksPanel: React.FC<SubjectBlocksPanelProps> = ({ subject,
                       >
                         <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                           <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                            {handle({ id: `struct-topic-drag-${t.id}`, disabled: !!q, className: 'h-8 w-6 -ml-1.5 -mr-1.5' })}
                             <AnimatedCheck
                               checked={isSeen || isBonus}
                               color={dot || '#10b981'}
@@ -766,10 +778,9 @@ export const SubjectBlocksPanel: React.FC<SubjectBlocksPanelProps> = ({ subject,
                           </div>
                         )}
                       </SwipeRow>
-                      </li>
                     );
-                  })}
-                </ul>
+                  }}
+                />
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
@@ -816,9 +827,10 @@ export const SubjectBlocksPanel: React.FC<SubjectBlocksPanelProps> = ({ subject,
                 {allowLinking && <LinkedAreaBlocks block={block} subject={subject} />}
               </div>
             )}
-          </section>
+          </>
         );
-      })}
+        }}
+      />
 
       {statsFor && <BlockStatsModal open blockId={statsFor} onClose={() => setStatsFor(null)} />}
     </div>

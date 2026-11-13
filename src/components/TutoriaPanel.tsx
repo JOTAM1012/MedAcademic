@@ -6,6 +6,7 @@ import { DatePickerField } from './DatePickerField';
 import { formatDM, isBlockDue, isTopicPending, isTopicResolved, isTopicSeen, ymd } from '../data/blockReview';
 import { subjectFormatOf } from '../data/subjectFormats';
 import { reviewTechnique } from '../data/studyMethod';
+import { ReorderList, type ReorderHandleProps } from './shared/ReorderList';
 
 interface Props {
   subject: Subject;
@@ -43,6 +44,7 @@ export const TutoriaPanel: React.FC<Props> = ({ subject }) => {
     updateSubject,
     sendModuleToReview,
     openReviews,
+    reorderTopics,
   } = useApp();
   const accent = subjectFormatOf(subject).color;
   const todayStr = ymd(new Date());
@@ -157,13 +159,26 @@ export const TutoriaPanel: React.FC<Props> = ({ subject }) => {
     );
   };
 
-  const topicRow = (t: Topic) => {
+  // Objetivos / cabide reordenáveis (alça à esquerda; salva ao soltar)
+  const sortableRows = (list: Topic[], itemClass: string) => (
+    <ReorderList<Topic>
+      items={list}
+      onCommit={reorderTopics}
+      as="div"
+      itemAs="div"
+      itemProps={() => ({ className: `rounded-lg ${itemClass}` })}
+      renderItem={(t, handle) => topicRow(t, handle)}
+    />
+  );
+
+  const topicRow = (t: Topic, handle?: (p: ReorderHandleProps) => React.ReactNode) => {
     const isSeen = isTopicSeen(t);
     const isPend = isTopicPending(t);
     const sched = !isSeen && t.scheduleFirstContact && t.firstContactDate;
     return (
       <div key={t.id} className="group">
         <div className="flex items-center gap-2 py-1">
+          {handle?.({ id: `tutoria-topic-drag-${t.id}`, className: 'h-7 w-5 -ml-1.5 -mr-1' })}
           <button
             type="button"
             onClick={() => toggleSeen(t)}
@@ -471,7 +486,7 @@ export const TutoriaPanel: React.FC<Props> = ({ subject }) => {
                     </div>
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Perguntas / objetivos para estudar</p>
                     <div>
-                      {objs.map(topicRow)}
+                      {sortableRows(objs, 'bg-white dark:bg-slate-900')}
                       {objs.length === 0 && <p className="text-[11px] text-slate-400 py-1">Anote as perguntas que saíram na abertura.</p>}
                       {pasteFor === tut.id ? (
                         <div className="pt-1.5 space-y-1.5">
@@ -536,7 +551,7 @@ export const TutoriaPanel: React.FC<Props> = ({ subject }) => {
                         <p className="text-[10px] font-black uppercase tracking-wider text-rose-600 dark:text-rose-400 flex items-center gap-1">
                           <HangerIcon className="h-3.5 w-3.5" /> Ficou de cabide: o que estudar ou revisar
                         </p>
-                        {cabs.map(topicRow)}
+                        {sortableRows(cabs, 'bg-rose-50 dark:bg-slate-900')}
                         {addInput(tut, true)}
                       </div>
                     ) : (
@@ -548,7 +563,7 @@ export const TutoriaPanel: React.FC<Props> = ({ subject }) => {
                     {cabs.length > 0 && !tut.cabide && (
                       <div className="pt-1">
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Do cabide</p>
-                        {cabs.map(topicRow)}
+                        {sortableRows(cabs, 'bg-white dark:bg-slate-900')}
                       </div>
                     )}
                   </div>
