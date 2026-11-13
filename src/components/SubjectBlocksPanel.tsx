@@ -647,7 +647,7 @@ export const SubjectBlocksPanel: React.FC<SubjectBlocksPanelProps> = ({ subject,
                               className={`h-8 shrink-0 inline-flex items-center gap-1 px-1.5 rounded-lg text-[11px] font-bold transition-colors sm:order-last ${
                                 t.note || editingNote?.id === t.id
                                   ? 'text-sky-600 dark:text-sky-400 hover:bg-sky-500/10'
-                                  : 'text-slate-300 dark:text-slate-600 sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100 hover:text-sky-500'
+                                  : 'text-slate-400 dark:text-slate-300/70 can-hover:opacity-0 can-hover:group-hover:opacity-100 focus:opacity-100 hover:text-sky-500'
                               }`}
                               aria-label={t.note ? `Editar anotação de ${t.title}` : `Anotação em ${t.title}`}
                               title={t.note ? 'Editar anotação' : 'Adicionar anotação (opcional)'}
@@ -664,7 +664,7 @@ export const SubjectBlocksPanel: React.FC<SubjectBlocksPanelProps> = ({ subject,
                                   onClick={() => setDetailsOpen((o) => ({ ...o, [t.id]: !open }))}
                                   aria-expanded={open}
                                   className={`h-8 shrink-0 inline-flex items-center gap-1 px-1.5 rounded-lg text-[11px] font-bold transition-colors sm:order-last ${
-                                    open || pr.total ? 'text-sky-600 dark:text-sky-400 hover:bg-sky-500/10' : 'text-slate-300 dark:text-slate-600 sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100 hover:text-sky-500'
+                                    open || pr.total ? 'text-sky-600 dark:text-sky-400 hover:bg-sky-500/10' : 'text-slate-400 dark:text-slate-300/70 can-hover:opacity-0 can-hover:group-hover:opacity-100 focus:opacity-100 hover:text-sky-500'
                                   }`}
                                   aria-label={open ? `Esconder subtópicos de ${t.title}` : `Subtópicos de ${t.title}`}
                                   title={pr.total ? 'Subtópicos' : 'Adicionar subtópicos (opcional)'}
@@ -682,7 +682,7 @@ export const SubjectBlocksPanel: React.FC<SubjectBlocksPanelProps> = ({ subject,
                             })()}
                             <button
                               onClick={() => setConfirm({ kind: 'topic', id: t.id })}
-                              className="h-8 w-8 shrink-0 grid place-items-center rounded-lg text-slate-300 dark:text-slate-600 sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100 hover:text-rose-500 sm:order-last"
+                              className="h-8 w-8 shrink-0 grid place-items-center rounded-lg text-slate-400 dark:text-slate-300/70 can-hover:opacity-0 can-hover:group-hover:opacity-100 focus:opacity-100 hover:text-rose-500 sm:order-last"
                               aria-label={`Excluir ${t.title}`}
                             >
                               <Trash2 className="h-3.5 w-3.5" />

@@ -201,7 +201,7 @@ export const TutoriaPanel: React.FC<Props> = ({ subject }) => {
           <button
             type="button"
             onClick={() => deleteTopic(t.id)}
-            className="p-1 rounded-md text-slate-300 dark:text-slate-600 hover:text-rose-500 sm:opacity-0 sm:group-hover:opacity-100"
+            className="p-1 rounded-md text-slate-400 dark:text-slate-300/70 hover:text-rose-500 can-hover:opacity-0 can-hover:group-hover:opacity-100"
             aria-label="Excluir"
           >
             <X className="h-3.5 w-3.5" />

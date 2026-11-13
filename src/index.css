@@ -2,6 +2,7 @@
 
 /* O tema segue a classe .dark no <html> (escuro é o padrão; o usuário pode trocar para o claro) */
 @custom-variant dark (&:where(.dark, .dark *));
+@custom-variant can-hover (@media (hover: hover) and (pointer: fine));
 
 @layer base {
   body {

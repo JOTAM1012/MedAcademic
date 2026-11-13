@@ -199,7 +199,7 @@ export const ChecklistView: React.FC = () => {
             type="button"
             id={`check-edit-${item.id}`}
             onClick={() => setEditingItem({ id: item.id, text: item.text })}
-            className="p-1 rounded-md text-slate-300 dark:text-slate-600 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:text-sky-500"
+            className="p-1 rounded-md text-slate-400 dark:text-slate-300/70 opacity-100 can-hover:opacity-0 can-hover:group-hover:opacity-100 hover:text-sky-500"
             aria-label="Editar item"
             title="Editar"
           >
@@ -215,7 +215,7 @@ export const ChecklistView: React.FC = () => {
                 onClick={() => setDetailsOpen((o) => ({ ...o, [item.id]: !open }))}
                 aria-expanded={open}
                 className={`p-1 rounded-md inline-flex items-center gap-0.5 text-[10px] font-bold transition-colors ${
-                  open || pr.total ? 'text-sky-500' : 'text-slate-300 dark:text-slate-600 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:text-sky-500'
+                  open || pr.total ? 'text-sky-500' : 'text-slate-400 dark:text-slate-300/70 opacity-100 can-hover:opacity-0 can-hover:group-hover:opacity-100 hover:text-sky-500'
                 }`}
                 aria-label={open ? 'Esconder subitens' : 'Subitens'}
                 title={pr.total ? 'Subitens' : 'Adicionar subitens (opcional)'}
@@ -234,7 +234,7 @@ export const ChecklistView: React.FC = () => {
           <button
             onClick={() => updateChecklistItem(item.id, { important: !item.important })}
             className={`p-1 rounded-md transition-colors ${
-              item.important ? 'text-amber-500' : 'text-slate-300 dark:text-slate-600 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:text-amber-500'
+              item.important ? 'text-amber-500' : 'text-slate-400 dark:text-slate-300/70 opacity-100 can-hover:opacity-0 can-hover:group-hover:opacity-100 hover:text-amber-500'
             }`}
             aria-label={item.important ? 'Remover dos essenciais' : 'Marcar como essencial'}
             title="Essencial"
@@ -243,7 +243,7 @@ export const ChecklistView: React.FC = () => {
           </button>
           <label
             className={`relative p-1 rounded-md cursor-pointer transition-colors ${
-              item.dueDate ? 'text-sky-500' : 'text-slate-300 dark:text-slate-600 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:text-sky-500'
+              item.dueDate ? 'text-sky-500' : 'text-slate-400 dark:text-slate-300/70 opacity-100 can-hover:opacity-0 can-hover:group-hover:opacity-100 hover:text-sky-500'
             }`}
             title="Definir data (aparece no Planner)"
           >
@@ -258,7 +258,7 @@ export const ChecklistView: React.FC = () => {
           </label>
           <button
             onClick={() => deleteChecklistItem(item.id, { undo: true })}
-            className="p-1 rounded-md text-slate-300 dark:text-slate-600 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:text-rose-500"
+            className="p-1 rounded-md text-slate-400 dark:text-slate-300/70 opacity-100 can-hover:opacity-0 can-hover:group-hover:opacity-100 hover:text-rose-500"
             aria-label="Excluir item"
             title="Excluir (ou deslize o item para a esquerda)"
           >

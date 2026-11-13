@@ -267,7 +267,7 @@ export const QuestionLogModal: React.FC<QuestionLogModalProps> = ({ isOpen, onCl
                     <span className={`shrink-0 font-black ${p >= 80 ? 'text-emerald-500' : p >= 60 ? 'text-amber-500' : 'text-rose-500'}`}>{p}%</span>
                     <button
                       onClick={() => deleteQuestionLog(q.id)}
-                      className="p-0.5 text-slate-300 hover:text-rose-500 opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
+                      className="p-0.5 text-slate-400 hover:text-rose-500 opacity-100 can-hover:opacity-0 can-hover:group-hover:opacity-100"
                       aria-label="Excluir registro"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
