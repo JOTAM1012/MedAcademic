@@ -53,7 +53,7 @@ export const SemesterView: React.FC = () => {
   };
 
   return (
-    <div id="sem-root" className="space-y-5 pb-12 max-w-6xl mx-auto">
+    <div id="sem-root" className="tab-root space-y-5 pb-12 max-w-6xl mx-auto">
       {/* Cabeçalho */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
         <div className="min-w-0">

@@ -380,7 +380,7 @@ export const SemesterHistoryModal: React.FC<{ open: boolean; onClose: () => void
 
 // Página "Histórico" (rota antiga): mantida funcionando, o caminho principal agora é pelo Perfil
 export const SemesterHistoryView: React.FC = () => (
-  <div className="space-y-5 pb-12 max-w-6xl mx-auto">
+  <div className="tab-root space-y-5 pb-12 max-w-6xl mx-auto">
     <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
       <History className="h-6 w-6 text-sky-500" /> Histórico de semestres
     </h1>

@@ -515,3 +515,11 @@ html:has(#app-shell),
 html:has(#app-shell) body {
   overflow: clip;
 }
+
+/* Layout largo (botão no topo): as abas com largura própria também se abrem */
+[data-wide] .tab-root {
+  max-width: none;
+}
+[data-wide] .tab-root--form {
+  max-width: 72rem;
+}

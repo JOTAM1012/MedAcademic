@@ -418,7 +418,7 @@ const AppContent: React.FC = () => {
 
         {/* Dynamic Scrollable Page Content with Smooth Page Transitions */}
         <main className="flex-1 overflow-y-auto px-4 sm:px-8 pt-6 pb-36 lg:pb-6 w-full">
-          <div className={`w-full mx-auto ${wideLayout ? 'max-w-[1760px]' : 'max-w-7xl'}`}>
+          <div data-wide={wideLayout ? '' : undefined} className={`w-full mx-auto ${wideLayout ? 'max-w-[1760px]' : 'max-w-7xl'}`}>
           <AnimatePresence mode="wait">
             <motion.div
               key={currentTab}

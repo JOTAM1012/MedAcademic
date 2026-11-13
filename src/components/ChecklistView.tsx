@@ -443,7 +443,7 @@ export const ChecklistView: React.FC = () => {
   };
 
   return (
-    <div className="space-y-5 pb-12 max-w-6xl mx-auto" onClick={() => menuFor && setMenuFor(null)}>
+    <div className="tab-root space-y-5 pb-12 max-w-6xl mx-auto" onClick={() => menuFor && setMenuFor(null)}>
       {/* Cabeçalho */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
         <div>

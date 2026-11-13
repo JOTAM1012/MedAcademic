@@ -56,7 +56,7 @@ export const CustomizeView: React.FC = () => {
     'h-10 w-10 shrink-0 rounded-xl flex items-center justify-center text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 disabled:hover:bg-transparent';
 
   return (
-    <div className="space-y-5 pb-12 max-w-3xl">
+    <div className="tab-root space-y-5 pb-12 max-w-3xl">
       <div>
         <h1 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
           <SlidersHorizontal className="h-6 w-6 text-sky-600 dark:text-sky-400" /> Personalizar

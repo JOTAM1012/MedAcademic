@@ -357,7 +357,7 @@ export const ProfileView: React.FC = () => {
   );
 
   return (
-    <div className="space-y-6 pb-12 max-w-4xl mx-auto">
+    <div className="tab-root tab-root--form space-y-6 pb-12 max-w-4xl mx-auto">
       {/* Hidden file input for import */}
       <input
         type="file"

@@ -70,7 +70,7 @@ export const PersonalStudiesView: React.FC = () => {
     : PHASE_TIP[studyPhase] || phase.priority;
 
   return (
-    <div id="personal-studies-view" className="space-y-5 pb-12 max-w-6xl mx-auto">
+    <div id="personal-studies-view" className="tab-root space-y-5 pb-12 max-w-6xl mx-auto">
       {/* Cabeçalho */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
         <div className="min-w-0">
