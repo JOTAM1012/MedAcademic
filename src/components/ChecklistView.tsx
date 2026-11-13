@@ -15,8 +15,9 @@ import {
 } from 'lucide-react';
 import { SubItemsEditor, subItemsProgress } from './shared/SubItems';
 import { ShareChecklistButton } from './shared/ShareChecklistButton';
-import { AnimatedCheck } from './shared/AnimatedCheck';
 import { useApp } from '../context/AppContext';
+import SwipeRow from './shared/SwipeRow';
+import SpringCheck from './shared/SpringCheck';
 import { ChecklistItem } from '../types';
 import { CHECKLIST_COLORS, CHECKLIST_TEMPLATES, formatDateBR, toYMD } from '../data/planning';
 
@@ -139,15 +140,15 @@ export const ChecklistView: React.FC = () => {
     const overdue = !item.done && item.dueDate && item.dueDate < todayStr;
     const block = showBlock ? blockById(ownerOf(item)) : undefined;
     return (
-      <li key={item.id} className="group flex flex-wrap items-start gap-x-2.5 rounded-xl px-2 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800/50">
-        <button
-          onClick={() => toggleItem(item)}
-          className="mt-0.5 h-[18px] w-[18px] shrink-0 rounded-md flex items-center justify-center"
-          aria-label={item.done ? 'Desmarcar' : 'Marcar como feito'}
-        >
-          <AnimatedCheck checked={item.done} color={color} size={18} className="border-2" offStyle={{ borderColor: color, backgroundColor: 'transparent' }} />
-        </button>
-
+      <li key={item.id} className="list-none">
+      <SwipeRow
+        label={item.text}
+        actions={[{ id: 'delete', label: 'Excluir' }]}
+        onCommit={() => deleteChecklistItem(item.id, { undo: true })}
+        radius={12}
+        actionWidth={76}
+        surfaceClassName="group flex flex-wrap items-start gap-x-2 px-2 py-0.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+      >
         <div className="min-w-0 flex-1">
           {editingItem?.id === item.id ? (
             <input
@@ -162,18 +163,21 @@ export const ChecklistView: React.FC = () => {
               className="w-full bg-transparent text-sm text-slate-900 dark:text-white border-b border-sky-500 focus:outline-hidden"
             />
           ) : (
-            <span
-              onDoubleClick={() => setEditingItem({ id: item.id, text: item.text })}
-              className={`block text-sm break-words transition-colors duration-200 ${
-                item.done ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-800 dark:text-slate-100'
-              }`}
-              title="Clique duas vezes para editar"
-            >
-              {item.text}
-            </span>
+            <SpringCheck
+              id={`check-item-${item.id}`}
+              label={item.text}
+              checked={item.done}
+              onChange={() => toggleItem(item)}
+              fillColor={color}
+              checkColor="#ffffff"
+              boxSize={20}
+              boxRadius={6}
+              fontSize={14}
+              className="text-slate-800 dark:text-slate-100"
+            />
           )}
           {(item.dueDate || block) && (
-            <div className="flex items-center gap-2 mt-0.5 text-[10px] font-semibold">
+            <div className="flex items-center gap-2 -mt-1 mb-1 pl-[29px] text-[10px] font-semibold">
               {block && (
                 <span className="flex items-center gap-1 text-slate-500">
                   <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: block.color }} />
@@ -190,7 +194,17 @@ export const ChecklistView: React.FC = () => {
           )}
         </div>
 
-        <div className="flex items-center gap-0.5 shrink-0">
+        <div className="flex items-center gap-0.5 shrink-0 pt-1.5">
+          <button
+            type="button"
+            id={`check-edit-${item.id}`}
+            onClick={() => setEditingItem({ id: item.id, text: item.text })}
+            className="p-1 rounded-md text-slate-300 dark:text-slate-600 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:text-sky-500"
+            aria-label="Editar item"
+            title="Editar"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </button>
           {(() => {
             const pr = subItemsProgress(item.details);
             const open = !!detailsOpen[item.id];
@@ -243,18 +257,20 @@ export const ChecklistView: React.FC = () => {
             />
           </label>
           <button
-            onClick={() => deleteChecklistItem(item.id)}
+            onClick={() => deleteChecklistItem(item.id, { undo: true })}
             className="p-1 rounded-md text-slate-300 dark:text-slate-600 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:text-rose-500"
             aria-label="Excluir item"
+            title="Excluir (ou deslize o item para a esquerda)"
           >
             <Trash2 className="h-3.5 w-3.5" />
           </button>
         </div>
         {detailsOpen[item.id] && (
-          <div className="basis-full pl-5">
+          <div className="basis-full pl-5 pb-1.5">
             <SubItemsEditor idPrefix={`check-${item.id}`} items={item.details} onChange={(d) => updateChecklistItem(item.id, { details: d })} color={color} />
           </div>
         )}
+      </SwipeRow>
       </li>
     );
   };

@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Plus, Search, ChevronDown, Check, Trash2, Clock3, MoreHorizontal, Pencil, RotateCcw, Repeat, Trophy, Layers, X, Star, Play, Lightbulb, Gift, BarChart3, ListTree, StickyNote } from 'lucide-react';
 import { SubItemsEditor, subItemsProgress } from './shared/SubItems';
 import { useApp } from '../context/AppContext';
+import SwipeRow from './shared/SwipeRow';
 import { Subject, Topic, TopicBlock } from '../types';
 import { SPECIALTY_BLOCK_SUGGESTIONS } from '../data/areas';
 import { BLOCK_REVIEWS_TO_MASTER, cycleDay, formatDM, isBlockDue, isTopicPending, isTopicResolved, isTopicSeen, ymd } from '../data/blockReview';
@@ -582,7 +583,15 @@ export const SubjectBlocksPanel: React.FC<SubjectBlocksPanelProps> = ({ subject,
                     const dot = isBonus ? BONUS : isSeen ? '#10b981' : isPending ? '#e11d48' : undefined;
                     const pill = 'h-10 sm:h-8 min-w-0 inline-flex items-center justify-center gap-1 px-2 sm:px-2.5 rounded-lg text-[11px] font-bold transition-colors';
                     return (
-                      <li key={t.id} className="group rounded-xl bg-white dark:bg-slate-900 px-2.5 py-2">
+                      <li key={t.id} className="list-none">
+                      <SwipeRow
+                        label={t.title}
+                        actions={[{ id: 'delete', label: 'Excluir' }]}
+                        onCommit={() => deleteTopic(t.id)}
+                        radius={12}
+                        actionWidth={76}
+                        surfaceClassName="group px-2.5 py-2"
+                      >
                         <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                           <div className="flex items-center gap-2.5 min-w-0 flex-1">
                             <AnimatedCheck
@@ -756,6 +765,7 @@ export const SubjectBlocksPanel: React.FC<SubjectBlocksPanelProps> = ({ subject,
                             />
                           </div>
                         )}
+                      </SwipeRow>
                       </li>
                     );
                   })}

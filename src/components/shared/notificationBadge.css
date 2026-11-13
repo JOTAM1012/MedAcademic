@@ -1,0 +1,76 @@
+/* Selo de notificação no sino ("Notification badge"): ao aparecer, o selo vem deslizando de baixo
+   para o canto (260ms, smooth-out) e cresce com um leve quique (500ms, bounce), saindo do desfoque.
+   Ao sumir, encolhe e desfoca em 180ms. Com "reduzir movimento", só aparece e some (sem escala). */
+:root {
+  --badge-pos-open-dur: 260ms;
+  --badge-scale-open-dur: 500ms;
+  --badge-scale-close-dur: 180ms;
+  --badge-opacity-open-dur: 400ms;
+  --badge-opacity-close-dur: 180ms;
+  --badge-blur: 2px;
+  --badge-distance-x: -8.2px;
+  --badge-distance-y: 12.4px;
+  --badge-ease-pos-open: cubic-bezier(0.22, 1, 0.36, 1);
+  --badge-ease-scale-open: cubic-bezier(0.34, 1.36, 0.64, 1);
+  --badge-ease-close: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.notif-badge {
+  position: absolute;
+  top: -3px;
+  right: -5px;
+  min-width: 18px;
+  height: 18px;
+  pointer-events: none;
+}
+.notif-badge[data-open='true'] {
+  animation: notif-badge-slide-in var(--badge-pos-open-dur) var(--badge-ease-pos-open);
+}
+.notif-badge-inner {
+  display: flex;
+  min-width: 100%;
+  height: 100%;
+  padding: 0 4px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  /* vermelho do site (rose) no degradê do selo */
+  background-image: linear-gradient(-51.52deg, #f43f5e 13.9%, #e11d48 112.7%);
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 1;
+  letter-spacing: -0.1px;
+  font-variant-numeric: tabular-nums;
+  box-shadow: 0 0.4px 1.4px rgba(0, 0, 0, 0.17), 0 0.7px 2.7px rgba(0, 0, 0, 0.04), inset 0 -0.4px 0 rgba(0, 0, 0, 0.16), 0 0 0 2px var(--notif-badge-ring, #ffffff);
+  transform-origin: center;
+  transform: scale(1);
+  opacity: 1;
+  filter: blur(0);
+  transition: transform var(--badge-scale-open-dur) var(--badge-ease-scale-open), opacity var(--badge-opacity-open-dur) var(--badge-ease-scale-open),
+    filter var(--badge-scale-open-dur) var(--badge-ease-scale-open);
+}
+.dark .notif-badge-inner {
+  --notif-badge-ring: #0f172a;
+}
+.notif-badge[data-open='false'] .notif-badge-inner {
+  transform: scale(0);
+  opacity: 0;
+  filter: blur(var(--badge-blur));
+  transition: transform var(--badge-scale-close-dur) var(--badge-ease-close), opacity var(--badge-opacity-close-dur) var(--badge-ease-close),
+    filter var(--badge-scale-close-dur) var(--badge-ease-close);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .notif-badge,
+  .notif-badge-inner {
+    animation: none !important;
+    transform: none !important;
+    filter: none !important;
+  }
+}
+
+@keyframes notif-badge-slide-in {
+  0% { transform: translate(var(--badge-distance-x), var(--badge-distance-y)); }
+  100% { transform: translate(0, 0); }
+}

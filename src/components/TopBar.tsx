@@ -17,6 +17,8 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import SquishSwitch from './shared/SquishSwitch';
+import { NotificationBadge } from './shared/NotificationBadge';
 import { GlobalSearch } from './GlobalSearch';
 import { openInstallGuide, usePwaInstall } from '../lib/pwaInstall';
 import { daysBetween, formatDM } from '../data/blockReview';
@@ -86,6 +88,8 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleMobileMenu, onOpenTour }
     .filter((x) => x.left !== undefined)
     .map(({ e, left }) => ({ id: e.id, text: examReminderText(e, left as number) }));
   const hasAlerts = upcomingExamsList.length > 0 || dueReviews > 0 || dueErrors > 0 || examReminders.length > 0;
+  // Número no selo do sino: provas próximas + revisões e erros para hoje + lembretes de prova
+  const alertCount = upcomingExamsList.length + dueReviews + dueErrors + examReminders.length;
   const examWhen = (date: string) => {
     const d = daysBetween(today, date);
     return d === 0 ? 'hoje' : d === 1 ? 'amanhã' : `em ${d} dias · ${formatDM(date)}`;
@@ -138,16 +142,11 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleMobileMenu, onOpenTour }
             id="topbar-notifications-btn"
             onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
             className="relative h-10 w-10 shrink-0 flex items-center justify-center rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-800 dark:hover:text-slate-100 transition-colors"
-            aria-label={hasAlerts ? 'Notificações (há lembretes)' : 'Notificações'}
+            aria-label={hasAlerts ? `Notificações: ${alertCount} aviso${alertCount === 1 ? '' : 's'}` : 'Notificações'}
             aria-expanded={isNotificationsOpen}
           >
             <Bell className="h-4 w-4" />
-            {hasAlerts && (
-              <span className="absolute top-1.5 right-1.5 flex h-2 w-2">
-                {upcomingExamsList.length > 0 && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>}
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
-              </span>
-            )}
+            <NotificationBadge count={alertCount} />
           </button>
 
           {/* Notifications Dropdown */}
@@ -270,18 +269,22 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleMobileMenu, onOpenTour }
         )}
 
         {/* Dark Mode Toggle */}
-        <button
+        <SquishSwitch
           id="topbar-theme-toggle-btn"
-          onClick={toggleDarkMode}
-          className="relative h-10 w-10 shrink-0 flex items-center justify-center rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-800 dark:hover:text-slate-100 transition-colors"
-          aria-label={isDarkMode ? 'Ativar Modo Claro' : 'Ativar Modo Escuro'}
-        >
-          {isDarkMode ? (
-            <Sun className="h-4 w-4" />
-          ) : (
-            <Moon className="h-4 w-4" />
-          )}
-        </button>
+          checked={isDarkMode}
+          onChange={() => toggleDarkMode()}
+          ariaLabel={isDarkMode ? 'Ativar modo claro' : 'Ativar modo escuro'}
+          title={isDarkMode ? 'Modo escuro (toque para o claro)' : 'Modo claro (toque para o escuro)'}
+          width={50}
+          height={28}
+          radius={14}
+          trackColor="#e2e8f0"
+          trackOnColor="#1e293b"
+          thumbColor="#ffffff"
+          thumbOnColor="#0f172a"
+          className="shrink-0 ml-1"
+          thumbIcon={isDarkMode ? <Moon className="h-3 w-3 text-sky-300" /> : <Sun className="h-3 w-3 text-amber-500" />}
+        />
       </div>
     </header>
   );

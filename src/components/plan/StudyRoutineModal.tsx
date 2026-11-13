@@ -9,6 +9,7 @@ import type { ExamShift, StudyPlanPrefs, TurnState } from '../../types';
 import { OptionChip, PlanModal, blocksToHours } from './planShared';
 import { BlockPicker } from './BlockPicker';
 import { WeekTurnsEditor } from './WeekTurnsEditor';
+import SquishSwitch from '../shared/SquishSwitch';
 import { shakeElement, shakeField } from '../shared/ErrorShake';
 import { ExamWeeksPicker } from './ExamWeeksPicker';
 import { MethodEditor } from './MethodEditor';
@@ -56,22 +57,13 @@ const SectionTitle: React.FC<{ children: React.ReactNode; hint?: React.ReactNode
 );
 
 const Toggle: React.FC<{ id: string; on: boolean; onChange: (v: boolean) => void; label: string; hint: string }> = ({ id, on, onChange, label, hint }) => (
-  <button
-    type="button"
-    id={id}
-    role="switch"
-    aria-checked={on}
-    onClick={() => onChange(!on)}
-    className="w-full min-h-[48px] flex items-center justify-between gap-3 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50 px-3.5 py-2.5 text-left hover:border-sky-400 dark:hover:border-sky-700 transition-colors"
-  >
-    <span className="min-w-0">
+  <div className="w-full min-h-[48px] flex items-center justify-between gap-3 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50 px-3.5 py-2.5 hover:border-sky-400 dark:hover:border-sky-700 transition-colors">
+    <label htmlFor={id} className="min-w-0 flex-1 cursor-pointer">
       <span className="block text-sm font-bold text-slate-900 dark:text-white">{label}</span>
       <span className="block text-[11px] text-slate-500 dark:text-slate-400">{hint}</span>
-    </span>
-    <span className={`relative shrink-0 h-6 w-11 rounded-full transition-colors ${on ? 'bg-sky-600' : 'bg-slate-300 dark:bg-slate-700'}`}>
-      <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${on ? 'left-[22px]' : 'left-0.5'}`} />
-    </span>
-  </button>
+    </label>
+    <SquishSwitch id={id} checked={on} onChange={onChange} width={48} height={28} radius={14} trackColor="#cbd5e1" trackOnColor="#0284c7" className="shrink-0" />
+  </div>
 );
 
 export const StudyRoutineModal: React.FC<StudyRoutineModalProps> = ({ open, onClose, firstTime: firstTimeProp, required }) => {

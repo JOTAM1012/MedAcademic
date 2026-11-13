@@ -375,7 +375,7 @@ interface AppContextType {
   updateChecklistBlock: (id: string, changes: Partial<ChecklistBlock>) => void;
   deleteChecklistBlock: (id: string) => void;
   toggleChecklistItem: (id: string) => void;
-  deleteChecklistItem: (id: string) => void;
+  deleteChecklistItem: (id: string, opts?: { undo?: boolean }) => void;
   clearCompletedChecklist: (blockId?: string) => void;
 
   // ===== Método de estudo (Guia Científico) =====
@@ -2554,8 +2554,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
   };
 
-  const deleteChecklistItem = (id: string) => {
+  const deleteChecklistItem = (id: string, opts?: { undo?: boolean }) => {
+    const removed = checklist.find((item) => item.id === id);
     setChecklist((prev) => prev.filter((item) => item.id !== id));
+    if (opts?.undo && removed) {
+      showNotification(`"${removed.text}" foi excluído.`, 'info', {
+        actionLabel: 'Desfazer',
+        onAction: () => setChecklist((prev) => (prev.some((i) => i.id === removed.id) ? prev : [...prev, removed])),
+      });
+    }
   };
 
   // Sem blockId limpa tudo; "geral" = itens sem bloco existente
