@@ -16,7 +16,8 @@ export const TabHelpBar: React.FC<{ tab: string }> = ({ tab }) => {
   // Tela sem título (ex.: dentro de uma disciplina): o botão aparece numa linha discreta no topo
   const [noTitle, setNoTitle] = useState(false);
   const key = ALIAS[tab] || tab;
-  const help = TAB_HELP[key];
+  // No Dashboard o título é a saudação com o nome: sem botão "Ajuda" ali
+  const help = key === 'dashboard' ? undefined : TAB_HELP[key];
 
   // Acha o título (h1) da aba e coloca o botão logo depois dele
   useEffect(() => {
