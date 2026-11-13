@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { shakeElement } from '../shared/ErrorShake';
 import {
   User,
   Users,
@@ -84,6 +85,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isPage = false }) => {
   const [passwordInput, setPasswordInput] = useState<string>('');
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // Erro: o aviso e os campos da tela aberta balançam (tremor de erro)
+  useEffect(() => {
+    if (!errorMessage) return;
+    shakeElement(document.getElementById('auth-error-banner'));
+    document.querySelectorAll('[data-auth-field]').forEach((el) => shakeElement(el));
+  }, [errorMessage]);
 
   // Login Tab State
   const [loginEmail, setLoginEmail] = useState<string>('');
@@ -248,7 +255,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isPage = false }) => {
 
           {/* Error Banner */}
           {errorMessage && (
-            <div className="mb-4 p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 text-rose-700 dark:text-rose-300 text-xs flex items-center gap-2">
+            <div id="auth-error-banner" role="alert" className="mb-4 p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 text-rose-700 dark:text-rose-300 text-xs flex items-center gap-2">
               <AlertCircle className="h-4 w-4 shrink-0" />
               <span>{errorMessage}</span>
             </div>
@@ -273,14 +280,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isPage = false }) => {
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   E-mail do Estudante
                 </label>
-                <div className="relative">
+                <div className="relative" data-auth-field data-field-error={errorMessage ? 'true' : undefined}>
                   <Mail className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                   <input
                     type="email"
                     required
                     placeholder="ex: user@med.com"
                     value={loginEmail}
-                    onChange={(e) => setLoginEmail(e.target.value)}
+                    onChange={(e) => {
+                      setLoginEmail(e.target.value);
+                      if (errorMessage) setErrorMessage(null);
+                    }}
                     className="w-full pl-9 pr-3 py-2 auth-input rounded-xl border text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-hidden focus:ring-2 focus:ring-sky-500/60 focus:border-sky-500/60 transition-colors"
                   />
                 </div>
@@ -290,14 +300,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isPage = false }) => {
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Senha do Perfil <span className="text-[10px] font-bold text-rose-600 dark:text-rose-400">(Obrigatório)</span>
                 </label>
-                <div className="relative">
+                <div className="relative" data-auth-field data-field-error={errorMessage ? 'true' : undefined}>
                   <Lock className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                   <input
                     type={showPassword ? 'text' : 'password'}
                     required
                     placeholder="Sua senha secreta"
                     value={loginPassword}
-                    onChange={(e) => setLoginPassword(e.target.value)}
+                    onChange={(e) => {
+                      setLoginPassword(e.target.value);
+                      if (errorMessage) setErrorMessage(null);
+                    }}
                     className="w-full pl-9 pr-10 py-2 auth-input rounded-xl border text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-hidden focus:ring-2 focus:ring-sky-500/60 focus:border-sky-500/60 transition-colors"
                   />
                   <button

@@ -9,6 +9,7 @@ import type { ExamShift, StudyPlanPrefs, TurnState } from '../../types';
 import { OptionChip, PlanModal, blocksToHours } from './planShared';
 import { BlockPicker } from './BlockPicker';
 import { WeekTurnsEditor } from './WeekTurnsEditor';
+import { shakeElement, shakeField } from '../shared/ErrorShake';
 import { ExamWeeksPicker } from './ExamWeeksPicker';
 import { MethodEditor } from './MethodEditor';
 
@@ -105,7 +106,16 @@ export const StudyRoutineModal: React.FC<StudyRoutineModalProps> = ({ open, onCl
 
   const missing = required ? [!touched.hours && 'tempo por dia', weekdayFree === null && 'turnos livres', !touched.rest && 'dia de descanso'].filter(Boolean) as string[] : [];
   const save = () => {
-    if (sameDay || missing.length > 0) return;
+    if (missing.length > 0) {
+      // Balança as perguntas obrigatórias que faltam
+      if (!touched.hours) shakeField('routine-q-hours', 0, false);
+      if (weekdayFree === null) shakeField('routine-q-weekday', 0, false);
+      if (!touched.rest) shakeField('routine-q-rest', 0, false);
+      shakeElement(document.getElementById('routine-missing'));
+      document.querySelector(`[data-shake-field="${!touched.hours ? 'routine-q-hours' : weekdayFree === null ? 'routine-q-weekday' : 'routine-q-rest'}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+    if (sameDay) return;
     const final: StudyPlanPrefs = mode === 'quick' ? { ...draft, mixedDay: quickMixed, weekTurns: quickTurns ?? draft.weekTurns } : draft;
     const changes: Partial<StudyPlanPrefs> = {};
     (Object.keys(final) as Array<keyof StudyPlanPrefs>).forEach((k) => {
@@ -163,7 +173,7 @@ export const StudyRoutineModal: React.FC<StudyRoutineModalProps> = ({ open, onCl
         footer={
           <>
             {required ? (
-              <p id="routine-missing" className="mr-auto text-[11px] text-slate-500 dark:text-slate-400">
+              <p id="routine-missing" className={`mr-auto text-[11px] ${missing.length > 0 ? 'text-rose-600 dark:text-rose-400 font-semibold' : 'text-slate-500 dark:text-slate-400'}`}>
                 {missing.length > 0 ? `Falta responder: ${missing.join(', ')}.` : 'Tudo certo. As opcionais podem ficar para depois.'}
               </p>
             ) : (
@@ -175,8 +185,8 @@ export const StudyRoutineModal: React.FC<StudyRoutineModalProps> = ({ open, onCl
               type="button"
               id="routine-quick-save"
               onClick={save}
-              disabled={missing.length > 0}
-              className="min-h-[44px] px-5 rounded-xl bg-sky-600 hover:bg-sky-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-black flex items-center gap-1.5"
+              aria-disabled={missing.length > 0}
+              className={`min-h-[44px] px-5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-sm font-black flex items-center gap-1.5 ${missing.length > 0 ? 'opacity-50' : ''}`}
             >
               <Check className="h-4 w-4" /> Pronto, montar meu plano
             </button>
@@ -186,6 +196,7 @@ export const StudyRoutineModal: React.FC<StudyRoutineModalProps> = ({ open, onCl
         <div className="space-y-6">
           <section>
             <Q n={1}>Quanto tempo por dia você consegue estudar?</Q>
+            <div data-shake-field="routine-q-hours">
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {HOURS_OPTIONS.map((o) => (
                 <button
@@ -208,12 +219,13 @@ export const StudyRoutineModal: React.FC<StudyRoutineModalProps> = ({ open, onCl
                 </button>
               ))}
             </div>
+            </div>
             <p className="mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">Seja realista: é melhor cumprir 1 hora todo dia do que planejar 4 e desanimar.</p>
           </section>
 
           <section>
             <Q n={2}>De segunda a sexta, quais turnos ficam livres para estudar?</Q>
-            <div className="grid grid-cols-4 gap-2">
+            <div data-shake-field="routine-q-weekday" className="grid grid-cols-4 gap-2">
               {TURN_KEYS.map((k, i) => turnChip(weekdayFree, setWeekdayFree, k, 'routine-wd', i))}
               <OptionChip id="routine-wd-none" active={weekdayFree?.length === 0} onClick={() => setWeekdayFree([])} className="min-h-[44px] text-sm">
                 Nenhum
@@ -251,7 +263,7 @@ export const StudyRoutineModal: React.FC<StudyRoutineModalProps> = ({ open, onCl
 
           <section>
             <Q n={5}>Qual dia é de descanso?</Q>
-            <div className="flex flex-wrap gap-1.5">
+            <div data-shake-field="routine-q-rest" className="flex flex-wrap gap-1.5">
               {WEEK_ORDER.map((d) => (
                 <OptionChip
                   key={d}

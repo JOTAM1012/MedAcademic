@@ -31,6 +31,7 @@ import { UserProfile, Semester } from '../types';
 import { INITIAL_USER_PROFILE, INITIAL_SEMESTERS } from '../mockData';
 import { CARTOON_AVATARS } from '../data/avatars';
 import { UniversityPicker } from './UniversityPicker';
+import { FieldError, shakeElement, shakeField } from './shared/ErrorShake';
 import { fileToAvatarDataUrl, avatarErrorMessage } from '../data/avatarImage';
 
 const SPECIALTIES_R1 = [
@@ -164,6 +165,17 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [signupError, setSignupError] = useState<string | null>(null);
+  // Campos obrigatórios com erro (nome, e-mail, faculdade): balançam e mostram a mensagem embaixo
+  const [fieldErr, setFieldErr] = useState<{ name?: string; email?: string; university?: string }>({});
+  const flagField = (field: 'name' | 'email' | 'university', msg: string, step?: number) => {
+    setFieldErr((f) => ({ ...f, [field]: msg }));
+    const moved = step !== undefined && step !== currentStep;
+    if (moved) setCurrentStep(step);
+    shakeField(field, moved ? 120 : 0);
+  };
+  useEffect(() => {
+    if (signupError) shakeElement(document.getElementById('signup-error'));
+  }, [signupError]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedCycle, setSelectedCycle] = useState<'ciclo_basico' | 'ciclo_clinico' | 'internato'>(initialAcademic?.cycle || 'ciclo_clinico');
   const [selectedSemesterNum, setSelectedSemesterNum] = useState<number>(initialAcademic?.num || 5);
@@ -260,13 +272,11 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
   const handleSignupFinish = async () => {
     setSignupError(null);
     if (!name.trim()) {
-      showNotification('Por favor, informe seu nome completo para continuar.', 'warning');
-      setCurrentStep(1);
+      flagField('name', 'Escreva seu nome para continuar.', 1);
       return;
     }
     if (!university.trim()) {
-      showNotification('Por favor, informe sua Faculdade de Medicina.', 'warning');
-      setCurrentStep(2);
+      flagField('university', 'Escolha sua faculdade para continuar.', 2);
       return;
     }
     const cleanEmail = email.trim().toLowerCase();
@@ -343,18 +353,15 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
 
   const handleFinish = () => {
     if (!name.trim()) {
-      showNotification('Por favor, informe seu nome completo para continuar.', 'warning');
-      setCurrentStep(1);
+      flagField('name', 'Escreva seu nome para continuar.', 1);
       return;
     }
     if (!editMode && (!email.trim() || !email.includes('@'))) {
-      showNotification('Por favor, informe um e-mail acadêmico válido.', 'warning');
-      setCurrentStep(1);
+      flagField('email', 'Escreva um e-mail válido (com @).', 1);
       return;
     }
     if (!university.trim()) {
-      showNotification('Por favor, informe sua Faculdade de Medicina.', 'warning');
-      setCurrentStep(2);
+      flagField('university', 'Escolha sua faculdade para continuar.', 2);
       return;
     }
 
@@ -552,14 +559,22 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
                     <label className="block text-xs font-bold text-slate-300 mb-1.5">
                       Nome Completo ou Nome Social <span className="text-rose-400">*</span>
                     </label>
+                    <div data-shake-field="name" data-field-error={fieldErr.name ? 'true' : undefined}>
                     <input
                       type="text"
                       value={name}
-                      onChange={(e) => setName(e.target.value)}
+                      onChange={(e) => {
+                        setName(e.target.value);
+                        if (fieldErr.name) setFieldErr((f) => ({ ...f, name: undefined }));
+                      }}
                       placeholder="Ex: Dra. Mariana Costa ou João Silva"
+                      aria-invalid={!!fieldErr.name}
+                      aria-describedby="field-error-name"
                       className="w-full rounded-2xl bg-slate-950/55 border border-white/10 px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-hidden focus:border-sky-500 focus:ring-2 focus:ring-sky-500/30 transition-colors"
                       autoFocus
                     />
+                    </div>
+                    <FieldError id="field-error-name" message={fieldErr.name} />
                   </div>
 
                   {!signupMode && (
@@ -596,13 +611,21 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
                       <span>E-mail Acadêmico / Principal</span>
                       <span className="text-[10px] text-rose-400 font-extrabold uppercase">* Obrigatório</span>
                     </label>
+                    <div data-shake-field="email" data-field-error={fieldErr.email ? 'true' : undefined}>
                     <input
                       type="email"
                       value={email}
-                      onChange={(e) => setEmail(e.target.value)}
+                      onChange={(e) => {
+                        setEmail(e.target.value);
+                        if (fieldErr.email) setFieldErr((f) => ({ ...f, email: undefined }));
+                      }}
                       placeholder="Ex: mariana.costa@medicina.edu.br"
+                      aria-invalid={!!fieldErr.email}
+                      aria-describedby="field-error-email"
                       className="w-full rounded-2xl bg-slate-950/55 border border-white/10 px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-hidden focus:border-sky-500 focus:ring-2 focus:ring-sky-500/30 transition-colors"
                     />
+                    </div>
+                    <FieldError id="field-error-email" message={fieldErr.email} />
                   </div>
                   )}
 
@@ -742,15 +765,19 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
                       <span>Faculdade de Medicina / Instituição de Ensino</span>
                       <span className="text-[10px] text-rose-400 font-extrabold uppercase">* Obrigatório</span>
                     </label>
+                    <div data-shake-field="university" data-field-error={fieldErr.university ? 'true' : undefined}>
                     <UniversityPicker
                       value={{ university, universityCode, universityName }}
                       onChange={(v) => {
                         setUniversity(v.university);
                         setUniversityCode(v.universityCode);
                         setUniversityName(v.universityName);
+                        if (fieldErr.university) setFieldErr((f) => ({ ...f, university: undefined }));
                       }}
                       autoFocus
                     />
+                    </div>
+                    <FieldError id="field-error-university" message={fieldErr.university} />
                   </div>
 
                   {/* Medical Cycles Selection - ONLY MAIN TITLES */}
@@ -1258,17 +1285,17 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
                   onClick={() => {
                     if (currentStep === 1) {
                       if (!name.trim()) {
-                        showNotification('Por favor, informe seu Nome Completo (campo obrigatório).', 'warning');
+                        flagField('name', 'Escreva seu nome para continuar.');
                         return;
                       }
                       if (!signupMode && !editMode && (!email.trim() || !email.includes('@'))) {
-                        showNotification('Por favor, informe um E-mail Acadêmico válido (campo obrigatório).', 'warning');
+                        flagField('email', 'Escreva um e-mail válido (com @).');
                         return;
                       }
                     }
                     if (currentStep === 2 && (!editMode || editAcademic)) {
                       if (!university.trim()) {
-                        showNotification('Por favor, informe sua Faculdade de Medicina (campo obrigatório).', 'warning');
+                        flagField('university', 'Escolha sua faculdade para continuar.');
                         return;
                       }
                     }
