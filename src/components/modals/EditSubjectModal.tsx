@@ -1,3 +1,4 @@
+import { confirmDialog } from '../shared/ConfirmDialog';
 import React, { useState, useEffect } from 'react';
 import { X, BookOpen, Trash2, GraduationCap } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
@@ -83,8 +84,14 @@ export const EditSubjectModal: React.FC<EditSubjectModalProps> = ({
     onClose();
   };
 
-  const handleDelete = () => {
-    if (window.confirm(`Tem certeza que deseja excluir a disciplina "${subject.universitySubject || subject.name}"?`)) {
+  const handleDelete = async () => {
+    if (
+      await confirmDialog({
+        title: `Excluir "${subject.universitySubject || subject.name}"?`,
+        message: 'A disciplina e os assuntos dela saem do semestre.',
+        confirmLabel: 'Excluir disciplina',
+      })
+    ) {
       deleteSubject(subject.id);
       onClose();
     }

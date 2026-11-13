@@ -1,3 +1,4 @@
+import { confirmDialog } from './shared/ConfirmDialog';
 import React, { useMemo, useState } from 'react';
 import {
   Check,
@@ -112,9 +113,9 @@ export const SubjectChecklistPanel: React.FC<Props> = ({ subject }) => {
     subjectTopics.filter((t) => (t.moduleName || GERAL) === from).forEach((t) => updateTopic(t.id, { moduleName: name }));
   };
 
-  const removeModule = (m: string) => {
+  const removeModule = async (m: string) => {
     const list = subjectTopics.filter((t) => (t.moduleName || GERAL) === m);
-    if (list.length && !window.confirm(`Excluir "${m}" e seus ${list.length} ${fmt.items}?`)) return;
+    if (list.length && !(await confirmDialog({ title: `Excluir "${m}"?`, message: list.length === 1 ? "O item dentro dele também sai." : `Os ${list.length} ${fmt.items} dentro dele também saem.`, confirmLabel: 'Excluir' }))) return;
     list.forEach((t) => deleteTopic(t.id));
     saveModules(modules.filter((x) => x !== m));
   };

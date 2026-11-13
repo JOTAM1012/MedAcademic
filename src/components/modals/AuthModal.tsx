@@ -1,5 +1,6 @@
 import IconSwap from '../shared/IconSwap';
 import React, { useState, useEffect } from 'react';
+import { confirmDialog } from '../shared/ConfirmDialog';
 import { shakeElement } from '../shared/ErrorShake';
 import {
   User,
@@ -145,9 +146,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isPage = false }) => {
     }
   };
 
-  const handleDeleteProfile = (account: UserAccount, e: React.MouseEvent) => {
+  const handleDeleteProfile = async (account: UserAccount, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (window.confirm(`Tem certeza que deseja apagar o perfil de ${account.name}? Esta ação apagará todos os dados isolados deste usuário.`)) {
+    if (
+      await confirmDialog({
+        title: `Apagar o perfil de ${account.name}?`,
+        message: 'Isto apaga todos os dados deste perfil neste aparelho.',
+        confirmLabel: 'Apagar perfil',
+      })
+    ) {
       deleteAccount(account.id);
     }
   };

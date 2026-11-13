@@ -6,6 +6,7 @@ import { registerServiceWorker } from './registerServiceWorker';
 import { initPwaInstall } from './lib/pwaInstall';
 import { installSafeLocalStorage } from './lib/storageSafety';
 import { AppErrorBoundary } from './components/AppErrorBoundary';
+import { ConfirmHost } from './components/shared/ConfirmDialog';
 import { PENDING_IMPORT_KEY, SHARE_HASH } from './data/share';
 
 try {
@@ -38,6 +39,7 @@ if (import.meta.env.DEV && localStorage.getItem('medacademic_dev_crash') === '1'
     <StrictMode>
       <AppErrorBoundary>
         <App />
+        <ConfirmHost />
       </AppErrorBoundary>
     </StrictMode>,
   );

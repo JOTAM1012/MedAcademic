@@ -1,5 +1,6 @@
 import IconSwap from './shared/IconSwap';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { confirmDialog } from './shared/ConfirmDialog';
 import {
   Crown,
   Users,
@@ -120,7 +121,7 @@ export const OwnerPanelView: React.FC = () => {
       const r = window.prompt(`Suspender ${u.email}? Motivo (aparece para o usuário, opcional):`, '');
       if (r === null) return;
       reason = r.trim() || null;
-    } else if (!window.confirm(`Reativar a conta de ${u.email}?`)) return;
+    } else if (!(await confirmDialog({ title: `Reativar a conta de ${u.email}?`, confirmLabel: 'Reativar', tone: 'primary' }))) return;
     const { error } = await supabase!.rpc('admin_set_blocked', { target: u.id, should_block: block, why: reason });
     if (error) return showNotification(error.message, 'warning');
     showNotification(block ? 'Conta suspensa.' : 'Conta reativada.', 'success');
@@ -152,14 +153,23 @@ export const OwnerPanelView: React.FC = () => {
     load();
   };
   const deleteAnn = async (a: Announcement) => {
-    if (!window.confirm(`Apagar o aviso "${a.title}"?`)) return;
+    if (!(await confirmDialog({ title: `Apagar o aviso "${a.title}"?`, confirmLabel: 'Apagar aviso' }))) return;
     const { error } = await supabase!.from('announcements').delete().eq('id', a.id);
     if (error) return showNotification(error.message, 'warning');
     load();
   };
 
   const setMaintenance = async (on: boolean) => {
-    if (on && !window.confirm('Ativar o modo manutenção? Todos os usuários (menos você) verão a tela de manutenção até você desativar.')) return;
+    if (
+      on &&
+      !(await confirmDialog({
+        title: 'Ativar o modo manutenção?',
+        message: 'Todos os usuários (menos você) verão a tela de manutenção até você desativar.',
+        confirmLabel: 'Ativar',
+        tone: 'primary',
+      }))
+    )
+      return;
     const { error } = await supabase!.rpc('admin_set_maintenance', { on_off: on, msg: maintMsg.trim() || null });
     if (error) return showNotification(error.message, 'warning');
     await access.refresh();

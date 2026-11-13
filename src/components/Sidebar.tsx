@@ -125,7 +125,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
         }}
         className={`sb-item group relative flex w-full items-center rounded-xl transition-colors duration-150 ${
           isExpanded ? 'justify-between gap-2.5 px-2.5 py-2.5 lg:py-[7px] text-sm lg:text-[13px]' : 'justify-center h-10'
-        } ${isActive ? 'text-white font-semibold' : 'text-slate-400 hover:text-slate-100 hover:bg-white/[0.04]'}`}
+        } ${isActive ? 'text-white font-semibold' : 'text-slate-100 hover:text-white hover:bg-white/[0.05]'}`}
       >
         {isActive && (
           <motion.span
@@ -138,7 +138,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
           {showIcons && (
             <span
               className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors duration-150 ${
-                isActive ? 'text-sky-300' : 'text-slate-500 group-hover:text-slate-200'
+                isActive ? 'text-sky-300' : 'text-slate-300 group-hover:text-white'
               }`}
             >
               <Icon className="h-[18px] w-[18px] lg:h-4 lg:w-4" />

@@ -1,3 +1,4 @@
+import { confirmDialog } from './shared/ConfirmDialog';
 import React, { useMemo, useState } from 'react';
 import { CalendarDays, Check, ChevronDown, ClipboardPaste, Clock3, MoreHorizontal, Pencil, Plus, Repeat, Trash2, Trophy, X, ListPlus } from 'lucide-react';
 import { useApp } from '../context/AppContext';
@@ -98,9 +99,16 @@ export const TutoriaPanel: React.FC<Props> = ({ subject }) => {
     subjectTopics.filter((t) => t.moduleName === tut.name).forEach((t) => updateTopic(t.id, { moduleName: name }));
   };
 
-  const remove = (tut: TutorialSession) => {
+  const remove = async (tut: TutorialSession) => {
     const list = subjectTopics.filter((t) => t.moduleName === tut.name);
-    if (!window.confirm(`Excluir "${tut.name}"${list.length ? ` e seus ${list.length} tópicos` : ''}?`)) return;
+    if (
+      !(await confirmDialog({
+        title: `Excluir "${tut.name}"?`,
+        message: list.length === 1 ? "O tópico dela também sai." : list.length ? `Os ${list.length} tópicos dela também saem.` : undefined,
+        confirmLabel: 'Excluir',
+      }))
+    )
+      return;
     list.forEach((t) => deleteTopic(t.id));
     save(tutorials.filter((t) => t.id !== tut.id));
   };

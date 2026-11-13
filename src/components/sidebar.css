@@ -11,10 +11,10 @@
 
 .sb-label {
   font-size: 10px;
-  font-weight: 600;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.14em;
-  color: rgb(100 116 139);
+  color: rgb(226 232 240);
 }
 
 /* Pílula do item ativo (desliza entre os itens) */
