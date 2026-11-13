@@ -1338,14 +1338,14 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
 
               {/* Foto no centro e nome embaixo */}
               <div className="flex flex-col items-center text-center gap-3">
-                <div className="relative">
+                <div className="relative w-full max-w-[13rem]">
                   <img
                     src={selectedAvatarUrl}
                     alt={name || 'Estudante'}
                     referrerPolicy="no-referrer"
-                    className="h-28 w-28 rounded-3xl object-cover border-2 border-sky-500/50 shadow-lg shadow-sky-500/10 bg-slate-950"
+                    className="aspect-square w-full rounded-[2rem] object-cover border-2 border-sky-500/50 shadow-xl shadow-sky-500/15 bg-slate-950"
                   />
-                  <div className="absolute -bottom-1 -right-1 bg-emerald-500 h-5 w-5 rounded-full border-[3px] border-slate-900" />
+                  <div className="absolute -bottom-1.5 -right-1.5 bg-emerald-500 h-7 w-7 rounded-full border-4 border-slate-900" />
                 </div>
                 <h3 className="w-full text-lg font-black text-white truncate">{name.trim() || 'Estudante de Medicina'}</h3>
               </div>
