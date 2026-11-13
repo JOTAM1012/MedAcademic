@@ -7,6 +7,7 @@ import { MEDICAL_AREAS, getMedicalArea, getSpecialty, isClinicaMedica } from '..
 import { CycleSubjectForm } from './CycleSubjectForm';
 import { cycleOfSemester, getSubjectFormat } from '../../data/subjectFormats';
 import type { SubjectFormat, SubjectOrganization } from '../../types';
+import Segmented from '../shared/Segmented';
 
 interface AddSubjectModalProps {
   isOpen: boolean;
@@ -181,27 +182,17 @@ export const AddSubjectModal: React.FC<AddSubjectModalProps> = ({ isOpen, onClos
           </div>
 
           {/* Tipo: disciplina ou módulo da faculdade */}
-          <div role="tablist" aria-label="O que você quer criar" className="grid grid-cols-2 gap-1.5 p-1 rounded-2xl bg-slate-100 dark:bg-slate-800/70">
-            {(
-              [
-                { id: 'subject', label: 'Disciplina', hint: isCycleMode ? 'formato e assuntos' : 'grande área e assuntos' },
-                { id: 'module', label: 'Módulo da faculdade', hint: 'assuntos próprios + vínculos' },
-              ] as const
-            ).map((k) => (
-              <button
-                key={k.id}
-                type="button"
-                role="tab"
-                id={`subject-kind-${k.id}`}
-                aria-selected={kind === k.id}
-                onClick={() => setKind(k.id)}
-                className={`min-h-[44px] rounded-xl px-3 text-left transition-colors ${kind === k.id ? 'bg-white dark:bg-slate-900 shadow-xs' : 'hover:bg-white/60 dark:hover:bg-slate-900/50'}`}
-              >
-                <span className={`block text-xs font-black ${kind === k.id ? 'text-sky-700 dark:text-sky-300' : 'text-slate-700 dark:text-slate-200'}`}>{k.label}</span>
-                <span className="block text-[10px] text-slate-500 dark:text-slate-400">{k.hint}</span>
-              </button>
-            ))}
-          </div>
+          <Segmented
+            ariaLabel="O que você quer criar"
+            stretch
+            options={[
+              { id: 'subject', label: 'Disciplina', hint: isCycleMode ? 'formato e assuntos' : 'grande área e assuntos' },
+              { id: 'module', label: 'Módulo da faculdade', hint: 'assuntos próprios + vínculos' },
+            ]}
+            value={kind}
+            onChange={(id) => setKind(id)}
+            idFor={(id) => `subject-kind-${id}`}
+          />
 
           {kind === 'module' ? (
             <>

@@ -10,6 +10,7 @@ import { ymd } from '../../data/blockReview';
 import { SemesterCalendar, CalendarView } from './SemesterCalendar';
 import { ExamGradesList } from './ExamGradesList';
 import { ActivitySheet } from './ActivitySheet';
+import Segmented from '../shared/Segmented';
 
 type ExamModal = { open: boolean; exam?: Exam | null; date?: string; focusResult?: boolean; focusTopics?: boolean };
 type ScheduleModal = { open: boolean; item?: ScheduleClass | null; date?: string };
@@ -83,22 +84,16 @@ export const SemesterView: React.FC = () => {
       <section className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 sm:p-4 space-y-3">
         <div className="flex items-center justify-between gap-2">
           <h2 className="text-base font-black text-slate-900 dark:text-white">Agenda</h2>
-          <div role="tablist" aria-label="Ver por" className="flex rounded-xl border border-slate-200 dark:border-slate-800 p-0.5">
-            {(['week', 'month'] as const).map((v) => (
-              <button
-                key={v}
-                id={`sem-view-${v}`}
-                role="tab"
-                aria-selected={view === v}
-                onClick={() => changeView(v)}
-                className={`min-h-10 px-4 rounded-lg text-xs font-bold ${
-                  view === v ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-                }`}
-              >
-                {v === 'week' ? 'Semana' : 'Mês'}
-              </button>
-            ))}
-          </div>
+          <Segmented
+            ariaLabel="Ver por"
+            options={[
+              { id: 'week', label: 'Semana' },
+              { id: 'month', label: 'Mês' },
+            ]}
+            value={view}
+            onChange={(v) => changeView(v)}
+            idFor={(v) => `sem-view-${v}`}
+          />
         </div>
         <SemesterCalendar
           view={view}

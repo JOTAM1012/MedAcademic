@@ -44,6 +44,7 @@ import { DayPlanModal } from './plan/DayPlanModal';
 import { StudyRoutineModal } from './plan/StudyRoutineModal';
 import { DAY_KIND_INFO, blocksToHours, readLocal, userLocalKey, writeLocal } from './plan/planShared';
 import { EmptyState } from './shared/EmptyState';
+import Segmented from './shared/Segmented';
 
 interface CalendarViewProps {
   onOpenAddExam?: (date?: string) => void;
@@ -1023,27 +1024,17 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         {/* Action Controls & Navigation Buttons */}
         <div className="relative z-10 flex items-center gap-2.5 flex-wrap">
           {/* View Mode Switcher (Hoje / Dia / Semana / Mês) */}
-          <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 rounded-2xl p-1 shadow-inner">
-            {([
-              { mode: 'today', label: 'Hoje' },
-              { mode: 'weekly', label: 'Semana' },
-              { mode: 'monthly', label: 'Mês' },
-            ] as const).map(({ mode, label }) => (
-              <button
-                key={mode}
-                id={`calendar-view-${mode}`}
-                onClick={() => setViewMode(mode)}
-                aria-pressed={viewMode === mode}
-                className={`min-h-[36px] px-3 py-1.5 rounded-xl text-xs font-black transition-colors ${
-                  viewMode === mode
-                    ? 'bg-sky-600 text-white shadow-xs'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+          <Segmented
+            ariaLabel="Ver por"
+            options={[
+              { id: 'today', label: 'Hoje' },
+              { id: 'weekly', label: 'Semana' },
+              { id: 'monthly', label: 'Mês' },
+            ]}
+            value={viewMode}
+            onChange={(m) => setViewMode(m)}
+            idFor={(m) => `calendar-view-${m}`}
+          />
 
           {/* Period Paging Buttons */}
           {viewMode !== 'today' && (
@@ -1115,57 +1106,21 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         </div>
 
         {/* Filter Pills */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
-          <button
-            onClick={() => setFilterType('all')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 ${
-              filterType === 'all'
-                ? 'bg-sky-600 text-white shadow-xs'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700'
-            }`}
-          >
-            Tudo ({weeklyStats.totalItems})
-          </button>
-          <button
-            onClick={() => setFilterType('classes')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 ${
-              filterType === 'classes'
-                ? 'bg-amber-600 text-white shadow-xs'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700'
-            }`}
-          >
-            Aulas
-          </button>
-          <button
-            onClick={() => setFilterType('personal')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 ${
-              filterType === 'personal'
-                ? 'bg-emerald-600 text-white shadow-xs'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700'
-            }`}
-          >
-            Atividades & tarefas
-          </button>
-          <button
-            onClick={() => setFilterType('reviews')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 ${
-              filterType === 'reviews'
-                ? 'bg-blue-600 text-white shadow-xs'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700'
-            }`}
-          >
-            Revisões Espaçadas ({weeklyStats.reviewsCount})
-          </button>
-          <button
-            onClick={() => setFilterType('exams')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 ${
-              filterType === 'exams'
-                ? 'bg-rose-600 text-white shadow-xs'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700'
-            }`}
-          >
-            Avaliações ({weeklyStats.examsCount})
-          </button>
+        <div className="overflow-x-auto scrollbar-none">
+          <Segmented
+            ariaLabel="Filtrar a semana"
+            nowrap
+            options={[
+              { id: 'all', label: 'Tudo', badge: weeklyStats.totalItems || undefined },
+              { id: 'classes', label: 'Aulas' },
+              { id: 'personal', label: 'Atividades & tarefas' },
+              { id: 'reviews', label: 'Revisões Espaçadas', badge: weeklyStats.reviewsCount || undefined },
+              { id: 'exams', label: 'Avaliações', badge: weeklyStats.examsCount || undefined },
+            ]}
+            value={filterType}
+            onChange={(id) => setFilterType(id)}
+            idFor={(id) => `calendar-filter-${id}`}
+          />
         </div>
       </div>
       )}

@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Crown, Sparkles, Plus, Stethoscope, HelpCircle, Pencil } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import GooeyNav from './shared/GooeyNav';
+import Segmented from './shared/Segmented';
 import { OwnerName } from './OwnerName';
 import { useAccess } from '../context/AccessContext';
 import { CARTOON_AVATARS } from '../data/avatars';
@@ -49,7 +49,6 @@ export const DashboardView: React.FC = () => {
     setDashboardPrefs,
     studyPhase,
     contestsActive,
-    isDarkMode,
   } = useApp();
 
   const { isOwner: isOwnerAccount } = useAccess();
@@ -258,29 +257,12 @@ export const DashboardView: React.FC = () => {
       <div id="dash-toolbar" className="flex flex-wrap items-center justify-between gap-2">
         <div id="dash-filters" className="flex flex-wrap items-center gap-2 min-w-0">
           {showPeriod && (
-            <GooeyNav
+            <Segmented
               ariaLabel="Período"
-              idPrefix="dash-period"
-              items={PERIOD_OPTIONS.map((p) => ({ label: p.label }))}
-              activeIndex={Math.max(0, PERIOD_OPTIONS.findIndex((p) => p.id === period))}
-              onChange={(i) => setFilters((f) => ({ ...f, period: PERIOD_OPTIONS[i].id }))}
-              theme={isDarkMode ? 'dark' : 'light'}
-              size="sm"
-              color="#0284c7"
-              activeTextColor="#ffffff"
-              particleCount={12}
-              spread={40}
-              style={
-                {
-                  '--gn-font': '12px',
-                  '--gn-frame': isDarkMode ? 'rgba(2, 6, 23, 0.5)' : '#f8fafc',
-                  '--gn-frame-edge': isDarkMode ? '#1e293b' : '#e2e8f0',
-                  '--gn-frame-highlight': 'transparent',
-                  '--gn-frame-shadow': 'none',
-                  '--gn-ink': isDarkMode ? '#ffffff' : '#0f172a',
-                  '--gn-muted': isDarkMode ? '#94a3b8' : '#64748b',
-                } as React.CSSProperties
-              }
+              options={PERIOD_OPTIONS}
+              value={period}
+              onChange={(id) => setFilters((f) => ({ ...f, period: id }))}
+              idFor={(id) => `dash-period-${id}`}
             />
           )}
           {showArea && (

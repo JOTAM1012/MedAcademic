@@ -10,6 +10,7 @@ import { useDayPlan } from '../../hooks/useStudyPlan';
 import { OptionChip, PlanModal, blocksToHours, readLocal, taskSizeLabel, userLocalKey, writeLocal } from './planShared';
 import { StudyContentModal } from './StudyContentModal';
 import { QuickThemeModal } from './QuickThemeModal';
+import Segmented from '../shared/Segmented';
 
 /** "Somar o básico" do método (modo simples): só aparece o que ainda não está no plano de hoje */
 const BASICS: Array<{ id: string; title: string; blocks: number; kinds: string[] }> = [
@@ -288,29 +289,18 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose, date:
       >
         <div className="space-y-5">
           {/* Modo */}
-          <div className="grid grid-cols-2 gap-1.5 rounded-2xl bg-slate-100 dark:bg-slate-950/60 p-1" role="tablist" aria-label="Modo do planejamento">
-            {(
-              [
-                { id: 'simples', label: 'Simples', hint: 'o plano pronto + o básico' },
-                { id: 'detalhado', label: 'Detalhado', hint: 'você escolhe tudo' },
-              ] as const
-            ).map((m) => (
-              <button
-                key={m.id}
-                type="button"
-                role="tab"
-                id={`dayplan-mode-${m.id}`}
-                aria-selected={mode === m.id}
-                onClick={() => setMode(m.id)}
-                className={`min-h-[44px] rounded-xl px-3 text-left transition-colors ${
-                  mode === m.id ? 'bg-white dark:bg-slate-800 shadow-xs' : 'hover:bg-white/60 dark:hover:bg-slate-800/50'
-                }`}
-              >
-                <span className={`block text-sm font-black ${mode === m.id ? 'text-sky-700 dark:text-sky-300' : 'text-slate-700 dark:text-slate-200'}`}>{m.label}</span>
-                <span className="block text-[10px] text-slate-500 dark:text-slate-400">{m.hint}</span>
-              </button>
-            ))}
-          </div>
+          <Segmented
+            ariaLabel="Modo do planejamento"
+            stretch
+            fontSize={13}
+            options={[
+              { id: 'simples', label: 'Simples', hint: 'o plano pronto + o básico' },
+              { id: 'detalhado', label: 'Detalhado', hint: 'você escolhe tudo' },
+            ]}
+            value={mode}
+            onChange={(id) => setMode(id)}
+            idFor={(id) => `dayplan-mode-${id}`}
+          />
 
           {/* Tipo do dia */}
           <section>

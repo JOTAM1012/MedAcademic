@@ -5,6 +5,7 @@ import { BookOpen, Briefcase, CalendarCheck, Eraser, Leaf } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import type { ExamShift, TurnPlan, TurnState } from '../../types';
 import { TURN_KEYS, TURN_LABELS, TURN_METHODS, WEEKDAY_NAMES, WEEKDAY_SHORT, emptyWeekTurns, turnKey, turnOfTime } from '../../data/studyMethod';
+import Segmented from '../shared/Segmented';
 
 const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0];
 const NEXT: Record<TurnState, TurnState> = { livre: 'ocupado', ocupado: 'descanso', descanso: 'livre' };
@@ -88,28 +89,20 @@ export const WeekTurnsEditor: React.FC<Props> = ({ value, onChange, bestTurn, on
   return (
     <div id="routine-week-turns" className="space-y-3">
       {/* Simples (só livre/ocupado/descanso) ou Detalhado (o que fazer em cada turno) */}
-      <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-slate-100 dark:bg-slate-800/70" role="tablist">
-        {([
-          [false, 'Simples', 'Livre, ocupado ou descanso'],
-          [true, 'Detalhado', 'Matéria e forma de estudo'],
-        ] as const).map(([d, label, hint]) => (
-          <button
-            key={label}
-            type="button"
-            role="tab"
-            id={`routine-turns-mode-${d ? 'detailed' : 'simple'}`}
-            aria-selected={!!detailed === d}
-            onClick={() => {
-              onDetailed(d);
-              setSel(null);
-            }}
-            className={`min-h-[44px] rounded-lg px-2 text-left transition-colors ${!!detailed === d ? 'bg-white dark:bg-slate-900 shadow-sm' : 'hover:bg-white/50 dark:hover:bg-slate-900/40'}`}
-          >
-            <span className={`block text-xs font-black ${!!detailed === d ? 'text-sky-700 dark:text-sky-300' : 'text-slate-600 dark:text-slate-300'}`}>{label}</span>
-            <span className="block text-[10.5px] text-slate-500 dark:text-slate-400 truncate">{hint}</span>
-          </button>
-        ))}
-      </div>
+      <Segmented
+        ariaLabel="Como montar a semana"
+        stretch
+        options={[
+          { id: 'simple', label: 'Simples', hint: 'Livre, ocupado ou descanso' },
+          { id: 'detailed', label: 'Detalhado', hint: 'Matéria e forma de estudo' },
+        ]}
+        value={detailed ? 'detailed' : 'simple'}
+        onChange={(id) => {
+          onDetailed(id === 'detailed');
+          setSel(null);
+        }}
+        idFor={(id) => `routine-turns-mode-${id}`}
+      />
 
       {/* Grade: dias em colunas, turnos em linhas */}
       <div className="overflow-x-auto -mx-1 px-1">

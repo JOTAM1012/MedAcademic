@@ -16,6 +16,7 @@ import { Trash2 } from 'lucide-react';
 import { SubjectSection } from './structure/SubjectSection';
 import { SubjectGrid } from './structure/SubjectGrid';
 import { ymd } from '../data/blockReview';
+import Segmented from './shared/Segmented';
 
 interface AcademicStructureViewProps {
   onOpenAddSubject: () => void;
@@ -299,27 +300,18 @@ export const AcademicStructureView: React.FC<AcademicStructureViewProps> = ({ on
               </div>
             </div>
             {!isBasic && (
-              <div role="tablist" aria-label="Organizar por" className="grid grid-cols-2 p-1 rounded-2xl bg-slate-100 dark:bg-slate-800/70 sm:w-80">
-                {(
-                  [
-                    { id: 'area', label: 'Grandes áreas', Icon: LayoutGrid },
-                    { id: 'module', label: 'Módulos', Icon: FolderTree },
-                  ] as const
-                ).map(({ id, label, Icon }) => (
-                  <button
-                    key={id}
-                    id={`struct-view-${id}`}
-                    type="button"
-                    role="tab"
-                    aria-selected={mode === id}
-                    onClick={() => changeView(id)}
-                    className={`h-10 inline-flex items-center justify-center gap-1.5 rounded-xl text-xs font-bold transition-colors ${
-                      mode === id ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
-                    }`}
-                  >
-                    <Icon className="h-3.5 w-3.5" /> {label}
-                  </button>
-                ))}
+              <div className="sm:w-80">
+                <Segmented
+                  ariaLabel="Organizar por"
+                  stretch
+                  options={[
+                    { id: 'area', label: 'Grandes áreas', icon: <LayoutGrid className="h-3.5 w-3.5" /> },
+                    { id: 'module', label: 'Módulos', icon: <FolderTree className="h-3.5 w-3.5" /> },
+                  ]}
+                  value={mode}
+                  onChange={(id) => changeView(id)}
+                  idFor={(id) => `struct-view-${id}`}
+                />
               </div>
             )}
           </div>

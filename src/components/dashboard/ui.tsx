@@ -4,6 +4,7 @@ import React, { useId, useState } from 'react';
 import { ArrowRight, ChevronDown, TrendingDown, TrendingUp, type LucideIcon } from 'lucide-react';
 import type { GroupMode } from './dashboardData';
 import { useGrowFromZero } from '../shared/CountUp';
+import Segmented from '../shared/Segmented';
 
 export const WidgetCard: React.FC<{
   id?: string;
@@ -48,28 +49,18 @@ export const LinkButton: React.FC<{ id?: string; onClick: () => void; compact?: 
 
 /** "Grandes áreas | Módulos" */
 export const GroupToggle: React.FC<{ id: string; value: GroupMode; onChange: (m: GroupMode) => void }> = ({ id, value, onChange }) => (
-  <div id={id} role="group" aria-label="Agrupar por" className="inline-flex rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50 p-0.5">
-    {(
-      [
-        ['area', 'Grandes áreas'],
-        ['module', 'Módulos'],
-      ] as const
-    ).map(([m, label]) => (
-      <button
-        key={m}
-        type="button"
-        id={`${id}-${m}`}
-        aria-pressed={value === m}
-        onClick={() => onChange(m)}
-        className={`min-h-[40px] px-2.5 rounded-lg text-[11px] font-bold transition-colors ${
-          value === m
-            ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs'
-            : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
-        }`}
-      >
-        {label}
-      </button>
-    ))}
+  <div id={id}>
+    <Segmented
+      ariaLabel="Agrupar por"
+      options={[
+        { id: 'area', label: 'Grandes áreas' },
+        { id: 'module', label: 'Módulos' },
+      ]}
+      value={value}
+      onChange={onChange}
+      idFor={(m) => `${id}-${m}`}
+      fontSize={11}
+    />
   </div>
 );
 

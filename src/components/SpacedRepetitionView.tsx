@@ -16,6 +16,7 @@ import { GuidedReviewSession, guidedStorageKey, loadGuided, saveGuided, type Gui
 import { subjectLabel, taskDuration } from './review/reviewShared';
 import { startPlanTask } from './plan/planShared';
 import { EmptyState } from './shared/EmptyState';
+import Segmented from './shared/Segmented';
 
 interface SpacedRepetitionViewProps {
   onOpenAddTopic?: () => void;
@@ -365,31 +366,16 @@ export const SpacedRepetitionView: React.FC<SpacedRepetitionViewProps> = () => {
 
       {/* Sub-abas */}
       <div className="sticky top-0 z-20 -mx-4 px-4 sm:mx-0 sm:px-0 py-1 bg-[#F8FAFC]/90 dark:bg-slate-950/90 backdrop-blur-sm">
-        <div role="tablist" aria-label="Revisões" className="flex gap-1 p-1 rounded-2xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 overflow-x-auto">
-          {tabs.map((t) => (
-            <button
-              key={t.id}
-              id={`review-tab-${t.id}`}
-              role="tab"
-              type="button"
-              aria-selected={tab === t.id}
-              onClick={() => setTab(t.id)}
-              className={`flex-1 shrink-0 inline-flex items-center justify-center gap-1.5 min-h-[40px] px-3 rounded-xl text-xs sm:text-[13px] font-bold whitespace-nowrap transition-colors ${
-                tab === t.id ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
-              }`}
-            >
-              {t.label}
-              {t.count !== undefined && t.count > 0 && (
-                <span
-                  className={`text-[10px] font-black px-1.5 py-0.5 rounded-full tabular-nums ${
-                    tab === t.id ? 'bg-sky-600 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
-                  }`}
-                >
-                  {t.count}
-                </span>
-              )}
-            </button>
-          ))}
+        <div className="overflow-x-auto scrollbar-none">
+          <Segmented
+            ariaLabel="Revisões"
+            stretch
+            nowrap
+            options={tabs.map((t) => ({ id: t.id, label: t.label, badge: t.count !== undefined && t.count > 0 ? t.count : undefined }))}
+            value={tab}
+            onChange={(id) => setTab(id)}
+            idFor={(id) => `review-tab-${id}`}
+          />
         </div>
       </div>
 

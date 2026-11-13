@@ -137,3 +137,60 @@
     color: var(--gn-ink);
   }
 }
+
+/* ---- adaptações do MedAcademic ---- */
+.gooey-nav--stretch {
+  display: flex;
+  width: 100%;
+}
+.gooey-nav--stretch .gooey-nav__stage {
+  flex: 1;
+  min-width: 0;
+}
+.gooey-nav--stretch .gooey-nav__list {
+  flex-wrap: nowrap;
+}
+.gooey-nav--stretch .gooey-nav__item {
+  flex: 1 1 0;
+}
+.gooey-nav--stretch .gooey-nav__link {
+  width: 100%;
+  justify-content: center;
+}
+.gooey-nav__text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.2;
+}
+.gooey-nav__label {
+  font-weight: 700;
+}
+.gooey-nav__hint {
+  font-size: 10px;
+  font-weight: 500;
+  opacity: 0.8;
+}
+.gooey-nav__badge {
+  min-width: 18px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 14px;
+  text-align: center;
+  background: color-mix(in srgb, currentColor 16%, transparent);
+}
+
+/* uma linha só, rolando para o lado quando não cabe (o pai tem overflow-x: auto) */
+.gooey-nav--nowrap {
+  max-width: none;
+}
+.gooey-nav--nowrap .gooey-nav__list {
+  flex-wrap: nowrap;
+}
+.gooey-nav--nowrap.gooey-nav--stretch {
+  width: auto;
+  min-width: 100%;
+}

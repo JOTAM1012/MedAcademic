@@ -37,6 +37,12 @@ export interface GooeyNavItem {
   label: string;
   href?: string;
   icon?: React.ReactNode;
+  /** id do botão (tem prioridade sobre idPrefix) */
+  id?: string;
+  /** linha menor embaixo do nome */
+  hint?: string;
+  /** contador ao lado do nome */
+  badge?: number | string;
 }
 
 export interface GooeyNavProps {
@@ -62,6 +68,10 @@ export interface GooeyNavProps {
   /** id de cada item: `${idPrefix}-${índice}` */
   idPrefix?: string;
   ariaLabel?: string;
+  /** ocupa a largura toda, botões do mesmo tamanho */
+  stretch?: boolean;
+  /** quanto as gotas podem sair da caixa (px). Menor evita rolagem lateral em janelas */
+  bleed?: number;
 }
 
 const MAX_DROPS = 32;
@@ -246,6 +256,8 @@ const GooeyNav: React.FC<GooeyNavProps> = ({
   style,
   idPrefix,
   ariaLabel,
+  stretch,
+  bleed = MARGIN,
 }) => {
   const [innerIndex, setInnerIndex] = useState(initialActiveIndex);
   const current = Math.min(Math.max(0, activeIndex ?? innerIndex), Math.max(0, items.length - 1));
@@ -290,6 +302,7 @@ const GooeyNav: React.FC<GooeyNavProps> = ({
     const fallback = fallbackRef.current;
     if (!stage || !canvas || !list || !overlay || !fallback) return;
 
+    const margin = bleed;
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false });
     const pipeline = gl ? build(gl) : null;
@@ -311,15 +324,16 @@ const GooeyNav: React.FC<GooeyNavProps> = ({
     let disposed = false;
 
     const measure = () => {
-      const box = stage.getBoundingClientRect();
+      // medidas sem transform (janelas que abrem com zoom não deslocam a pílula)
+      const box = { width: stage.offsetWidth, height: stage.offsetHeight };
       const ratio = Math.min(window.devicePixelRatio || 1, 2);
       view.width = box.width;
       view.height = box.height;
-      const outerWidth = box.width + MARGIN * 2;
-      const outerHeight = box.height + MARGIN * 2;
+      const outerWidth = box.width + margin * 2;
+      const outerHeight = box.height + margin * 2;
       Object.assign(canvas.style, {
-        left: `${-MARGIN}px`,
-        top: `${-MARGIN}px`,
+        left: `${-margin}px`,
+        top: `${-margin}px`,
         width: `${outerWidth}px`,
         height: `${outerHeight}px`,
       });
@@ -329,10 +343,12 @@ const GooeyNav: React.FC<GooeyNavProps> = ({
         canvas.width = width;
         canvas.height = height;
       }
-      rects = (Array.from(list.children) as Element[]).map((item) => {
-        const rect = item.getBoundingClientRect();
-        return { x: rect.left - box.left, y: rect.top - box.top, w: rect.width, h: rect.height };
-      });
+      rects = (Array.from(list.children) as HTMLElement[]).map((item) => ({
+        x: list.offsetLeft + item.offsetLeft,
+        y: list.offsetTop + item.offsetTop,
+        w: item.offsetWidth,
+        h: item.offsetHeight,
+      }));
     };
 
     const trace = (boxes: Box[], blobs: Blob[], smooth: number) => {
@@ -509,8 +525,8 @@ const GooeyNav: React.FC<GooeyNavProps> = ({
       let slot = 0;
       for (const box of boxes) {
         if (slot >= MAX_PILLS) break;
-        pillData[slot * 4] = box.cx + MARGIN;
-        pillData[slot * 4 + 1] = box.cy + MARGIN;
+        pillData[slot * 4] = box.cx + margin;
+        pillData[slot * 4 + 1] = box.cy + margin;
         pillData[slot * 4 + 2] = box.hw;
         pillData[slot * 4 + 3] = box.hh;
         slot += 1;
@@ -519,8 +535,8 @@ const GooeyNav: React.FC<GooeyNavProps> = ({
       let count = 0;
       for (const blob of blobs) {
         if (count >= MAX_DROPS) break;
-        dropData[count * 4] = blob.x + MARGIN;
-        dropData[count * 4 + 1] = blob.y + MARGIN;
+        dropData[count * 4] = blob.x + margin;
+        dropData[count * 4 + 1] = blob.y + margin;
         dropData[count * 4 + 2] = blob.r;
         dropData[count * 4 + 3] = 0;
         tailData[count * 2] = blob.tx;
@@ -540,10 +556,10 @@ const GooeyNav: React.FC<GooeyNavProps> = ({
       gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
       gl.enableVertexAttribArray(position);
       gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
-      gl.uniform2f(uniforms.uSize, view.width + MARGIN * 2, view.height + MARGIN * 2);
-      gl.uniform1f(uniforms.uRatio, canvas.width / Math.max(1, view.width + MARGIN * 2));
+      gl.uniform2f(uniforms.uSize, view.width + margin * 2, view.height + margin * 2);
+      gl.uniform1f(uniforms.uRatio, canvas.width / Math.max(1, view.width + margin * 2));
       gl.uniform4fv(uniforms.uPills, pillData);
-      gl.uniform4f(uniforms.uHover, hover.x + MARGIN, hover.y + MARGIN, hover.w / 2, hover.h / 2);
+      gl.uniform4f(uniforms.uHover, hover.x + margin, hover.y + margin, hover.w / 2, hover.h / 2);
       gl.uniform4fv(uniforms.uDrops, dropData);
       gl.uniform2fv(uniforms.uTails, tailData);
       gl.uniform3fv(uniforms.uTints, tintData);
@@ -749,7 +765,7 @@ const GooeyNav: React.FC<GooeyNavProps> = ({
       }
       engineRef.current = null;
     };
-  }, [items.length]);
+  }, [items.length, bleed]);
 
   useEffect(() => {
     engineRef.current?.go(current);
@@ -766,7 +782,15 @@ const GooeyNav: React.FC<GooeyNavProps> = ({
       const content = (
         <>
           {item.icon && <span className="gooey-nav__icon">{item.icon}</span>}
-          {item.label && <span className="gooey-nav__label">{item.label}</span>}
+          {item.hint ? (
+            <span className="gooey-nav__text">
+              <span className="gooey-nav__label">{item.label}</span>
+              <span className="gooey-nav__hint">{item.hint}</span>
+            </span>
+          ) : (
+            item.label && <span className="gooey-nav__label">{item.label}</span>
+          )}
+          {item.badge !== undefined && item.badge !== '' && <span className="gooey-nav__badge">{item.badge}</span>}
         </>
       );
       if (!interactive) {
@@ -777,7 +801,7 @@ const GooeyNav: React.FC<GooeyNavProps> = ({
         );
       }
       const shared = {
-        id: idPrefix ? `${idPrefix}-${index}` : undefined,
+        id: item.id ?? (idPrefix ? `${idPrefix}-${index}` : undefined),
         className: 'gooey-nav__link',
         'aria-current': index === current ? ('page' as const) : undefined,
         onClick: (event: React.MouseEvent) => {
@@ -801,9 +825,10 @@ const GooeyNav: React.FC<GooeyNavProps> = ({
     });
 
   return (
-    <nav
+    <div
+      role="group"
       aria-label={ariaLabel}
-      className={`gooey-nav ${SIZES[size] ?? SIZES.md}${frame ? ' gooey-nav--framed' : ''} ${className}`.trim()}
+      className={`gooey-nav ${SIZES[size] ?? SIZES.md}${frame ? ' gooey-nav--framed' : ''}${stretch ? ' gooey-nav--stretch' : ''} ${className}`.trim()}
       style={{ ...THEMES[palette], '--gn-pill': pillColor, '--gn-active-ink': textColor, ...style } as React.CSSProperties}
     >
       {frame && <span className="gooey-nav__rim" />}
@@ -817,7 +842,7 @@ const GooeyNav: React.FC<GooeyNavProps> = ({
           {labels(false)}
         </ul>
       </div>
-    </nav>
+    </div>
   );
 };
 
