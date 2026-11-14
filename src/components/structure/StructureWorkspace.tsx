@@ -9,6 +9,7 @@ import { formatDM, isTopicSeen, ymd } from '../../data/blockReview';
 import { Bar, Ring, subjectColor, subjectName, topicStats } from './shared';
 import { SubjectSection } from './SubjectSection';
 import Segmented from '../shared/Segmented';
+import { useApp } from '../../context/AppContext';
 import '../checklist/notebook.css';
 import './areaWorkspace.css';
 
@@ -102,13 +103,27 @@ export const StructureWorkspace: React.FC<Props> = ({
     const s = read(SORT_KEY);
     return s === 'progresso' || s === 'prova' || s === 'az' ? s : 'situacao';
   });
-  const [favs, setFavs] = useState<string[]>(() => {
+  // Favoritas ficam na conta (valem em todos os aparelhos)
+  const { studyMethod, setStructFavorites } = useApp();
+  const favs = studyMethod.structFavorites || [];
+  // as marcadas antes neste aparelho passam para a conta uma vez
+  useEffect(() => {
+    let local: string[] = [];
     try {
-      return JSON.parse(read(FAV_KEY) || '[]');
+      local = JSON.parse(read(FAV_KEY) || '[]');
     } catch {
-      return [];
+      local = [];
     }
-  });
+    if (!local.length) return;
+    const merged = Array.from(new Set([...(studyMethod.structFavorites || []), ...local]));
+    setStructFavorites(merged);
+    try {
+      localStorage.removeItem(FAV_KEY);
+    } catch {
+      /* sem armazenamento */
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [lastId, setLastId] = useState<string | null>(() => read(LAST_KEY));
   const [query, setQuery] = useState('');
   const [showDone, setShowDone] = useState(false);
@@ -123,12 +138,7 @@ export const StructureWorkspace: React.FC<Props> = ({
     setSortState(s);
     write(SORT_KEY, s);
   };
-  const toggleFav = (id: string) =>
-    setFavs((f) => {
-      const next = f.includes(id) ? f.filter((x) => x !== id) : [...f, id];
-      write(FAV_KEY, JSON.stringify(next));
-      return next;
-    });
+  const toggleFav = (id: string) => setStructFavorites(favs.includes(id) ? favs.filter((x) => x !== id) : [...favs, id]);
   const openSubject = (id: string) => {
     setOpenId(id);
     setLastId(id);

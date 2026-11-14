@@ -290,6 +290,8 @@ export interface StudyMethodState {
   mobileTabs?: string[];
   /** Barra lateral personalizada (ordem, abas escondidas, ícones, seções) */
   sidebar?: SidebarPrefs;
+  /** Disciplinas favoritas (⭐) da aba Disciplinas */
+  structFavorites?: string[];
   /** Provas de concurso feitas fora da plataforma */
   contests?: ContestExam[];
   /** Provas de semestres passados (organização pessoal) */

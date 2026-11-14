@@ -1,0 +1,90 @@
+/* Botão de tema em forma de lanterna (base: Uiverse.io, JkHuger). Mesmos tempos e curvas. */
+.lamp-switch {
+  font-size: 18px;
+  background-color: rgba(0, 0, 0, 0.7);
+  border-radius: 0.75em;
+  box-shadow: 0.125em 0.125em 0 0.125em rgba(0, 0, 0, 0.3) inset;
+  color: #fdea7b;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  margin: 0;
+  padding: 0.15em;
+  width: 3em;
+  height: 1.5em;
+  cursor: pointer;
+  transition:
+    background-color 0.1s 0.3s ease-out,
+    box-shadow 0.1s 0.3s ease-out;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+}
+.lamp-switch::before,
+.lamp-switch::after {
+  content: '';
+  display: block;
+}
+.lamp-switch::before {
+  background-color: #d7d7d7;
+  border-radius: 50%;
+  width: 1.2em;
+  height: 1.2em;
+  transition:
+    background-color 0.1s 0.3s ease-out,
+    transform 0.3s ease-out;
+  z-index: 1;
+}
+.lamp-switch::after {
+  background:
+    linear-gradient(transparent 50%, rgba(0, 0, 0, 0.15) 0) 0 50% / 50% 100%,
+    repeating-linear-gradient(90deg, #bbb 0, #bbb, #bbb 20%, #999 20%, #999 40%) 0 50% / 50% 100%,
+    radial-gradient(circle at 50% 50%, #888 25%, transparent 26%);
+  background-repeat: no-repeat;
+  border: 0.25em solid transparent;
+  border-left: 0.4em solid #d8d8d8;
+  border-right: 0 solid transparent;
+  transition:
+    border-left-color 0.1s 0.3s ease-out,
+    transform 0.3s ease-out;
+  transform: translateX(-22.5%);
+  transform-origin: 25% 50%;
+  width: 1.2em;
+  height: 1em;
+  box-sizing: border-box;
+}
+/* Ligada (modo claro): luz amarela */
+.lamp-switch:checked {
+  background-color: rgba(0, 0, 0, 0.45);
+  box-shadow: 0.125em 0.125em 0 0.125em rgba(0, 0, 0, 0.1) inset;
+}
+.lamp-switch:checked::before {
+  background-color: currentColor;
+  transform: translateX(125%);
+}
+.lamp-switch:checked::after {
+  border-left-color: currentColor;
+  transform: translateX(-2.5%) rotateY(180deg);
+}
+/* No tema escuro o trilho ganha um contorno leve para não sumir no fundo */
+.dark .lamp-switch {
+  background-color: rgba(0, 0, 0, 0.55);
+  box-shadow:
+    0.125em 0.125em 0 0.125em rgba(0, 0, 0, 0.3) inset,
+    0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+.lamp-switch:focus {
+  outline: 0;
+}
+.lamp-switch:focus-visible {
+  outline: 2px solid #0284c7;
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .lamp-switch,
+  .lamp-switch::before,
+  .lamp-switch::after {
+    transition-duration: 0.01ms;
+    transition-delay: 0s;
+  }
+}

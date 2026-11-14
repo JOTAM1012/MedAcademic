@@ -24,7 +24,7 @@ import {
 import { useSidebarCollapsed, useWideLayout } from '../hooks/useWideLayout';
 import { useApp } from '../context/AppContext';
 import TooltipGroup from './shared/TooltipGroup';
-import SquishSwitch from './shared/SquishSwitch';
+import './shared/LampSwitch.css';
 import { NotificationBadge } from './shared/NotificationBadge';
 import { GlobalSearch } from './GlobalSearch';
 import { openInstallGuide, usePwaInstall } from '../lib/pwaInstall';
@@ -306,20 +306,15 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleMobileMenu, onOpenTour }
 
         {/* Dark Mode Toggle */}
         <span className="inline-flex" data-tooltip={isDarkMode ? 'Mudar para o modo claro' : 'Mudar para o modo escuro'}>
-        <SquishSwitch
+        {/* Lanterna acesa = modo claro; apagada = modo escuro */}
+        <input
+          type="checkbox"
+          role="switch"
           id="topbar-theme-toggle-btn"
-          checked={isDarkMode}
+          className="lamp-switch ml-1"
+          checked={!isDarkMode}
           onChange={() => toggleDarkMode()}
-          ariaLabel={isDarkMode ? 'Ativar modo claro' : 'Ativar modo escuro'}
-          width={50}
-          height={28}
-          radius={14}
-          trackColor="#e2e8f0"
-          trackOnColor="#1e293b"
-          thumbColor="#ffffff"
-          thumbOnColor="#0f172a"
-          className="shrink-0 ml-1"
-          thumbIcon=<IconSwap swapped={isDarkMode} from={<Sun className="h-3 w-3 text-amber-500" />} to={<Moon className="h-3 w-3 text-sky-300" />} />
+          aria-label={isDarkMode ? 'Ativar modo claro' : 'Ativar modo escuro'}
         />
         </span>
       </TooltipGroup>

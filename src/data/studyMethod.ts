@@ -576,6 +576,8 @@ export const normalizeStudyMethod = (raw: any): StudyMethodState => {
     mobileTabs: Array.isArray(raw.mobileTabs) ? raw.mobileTabs.filter((x: unknown) => typeof x === 'string') : undefined,
     contests: Array.isArray(raw.contests) ? raw.contests : undefined,
     pastExams: Array.isArray(raw.pastExams) ? raw.pastExams : undefined,
+    sidebar: raw.sidebar && typeof raw.sidebar === 'object' ? raw.sidebar : undefined,
+    structFavorites: Array.isArray(raw.structFavorites) ? raw.structFavorites.filter((x: unknown) => typeof x === 'string') : undefined,
   };
 };
 
@@ -616,6 +618,8 @@ export const mergeStudyMethod = (local: StudyMethodState, cloudRaw: any, _today 
     mobileTabs: cloud.mobileTabs || local.mobileTabs,
     contests: byId(cloud.contests || [], local.contests || []),
     pastExams: byId(cloud.pastExams || [], local.pastExams || []),
+    sidebar: cloud.sidebar || local.sidebar,
+    structFavorites: cloud.structFavorites ?? local.structFavorites,
   };
 };
 
