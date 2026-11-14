@@ -142,11 +142,7 @@
   animation: owner-gold-shine 4s linear infinite;
   font-weight: 900;
 }
-/* Brilho fica no invólucro: filtro no mesmo elemento do texto recortado deixava um quadrado */
-.name-glow-gold { filter: drop-shadow(0 0 6px rgba(251, 191, 36, 0.45)); }
-.name-glow-blue { filter: drop-shadow(0 0 6px rgba(14, 165, 233, 0.45)); }
-html:not(.dark) .name-glow-gold { filter: drop-shadow(0 0 4px rgba(217, 119, 6, 0.3)); }
-html:not(.dark) .name-glow-blue { filter: drop-shadow(0 0 4px rgba(14, 165, 233, 0.25)); }
+/* Sem filtro de brilho nos nomes: em alguns navegadores ele desenhava um quadrado atrás do texto recortado */
 @media (prefers-reduced-motion: reduce) {
   .owner-gold-name, .user-blue-name { animation: none; }
 }

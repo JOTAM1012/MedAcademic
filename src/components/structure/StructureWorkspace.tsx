@@ -3,7 +3,7 @@
 // Extras: "Continuar de onde parou", favoritas (⭐) e prova próxima.
 import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronDown, ChevronLeft, ChevronRight, FolderOpen, Play, Plus, Search, Star, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, FolderOpen, Play, Plus, Search, Star, X } from 'lucide-react';
 import type { Exam, Subject, Topic, TopicBlock } from '../../types';
 import { formatDM, isTopicSeen, ymd } from '../../data/blockReview';
 import { Bar, Ring, subjectColor, subjectName, topicStats } from './shared';
@@ -26,7 +26,6 @@ export interface Shelf {
 
 type Sort = 'situacao' | 'progresso' | 'prova' | 'az';
 type Status = 'andamento' | 'nova' | 'feita';
-const STATUS_LABEL: Record<Status, string> = { andamento: 'Em andamento', nova: 'Não iniciadas', feita: 'Concluídas' };
 const RINGS = Array.from({ length: 9 });
 const RINGS_BIG = Array.from({ length: 16 });
 
@@ -126,7 +125,6 @@ export const StructureWorkspace: React.FC<Props> = ({
   }, []);
   const [lastId, setLastId] = useState<string | null>(() => read(LAST_KEY));
   const [query, setQuery] = useState('');
-  const [showDone, setShowDone] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
 
   const setShelfId = (id: string) => {
@@ -266,40 +264,16 @@ export const StructureWorkspace: React.FC<Props> = ({
     );
   };
 
-  const section = (key: string, label: string, list: Info[], collapsible = false) => {
-    if (!list.length) return null;
-    const isOpen = !collapsible || showDone || !!q;
-    return (
-      <div key={key}>
-        {collapsible ? (
-          <button type="button" id="struct-done-toggle" onClick={() => setShowDone((v) => !v)} aria-expanded={isOpen} className="aw-group-title inline-flex items-center gap-1 hover:text-slate-700 dark:hover:text-slate-200">
-            <ChevronDown className={`h-3.5 w-3.5 transition-transform motion-reduce:transition-none ${isOpen ? '' : '-rotate-90'}`} />
-            {label} ({list.length})
-          </button>
-        ) : (
-          <p className="aw-group-title">
-            {label} ({list.length})
-          </p>
-        )}
-        {isOpen && <ul className="aw-chips">{list.map(chip)}</ul>}
-      </div>
-    );
-  };
 
-  const favRows = sorted.filter((r) => favs.includes(r.s.id));
-  const rest = sorted.filter((r) => !favs.includes(r.s.id));
-  const listBody =
-    sort === 'situacao' ? (
-      <>
-        {section('fav', '⭐ Favoritas', favRows)}
-        {(['andamento', 'nova', 'feita'] as Status[]).map((st) => section(st, STATUS_LABEL[st], rest.filter((r) => r.status === st), st === 'feita'))}
-      </>
-    ) : (
-      <>
-        {section('fav', '⭐ Favoritas', favRows)}
-        {section('all', 'Disciplinas', rest)}
-      </>
-    );
+  // Tudo junto, sem separar por situação: favoritas primeiro; em "Situação", em andamento → não iniciadas → concluídas
+  const RANK: Record<Status, number> = { andamento: 0, nova: 1, feita: 2 };
+  const ordered = [...sorted].sort((a, b) => {
+    const fa = favs.includes(a.s.id) ? 0 : 1;
+    const fb = favs.includes(b.s.id) ? 0 : 1;
+    if (fa !== fb) return fa - fb;
+    return sort === 'situacao' ? RANK[a.status] - RANK[b.status] : 0;
+  });
+  const listBody = <ul className="aw-chips">{ordered.map(chip)}</ul>;
 
   return (
     <div className="space-y-5">
