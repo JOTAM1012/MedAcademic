@@ -371,7 +371,6 @@ export const AcademicStructureView: React.FC<AcademicStructureViewProps> = ({ on
               onOpenAddSubject();
             }}
             onEdit={setEditing}
-            onOpenModule={(id) => setDetail({ kind: 'subject', id })}
             allowLinking={mode === 'module' && !isBasic}
             focusSubjectId={workspaceFocus}
             onFocusConsumed={() => setDetail(null)}

@@ -7,9 +7,18 @@ import { useApp } from '../../context/AppContext';
 import type { Subject, TopicBlock } from '../../types';
 import { Bar, Ring, isModule, subjectColor, subjectName, topicStats } from './shared';
 
-export const ModuleLinks: React.FC<{ module: Subject; onOpenSubject: (id: string) => void }> = ({ module, onOpenSubject }) => {
+interface Props {
+  module: Subject;
+  onOpenSubject: (id: string) => void;
+  /** dentro do quadro "Disciplinas vinculadas": sem moldura, sem a lista de disciplinas e com o seletor controlado de fora */
+  embedded?: boolean;
+  pickerOpen?: boolean;
+}
+
+export const ModuleLinks: React.FC<Props> = ({ module, onOpenSubject, embedded, pickerOpen }) => {
   const { subjects, topicBlocks, topics, currentSemester, updateSubject } = useApp();
-  const [open, setOpen] = useState(false);
+  const [openState, setOpen] = useState(false);
+  const open = embedded ? !!pickerOpen : openState;
   const [q, setQ] = useState('');
 
   const pool = useMemo(
@@ -41,7 +50,8 @@ export const ModuleLinks: React.FC<{ module: Subject; onOpenSubject: (id: string
   const total = linkedSubjects.length + linkedBlocks.length;
 
   return (
-    <section id="module-links" className="rounded-3xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-4 sm:p-5 space-y-3">
+    <section id="module-links" className={embedded ? 'space-y-3 empty:hidden' : 'rounded-3xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-4 sm:p-5 space-y-3'}>
+      {!embedded && (
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h2 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
@@ -61,14 +71,15 @@ export const ModuleLinks: React.FC<{ module: Subject; onOpenSubject: (id: string
           <IconSwap swapped={open} from={<Plus className="h-4 w-4" />} to={<Check className="h-4 w-4" />} /> {open ? 'Pronto' : 'Vincular'}
         </button>
       </div>
+      )}
 
       {/* Vinculados */}
-      {total === 0 && !open && (
+      {!embedded && total === 0 && !open && (
         <p className="rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 p-3 text-[12px] text-slate-500 dark:text-slate-400">
           Nada vinculado ainda. Toque em "Vincular" para ligar disciplinas, módulos ou assuntos.
         </p>
       )}
-      {linkedSubjects.length > 0 && (
+      {!embedded && linkedSubjects.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           {linkedSubjects.map((s) => {
             const st = topicStats(topics.filter((t) => t.subjectId === s.id));
@@ -91,6 +102,9 @@ export const ModuleLinks: React.FC<{ module: Subject; onOpenSubject: (id: string
             );
           })}
         </div>
+      )}
+      {embedded && linkedBlocks.length > 0 && (
+        <p className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Assuntos vinculados</p>
       )}
       {linkedBlocks.length > 0 && (
         <ul className="rounded-2xl border border-slate-200 dark:border-slate-800 divide-y divide-slate-200 dark:divide-slate-800">

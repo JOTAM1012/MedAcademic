@@ -128,8 +128,35 @@
   transition: width 500ms ease;
 }
 
+/* Ordem dos blocos: alça discreta no título (aparece ao passar o mouse no cabeçalho; no toque fica visível) */
+@media (hover: hover) and (pointer: fine) {
+  .nb .nb-grip {
+    opacity: 0;
+    transition: opacity 150ms ease;
+  }
+  .nb .nb-head:hover .nb-grip,
+  .nb .nb-grip:focus-visible,
+  .nb.nb--dragging .nb-grip {
+    opacity: 1;
+  }
+}
+
+/* Bloco sendo arrastado e bloco de destino (onde ele vai entrar) */
+.nb.nb--dragging {
+  opacity: 0.55;
+}
+.nb.nb--drop-target {
+  outline: 2px dashed #0284c7;
+  outline-offset: 4px;
+}
+.nb {
+  transition: opacity 150ms ease, outline-color 150ms ease;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .nb-progress > span {
+  .nb-progress > span,
+  .nb,
+  .nb .nb-grip {
     transition: none;
   }
 }

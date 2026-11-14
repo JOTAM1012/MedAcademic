@@ -403,6 +403,8 @@ interface AppContextType {
   clearCompletedChecklist: (blockId?: string) => void;
   /** Nova ordem (arrastar) dos itens de um bloco: os itens trocam de lugar entre si no array salvo */
   reorderChecklistItems: (blockId: string, orderedIds: string[]) => void;
+  /** Nova ordem dos blocos do checklist (ids na ordem desejada; os que faltarem vão para o fim) */
+  reorderChecklistBlocks: (orderedIds: string[]) => void;
 
   // ===== Método de estudo (Guia Científico) =====
   studyMethod: StudyMethodState;
@@ -2688,6 +2690,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   };
 
+  // Reordena o array salvo de blocos (localStorage e nuvem seguem o estado, como nas outras ações);
+  // ids desconhecidos são ignorados e blocos não citados ficam no fim, na ordem em que estavam
+  const reorderChecklistBlocks = (orderedIds: string[]) => {
+    setChecklistBlocks((prev) => {
+      const byId = new Map<string, ChecklistBlock>(prev.map((b) => [b.id, b]));
+      const seen = new Set<string>();
+      const head: ChecklistBlock[] = [];
+      orderedIds.forEach((id) => {
+        const b = byId.get(id);
+        if (b && !seen.has(id)) {
+          seen.add(id);
+          head.push(b);
+        }
+      });
+      const next = [...head, ...prev.filter((b) => !seen.has(b.id))];
+      return next.every((b, i) => b === prev[i]) ? prev : next;
+    });
+  };
+
   // Sem blockId limpa tudo; "geral" = itens sem bloco existente
   const clearCompletedChecklist = (blockId?: string) => {
     setChecklist((prev) =>
@@ -3498,6 +3519,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         deleteChecklistItems,
         clearCompletedChecklist,
         reorderChecklistItems,
+        reorderChecklistBlocks,
         studyMethod,
         studyPrefs,
         studyPhase,

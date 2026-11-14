@@ -1,6 +1,11 @@
 import IconSwap from './shared/IconSwap';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+  GripVertical,
+  ArrowLeft,
+  ArrowRight,
+  ArrowUp,
+  ArrowDown,
   Plus,
   Trash2,
   Star,
@@ -17,6 +22,8 @@ import {
 import { SubItemsEditor, subItemsProgress } from './shared/SubItems';
 import { ShareChecklistButton } from './shared/ShareChecklistButton';
 import { useApp } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
+import Segmented from './shared/Segmented';
 import SwipeRow from './shared/SwipeRow';
 import SpringCheck from './shared/SpringCheck';
 import { ReorderList, type ReorderHandleProps } from './shared/ReorderList';
@@ -44,6 +51,63 @@ const useColumnCount = () => {
     return () => queries.forEach((q) => q.removeEventListener('change', update));
   }, []);
   return count;
+};
+
+/** Colunas escolhidas pelo aluno ('auto' = masonry automático) e se ele já arrumou a ordem dos blocos */
+type ColumnPref = 'auto' | '1' | '2' | '3';
+interface LayoutPref {
+  cols: ColumnPref;
+  /** true depois que o aluno moveu um bloco: a grade passa a seguir a ordem (linha a linha) */
+  manual: boolean;
+}
+const DEFAULT_LAYOUT: LayoutPref = { cols: 'auto', manual: false };
+const COLUMN_OPTIONS = [
+  { id: 'auto', label: 'Auto', hint: 'Organiza sozinho pelo tamanho dos blocos' },
+  { id: '1', label: '1', hint: '1 coluna' },
+  { id: '2', label: '2', hint: '2 colunas' },
+  { id: '3', label: '3', hint: '3 colunas' },
+] as const;
+
+/** Preferência de layout salva no aparelho, por usuário */
+const useLayoutPref = (userId: string | null) => {
+  const key = `medacademic_usr_${userId || 'default'}_checklist_layout_v1`;
+  const read = (): LayoutPref => {
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) return DEFAULT_LAYOUT;
+      const p = JSON.parse(raw);
+      const cols: ColumnPref = ['auto', '1', '2', '3'].includes(p?.cols) ? p.cols : 'auto';
+      return { cols, manual: !!p?.manual };
+    } catch {
+      return DEFAULT_LAYOUT;
+    }
+  };
+  const [pref, setPref] = useState<LayoutPref>(read);
+  // Troca de conta: relê a preferência daquele usuário
+  useEffect(() => setPref(read()), [key]);
+  const update = (changes: Partial<LayoutPref>) => {
+    setPref((prev) => {
+      const next = { ...prev, ...changes };
+      try {
+        localStorage.setItem(key, JSON.stringify(next));
+      } catch {
+        /* sem armazenamento: vale só nesta sessão */
+      }
+      return next;
+    });
+  };
+  return [pref, update] as const;
+};
+
+/** Primeiro ancestral com rolagem vertical (para rolar enquanto arrasta um bloco perto da borda) */
+const getScrollParent = (el: HTMLElement | null): HTMLElement | null => {
+  let node = el?.parentElement || null;
+  while (node && node !== document.body) {
+    const oy = getComputedStyle(node).overflowY;
+    if ((oy === 'auto' || oy === 'scroll') && node.scrollHeight > node.clientHeight) return node;
+    node = node.parentElement;
+  }
+  return null;
 };
 
 /** Fileira de argolas de espiral no topo do bloco */
@@ -85,7 +149,10 @@ export const ChecklistView: React.FC = () => {
     addChecklistBlock,
     updateChecklistBlock,
     deleteChecklistBlock,
+    reorderChecklistBlocks,
   } = useApp();
+  const { activeUserId } = useAuth();
+  const [layout, setLayout] = useLayoutPref(activeUserId);
 
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [openDone, setOpenDone] = useState<Record<string, boolean>>({});
@@ -131,10 +198,18 @@ export const ChecklistView: React.FC = () => {
 
   const blockById = (id: string) => blocks.find((b) => b.id === id);
 
-  // Masonry: distribui os blocos na coluna mais "baixa" (estimativa pela quantidade de itens)
-  const columnCount = useColumnCount();
+  // Colunas: "Auto" segue a tela (1/2/3); escolha fixa vale do tablet para cima (no celular sempre 1)
+  const screenColumns = useColumnCount();
+  const columnCount = screenColumns === 1 ? 1 : layout.cols === 'auto' ? screenColumns : Number(layout.cols);
+  // Em ordem (linha a linha, da esquerda para a direita) quando o aluno fixou colunas ou já arrumou os blocos;
+  // senão, masonry: cada bloco vai para a coluna mais "baixa" (estimativa pela quantidade de itens)
+  const inOrder = layout.cols !== 'auto' || layout.manual;
   const masonry = useMemo(() => {
     const cols: BlockView[][] = Array.from({ length: columnCount }, () => []);
+    if (inOrder) {
+      blocks.forEach((b, i) => cols[i % columnCount].push(b));
+      return cols;
+    }
     const heights = new Array(columnCount).fill(0);
     blocks.forEach((b) => {
       // Usa o total (não só pendentes) para os blocos não pularem de coluna ao marcar itens
@@ -144,7 +219,88 @@ export const ChecklistView: React.FC = () => {
       heights[target] += h;
     });
     return cols;
-  }, [blocks, checklist, columnCount]);
+  }, [blocks, checklist, columnCount, inOrder]);
+
+  // ---- Ordem dos blocos (só os salvos; "Geral" fica sempre primeiro) ----
+  const [blockDrag, setBlockDrag] = useState<{ id: string; over: string | null } | null>(null);
+  const [moveAnnounce, setMoveAnnounce] = useState('');
+  const savedOrder = checklistBlocks.map((b) => b.id);
+
+  const commitBlockOrder = (next: string[], movedId: string) => {
+    reorderChecklistBlocks(next);
+    if (!layout.manual) setLayout({ manual: true });
+    const b = checklistBlocks.find((x) => x.id === movedId);
+    if (b) setMoveAnnounce(`Bloco ${b.name} na posição ${next.indexOf(movedId) + 1} de ${next.length}.`);
+  };
+
+  /** Coloca o bloco no lugar de outro (os do meio andam uma casa) */
+  const moveBlockTo = (id: string, targetId: string) => {
+    const from = savedOrder.indexOf(id);
+    const to = savedOrder.indexOf(targetId);
+    if (from < 0 || to < 0 || from === to) return;
+    const next = [...savedOrder];
+    next.splice(from, 1);
+    next.splice(to, 0, id);
+    commitBlockOrder(next, id);
+  };
+
+  /** Uma casa para trás (-1) ou para frente (+1) */
+  const moveBlockBy = (id: string, dir: -1 | 1, refocusId?: string) => {
+    const i = savedOrder.indexOf(id);
+    const j = i + dir;
+    if (i < 0 || j < 0 || j >= savedOrder.length) return;
+    const next = [...savedOrder];
+    [next[i], next[j]] = [next[j], next[i]];
+    commitBlockOrder(next, id);
+    if (refocusId) requestAnimationFrame(() => document.getElementById(refocusId)?.focus());
+  };
+
+  // Arrastar pela alça: funciona em qualquer arranjo da grade (o alvo é o bloco sob o dedo/ponteiro)
+  const startBlockDrag = (e: React.PointerEvent<HTMLButtonElement>, id: string) => {
+    if (e.button !== 0 || savedOrder.length < 2) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const btn = e.currentTarget;
+    try {
+      btn.setPointerCapture(e.pointerId);
+    } catch {
+      /* ignora */
+    }
+    let over: string | null = null;
+    setBlockDrag({ id, over: null });
+    const scroller = getScrollParent(btn);
+
+    const onMove = (ev: PointerEvent) => {
+      const el = document.elementFromPoint(ev.clientX, ev.clientY)?.closest<HTMLElement>('[data-block-id]');
+      const t = el?.dataset.blockId;
+      const next = t && t !== id && savedOrder.includes(t) ? t : null;
+      if (next !== over) {
+        over = next;
+        setBlockDrag({ id, over });
+      }
+      // Perto da borda de cima/baixo: rola a página
+      const edge = 56;
+      const dy = ev.clientY < edge ? -14 : ev.clientY > window.innerHeight - edge ? 14 : 0;
+      if (dy) (scroller || document.scrollingElement || document.documentElement).scrollBy(0, dy);
+    };
+    const finish = (commit: boolean) => {
+      btn.removeEventListener('pointermove', onMove);
+      btn.removeEventListener('pointerup', onUp);
+      btn.removeEventListener('pointercancel', onCancel);
+      window.removeEventListener('keydown', onKey);
+      setBlockDrag(null);
+      if (commit && over) moveBlockTo(id, over);
+    };
+    const onUp = () => finish(true);
+    const onCancel = () => finish(false);
+    const onKey = (ev: KeyboardEvent) => {
+      if (ev.key === 'Escape') finish(false);
+    };
+    btn.addEventListener('pointermove', onMove);
+    btn.addEventListener('pointerup', onUp);
+    btn.addEventListener('pointercancel', onCancel);
+    window.addEventListener('keydown', onKey);
+  };
 
   const total = checklist.length;
   const doneCount = checklist.filter((i) => i.done).length;
@@ -377,11 +533,20 @@ export const ChecklistView: React.FC = () => {
     const done = items.filter((i) => i.done && !settling[i.id]);
     const pct = items.length > 0 ? Math.round((done.length / items.length) * 100) : 0;
     const isEditing = editingBlock === block.id;
+    const orderIndex = savedOrder.indexOf(block.id);
+    const canMove = !block.virtual && savedOrder.length > 1;
+    const vertical = columnCount === 1;
+    const dragging = blockDrag?.id === block.id;
+    const dropTarget = blockDrag?.over === block.id;
 
     return (
-      <section key={block.id} className="nb flex flex-col break-inside-avoid mb-6">
+      <section
+        key={block.id}
+        data-block-id={block.id}
+        className={`nb flex flex-col break-inside-avoid mb-6${dragging ? ' nb--dragging' : ''}${dropTarget ? ' nb--drop-target' : ''}`}
+      >
         <NotebookRings />
-        <header className="px-3.5 pt-5 pb-1.5">
+        <header className="nb-head px-3.5 pt-5 pb-1.5">
           <div className="flex items-center justify-between gap-2">
             {isEditing ? (
               <input
@@ -399,6 +564,28 @@ export const ChecklistView: React.FC = () => {
               />
             ) : (
               <h2 className="flex items-center gap-1.5 min-w-0 text-[13px] font-black uppercase tracking-wide text-slate-800 dark:text-slate-100">
+                {canMove && (
+                  // Alça do bloco: arrastar para outro bloco troca de lugar; ←/→ (ou ↑/↓) move uma casa
+                  <button
+                    type="button"
+                    id={`checklist-block-drag-${block.id}`}
+                    data-no-swipe
+                    aria-label={`Mover bloco ${block.name} (posição ${orderIndex + 1} de ${savedOrder.length})`}
+                    title="Arraste para mudar a ordem (ou use as setas)"
+                    onPointerDown={(e) => startBlockDrag(e, block.id)}
+                    onClick={(e) => e.stopPropagation()}
+                    onKeyDown={(e) => {
+                      const dir = e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : 0;
+                      if (!dir) return;
+                      e.preventDefault();
+                      moveBlockBy(block.id, dir, `checklist-block-drag-${block.id}`);
+                    }}
+                    style={{ touchAction: 'none' }}
+                    className="nb-grip -ml-2 h-6 w-4 shrink-0 grid place-items-center rounded-md cursor-grab active:cursor-grabbing select-none normal-case text-slate-300 dark:text-slate-600 can-hover:hover:text-slate-500 dark:can-hover:hover:text-slate-400 focus-visible:outline-2 focus-visible:outline-sky-500"
+                  >
+                    <GripVertical className="h-3.5 w-3.5" aria-hidden />
+                  </button>
+                )}
                 <span className="w-1 h-4 rounded-full shrink-0" style={{ backgroundColor: block.color }} aria-hidden="true" />
                 <span className="text-base leading-none normal-case">{block.emoji}</span>
                 <span className="min-w-0 line-clamp-2 break-words leading-tight">{block.name}</span>
@@ -440,6 +627,27 @@ export const ChecklistView: React.FC = () => {
                   >
                     <Pencil className="h-3.5 w-3.5" /> Renomear
                   </button>
+                  {canMove && (
+                    <div className="grid grid-cols-2 gap-1">
+                      {([-1, 1] as const).map((dir) => {
+                        const off = dir === -1 ? orderIndex <= 0 : orderIndex >= savedOrder.length - 1;
+                        const Icon = vertical ? (dir === -1 ? ArrowUp : ArrowDown) : dir === -1 ? ArrowLeft : ArrowRight;
+                        const label = vertical ? (dir === -1 ? 'Subir' : 'Descer') : dir === -1 ? 'Esquerda' : 'Direita';
+                        return (
+                          <button
+                            key={dir}
+                            id={`checklist-block-move-${dir === -1 ? 'prev' : 'next'}-${block.id}`}
+                            disabled={off}
+                            onClick={() => moveBlockBy(block.id, dir, `checklist-block-move-${dir === -1 ? 'prev' : 'next'}-${block.id}`)}
+                            aria-label={vertical ? `${label} bloco` : `Mover bloco para a ${label.toLowerCase()}`}
+                            className="flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-35 disabled:hover:bg-transparent"
+                          >
+                            <Icon className="h-3.5 w-3.5" /> {label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                   <div className="px-2 py-1">
                     <div className="text-[10px] font-bold uppercase text-slate-400 mb-1">Cor</div>
                     <div className="flex flex-wrap gap-1.5">
@@ -577,18 +785,38 @@ export const ChecklistView: React.FC = () => {
             </div>
           )}
         </div>
-        <button
-          id="checklist-new-block-btn"
-          onClick={(e) => {
-            e.stopPropagation();
-            setCreator((c) => ({ ...c, open: !c.open }));
-          }}
-          aria-expanded={creator.open}
-          className="shrink-0 flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold shadow-xs"
-        >
-          <Plus className="h-4 w-4" /> Novo bloco
-        </button>
+        <div className="shrink-0 flex flex-col items-end gap-2">
+          <button
+            id="checklist-new-block-btn"
+            onClick={(e) => {
+              e.stopPropagation();
+              setCreator((c) => ({ ...c, open: !c.open }));
+            }}
+            aria-expanded={creator.open}
+            className="shrink-0 flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold shadow-xs"
+          >
+            <Plus className="h-4 w-4" /> Novo bloco
+          </button>
+          {/* Colunas: só do tablet para cima (no celular é sempre 1) */}
+          {blocks.length > 1 && screenColumns > 1 && (
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">Colunas</span>
+              <Segmented<ColumnPref>
+                options={COLUMN_OPTIONS}
+                value={layout.cols}
+                onChange={(cols) => setLayout({ cols })}
+                ariaLabel="Colunas dos blocos"
+                idFor={(id) => `checklist-columns-${id}`}
+                fontSize={11}
+                nowrap
+              />
+            </div>
+          )}
+        </div>
       </header>
+      <p className="sr-only" aria-live="polite">
+        {moveAnnounce}
+      </p>
 
       {/* Criar bloco */}
       {(creator.open || blocks.length === 0) && (

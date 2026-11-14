@@ -3,7 +3,9 @@
 // Extras: "Continuar de onde parou", favoritas (⭐) e prova próxima.
 import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronLeft, ChevronRight, FolderOpen, Play, Plus, Search, Star, X } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, Link2, Play, Plus, Search, Star, X } from 'lucide-react';
+import IconSwap from '../shared/IconSwap';
+import { ModuleLinks } from './ModuleLinks';
 import type { Exam, Subject, Topic, TopicBlock } from '../../types';
 import { formatDM, isTopicSeen, ymd } from '../../data/blockReview';
 import { Bar, Ring, subjectColor, subjectName, topicStats } from './shared';
@@ -73,7 +75,6 @@ interface Props {
   addLabel: string;
   onAdd: () => void;
   onEdit: (s: Subject) => void;
-  onOpenModule?: (id: string) => void;
   allowLinking?: boolean;
   focusSubjectId?: string | null;
   /** avisa que o pedido de fora já foi aberto (para poder pedir o mesmo de novo) */
@@ -90,7 +91,6 @@ export const StructureWorkspace: React.FC<Props> = ({
   addLabel,
   onAdd,
   onEdit,
-  onOpenModule,
   allowLinking = false,
   focusSubjectId,
   onFocusConsumed,
@@ -129,11 +129,13 @@ export const StructureWorkspace: React.FC<Props> = ({
   const [lastId, setLastId] = useState<string | null>(() => read(LAST_KEY));
   const [query, setQuery] = useState('');
   const [openId, setOpenId] = useState<string | null>(null);
+  const [linkOpen, setLinkOpen] = useState(false);
 
   const setShelfId = (id: string) => {
     setShelfIdState(id);
     write(storageKey, id);
     setQuery('');
+    setLinkOpen(false);
   };
   const setSort = (s: Sort) => {
     setSortState(s);
@@ -346,9 +348,44 @@ export const StructureWorkspace: React.FC<Props> = ({
         </button>
       </div>
 
-      {/* Barra com as disciplinas do caderno */}
-      <section className="aw-panel p-4 space-y-4">
+      {/* Módulo da faculdade: o próprio módulo aparece direto, com os assuntos dele */}
+      {shelf.module && (
+        <section id="struct-module-panel" className="aw-panel p-4 sm:p-5" style={{ '--aw-color': shelf.color } as React.CSSProperties}>
+          <div className="aw-detail-in" key={shelf.module.id}>
+            <SubjectSection subject={shelf.module} standalone allowLinking={allowLinking} onEdit={onEdit} />
+          </div>
+        </section>
+      )}
+
+      {/* Barra com as disciplinas do caderno (no módulo: as vinculadas, num quadro à parte) */}
+      <section id={shelf.module ? 'struct-linked-panel' : undefined} className="aw-panel p-4 space-y-4">
         <div className="flex flex-col lg:flex-row lg:items-center gap-3">
+          {shelf.module ? (
+            <div className="flex items-center gap-3 min-w-0 flex-1">
+              <span className="h-10 w-10 shrink-0 rounded-xl grid place-items-center bg-sky-500/10 text-sky-600 dark:text-sky-400">
+                <Link2 className="h-4 w-4" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <h2 id="struct-area-title" className="text-base font-black text-slate-900 dark:text-white truncate">
+                  Disciplinas vinculadas
+                </h2>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  {shelf.items.length} disciplina{shelf.items.length === 1 ? '' : 's'} neste módulo
+                </p>
+              </div>
+              {allowLinking && (
+                <button
+                  type="button"
+                  id="module-link-btn"
+                  onClick={() => setLinkOpen((v) => !v)}
+                  aria-expanded={linkOpen}
+                  className="shrink-0 h-9 px-3 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-black inline-flex items-center gap-1.5"
+                >
+                  <IconSwap swapped={linkOpen} from={<Plus className="h-3.5 w-3.5" />} to={<Check className="h-3.5 w-3.5" />} /> {linkOpen ? 'Pronto' : 'Vincular'}
+                </button>
+              )}
+            </div>
+          ) : (
           <div className="flex items-center gap-3 min-w-0 flex-1">
             <span className="h-10 w-10 shrink-0 rounded-xl grid place-items-center text-[11px] font-black" style={{ backgroundColor: `${shelf.color}1f`, color: shelf.color }}>
               {shelf.code}
@@ -364,17 +401,8 @@ export const StructureWorkspace: React.FC<Props> = ({
                 <Bar pct={shelfStats.pct} color={shelf.color} className="flex-1 max-w-[160px]" />
               </div>
             </div>
-            {shelf.module && onOpenModule && (
-              <button
-                type="button"
-                id={`struct-open-module-${shelf.module.id}`}
-                onClick={() => onOpenModule(shelf.module!.id)}
-                className="shrink-0 h-9 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-bold inline-flex items-center gap-1.5"
-              >
-                <FolderOpen className="h-3.5 w-3.5" /> Abrir módulo
-              </button>
-            )}
           </div>
+          )}
           <div className="flex flex-col sm:flex-row gap-2 lg:w-[460px] shrink-0">
             <label className="relative block sm:flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
@@ -407,14 +435,19 @@ export const StructureWorkspace: React.FC<Props> = ({
 
         {shelf.items.length === 0 ? (
           <p className="py-6 text-center text-xs text-slate-400">
-            Nenhuma disciplina neste caderno ainda.
-            {shelf.module ? ' Abra o módulo para vincular disciplinas.' : ''}
+            {shelf.module
+              ? allowLinking
+                ? 'Nenhuma disciplina vinculada ainda. Toque em "Vincular" para ligar disciplinas a este módulo.'
+                : 'Nenhuma disciplina vinculada a este módulo.'
+              : 'Nenhuma disciplina neste caderno ainda.'}
           </p>
         ) : sorted.length ? (
           <div className="space-y-3">{listBody}</div>
         ) : (
           <p className="py-6 text-center text-xs text-slate-400">Nenhuma disciplina com esse nome.</p>
         )}
+
+        {shelf.module && <ModuleLinks key={shelf.module.id} module={shelf.module} embedded pickerOpen={linkOpen} onOpenSubject={goToSubject} />}
       </section>
 
       {/* Disciplina aberta: janela em forma de caderno */}
