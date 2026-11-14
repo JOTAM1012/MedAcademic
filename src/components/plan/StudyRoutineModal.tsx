@@ -91,9 +91,16 @@ export const StudyRoutineModal: React.FC<StudyRoutineModalProps> = ({ open, onCl
   const [confirmReset, setConfirmReset] = useState(false);
   const [touched, setTouched] = useState({ hours: false, rest: false });
   const [step, setStep] = useState(1);
+  // Cada abertura monta um Stepper novo (passos alcançados e animação não vêm da vez anterior)
+  const [openId, setOpenId] = useState(0);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      // Zera ao fechar: na próxima abertura começa do passo 1, sem piscar o passo antigo
+      setStep(1);
+      setOpenId((n) => n + 1);
+      return;
+    }
     setDraft(studyPrefs);
     setMode(firstTime ? 'quick' : 'full');
     setWeekdayFree(freeTurnsOf(studyPrefs.weekTurns?.[1]));
@@ -212,6 +219,7 @@ export const StudyRoutineModal: React.FC<StudyRoutineModalProps> = ({ open, onCl
         }
       >
         <Stepper
+          key={openId}
           step={step}
           onStepChange={setStep}
           onFinalStepCompleted={save}
@@ -399,6 +407,7 @@ export const StudyRoutineModal: React.FC<StudyRoutineModalProps> = ({ open, onCl
     >
       <div className="space-y-5">
       <Stepper
+        key={openId}
         step={step}
         onStepChange={setStep}
         onFinalStepCompleted={save}

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { X, BookOpen, GraduationCap } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { AreaPicker } from '../AreaPicker';
@@ -13,13 +13,27 @@ import Stepper, { Step } from '../shared/Stepper';
 interface AddSubjectModalProps {
   isOpen: boolean;
   onClose: () => void;
+  /** tipo já escolhido ao abrir */
+  initialKind?: 'subject' | 'module';
 }
+
+/** pedido de tipo inicial: window.dispatchEvent(new CustomEvent(..., { detail: { kind: 'module' } })) antes de abrir */
+const ADD_SUBJECT_PRESET_EVENT = 'medacademic:add-subject-preset';
+/** avisa a tela de Disciplinas que algo foi criado agora (detail: { id, kind }) */
+const SUBJECT_CREATED_EVENT = 'medacademic:subject-created';
+const announceCreated = (id: string, kind: 'subject' | 'module') => {
+  try {
+    window.dispatchEvent(new CustomEvent(SUBJECT_CREATED_EVENT, { detail: { id, kind } }));
+  } catch {
+    /* sem CustomEvent */
+  }
+};
 
 const inputCls =
   'w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2.5 text-xs text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-sky-500 font-medium';
 const labelCls = 'block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1';
 
-export const AddSubjectModal: React.FC<AddSubjectModalProps> = ({ isOpen, onClose }) => {
+export const AddSubjectModal: React.FC<AddSubjectModalProps> = ({ isOpen, onClose, initialKind }) => {
   const { currentSemester, addSubject, updateSubject, subjects, triggerConfetti } = useApp();
   // Tipo: disciplina (grande área / formato) ou Módulo da faculdade
   const [kind, setKind] = useState<'subject' | 'module'>('subject');
@@ -37,6 +51,20 @@ export const AddSubjectModal: React.FC<AddSubjectModalProps> = ({ isOpen, onClos
   const [moduleName, setModuleName] = useState('');
   // Passo atual do Stepper (1 Tipo → 2 Dados → 3 Vínculos)
   const [step, setStep] = useState(1);
+
+  // Quem abre pode pedir o tipo inicial (ex.: "Novo módulo" já em Módulo da faculdade)
+  useEffect(() => {
+    const onPreset = (e: Event) => {
+      const k = (e as CustomEvent<{ kind?: string }>).detail?.kind;
+      if (k === 'module' || k === 'subject') setKind(k);
+    };
+    window.addEventListener(ADD_SUBJECT_PRESET_EVENT, onPreset);
+    return () => window.removeEventListener(ADD_SUBJECT_PRESET_EVENT, onPreset);
+  }, []);
+  // tipo inicial também por prop
+  useEffect(() => {
+    if (isOpen && initialKind) setKind(initialKind);
+  }, [isOpen, initialKind]);
 
   if (!isOpen) return null;
   const cycle = cycleOfSemester(currentSemester);
@@ -117,7 +145,7 @@ export const AddSubjectModal: React.FC<AddSubjectModalProps> = ({ isOpen, onClos
   const handleSave = () => {
     if (kind === 'module') {
       if (!name.trim()) return;
-      addSubject({
+      const moduleNewId = addSubject({
         kind: 'module',
         name: name.trim(),
         universitySubject: name.trim(),
@@ -128,6 +156,7 @@ export const AddSubjectModal: React.FC<AddSubjectModalProps> = ({ isOpen, onClos
         targetGrade: 7.0,
         semesterId: currentSemester?.id,
       });
+      announceCreated(moduleNewId, 'module');
       triggerConfetti();
       handleClose();
       return;
@@ -152,6 +181,7 @@ export const AddSubjectModal: React.FC<AddSubjectModalProps> = ({ isOpen, onClos
         semesterId: currentSemester?.id,
       });
       attachToModule(newId);
+      announceCreated(newId, 'subject');
       triggerConfetti();
       handleClose();
       return;
@@ -170,6 +200,7 @@ export const AddSubjectModal: React.FC<AddSubjectModalProps> = ({ isOpen, onClos
       universitySubject: chosenModule?.name || moduleName.trim() || name.trim(),
     });
     attachToModule(newId);
+    announceCreated(newId, 'subject');
 
     triggerConfetti();
     handleClose();

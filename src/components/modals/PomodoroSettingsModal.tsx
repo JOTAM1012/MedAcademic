@@ -15,6 +15,8 @@ interface PomodoroSettingsModalProps {
     shortBreakMinutes: number;
     mediumBreakMinutes: number;
     longBreakMinutes: number;
+    /** Salvar aqui é escolha do aluno: o ajuste automático pela rotina não mexe mais */
+    source: 'user';
   }) => void;
 }
 
@@ -47,6 +49,7 @@ export const PomodoroSettingsModal: React.FC<PomodoroSettingsModalProps> = ({
       shortBreakMinutes: Number(shortMins) || 5,
       mediumBreakMinutes: Number(mediumMins) || 10,
       longBreakMinutes: Number(longMins) || 15,
+      source: 'user',
     });
     onClose();
   };

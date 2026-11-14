@@ -191,6 +191,23 @@ export interface StudyCycleRun {
 
 export type CloudSyncStatus = 'synced' | 'syncing' | 'offline' | 'error';
 
+export interface PomodoroSettings {
+  workMinutes: number;
+  shortBreakMinutes: number;
+  mediumBreakMinutes: number;
+  longBreakMinutes: number;
+  /** Quem definiu: 'user' = o aluno escolheu (fica); 'auto' = o app ajustou pelo bloco da rotina.
+   *  Sem source (dados antigos/padrão de fábrica) = tratado como automático no 25/5/10/15. */
+  source?: 'auto' | 'user';
+}
+
+const DEFAULT_POMODORO_SETTINGS: PomodoroSettings = {
+  workMinutes: 25,
+  shortBreakMinutes: 5,
+  mediumBreakMinutes: 10,
+  longBreakMinutes: 15,
+};
+
 interface AppContextType {
   // Navigation & View
   currentTab: string;
@@ -335,13 +352,9 @@ interface AppContextType {
   stopStudyCycle: () => void;
   /** Ciclo de estudos: pula o resto do foco (vai para a pausa) ou o resto da pausa (vai para a próxima etapa) */
   skipCycleStep: () => void;
-  pomodoroSettings: {
-    workMinutes: number;
-    shortBreakMinutes: number;
-    mediumBreakMinutes: number;
-    longBreakMinutes: number;
-  };
-  updatePomodoroSettings: (settings: { workMinutes: number; shortBreakMinutes: number; mediumBreakMinutes: number; longBreakMinutes: number }) => void;
+  pomodoroSettings: PomodoroSettings;
+  /** Escolha do aluno (atalhos, configurações): grava source 'user' e o ajuste automático não mexe mais */
+  updatePomodoroSettings: (settings: PomodoroSettings) => void;
 
   // Theme & Onboarding
   isDarkMode: boolean;
@@ -385,7 +398,11 @@ interface AppContextType {
   deleteChecklistBlock: (id: string) => void;
   toggleChecklistItem: (id: string) => void;
   deleteChecklistItem: (id: string, opts?: { undo?: boolean }) => void;
+  /** Exclui vários itens de uma vez, com um único "Desfazer" que traz todos de volta */
+  deleteChecklistItems: (ids: string[], opts?: { undo?: boolean; /** texto do aviso (padrão: "N itens excluídos…") */ label?: string }) => void;
   clearCompletedChecklist: (blockId?: string) => void;
+  /** Nova ordem (arrastar) dos itens de um bloco: os itens trocam de lugar entre si no array salvo */
+  reorderChecklistItems: (blockId: string, orderedIds: string[]) => void;
 
   // ===== Método de estudo (Guia Científico) =====
   studyMethod: StudyMethodState;
@@ -555,12 +572,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const scheduledBeepsRef = useRef<Set<string>>(new Set());
 
   // Padrão de fábrica; sem escolha do aluno, passa a seguir o bloco da rotina (efeito perto de studyPrefs)
-  const [pomodoroSettings, setPomodoroSettings] = useState({
-    workMinutes: 25,
-    shortBreakMinutes: 5,
-    mediumBreakMinutes: 10,
-    longBreakMinutes: 15,
-  });
+  const [pomodoroSettings, setPomodoroSettings] = useState<PomodoroSettings>(DEFAULT_POMODORO_SETTINGS);
   // Relógio parado no tempo cheio acompanha o bloco do Pomodoro quando ele muda ou é carregado
   // (ex.: abriu o app com 30 min salvos e o relógio ainda estava no 25:00 inicial)
   const lastWorkRef = useRef(25);
@@ -575,8 +587,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         : t
     );
   }, [pomodoroSettings.workMinutes]);
-  /** Usuário que escolheu um formato do Pomodoro nesta sessão (o padrão automático não mexe mais) */
-  const pomoTouchedRef = useRef<string | null>(null);
 
   // Rehydrate state on activeUserId change & subscribe to Firestore
   useEffect(() => {
@@ -596,6 +606,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setChecklistBlocks([]);
       setTopicBlocks([]);
       setQuestionLogs([]);
+      // Pomodoro volta ao padrão: a próxima conta não herda o formato da anterior
+      setPomodoroSettings(DEFAULT_POMODORO_SETTINGS);
       setStudyMethod(EMPTY_STUDY_METHOD);
       setMethodGuide({ open: false, step: 0 });
       setReviewFocus(null);
@@ -673,6 +685,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       try { setStudySessions(JSON.parse(savedSess)); } catch (e) {}
     }
     const savedPomo = localStorage.getItem(getUserKey('pomodoro_settings', activeUserId));
+    // Troca de conta sem passar pelo logout: começa do padrão em vez do Pomodoro da conta anterior
+    setPomodoroSettings(DEFAULT_POMODORO_SETTINGS);
     if (savedPomo) {
       try { setPomodoroSettings(JSON.parse(savedPomo)); } catch (e) {}
     }
@@ -855,7 +869,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         medRevisions: parse<any[]>(savedMed, []),
         userProfile: profile,
         studySessions: parse<any[]>(savedSess, []),
-        pomodoroSettings: parse(savedPomo, { workMinutes: 25, shortBreakMinutes: 5, mediumBreakMinutes: 10, longBreakMinutes: 15 }),
+        pomodoroSettings: parse<PomodoroSettings>(savedPomo, DEFAULT_POMODORO_SETTINGS),
         tutorMessages: parse(savedTutor, INITIAL_TUTOR_MESSAGES, true),
         checklist: parse<ChecklistItem[]>(savedChecklist, []),
         checklistBlocks: parse<ChecklistBlock[]>(savedChecklistBlocks, []),
@@ -1241,10 +1255,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const updatePomodoroSettings = (settings: { workMinutes: number; shortBreakMinutes: number; mediumBreakMinutes: number; longBreakMinutes: number }) => {
-    // Escolha do aluno: o padrão automático (bloco da rotina) não mexe mais nesta sessão
-    pomoTouchedRef.current = activeUserId || null;
-    setPomodoroSettings(settings);
+  const updatePomodoroSettings = (settings: PomodoroSettings) => {
+    // Escolha do aluno: gravada como 'user' (salva junto, vale depois de recarregar e em outros aparelhos);
+    // o padrão automático (bloco da rotina) não mexe mais
+    setPomodoroSettings({ ...settings, source: settings.source ?? 'user' });
     setTimer((prev) => {
       if (prev.isRunning) return prev;
       let secs = settings.workMinutes * 60;
@@ -1692,24 +1706,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const currentSchedule = schedule.filter((s) => !s.semesterId || !currentSemester || s.semesterId === currentSemester.id);
 
   // Pomodoro: o padrão de fábrica (25/5/10/15) segue o bloco longo do aluno (Minha rotina).
-  // Só troca se o aluno não escolheu um formato: o que ele escolhe (atalhos, configurações) fica.
-  const pomoAutoRef = useRef<{ user: string; work: number; rest: number } | null>(null);
+  // A origem fica salva junto (source): 'user' = o aluno escolheu (atalhos, configurações) e fica;
+  // 'auto' = o app ajustou e continua acompanhando a rotina, inclusive depois de recarregar.
   useEffect(() => {
     if (!activeUserId || !isInitialLoadComplete) return;
-    if (pomoTouchedRef.current === activeUserId) return;
     const s = pomodoroSettings;
-    const isFactory = s.workMinutes === 25 && s.shortBreakMinutes === 5 && s.mediumBreakMinutes === 10 && s.longBreakMinutes === 15;
-    const auto = pomoAutoRef.current;
-    const isOurs = !!auto && auto.user === activeUserId && s.workMinutes === auto.work && s.shortBreakMinutes === auto.rest;
-    if (!isFactory && !isOurs) return;
-    const isBlock = (work: number, rest: number) => s.workMinutes === work && s.shortBreakMinutes === rest;
-    // 25/5 também é um bloco possível: se já é um dos blocos do aluno, não mexe
-    if (isFactory && (isBlock(studyPrefs.focusMinutes, studyPrefs.breakMinutes) || isBlock(studyPrefs.shortFocusMinutes, studyPrefs.shortBreakMinutes))) return;
+    if (s.source === 'user') return;
     const work = studyPrefs.focusMinutes;
     const rest = studyPrefs.breakMinutes;
-    if (isBlock(work, rest)) return;
-    const next = { workMinutes: work, shortBreakMinutes: rest, mediumBreakMinutes: Math.max(10, rest), longBreakMinutes: Math.max(15, rest) };
-    pomoAutoRef.current = { user: activeUserId, work, rest };
+    const next: PomodoroSettings = { workMinutes: work, shortBreakMinutes: rest, mediumBreakMinutes: Math.max(10, rest), longBreakMinutes: Math.max(15, rest), source: 'auto' };
+    const isBlock = (w: number, r: number) => s.workMinutes === w && s.shortBreakMinutes === r;
+    if (!s.source) {
+      const isFactory = s.workMinutes === 25 && s.shortBreakMinutes === 5 && s.mediumBreakMinutes === 10 && s.longBreakMinutes === 15;
+      if (!isFactory) {
+        // Dado antigo sem origem: se é exatamente o que o ajuste automático produziria, passa a ser 'auto';
+        // qualquer outro formato pode ter sido escolhido pelo aluno, então fica
+        const isAutoShape = isBlock(work, rest) && s.mediumBreakMinutes === next.mediumBreakMinutes && s.longBreakMinutes === next.longBreakMinutes;
+        if (isAutoShape) setPomodoroSettings({ ...s, source: 'auto' });
+        return;
+      }
+      // 25/5 também é um bloco possível: se já é um dos blocos do aluno, não mexe
+      if (isBlock(work, rest) || isBlock(studyPrefs.shortFocusMinutes, studyPrefs.shortBreakMinutes)) return;
+    } else if (isBlock(work, rest)) {
+      return;
+    }
     setPomodoroSettings(next);
     // O relógio parado no tempo cheio do padrão anterior acompanha; foco em andamento ou pausado no meio fica como está
     setTimer((prev) =>
@@ -2512,7 +2532,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const setDashboardPrefs = (prefs: DashboardPrefs | null) => patchMethod((s) => ({ ...s, dashboard: prefs || undefined }));
   const setMobileTabs = (tabs: string[] | null) => patchMethod((s) => ({ ...s, mobileTabs: tabs && tabs.length ? tabs.slice(0, 4) : undefined }));
-  const setSidebarPrefs = (prefs: SidebarPrefs | null) => patchMethod((s) => ({ ...s, sidebar: prefs || undefined }));
+  const setSidebarPrefs = (prefs: SidebarPrefs | null) => patchMethod((s) => ({ ...s, sidebar: prefs || {} }));
   const setStructFavorites = (ids: string[]) => patchMethod((s) => ({ ...s, structFavorites: ids }));
 
   const newMiscId = (p: string) => p + '-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
@@ -2641,6 +2661,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         onAction: () => setChecklist((prev) => (prev.some((i) => i.id === removed.id) ? prev : [...prev, removed])),
       });
     }
+  };
+
+  const deleteChecklistItems = (ids: string[], opts?: { undo?: boolean; label?: string }) => {
+    if (!ids.length) return;
+    const idSet = new Set(ids);
+    const removed = checklist.filter((item) => idSet.has(item.id));
+    setChecklist((prev) => prev.filter((item) => !idSet.has(item.id)));
+    if (!opts?.undo || !removed.length) return;
+    const message = opts.label || (removed.length === 1 ? `"${removed[0].text}" foi excluído.` : `${removed.length} itens excluídos do checklist.`);
+    offerUndo({ checklist: removed }, message);
+  };
+
+  // A ordem dos itens é a do próprio array: os ids reordenados ocupam, na nova ordem, as mesmas
+  // posições que já tinham (os outros itens, inclusive concluídos e de outros blocos, não se mexem).
+  // blockId fica só como referência: os ids já dizem quais itens são.
+  const reorderChecklistItems = (_blockId: string, orderedIds: string[]) => {
+    if (orderedIds.length < 2) return;
+    const idSet = new Set(orderedIds);
+    setChecklist((prev) => {
+      const byId = new Map(prev.map((i) => [i.id, i] as const));
+      const queue = orderedIds.filter((id) => byId.has(id)).map((id) => byId.get(id) as ChecklistItem);
+      let k = 0;
+      const next = prev.map((item) => (idSet.has(item.id) && k < queue.length ? queue[k++] : item));
+      return next.every((item, i) => item === prev[i]) ? prev : next;
+    });
   };
 
   // Sem blockId limpa tudo; "geral" = itens sem bloco existente
@@ -3450,7 +3495,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         deleteChecklistBlock,
         toggleChecklistItem,
         deleteChecklistItem,
+        deleteChecklistItems,
         clearCompletedChecklist,
+        reorderChecklistItems,
         studyMethod,
         studyPrefs,
         studyPhase,

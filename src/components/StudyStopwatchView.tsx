@@ -293,6 +293,7 @@ export const StudyStopwatchView: React.FC = () => {
       shortBreakMinutes: b.rest,
       mediumBreakMinutes: b.rest,
       longBreakMinutes: Math.max(pomodoroSettings.longBreakMinutes, b.rest),
+      source: 'user' as const,
     };
     // Sem tarefa: volta ao modo foco (limpa duração da tarefa/ciclo); o ajuste abaixo acerta o tempo
     if (!task) setTimerMode('pomodoro');

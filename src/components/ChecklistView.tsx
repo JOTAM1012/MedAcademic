@@ -19,6 +19,7 @@ import { ShareChecklistButton } from './shared/ShareChecklistButton';
 import { useApp } from '../context/AppContext';
 import SwipeRow from './shared/SwipeRow';
 import SpringCheck from './shared/SpringCheck';
+import { ReorderList, type ReorderHandleProps } from './shared/ReorderList';
 import { ChecklistItem } from '../types';
 import { CHECKLIST_COLORS, CHECKLIST_TEMPLATES, formatDateBR, toYMD } from '../data/planning';
 import './checklist/notebook.css';
@@ -78,7 +79,9 @@ export const ChecklistView: React.FC = () => {
     updateChecklistItem,
     toggleChecklistItem,
     deleteChecklistItem,
+    deleteChecklistItems,
     clearCompletedChecklist,
+    reorderChecklistItems,
     addChecklistBlock,
     updateChecklistBlock,
     deleteChecklistBlock,
@@ -88,7 +91,8 @@ export const ChecklistView: React.FC = () => {
   const [openDone, setOpenDone] = useState<Record<string, boolean>>({});
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const [editingBlock, setEditingBlock] = useState<string | null>(null);
-  const [editingItem, setEditingItem] = useState<{ id: string; text: string } | null>(null);
+  // `where`: o item pode aparecer em "Foco agora" e no bloco; só o lugar onde a edição começou mostra o campo
+  const [editingItem, setEditingItem] = useState<{ id: string; text: string; where: 'focus' | 'block' } | null>(null);
   const [detailsOpen, setDetailsOpen] = useState<Record<string, boolean>>({});
   // Item recém-marcado fica um instante no lugar para o "visto" aparecer, depois vai para Concluídos
   const [settling, setSettling] = useState<Record<string, boolean>>({});
@@ -170,7 +174,9 @@ export const ChecklistView: React.FC = () => {
   // Sem janela de confirmação do navegador (alguns aparelhos/app instalado bloqueiam): exclui e oferece "Desfazer"
   const removeBlock = (block: BlockView, _count: number) => {
     if (block.virtual) {
-      checklist.filter((i) => ownerOf(i) === GENERAL_ID).forEach((i) => deleteChecklistItem(i.id, { undo: true }));
+      // Em lote: um único aviso com "Desfazer" que devolve todos os itens
+      const ids = checklist.filter((i) => ownerOf(i) === GENERAL_ID).map((i) => i.id);
+      deleteChecklistItems(ids, { undo: true, label: `Bloco "${block.name}" removido do checklist.` });
     } else {
       deleteChecklistBlock(block.id);
     }
@@ -186,29 +192,49 @@ export const ChecklistView: React.FC = () => {
   const [moreOpen, setMoreOpen] = useState<Record<string, boolean>>({});
 
   // A cor do bloco fica só no título/progresso; checkbox e subitens usam o azul do site
-  const renderItem = (item: ChecklistItem, _color: string, showBlock = false) => {
+  // drag: item pendente de um bloco, dentro da lista que reordena (alça + número; o <li> vem do ReorderList)
+  const renderItem = (
+    item: ChecklistItem,
+    _color: string,
+    showBlock = false,
+    drag?: { handle: (p: ReorderHandleProps) => React.ReactNode; n: number }
+  ) => {
     const overdue = !item.done && item.dueDate && item.dueDate < todayStr;
     const block = showBlock ? blockById(ownerOf(item)) : undefined;
+    // A cópia em "Foco agora" (showBlock) tem ids e estado de abertura próprios, para não repetir ids do bloco
+    const where: 'focus' | 'block' = showBlock ? 'focus' : 'block';
+    const idp = showBlock ? 'check-focus' : 'check';
+    const uiKey = showBlock ? `focus:${item.id}` : item.id;
+    const isEditingHere = editingItem?.id === item.id && editingItem.where === where;
     // No toque: as ações sem uso ficam atrás do "⋯" (linha compacta)
-    const more = !!moreOpen[item.id];
+    const more = !!moreOpen[uiKey];
     const touchHide = more ? '' : 'no-hover:hidden';
-    return (
-      <li key={item.id} className="list-none">
+    const row = (
       <SwipeRow
         label={item.text}
         actions={[{ id: 'delete', label: 'Excluir' }]}
         onCommit={() => deleteChecklistItem(item.id, { undo: true })}
-        radius={8}
+        radius={0}
         actionWidth={76}
         rowColor="var(--nb-paper)"
         surfaceClassName="nb-row group flex flex-wrap items-start gap-x-2 px-2 transition-colors"
       >
+        {drag && (
+          // Alça (data-no-swipe e touch-action none no próprio botão: arrastar não dispara o deslizar) + número
+          <div className="flex items-center shrink-0 pt-1 -ml-1 -mr-1">
+            {drag.handle({ id: `check-drag-${item.id}`, label: `Arrastar "${item.text}" para mudar a ordem`, className: 'h-7 w-5' })}
+            <span className="min-w-[1.4em] text-right text-[11px] font-bold tabular-nums leading-7 text-slate-400 dark:text-slate-500" aria-hidden="true">
+              {drag.n}.
+            </span>
+          </div>
+        )}
         <div className="min-w-0 flex-1">
-          {editingItem?.id === item.id ? (
+          {isEditingHere ? (
             <input
+              id={`${idp}-edit-input-${item.id}`}
               autoFocus
               value={editingItem.text}
-              onChange={(e) => setEditingItem({ id: item.id, text: e.target.value })}
+              onChange={(e) => setEditingItem({ id: item.id, text: e.target.value, where })}
               onBlur={saveItemText}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') saveItemText();
@@ -218,7 +244,7 @@ export const ChecklistView: React.FC = () => {
             />
           ) : (
             <SpringCheck
-              id={`check-item-${item.id}`}
+              id={`${idp}-item-${item.id}`}
               label={item.text}
               checked={item.done}
               onChange={() => toggleItem(item)}
@@ -251,8 +277,8 @@ export const ChecklistView: React.FC = () => {
         <div className="flex items-center gap-0.5 shrink-0 pt-1">
           <button
             type="button"
-            id={`check-more-${item.id}`}
-            onClick={() => setMoreOpen((o) => ({ ...o, [item.id]: !more }))}
+            id={`${idp}-more-${item.id}`}
+            onClick={() => setMoreOpen((o) => ({ ...o, [uiKey]: !more }))}
             aria-expanded={more}
             aria-label={more ? 'Esconder ações' : 'Mais ações'}
             className="can-hover:hidden order-last h-7 w-7 grid place-items-center rounded-md text-slate-400 dark:text-slate-300/80 hover:text-sky-500"
@@ -261,8 +287,8 @@ export const ChecklistView: React.FC = () => {
           </button>
           <button
             type="button"
-            id={`check-edit-${item.id}`}
-            onClick={() => setEditingItem({ id: item.id, text: item.text })}
+            id={`${idp}-edit-${item.id}`}
+            onClick={() => setEditingItem({ id: item.id, text: item.text, where })}
             className={`p-1 rounded-md text-slate-400 dark:text-slate-300/70 ${touchHide} can-hover:opacity-0 can-hover:group-hover:opacity-100 hover:text-sky-500`}
             aria-label="Editar item"
             title="Editar"
@@ -271,12 +297,12 @@ export const ChecklistView: React.FC = () => {
           </button>
           {(() => {
             const pr = subItemsProgress(item.details);
-            const open = !!detailsOpen[item.id];
+            const open = !!detailsOpen[uiKey];
             return (
               <button
                 type="button"
-                id={`check-details-${item.id}`}
-                onClick={() => setDetailsOpen((o) => ({ ...o, [item.id]: !open }))}
+                id={`${idp}-details-${item.id}`}
+                onClick={() => setDetailsOpen((o) => ({ ...o, [uiKey]: !open }))}
                 aria-expanded={open}
                 className={`p-1 rounded-md inline-flex items-center gap-0.5 text-[10px] font-bold transition-colors ${
                   open || pr.total ? 'text-sky-500' : `text-slate-400 dark:text-slate-300/70 ${touchHide} can-hover:opacity-0 can-hover:group-hover:opacity-100 hover:text-sky-500`
@@ -329,19 +355,25 @@ export const ChecklistView: React.FC = () => {
             <Trash2 className="h-3.5 w-3.5" />
           </button>
         </div>
-        {detailsOpen[item.id] && (
+        {detailsOpen[uiKey] && (
           <div className="basis-full pl-5 pb-1.5">
-            <SubItemsEditor idPrefix={`check-${item.id}`} items={item.details} onChange={(d) => updateChecklistItem(item.id, { details: d })} color={ACCENT} />
+            <SubItemsEditor idPrefix={`${idp}-${item.id}`} items={item.details} onChange={(d) => updateChecklistItem(item.id, { details: d })} color={ACCENT} />
           </div>
         )}
       </SwipeRow>
+    );
+    if (drag) return row;
+    return (
+      <li key={item.id} className="list-none">
+        {row}
       </li>
     );
   };
 
   const renderBlock = (block: BlockView) => {
     const items = checklist.filter((i) => ownerOf(i) === block.id);
-    const pending = items.filter((i) => !i.done || settling[i.id]).sort(sortItems);
+    // Pendentes na ordem salva (a que o aluno arrastou); essenciais e datas continuam no "Foco agora"
+    const pending = items.filter((i) => !i.done || settling[i.id]);
     const done = items.filter((i) => i.done && !settling[i.id]);
     const pct = items.length > 0 ? Math.round((done.length / items.length) * 100) : 0;
     const isEditing = editingBlock === block.id;
@@ -369,7 +401,7 @@ export const ChecklistView: React.FC = () => {
               <h2 className="flex items-center gap-1.5 min-w-0 text-[13px] font-black uppercase tracking-wide text-slate-800 dark:text-slate-100">
                 <span className="w-1 h-4 rounded-full shrink-0" style={{ backgroundColor: block.color }} aria-hidden="true" />
                 <span className="text-base leading-none normal-case">{block.emoji}</span>
-                <span className="truncate">{block.name}</span>
+                <span className="min-w-0 line-clamp-2 break-words leading-tight">{block.name}</span>
                 <span className="shrink-0 text-[11px] font-bold tracking-normal text-slate-400 dark:text-slate-500">
                   ({done.length}/{items.length})
                 </span>
@@ -471,7 +503,15 @@ export const ChecklistView: React.FC = () => {
               Tudo feito! ✨
             </p>
           ) : (
-            <ul className="nb-ruled">{pending.map((i) => renderItem(i, block.color))}</ul>
+            <ReorderList<ChecklistItem>
+              items={pending}
+              onCommit={(ids) => reorderChecklistItems(block.id, ids)}
+              as="ul"
+              itemAs="li"
+              className="nb-ruled"
+              itemProps={() => ({ className: 'list-none' })}
+              renderItem={(i, handle) => renderItem(i, block.color, false, { handle, n: pending.indexOf(i) + 1 })}
+            />
           )}
           {done.length > 0 && (
             <div className="border-b border-[var(--nb-line)]">

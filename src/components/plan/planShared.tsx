@@ -1,6 +1,6 @@
 // Peças compartilhadas do Plano do dia / Planner (grupo B): tamanho das tarefas, "Começar",
 // armazenamento local seguro e a moldura das janelas (modais) do plano.
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
 import { formatTaskSize, type PlanTask, type DayKind } from '../../data/studyMethod';
 import type { FocusTask } from '../../context/AppContext';
@@ -121,16 +121,35 @@ interface PlanModalProps {
   hideClose?: boolean;
 }
 
+/** Janelas do plano abertas, na ordem em que abriram: só a de cima reage ao Esc */
+const openPlanModals: { stacked: () => boolean }[] = [];
+const topPlanModal = () => {
+  // Uma janela "stacked" fica por cima das outras mesmo se abriu antes (z-index maior)
+  for (let i = openPlanModals.length - 1; i >= 0; i--) if (openPlanModals[i].stacked()) return openPlanModals[i];
+  return openPlanModals[openPlanModals.length - 1];
+};
+
 export const PlanModal: React.FC<PlanModalProps> = ({ id, open, onClose, title, subtitle, icon, children, footer, maxWidth = 'max-w-lg', stacked, hideClose }) => {
+  // Valores atuais em ref: o efeito só depende de `open`, senão cada renderização tiraria e
+  // recolocaria a janela no fim da pilha (e ela passaria a ser "a de cima")
+  const latest = useRef({ onClose, stacked, hideClose });
+  latest.current = { onClose, stacked, hideClose };
   useEffect(() => {
     if (!open) return;
+    const entry = { stacked: () => !!latest.current.stacked };
+    openPlanModals.push(entry);
     const onKey = (e: KeyboardEvent) => {
-      // Com uma janela por cima, o Esc fecha só a de cima
-      if (e.key === 'Escape' && !hideClose && (stacked || !document.querySelector('[data-plan-stacked="true"]'))) onClose();
+      // Com duas janelas abertas, o Esc fecha só a de cima (a de cima sem fechar por Esc não deixa passar para a de baixo)
+      if (e.key !== 'Escape' || topPlanModal() !== entry || latest.current.hideClose) return;
+      latest.current.onClose();
     };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [open, onClose, stacked, hideClose]);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      const i = openPlanModals.indexOf(entry);
+      if (i >= 0) openPlanModals.splice(i, 1);
+    };
+  }, [open]);
 
   if (!open) return null;
   return (

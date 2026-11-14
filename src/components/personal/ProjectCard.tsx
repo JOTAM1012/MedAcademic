@@ -19,7 +19,7 @@ import { useApp } from '../../context/AppContext';
 import type { PersonalProject, PersonalProjectItem } from '../../types';
 import { PROJECT_KINDS, WEEKDAY_SHORT, nextProjectItem } from '../../data/studyMethod';
 import { formatDM, parseYMD } from '../../data/blockReview';
-import { DAY_ORDER, ProgressRing, deadlineInfo, effectiveGoal, fmtMinutes, projectFocusSteps, splitLines, unitsToBlocks, unitsToMinutes } from './shared';
+import { DAY_ORDER, ProgressRing, deadlineInfo, doneToBlocks, effectiveGoal, fmtMinutes, goalToBlocks, projectFocusSteps, splitLines, unitsToMinutes } from './shared';
 
 interface ProjectCardProps {
   project: PersonalProject;
@@ -49,16 +49,17 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project: p, today, wee
   const focus = studyPrefs.focusMinutes;
   const goal = p.weeklyPomodoros;
   const target = effectiveGoal(p, heavyWeek, focus);
-  const adjusted = heavyWeek && target < goal - 1e-6;
-  const metGoal = weekDone >= goal - 1e-6;
-  const metTarget = weekDone >= target - 1e-6;
-  const goalBlocks = Math.max(1, unitsToBlocks(goal, focus));
-  const targetBlocks = Math.max(1, unitsToBlocks(target, focus));
-  const doneBlocksRaw = unitsToBlocks(weekDone, focus);
-  // Sem bater a meta, o arredondamento não pode mostrar "6/6"
-  const doneBlocks = metTarget ? doneBlocksRaw : Math.min(doneBlocksRaw, targetBlocks - 1);
-  const left = metTarget ? 0 : Math.max(1, targetBlocks - doneBlocks);
-  const leftMinutes = Math.max(0, unitsToMinutes(target - weekDone));
+  // Tudo comparado em blocos do aluno: meta antiga em unidades inteiras (4 × 25 = 100 min) vale 3 blocos de 30
+  const goalBlocks = goalToBlocks(goal, focus);
+  const targetBlocks = goalToBlocks(target, focus);
+  const doneBlocks = doneToBlocks(weekDone, focus);
+  const adjusted = heavyWeek && targetBlocks < goalBlocks;
+  const metGoal = doneBlocks >= goalBlocks;
+  const metTarget = doneBlocks >= targetBlocks;
+  const left = Math.max(0, targetBlocks - doneBlocks);
+  const targetMinutes = targetBlocks * focus;
+  const doneMinutes = unitsToMinutes(weekDone);
+  const leftMinutes = metTarget ? 0 : Math.max(1, targetMinutes - doneMinutes);
   const deadline = deadlineInfo(p.deadline, today);
   const dow = parseYMD(today).getDay();
   const isTodayDay = !!p.days?.length && p.days.includes(dow);
@@ -151,7 +152,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project: p, today, wee
 
           {/* Meta da semana */}
           {!p.archived && (
-            <ProgressRing value={weekDone} max={target} color={color}>
+            <ProgressRing value={metTarget ? targetMinutes : Math.min(doneMinutes, targetMinutes)} max={targetMinutes} color={color}>
               <div className="text-center leading-none">
                 <div className="text-sm font-black text-slate-900 dark:text-white">
                   {doneBlocks}

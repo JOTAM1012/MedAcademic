@@ -3,6 +3,7 @@ import React from 'react';
 import type { PersonalProject, PersonalProjectItem, PersonalProjectKind } from '../../types';
 import { daysBetween } from '../../data/blockReview';
 import { UNIT_MINUTES } from '../plan/planShared';
+import { projectDoneBlocks, projectGoalBlocks } from '../../data/studyMethod';
 
 /** Ordem dos dias nos chips (segunda primeiro). Valores = getDay() (0 = domingo) */
 export const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
@@ -105,6 +106,10 @@ export const fmtMinutes = (raw: number) => {
 export const unitsToMinutes = (units: number) => Math.round(units * UNIT_MINUTES);
 /** Unidades internas → nº de blocos do aluno (arredondado) */
 export const unitsToBlocks = (units: number, focus: number) => Math.round((units * UNIT_MINUTES) / Math.max(5, focus || UNIT_MINUTES));
+/** Meta (unidades internas) → blocos do aluno, no mínimo 1. É em blocos que a meta é comparada com o feito. */
+export const goalToBlocks = (units: number, focus: number) => projectGoalBlocks(units, focus || UNIT_MINUTES);
+/** Feito na semana (unidades internas) → blocos inteiros do aluno já completos */
+export const doneToBlocks = (units: number, focus: number) => projectDoneBlocks(units, focus || UNIT_MINUTES);
 /** Nº de blocos do aluno → unidades internas (pode ser fracionado, ex.: 1 bloco de 30 min = 1,2) */
 export const blocksToUnits = (blocks: number, focus: number) => Math.round(((blocks * Math.max(5, focus || UNIT_MINUTES)) / UNIT_MINUTES) * 1000) / 1000;
 

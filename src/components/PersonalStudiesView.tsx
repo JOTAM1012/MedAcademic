@@ -10,7 +10,7 @@ import { todayYMD, useWeekLoad } from '../hooks/useStudyPlan';
 import { NewProjectModal } from './personal/NewProjectModal';
 import { ProjectCard } from './personal/ProjectCard';
 import { ProjectReviews, upcomingProjectReviews } from './personal/ProjectReviews';
-import { SUGGESTED_PRESETS, effectiveGoal, fmtMinutes, unitsToBlocks, unitsToMinutes, type ProjectPreset } from './personal/shared';
+import { SUGGESTED_PRESETS, doneToBlocks, effectiveGoal, fmtMinutes, goalToBlocks, unitsToMinutes, type ProjectPreset } from './personal/shared';
 import { EmptyState } from './shared/EmptyState';
 
 const PHASE_TIP: Record<string, string> = {
@@ -56,17 +56,15 @@ export const PersonalStudiesView: React.FC = () => {
 
   // Somas em unidades internas de 25 min; na tela viram blocos do aluno (bloco longo)
   const totalDone = active.reduce((acc, p) => acc + (weekDone[p.id] || 0), 0);
-  const totalGoal = active.reduce((acc, p) => acc + p.weeklyPomodoros, 0);
-  const totalTarget = active.reduce((acc, p) => acc + effectiveGoal(p, heavyWeek, focus), 0);
-  const metTotal = totalTarget > 0 && totalDone >= totalTarget - 1e-6;
-  // Mesma conta dos cards (cada projeto tem no mínimo 1 bloco de meta)
-  const totalTargetBlocks = active.reduce((acc, p) => acc + Math.max(1, unitsToBlocks(effectiveGoal(p, heavyWeek, focus), focus)), 0);
-  const totalGoalBlocks = active.reduce((acc, p) => acc + Math.max(1, unitsToBlocks(p.weeklyPomodoros, focus)), 0);
-  const totalDoneBlocks = metTotal ? unitsToBlocks(totalDone, focus) : Math.min(unitsToBlocks(totalDone, focus), Math.max(0, totalTargetBlocks - 1));
+  // Mesma conta dos cards: meta e feito em blocos do aluno, projeto a projeto (cada um com no mínimo 1 bloco de meta)
+  const totalTargetBlocks = active.reduce((acc, p) => acc + goalToBlocks(effectiveGoal(p, heavyWeek, focus), focus), 0);
+  const totalGoalBlocks = active.reduce((acc, p) => acc + goalToBlocks(p.weeklyPomodoros, focus), 0);
+  const totalDoneBlocks = active.reduce((acc, p) => acc + doneToBlocks(weekDone[p.id] || 0, focus), 0);
+  const metTotal = totalTargetBlocks > 0 && totalDoneBlocks >= totalTargetBlocks;
   const itemsThisWeek = active.reduce((acc, p) => acc + p.items.filter((i) => i.done && i.doneAt && i.doneAt >= monday).length, 0);
   const todayProjects = sortedActive.filter(isTodayDay);
   const upcoming = upcomingProjectReviews(projects, today, addDaysYMD(7, today));
-  const pct = totalTarget > 0 ? Math.min(100, Math.round((totalDone / totalTarget) * 100)) : 0;
+  const pct = metTotal ? 100 : totalTargetBlocks > 0 ? Math.min(99, Math.round((unitsToMinutes(totalDone) / (totalTargetBlocks * focus)) * 100)) : 0;
 
   const openNew = (preset?: ProjectPreset) => setModal({ open: true, preset: preset || null, editing: null });
   const openEdit = (p: PersonalProject) => setModal({ open: true, editing: p, preset: null });
@@ -172,7 +170,7 @@ export const PersonalStudiesView: React.FC = () => {
                 {itemsThisWeek > 0 && ` · ${itemsThisWeek} ${itemsThisWeek === 1 ? 'item concluído' : 'itens concluídos'}`}
               </div>
             </div>
-            {heavyWeek && totalTarget < totalGoal - 1e-6 && (
+            {heavyWeek && totalTargetBlocks < totalGoalBlocks && (
               <span className="rounded-full px-2.5 py-1 text-[11px] font-bold bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-300" title={`Meta normal: ${totalGoalBlocks} blocos`}>
                 Semana pesada: meta ajustada
               </span>

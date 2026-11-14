@@ -76,6 +76,8 @@ interface Props {
   onOpenModule?: (id: string) => void;
   allowLinking?: boolean;
   focusSubjectId?: string | null;
+  /** avisa que o pedido de fora já foi aberto (para poder pedir o mesmo de novo) */
+  onFocusConsumed?: () => void;
 }
 
 export const StructureWorkspace: React.FC<Props> = ({
@@ -91,6 +93,7 @@ export const StructureWorkspace: React.FC<Props> = ({
   onOpenModule,
   allowLinking = false,
   focusSubjectId,
+  onFocusConsumed,
 }) => {
   const today = ymd(new Date());
 
@@ -142,13 +145,18 @@ export const StructureWorkspace: React.FC<Props> = ({
     setLastId(id);
     write(LAST_KEY, id);
   };
+  // abre já no caderno que contém a disciplina (cabeçalho e setas certos)
+  const goToSubject = (id: string) => {
+    const g = shelves.find((x) => x.items.some((s) => s.id === id));
+    if (g && g.id !== shelfId) setShelfId(g.id);
+    openSubject(id);
+  };
 
   // pedido de fora (busca do topo, disciplina nova): vai ao caderno dela e abre
   useEffect(() => {
     if (!focusSubjectId) return;
-    const g = shelves.find((x) => x.items.some((s) => s.id === focusSubjectId));
-    if (g) setShelfIdState(g.id);
-    openSubject(focusSubjectId);
+    goToSubject(focusSubjectId);
+    onFocusConsumed?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusSubjectId]);
 
@@ -192,6 +200,14 @@ export const StructureWorkspace: React.FC<Props> = ({
         : sort === 'prova'
           ? [...filtered].sort((a, b) => (a.examDays ?? 9999) - (b.examDays ?? 9999) || byName(a, b))
           : filtered;
+  // Tudo junto, sem separar por situação: favoritas primeiro; em "Situação", em andamento → não iniciadas → concluídas
+  const RANK: Record<Status, number> = { andamento: 0, nova: 1, feita: 2 };
+  const ordered = [...sorted].sort((a, b) => {
+    const fa = favs.includes(a.s.id) ? 0 : 1;
+    const fb = favs.includes(b.s.id) ? 0 : 1;
+    if (fa !== fb) return fa - fb;
+    return sort === 'situacao' ? RANK[a.status] - RANK[b.status] : 0;
+  });
 
   // ---------- Continuar de onde parou ----------
   const last = lastId ? allSubjects.find((s) => s.id === lastId) : undefined;
@@ -199,15 +215,22 @@ export const StructureWorkspace: React.FC<Props> = ({
 
   // ---------- disciplina aberta (janela) ----------
   const open = openId ? allSubjects.find((s) => s.id === openId) : undefined;
-  const openList = shelf && open && shelf.items.some((s) => s.id === open.id) ? sorted.map((r) => r.s.id) : [];
+  const openList = shelf && open && shelf.items.some((s) => s.id === open.id) ? ordered.map((r) => r.s.id) : [];
   const openIdx = open ? openList.indexOf(open.id) : -1;
 
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return;
-      // outra janela por cima (ex.: confirmação) fecha primeiro
-      if (document.querySelector('[role="alertdialog"]')) return;
+      if (e.key !== 'Escape' || e.defaultPrevented) return;
+      // Esc dentro de um campo cancela a edição, não fecha o caderno
+      const el = (e.target instanceof HTMLElement ? e.target : null) || (document.activeElement as HTMLElement | null);
+      if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) return;
+      // outra janela por cima (modal, confirmação, plano) fecha primeiro
+      const win = document.getElementById('struct-window');
+      const stacked = Array.from(document.querySelectorAll('[role="dialog"], [role="alertdialog"], .app-modal, [data-plan-stacked]')).some(
+        (d) => d !== win && !(win && d.contains(win)),
+      );
+      if (stacked) return;
       setOpenId(null);
     };
     window.addEventListener('keydown', onKey);
@@ -240,7 +263,7 @@ export const StructureWorkspace: React.FC<Props> = ({
       : `${r.st.seen}/${r.st.total} vistos`;
     return (
       <li key={r.s.id} className="aw-chip" style={{ '--aw-color': color } as React.CSSProperties}>
-        <button type="button" id={`struct-subject-${r.s.id}`} onClick={() => openSubject(r.s.id)} className="aw-chip__main">
+        <button type="button" id={`struct-chip-${r.s.id}`} onClick={() => openSubject(r.s.id)} className="aw-chip__main">
           <Ring pct={r.st.pct} color={color} size={36} />
           <span className="min-w-0 flex-1 text-left">
             <span className="block text-[13px] font-bold text-slate-900 dark:text-white truncate">{subjectName(r.s)}</span>
@@ -264,15 +287,6 @@ export const StructureWorkspace: React.FC<Props> = ({
     );
   };
 
-
-  // Tudo junto, sem separar por situação: favoritas primeiro; em "Situação", em andamento → não iniciadas → concluídas
-  const RANK: Record<Status, number> = { andamento: 0, nova: 1, feita: 2 };
-  const ordered = [...sorted].sort((a, b) => {
-    const fa = favs.includes(a.s.id) ? 0 : 1;
-    const fb = favs.includes(b.s.id) ? 0 : 1;
-    if (fa !== fb) return fa - fb;
-    return sort === 'situacao' ? RANK[a.status] - RANK[b.status] : 0;
-  });
   const listBody = <ul className="aw-chips">{ordered.map(chip)}</ul>;
 
   return (
@@ -286,7 +300,7 @@ export const StructureWorkspace: React.FC<Props> = ({
             <p className="text-sm font-black text-slate-900 dark:text-white truncate">{subjectName(lastInfo.s)}</p>
             <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">{lastInfo.nextTopic ? `Próximo: ${lastInfo.nextTopic.title}` : 'Todos os assuntos vistos'}</p>
           </div>
-          <button type="button" id="struct-continue-btn" onClick={() => openSubject(lastInfo.s.id)} className="shrink-0 h-10 px-4 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-black inline-flex items-center gap-1.5">
+          <button type="button" id="struct-continue-btn" onClick={() => goToSubject(lastInfo.s.id)} className="shrink-0 h-10 px-4 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-black inline-flex items-center gap-1.5">
             <Play className="h-3.5 w-3.5 fill-current" /> Continuar
           </button>
         </div>
@@ -408,7 +422,7 @@ export const StructureWorkspace: React.FC<Props> = ({
         createPortal(
           <div className="aw-window-wrap" role="presentation">
             <div className="aw-window-backdrop" onClick={() => setOpenId(null)} />
-            <div role="dialog" aria-modal="true" aria-label={subjectName(open)} className="aw-window nb" style={{ '--aw-color': subjectColor(open) } as React.CSSProperties}>
+            <div id="struct-window" role="dialog" aria-modal="true" aria-label={subjectName(open)} className="aw-window nb" style={{ '--aw-color': subjectColor(open) } as React.CSSProperties}>
               <Rings n={RINGS_BIG} />
               <header className="aw-window__head">
                 <span className="aw-window__dot" aria-hidden />

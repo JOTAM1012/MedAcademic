@@ -18,11 +18,14 @@ const Q: React.FC<{ n: number; children: React.ReactNode }> = ({ n, children }) 
   </p>
 );
 
-export const SignupRoutineStep: React.FC<{ value: RoutineAnswers; onChange: (v: RoutineAnswers) => void }> = ({ value, onChange }) => {
-  const set = <K extends keyof RoutineAnswers>(k: K, v: RoutineAnswers[K]) => onChange({ ...value, [k]: v });
+// onChange recebe uma função (como o setState): toques rápidos seguidos não se sobrescrevem
+export const SignupRoutineStep: React.FC<{ value: RoutineAnswers; onChange: React.Dispatch<React.SetStateAction<RoutineAnswers>> }> = ({ value, onChange }) => {
+  const set = <K extends keyof RoutineAnswers>(k: K, v: RoutineAnswers[K]) => onChange((prev) => ({ ...prev, [k]: v }));
   const toggleTurn = (k: 'weekdayFree' | 'weekendFree', t: ExamShift) => {
-    const list = value[k] || [];
-    set(k, list.includes(t) ? list.filter((x) => x !== t) : [...list, t]);
+    onChange((prev) => {
+      const list = prev[k] || [];
+      return { ...prev, [k]: list.includes(t) ? list.filter((x) => x !== t) : [...list, t] };
+    });
   };
 
   return (

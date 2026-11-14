@@ -54,9 +54,16 @@ export const EMPTY_ROUTINE_ANSWERS: RoutineAnswers = {
   bestTurn: undefined,
 };
 
-/** Respondeu alguma pergunta principal? (senão a rotina fica para a pesquisa depois do cadastro) */
+/** Respondeu alguma pergunta principal? (senão a rotina fica para a pesquisa depois do cadastro)
+ *  Trocar o bloco de foco (diferente do padrão 30/5) também conta como resposta. */
 export const hasRoutineAnswers = (a: RoutineAnswers) =>
-  a.hoursBlocks !== null || a.weekdayFree !== null || a.weekendFree !== null || a.restDay !== undefined || a.bestTurn !== undefined;
+  a.hoursBlocks !== null ||
+  a.weekdayFree !== null ||
+  a.weekendFree !== null ||
+  a.restDay !== undefined ||
+  a.bestTurn !== undefined ||
+  a.focus.focus !== DEFAULT_ROUTINE_FOCUS.focus ||
+  a.focus.rest !== DEFAULT_ROUTINE_FOCUS.rest;
 
 /** Sábado livre → misturadas no sábado; sábado ocupado → domingo (se não for o descanso) ou nenhum */
 const mixedDayFor = (saturdayBusy: boolean, restDay: number | null): number | null => {

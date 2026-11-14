@@ -65,6 +65,8 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ open, onClose, mode = 
   const { isAdmin } = useAccess();
   const [wideLayout, toggleWideLayout] = useWideLayout();
   const [step, setStep] = useState(1);
+  // Cada abertura monta um Stepper novo (passos alcançados e animação não vêm da vez anterior)
+  const [openId, setOpenId] = useState(0);
 
   // Rascunhos de cada passo (salvos só no "Continuar")
   const [widgets, setWidgets] = useState<DashboardPrefs['widgets']>([]);
@@ -74,7 +76,12 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ open, onClose, mode = 
   const [method, setMethod] = useState<MethodDraft>({ usesFlashcards: false, readsSummary: true, longTermGoal: false, newTopicsPerDay: 1 });
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      // Zera ao fechar: na próxima abertura começa do passo 1, sem piscar o passo antigo
+      setStep(1);
+      setOpenId((n) => n + 1);
+      return;
+    }
     setStep(1);
     setWidgets(resolveWidgets(studyMethod.dashboard));
     setSidebarHidden(studyMethod.sidebar?.hidden || []);
@@ -122,6 +129,12 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ open, onClose, mode = 
     onClose();
   };
 
+  /** Troca de passo (Continuar, Voltar ou os números do topo): salva o passo que está saindo */
+  const changeStep = (n: number) => {
+    if (n !== step) commit(step);
+    setStep(n);
+  };
+
   const skip = () => (step >= TOTAL ? close(true) : setStep(step + 1));
 
   const toggleWidget = (id: DashboardWidgetId) => setWidgets((w) => w.map((x) => (x.id === id ? { ...x, visible: !x.visible } : x)));
@@ -163,15 +176,17 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ open, onClose, mode = 
       }
     >
       <Stepper
+        key={openId}
         id="setup-stepper"
         step={step}
-        onStepChange={setStep}
+        onStepChange={changeStep}
         onFinalStepCompleted={() => close(true)}
         linear
         completeButtonText="Concluir"
         nextButtonProps={{
           id: step === TOTAL ? 'setup-finish' : 'setup-next',
-          onClick: () => commit(step),
+          // "Continuar" já salva em changeStep; no último passo ("Concluir") não há troca de passo
+          onClick: step === TOTAL ? () => commit(step) : undefined,
         }}
       >
         {/* 1. Painel */}

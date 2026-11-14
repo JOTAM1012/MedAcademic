@@ -530,7 +530,16 @@ export const turnCapacity = (prefs: StudyPlanPrefs, dow: number): { capacity: nu
   const maxFree = Math.max(1, ...week.map((d, i) => (i === prefs.restDay ? 0 : freeOf(d))));
   const free = freeOf(turns);
   const allRest = turns.every((t) => t === 'descanso');
-  const capacity = free === 0 ? Math.min(2, prefs.dailyPomodoros) : Math.max(2, Math.round((prefs.dailyPomodoros * free) / maxFree));
+  // Dia com mais turnos livres: o tempo de foco inteiro, sem arredondar (1h com bloco de 30 = 2,4 unidades).
+  // Os outros: proporcional, num número inteiro de blocos do aluno.
+  const daily = prefs.dailyPomodoros;
+  const block = prefs.focusMinutes || 25;
+  const capacity =
+    free === 0
+      ? Math.min(daily, minFocusUnits(block))
+      : free >= maxFree
+        ? daily
+        : Math.min(daily, Math.max(minFocusUnits(block), roundToBlock((daily * free) / maxFree, block)));
   return { capacity, allRest, turns };
 };
 const TURN_WORD: Record<TurnState, string> = { livre: 'livre', ocupado: 'ocupada', descanso: 'de descanso' };
@@ -618,7 +627,8 @@ export const mergeStudyMethod = (local: StudyMethodState, cloudRaw: any, _today 
     mobileTabs: cloud.mobileTabs || local.mobileTabs,
     contests: byId(cloud.contests || [], local.contests || []),
     pastExams: byId(cloud.pastExams || [], local.pastExams || []),
-    sidebar: cloud.sidebar || local.sidebar,
+    // `{}` = barra lateral no padrão (reset explícito): vale sobre a personalização antiga deste aparelho
+    sidebar: cloud.sidebar ?? local.sidebar,
     structFavorites: cloud.structFavorites ?? local.structFavorites,
   };
 };
@@ -1014,8 +1024,27 @@ export interface PlanInput {
 
 const subjectName = (subjects: Subject[], id?: string) => subjects.find((s) => s.id === id)?.name || '';
 const subjectColor = (subjects: Subject[], id?: string) => subjects.find((s) => s.id === id)?.color || '#0ea5e9';
-/** Tamanho em unidades de 25 min de N blocos de `focus` minutos */
-const units = (focus: number, blocks: number) => Math.max(1, Math.round((blocks * focus) / 25));
+/** Tamanho em unidades de 25 min de N blocos de `focus` minutos. Fração com 3 casas, sem arredondar para unidade (1 × 30 min = 1,2) */
+const units = (focus: number, blocks: number) => Math.round(((Math.max(0, blocks) * Math.max(5, focus || 25)) / 25) * 1000) / 1000;
+/** Arredonda um tamanho em unidades para um número inteiro de blocos de `focus` minutos */
+const roundToBlock = (u: number, focus: number) => units(focus, Math.round((u * 25) / Math.max(5, focus || 25)));
+/** Piso de ~50 min de foco em blocos inteiros do aluno (2 × 25, 2 × 30, 1 × 60…) */
+const minFocusUnits = (focus: number) => units(focus, Math.ceil(50 / Math.max(5, focus || 25)));
+/** Folga das somas em unidades fracionadas */
+const EPS = 1e-6;
+/** Estudos pessoais: meta da semana em blocos do aluno (a meta fica guardada em unidades de 25 min) */
+export const projectGoalBlocks = (goalUnits: number, focus: number) => Math.max(1, Math.round((goalUnits * 25) / Math.max(5, focus || 25)));
+/** Estudos pessoais: blocos inteiros já feitos na semana (1 min de folga para sessões paradas um pouco antes) */
+export const projectDoneBlocks = (doneUnits: number, focus: number) => Math.max(0, Math.floor((doneUnits * 25 + 1) / Math.max(5, focus || 25)));
+/**
+ * Dia em que o 1º contato de um assunto já visto foi feito. Em andamento, é o lastStudiedDate (dia em que marcou como estudado).
+ * Depois de revisado, lastStudiedDate vira o dia da revisão: fica o dia marcado, sem passar da última vez estudado.
+ */
+const firstContactStudiedOn = (t: Topic) => {
+  if (t.status === 'em_andamento' && t.lastStudiedDate) return t.lastStudiedDate;
+  if (t.firstContactDate && t.lastStudiedDate && t.lastStudiedDate < t.firstContactDate) return t.lastStudiedDate;
+  return t.firstContactDate || t.lastStudiedDate;
+};
 /** Quantos blocos um tema novo pede (~75–100 min de estudo inicial) */
 export const newTopicBlocks = (focus: number) => Math.max(1, Math.round((focus >= 40 ? 100 : 75) / focus));
 /** Quantos blocos de `focus` min cabem numa tarefa de `pomodoros` unidades de 25 min */
@@ -1092,10 +1121,10 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
     // Dia difícil e plantão: vale o menor dos dois
     // Semana por turnos: menos turnos livres, menos foco
     if (turnsDay && !state.capacity) capacity = Math.min(capacity, turnsDay.capacity);
-    if (lowEnergy && !state.capacity) capacity = Math.min(capacity, Math.max(2, Math.round(prefs.dailyPomodoros / 3)));
-    if (plantao && !state.capacity) capacity = Math.min(capacity, 2);
+    if (lowEnergy && !state.capacity) capacity = Math.min(capacity, Math.max(minFocusUnits(prefs.shortFocusMinutes), roundToBlock(prefs.dailyPomodoros / 3, prefs.shortFocusMinutes)));
+    if (plantao && !state.capacity) capacity = Math.min(capacity, minFocusUnits(prefs.shortFocusMinutes));
     // Semana de prova: estudo intensificado (+50%), menos no dia difícil e no plantão
-    if (examWeek && !state.capacity && !lowEnergy && !plantao) capacity = Math.min(16, Math.round(capacity * 1.5));
+    if (examWeek && !state.capacity && !lowEnergy && !plantao) capacity = Math.min(16, roundToBlock(capacity * 1.5, prefs.focusMinutes));
   }
   // Blocos do aluno: curto para revisões/questões, longo para tema novo (no dia difícil/plantão, só o curto)
   const shortFocus = prefs.shortFocusMinutes;
@@ -1244,7 +1273,9 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
     });
     // O que já está no plano (flashcards, resumo, revisões) sai da conta antes de dividir
     const taken = all.filter((t) => !t.optional && !t.skipped).reduce((a, t) => a + t.pomodoros, 0);
-    const share = Math.max(1, Math.min(4, Math.floor(Math.max(0, capacity - taken) / Math.max(1, planned.length))));
+    // Parte de cada turno (até 100 min), em blocos inteiros do bloco da tarefa
+    const shareUnits = Math.min(4, Math.max(0, capacity - taken) / Math.max(1, planned.length));
+    const shareOf = (focus: number) => units(focus, Math.max(1, Math.floor((shareUnits * 25) / Math.max(5, focus) + EPS)));
     planned.forEach((i) => {
       const tp = prefs.turnPlans?.[turnKey(dow, TURN_KEYS[i])];
       if (!tp) return;
@@ -1262,7 +1293,7 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
           subtitle: [topic, tp.note && (subj || m) ? tp.note : ''].filter(Boolean).join(' · ') || 'Turno que você planejou',
           reason: 'Você planejou este turno em Minha rotina.',
           steps: [],
-          pomodoros: share,
+          pomodoros: shareOf(tp.method === 'tema_novo' ? newFocus : shortFocus),
           focus: tp.method === 'tema_novo' ? newFocus : shortFocus,
           subjectId: tp.subjectId,
           topicIds: tp.topicId ? [tp.topicId] : undefined,
@@ -1553,7 +1584,12 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
           currentIds.has(t.subjectId) &&
           t.scheduleFirstContact &&
           t.firstContactDate &&
-          (isToday ? t.firstContactDate <= today && (!isTopicSeen(t) || t.lastStudiedDate === today) : t.firstContactDate === date && (!isPast || isTopicSeen(t))) &&
+          // Já estudado: aparece no dia em que foi estudado (antes ou depois do dia marcado). Ainda não: hoje (se atrasado) ou no dia marcado
+          (isTopicSeen(t)
+            ? firstContactStudiedOn(t) === date
+            : isToday
+              ? t.firstContactDate <= today
+              : !isPast && t.firstContactDate === date) &&
           !plannedBlocks.some((b) => b.id === t.blockId) &&
           !t.cabide &&
           // Na tutoria (Básico/Clínico) os objetivos já entram no passo 7
@@ -1624,14 +1660,16 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
         const preferred = p.days && p.days.length > 0 ? p.days.includes(dow) : true;
         if (!preferred) return;
         const doneWeek = projectWeekPomodoros(p, sessions, date);
-        const remaining = Math.max(0, p.weeklyPomodoros - doneWeek);
+        // Meta e feito comparados em blocos do aluno (iguais aos cards de Estudos pessoais)
+        const goalBlocks = projectGoalBlocks(p.weeklyPomodoros, prefs.focusMinutes);
+        const doneBlocks = projectDoneBlocks(doneWeek, prefs.focusMinutes);
+        const remaining = Math.max(0, goalBlocks - doneBlocks);
         const doneToday = sessions.some((s) => s.projectId === p.id && s.activity !== 'phase_questions' && sessionDate(s) === date);
         if (remaining <= 0 && !doneToday) return;
         const item = nextProjectItem(p);
         const daysLeft = p.days && p.days.length > 0 ? p.days.length : 5;
         // Texto em blocos do aluno (a meta e o feito estão em unidades de 25 min)
-        const projBlocks = (u: number) => Math.round((u * 25) / Math.max(5, prefs.focusMinutes));
-        const weekText = `Meta da semana: ${projBlocks(doneWeek)}/${Math.max(1, projBlocks(p.weeklyPomodoros))} blocos de ${prefs.focusMinutes} min`;
+        const weekText = `Meta da semana: ${doneBlocks}/${goalBlocks} blocos de ${prefs.focusMinutes} min`;
         all.push(
           mk({
             id: `proj:${p.id}:${date}`,
@@ -1643,9 +1681,9 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
             subtitle: item ? `Próximo: ${item.title}` : weekText,
             reason: `${weekText}. Este bloco fica protegido nos dias que você escolheu.`,
             steps: item ? [`Estude: ${item.title}`, 'No fim, escreva de memória o que tirou daqui (folha em branco de 5 min)'] : ['Escolha o próximo passo do projeto'],
-            pomodoros: Math.max(1, Math.min(2, Math.ceil(remaining / daysLeft))),
+            pomodoros: units(newFocus, Math.max(1, Math.min(2, Math.ceil(remaining / daysLeft)))),
             sized: true,
-            focus: shortFocus,
+            focus: newFocus,
             projectId: p.id,
             autoDone: doneToday,
           })
@@ -1717,7 +1755,7 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
     const isReview = t.kind === 'review' || t.kind === 'project_review';
     const always = t.done || pinnedSet.has(t.id) || t.kind === 'blank_page' || t.kind === 'custom' || t.kind === 'weekly_planning' || (isReview && reviewsIn === 0);
     const protectedProject = t.kind === 'project' && !lowEnergy && !plantao && !examEve && !overflow.some((o) => o.kind === 'project');
-    if (always || used + t.pomodoros <= capacity || (protectedProject && t.pomodoros <= 1)) {
+    if (always || used + t.pomodoros <= capacity + EPS || (protectedProject && taskBlocks(t.pomodoros, t.focus) <= 1)) {
       tasks.push(t);
       if (!t.optional || t.done) used += t.pomodoros;
       if (isReview) reviewsIn++;
@@ -1757,7 +1795,7 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
     date,
     dayKind,
     capacity,
-    planned: used,
+    planned: Math.round(used * 1000) / 1000,
     tasks,
     overflow,
     overflowReviews,
@@ -1791,8 +1829,8 @@ export const buildWeekLoad = (input: Omit<PlanInput, 'date'>, dates: string[]) =
     const every = [...p.tasks, ...p.overflow];
     const reviews = every.filter((t) => t.kind === 'review' || t.kind === 'project_review').length;
     const newTopics = every.filter((t) => (t.kind === 'new_block' || t.kind === 'new_topics') && !t.suggested).length;
-    const demand = every.filter((t) => !t.optional).reduce((a, t) => a + t.pomodoros, 0);
-    return { date, dayKind: p.dayKind, capacity: p.capacity, demand, reviews, newTopics, overloaded: demand > p.capacity, plan: p };
+    const demand = Math.round(every.filter((t) => !t.optional).reduce((a, t) => a + t.pomodoros, 0) * 1000) / 1000;
+    return { date, dayKind: p.dayKind, capacity: p.capacity, demand, reviews, newTopics, overloaded: demand > p.capacity + EPS, plan: p };
   });
 
 /**
@@ -1815,7 +1853,7 @@ export const autoDistributeNewTopics = (input: Omit<PlanInput, 'date'>, blockIds
     const load = every.filter((t) => !t.optional && t.kind !== 'new_block' && t.kind !== 'new_topics').reduce((a, t) => a + t.pomodoros, 0);
     let slots = Math.max(0, input.prefs.newTopicsPerDay - already);
     const free = p.capacity - load - already * per;
-    slots = Math.min(slots, Math.max(Math.floor(free / per), already === 0 ? 1 : 0));
+    slots = Math.min(slots, Math.max(Math.floor(free / per + EPS), already === 0 ? 1 : 0));
     for (let k = 0; k < slots && queue.length > 0; k++) result[queue.shift()!] = date;
   }
   return result;

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, BookOpen, Plus, Trophy, FileClock, LayoutGrid, FolderTree } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import type { Subject } from '../types';
@@ -28,6 +28,10 @@ type ViewMode = 'area' | 'module';
 type Detail = { kind: 'area'; id: string } | { kind: 'subject'; id: string; fromArea?: string } | null;
 
 const VIEW_KEY = 'medacademic_struct_view';
+/** disparado pelo AddSubjectModal ao criar (detail: { id, kind }) */
+const SUBJECT_CREATED_EVENT = 'medacademic:subject-created';
+/** pede ao AddSubjectModal o tipo inicial (detail: { kind }) */
+const ADD_SUBJECT_PRESET_EVENT = 'medacademic:add-subject-preset';
 
 const specialtyOrder = (s: Subject) => {
   const i = CLINICA_MEDICA_SPECIALTIES.findIndex((sp) => sp.id === s.specialty);
@@ -106,16 +110,15 @@ export const AcademicStructureView: React.FC<AcademicStructureViewProps> = ({ on
   const [contestsOpen, setContestsOpen] = useState(false);
   const [pastOpen, setPastOpen] = useState(false);
 
-  // disciplina recém-criada já abre na tela dela
-  const knownIds = useRef<Set<string> | null>(null);
+  // disciplina recém-criada já abre na tela dela (só com o aviso explícito do AddSubjectModal)
   useEffect(() => {
-    const ids = new Set(subjects.map((x) => x.id));
-    if (knownIds.current) {
-      const added = subjects.find((x) => !knownIds.current!.has(x.id));
-      if (added) setDetail({ kind: 'subject', id: added.id });
-    }
-    knownIds.current = ids;
-  }, [subjects]);
+    const onCreated = (e: Event) => {
+      const id = (e as CustomEvent<{ id?: string }>).detail?.id;
+      if (id) setDetail({ kind: 'subject', id });
+    };
+    window.addEventListener(SUBJECT_CREATED_EVENT, onCreated);
+    return () => window.removeEventListener(SUBJECT_CREATED_EVENT, onCreated);
+  }, []);
 
   // volta ao topo ao entrar/sair do detalhe
   useEffect(() => {
@@ -358,11 +361,20 @@ export const AcademicStructureView: React.FC<AcademicStructureViewProps> = ({ on
             exams={exams}
             storageKey={mode === 'area' ? 'medacademic_struct_shelf_area' : 'medacademic_struct_shelf_module'}
             addLabel={mode === 'area' ? 'Nova disciplina' : 'Novo módulo'}
-            onAdd={onOpenAddSubject}
+            onAdd={() => {
+              // "Novo módulo" já abre o cadastro em "Módulo da faculdade"
+              try {
+                window.dispatchEvent(new CustomEvent(ADD_SUBJECT_PRESET_EVENT, { detail: { kind: mode === 'module' ? 'module' : 'subject' } }));
+              } catch {
+                /* sem CustomEvent */
+              }
+              onOpenAddSubject();
+            }}
             onEdit={setEditing}
             onOpenModule={(id) => setDetail({ kind: 'subject', id })}
             allowLinking={mode === 'module' && !isBasic}
             focusSubjectId={workspaceFocus}
+            onFocusConsumed={() => setDetail(null)}
           />
         </>
       )}

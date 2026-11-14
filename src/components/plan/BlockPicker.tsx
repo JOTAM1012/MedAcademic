@@ -39,12 +39,20 @@ export const BlockPicker: React.FC<BlockPickerProps> = ({ idPrefix, focus, rest,
     setR(String(rest));
   }, [focus, rest]);
 
-  const applyCustom = (nf: string, nr: string) => {
-    setF(nf);
-    setR(nr);
-    const fv = Number(nf);
-    const rv = Number(nr);
-    if (nf !== '' && nr !== '' && !Number.isNaN(fv) && !Number.isNaN(rv)) onChange(clamp(fv, FOCUS_MIN, FOCUS_MAX), clamp(rv, 0, REST_MAX));
+  // Enquanto digita, só o texto muda (ex.: "4" a caminho de "45" não vira 10). O limite e o
+  // onChange ficam para o blur/Enter; campo vazio ou inválido volta ao valor salvo.
+  const commitCustom = () => {
+    const fv = f.trim() === '' || Number.isNaN(Number(f)) ? focus : clamp(Number(f), FOCUS_MIN, FOCUS_MAX);
+    const rv = r.trim() === '' || Number.isNaN(Number(r)) ? rest : clamp(Number(r), 0, REST_MAX);
+    setF(String(fv));
+    setR(String(rv));
+    if (fv !== focus || rv !== rest) onChange(fv, rv);
+  };
+  const onEnter = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      commitCustom();
+    }
   };
 
   return (
@@ -90,8 +98,9 @@ export const BlockPicker: React.FC<BlockPickerProps> = ({ idPrefix, focus, rest,
               min={FOCUS_MIN}
               max={FOCUS_MAX}
               value={f}
-              onChange={(e) => applyCustom(e.target.value, r)}
-              onBlur={() => applyCustom(String(clamp(Number(f), FOCUS_MIN, FOCUS_MAX)), r)}
+              onChange={(e) => setF(e.target.value)}
+              onBlur={commitCustom}
+              onKeyDown={onEnter}
               className="w-full min-h-[44px] rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 text-sm font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
             />
           </label>
@@ -104,8 +113,9 @@ export const BlockPicker: React.FC<BlockPickerProps> = ({ idPrefix, focus, rest,
               min={0}
               max={REST_MAX}
               value={r}
-              onChange={(e) => applyCustom(f, e.target.value)}
-              onBlur={() => applyCustom(f, String(clamp(Number(r), 0, REST_MAX)))}
+              onChange={(e) => setR(e.target.value)}
+              onBlur={commitCustom}
+              onKeyDown={onEnter}
               className="w-full min-h-[44px] rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 text-sm font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
             />
           </label>
