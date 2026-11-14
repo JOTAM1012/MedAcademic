@@ -14,12 +14,19 @@ interface OwnerNameProps {
 export const OwnerName: React.FC<OwnerNameProps> = ({ name, className = '', badge = false, crown = false }) => {
   const { isOwner, role } = useAccess();
   // Usuário comum: nome azul brilhante
-  if (!role) return <span className={`user-blue-name ${className}`}>{name}</span>;
+  if (!role)
+    return (
+      <span className="name-glow-blue">
+        <span className={`user-blue-name ${className}`}>{name}</span>
+      </span>
+    );
   return (
     <span className={`inline-flex items-center min-w-0 align-baseline ${badge || (crown && isOwner) ? 'gap-1.5' : ''}`}>
       {crown && isOwner && <Crown className="h-[0.9em] w-[0.9em] shrink-0 text-amber-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.8)]" />}
-      <span className={`${isOwner ? 'owner-gold-name' : 'text-violet-400'} ${className}`} title={isOwner ? 'Dono do MedAcademic' : 'Moderador'}>
-        {name}
+      <span className={isOwner ? 'name-glow-gold min-w-0' : 'min-w-0'}>
+        <span className={`${isOwner ? 'owner-gold-name' : 'text-violet-400'} ${className}`} title={isOwner ? 'Dono do MedAcademic' : 'Moderador'}>
+          {name}
+        </span>
       </span>
       {badge && (
         <span
