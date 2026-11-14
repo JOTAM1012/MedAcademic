@@ -1,0 +1,474 @@
+/* Disciplinas em cadernos: estante, barra de disciplinas e janela-caderno */
+
+/* ---------- Caderno da estante ---------- */
+.aw-notebook {
+  --aw-paper: #ffffff;
+  --aw-edge: #e2e8f0;
+  --nb-hole: #f1f5f9;
+  position: relative;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  width: 240px;
+  min-height: 156px;
+  margin-top: 10px;
+  border: none;
+  border-radius: 14px;
+  background: var(--aw-paper);
+  box-shadow:
+    inset 0 0 0 1px var(--aw-edge),
+    0 5px 0 -2px var(--aw-paper),
+    0 5px 0 -1px var(--aw-edge),
+    0 10px 0 -5px var(--aw-paper),
+    0 10px 0 -4px var(--aw-edge),
+    0 16px 26px -16px rgba(15, 23, 42, 0.35);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    transform 240ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 240ms ease;
+}
+.dark .aw-notebook {
+  --aw-paper: #162032;
+  --aw-edge: #263247;
+  --nb-hole: #020617;
+}
+.aw-notebook .nb-rings {
+  left: 18px;
+  right: 18px;
+}
+.aw-notebook:hover {
+  transform: translateY(-3px) rotate(-0.4deg);
+}
+.aw-notebook.is-active {
+  transform: translateY(-4px);
+  box-shadow:
+    inset 0 0 0 2px var(--aw-color),
+    0 5px 0 -2px var(--aw-paper),
+    0 5px 0 -1px var(--aw-edge),
+    0 10px 0 -5px var(--aw-paper),
+    0 10px 0 -4px var(--aw-edge),
+    0 18px 30px -16px color-mix(in srgb, var(--aw-color) 75%, transparent);
+}
+.aw-notebook:focus-visible {
+  outline: 2px solid #0284c7;
+  outline-offset: 4px;
+}
+/* Faixa colorida da capa */
+.aw-notebook__tape {
+  display: block;
+  height: 30px;
+  margin: 16px 0 0;
+  background:
+    repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.16) 0 8px, transparent 8px 16px),
+    var(--aw-color);
+  opacity: 0.92;
+}
+.aw-notebook__body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  padding: 10px 14px 12px;
+  gap: 2px;
+}
+.aw-notebook__code {
+  align-self: flex-start;
+  margin-top: -24px;
+  padding: 2px 8px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 900;
+  color: var(--aw-color);
+  background: var(--aw-paper);
+  box-shadow: 0 2px 6px -2px rgba(15, 23, 42, 0.35);
+}
+.aw-notebook__name {
+  margin-top: 6px;
+  font-size: 15px;
+  font-weight: 900;
+  line-height: 1.2;
+  color: #0f172a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dark .aw-notebook__name {
+  color: #fff;
+}
+.aw-notebook__meta {
+  font-size: 11px;
+  color: #64748b;
+}
+.dark .aw-notebook__meta {
+  color: #94a3b8;
+}
+.aw-notebook__foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 8px;
+}
+.aw-notebook__pct {
+  font-size: 13px;
+  font-weight: 900;
+  color: var(--aw-color);
+  font-variant-numeric: tabular-nums;
+}
+.aw-notebook__bar {
+  flex: 1;
+  height: 4px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--aw-color) 16%, transparent);
+}
+.aw-notebook__bar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--aw-color);
+}
+.aw-notebook--add {
+  width: 140px;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background: transparent;
+  box-shadow: none;
+  border: 1.5px dashed #cbd5e1;
+  color: #94a3b8;
+}
+.dark .aw-notebook--add {
+  border-color: #263247;
+}
+.aw-notebook--add:hover {
+  transform: none;
+  color: #0284c7;
+  border-color: #38bdf8;
+}
+
+/* ---------- Painel e barra de disciplinas ---------- */
+.aw-panel {
+  border-radius: 24px;
+  background: #fff;
+  border: 1px solid #f1f5f9;
+}
+.dark .aw-panel {
+  background: #0f172a;
+  border-color: #1e293b;
+}
+.aw-group-title {
+  padding: 0 2px 6px;
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #64748b;
+}
+.dark .aw-group-title {
+  color: #94a3b8;
+}
+.aw-chips {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 8px;
+}
+.aw-chip {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  border-radius: 16px;
+  background: #f8fafc;
+  box-shadow: inset 0 0 0 1px #eef2f7;
+  transition:
+    transform 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 180ms ease;
+}
+.dark .aw-chip {
+  background: #131c2e;
+  box-shadow: inset 0 0 0 1px #1e293b;
+}
+.aw-chip::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 10px;
+  bottom: 10px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--aw-color);
+}
+.aw-chip:hover {
+  transform: translateY(-1px);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--aw-color) 45%, transparent);
+}
+.aw-chip__main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  padding: 9px 4px 9px 12px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  border-radius: 16px;
+}
+.aw-chip__main:focus-visible,
+.aw-chip__star:focus-visible {
+  outline: 2px solid #0284c7;
+  outline-offset: 1px;
+}
+.aw-chip__star {
+  flex: none;
+  width: 36px;
+  display: grid;
+  place-items: center;
+  border: none;
+  background: none;
+  color: #94a3b8;
+  cursor: pointer;
+  border-radius: 12px;
+  transition:
+    color 150ms ease,
+    transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.aw-chip__star:hover {
+  color: #f59e0b;
+}
+.aw-chip__star.is-on {
+  color: #f59e0b;
+}
+.aw-chip__star:active {
+  transform: scale(0.85);
+}
+.aw-badge {
+  flex: none;
+  padding: 0 6px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 16px;
+  color: #0369a1;
+  background: rgba(2, 132, 199, 0.12);
+  white-space: nowrap;
+}
+.dark .aw-badge {
+  color: #7dd3fc;
+  background: rgba(56, 189, 248, 0.14);
+}
+.aw-badge--hot {
+  color: #be123c;
+  background: rgba(244, 63, 94, 0.12);
+}
+.dark .aw-badge--hot {
+  color: #fda4af;
+  background: rgba(244, 63, 94, 0.16);
+}
+
+/* ---------- Continuar de onde parou ---------- */
+.aw-continue {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 20px;
+  background:
+    radial-gradient(80% 140% at 0% 0%, color-mix(in srgb, var(--aw-color) 16%, transparent) 0%, transparent 70%),
+    #fff;
+  border: 1px solid #f1f5f9;
+}
+.dark .aw-continue {
+  background:
+    radial-gradient(80% 140% at 0% 0%, color-mix(in srgb, var(--aw-color) 18%, transparent) 0%, transparent 70%),
+    #0f172a;
+  border-color: #1e293b;
+}
+
+/* ---------- Janela-caderno (disciplina aberta) ---------- */
+.aw-window-wrap {
+  position: fixed;
+  inset: 0;
+  z-index: 58;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+@media (min-width: 640px) {
+  .aw-window-wrap {
+    align-items: center;
+    padding: 28px 20px 20px;
+  }
+}
+.aw-window-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(2, 6, 23, 0.6);
+  backdrop-filter: blur(3px);
+  animation: aw-fade 180ms ease;
+}
+.aw-window {
+  position: relative;
+  width: 100%;
+  max-width: 1040px;
+  max-height: calc(100dvh - 16px);
+  margin-top: 0;
+  display: flex;
+  flex-direction: column;
+  border-radius: 20px 20px 0 0;
+  animation: aw-open 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+@media (min-width: 640px) {
+  .aw-window {
+    max-height: calc(100dvh - 56px);
+    border-radius: 18px;
+  }
+}
+.aw-window .nb-rings {
+  left: 28px;
+  right: 28px;
+}
+.aw-window__head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 18px 14px 8px 18px;
+  border-bottom: 1px solid var(--nb-line);
+}
+.aw-window__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--aw-color);
+  flex: none;
+}
+.aw-window__btn {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+}
+.aw-window__btn:hover:not(:disabled) {
+  background: var(--nb-hover);
+  color: #0f172a;
+}
+.dark .aw-window__btn:hover:not(:disabled) {
+  color: #fff;
+}
+.aw-window__btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+.aw-window__scroll {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 16px 18px 24px;
+}
+@media (min-width: 640px) {
+  .aw-window__scroll {
+    padding: 20px 26px 28px;
+  }
+}
+
+.aw-detail-in {
+  animation: aw-in 260ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes aw-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes aw-open {
+  from {
+    opacity: 0;
+    transform: translateY(24px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes aw-fade {
+  from {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .aw-notebook,
+  .aw-chip,
+  .aw-detail-in,
+  .aw-window,
+  .aw-window-backdrop {
+    transition: none;
+    animation: none;
+  }
+  .aw-notebook:hover,
+  .aw-notebook.is-active,
+  .aw-chip:hover {
+    transform: none;
+  }
+}
+
+/* ---- Espiral na lateral e cadernos um pouco maiores ---- */
+.aw-notebook {
+  width: 272px;
+  min-height: 178px;
+  margin-top: 0;
+  margin-left: 8px;
+  padding-left: 16px;
+}
+.aw-notebook--add {
+  width: 150px;
+  margin-left: 0;
+  padding-left: 0;
+}
+.aw-notebook .nb-rings {
+  top: 16px;
+  bottom: 16px;
+  left: -9px;
+  right: auto;
+  flex-direction: column;
+}
+.aw-notebook .nb-ring {
+  width: 24px;
+  height: 9px;
+}
+.aw-notebook .nb-ring::before {
+  background: linear-gradient(180deg, #64748b 0%, #f8fafc 38%, #cbd5e1 62%, #475569 100%) border-box;
+}
+.dark .aw-notebook .nb-ring::before {
+  background: linear-gradient(180deg, #334155 0%, #cbd5e1 40%, #94a3b8 62%, #1e293b 100%) border-box;
+}
+/* furo do papel do lado de dentro */
+.aw-notebook .nb-ring::after {
+  left: auto;
+  right: 1px;
+  bottom: 50%;
+  transform: translateY(50%);
+}
+.aw-notebook__tape {
+  margin: 0;
+  height: 34px;
+  border-radius: 0 14px 0 0;
+}
+.aw-notebook__name {
+  font-size: 16px;
+}
+.aw-notebook__body {
+  padding: 10px 16px 14px 10px;
+}
+.aw-notebook__code {
+  position: relative;
+  z-index: 1;
+}

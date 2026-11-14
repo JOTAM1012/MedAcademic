@@ -9,7 +9,8 @@ import { FOCUS_SUBJECT_KEY } from './TutoriaGradesSection';
 import { ContestsModal } from './contests/ContestsModal';
 import { PastExamsModal } from './contests/PastExamsModal';
 import { Bar, Ring, hasArea, moduleOf, subjectColor, topicStats } from './structure/shared';
-import { AreaGrid, groupByArea } from './structure/AreaGrid';
+import { areaSlug, groupByArea } from './structure/AreaGrid';
+import { StructureWorkspace, type Shelf } from './structure/StructureWorkspace';
 import { ModuleGrid, ModuleList } from './structure/ModuleList';
 import { ModuleLinks } from './structure/ModuleLinks';
 import { Trash2 } from 'lucide-react';
@@ -35,7 +36,7 @@ const specialtyOrder = (s: Subject) => {
 
 // Disciplinas & assuntos (todos os ciclos): visão por grandes áreas ou por módulo da faculdade
 export const AcademicStructureView: React.FC<AcademicStructureViewProps> = ({ onOpenAddSubject }) => {
-  const { currentSemester, subjects: allSubjects, topics, topicBlocks, studyPhase, contestsActive, deleteSubjects } = useApp();
+  const { currentSemester, subjects: allSubjects, topics, topicBlocks, exams, studyPhase, contestsActive, deleteSubjects } = useApp();
   const [confirmDeleteAll, setConfirmDeleteAll] = useState(false);
   // Só as disciplinas do semestre atual (as anteriores ficam no Histórico)
   const subjects = useMemo(
@@ -126,6 +127,36 @@ export const AcademicStructureView: React.FC<AcademicStructureViewProps> = ({ on
   }, [detail?.kind, detail?.id]);
 
   const areaGroups = useMemo(() => groupByArea(subjects), [subjects]);
+  // Cadernos da estante: grandes áreas ou módulos da faculdade (com as disciplinas vinculadas)
+  const areaShelves: Shelf[] = useMemo(
+    () =>
+      areaGroups.map(({ area, items }) => ({
+        id: area.id,
+        title: area.id === OTHER_AREA.id ? 'Sem grande área' : area.id,
+        code: area.id === OTHER_AREA.id ? '•••' : area.short,
+        color: area.color,
+        items: [...items].sort((a, b) => specialtyOrder(a) - specialtyOrder(b)),
+        domId: `struct-area-${areaSlug(area.id)}`,
+      })),
+    [areaGroups]
+  );
+  const moduleShelves: Shelf[] = useMemo(() => {
+    const modules = subjects.filter((s) => s.kind === 'module');
+    const plain = subjects.filter((s) => s.kind !== 'module');
+    const linked = new Set(modules.flatMap((m) => m.linkedSubjectIds || []));
+    const list: Shelf[] = modules.map((m) => ({
+      id: m.id,
+      title: m.name || m.universitySubject || 'Módulo',
+      code: (m.name || 'MOD').replace(/[^A-Za-zÀ-ú0-9]/g, '').slice(0, 3).toUpperCase(),
+      color: subjectColor(m),
+      items: plain.filter((s) => (m.linkedSubjectIds || []).includes(s.id)),
+      module: m,
+      domId: `struct-module-${m.id}`,
+    }));
+    const free = plain.filter((s) => !linked.has(s.id));
+    if (free.length || !list.length) list.push({ id: '__free__', title: list.length ? 'Sem módulo' : 'Disciplinas', code: '•••', color: '#64748b', items: free, domId: 'struct-module-free' });
+    return list;
+  }, [subjects]);
   const stats = topicStats(topics.filter((t) => subjects.some((s) => s.id === t.subjectId)));
 
   const showContests = contestsActive;
@@ -153,7 +184,9 @@ export const AcademicStructureView: React.FC<AcademicStructureViewProps> = ({ on
 
   // ===== Detalhe: uma disciplina =====
   const detailSubject = detail?.kind === 'subject' ? subjects.find((s) => s.id === detail.id) : undefined;
-  if (detailSubject) {
+  // Grandes áreas: a disciplina abre dentro da área de trabalho (estante + lista + disciplina)
+  const workspaceFocus = detailSubject && detailSubject.kind !== 'module' ? detailSubject.id : null;
+  if (detailSubject && !workspaceFocus) {
     const detailColor = subjectColor(detailSubject);
     return (
       <div className="space-y-4 pb-12 max-w-4xl">
@@ -316,33 +349,21 @@ export const AcademicStructureView: React.FC<AcademicStructureViewProps> = ({ on
             )}
           </div>
 
-          {mode === 'area' ? (
-            <AreaGrid groups={areaGroups} topics={topics} onOpen={(id) => setDetail({ kind: 'area', id })} onAdd={onOpenAddSubject} />
-          ) : (
-            <>
-              {!isBasic && subjects.some(hasArea) && (
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 -mt-2">
-                  Abra uma disciplina para vincular assuntos das grandes áreas e estudar as duas coisas juntas.
-                </p>
-              )}
-              {/* Módulos da faculdade (tipo próprio) em quadrados */}
-              <div className="space-y-2">
-                <h3 className="px-1 text-xs font-bold text-slate-500 dark:text-slate-400">Módulos da faculdade</h3>
-                <ModuleGrid
-                  modules={subjects.filter((s) => s.kind === 'module')}
-                  topics={topics}
-                  onOpen={(id) => setDetail({ kind: 'subject', id })}
-                  onAdd={onOpenAddSubject}
-                />
-              </div>
-              {subjects.some((s) => s.kind !== 'module') && (
-                <div className="space-y-2">
-                  <h3 className="px-1 text-xs font-bold text-slate-500 dark:text-slate-400">Disciplinas</h3>
-                  <ModuleList subjects={subjects.filter((s) => s.kind !== 'module')} topics={topics} topicBlocks={topicBlocks} onOpen={(id) => setDetail({ kind: 'subject', id })} />
-                </div>
-              )}
-            </>
-          )}
+          <StructureWorkspace
+            key={mode}
+            shelves={mode === 'area' ? areaShelves : moduleShelves}
+            allSubjects={subjects}
+            topics={topics}
+            topicBlocks={topicBlocks}
+            exams={exams}
+            storageKey={mode === 'area' ? 'medacademic_struct_shelf_area' : 'medacademic_struct_shelf_module'}
+            addLabel={mode === 'area' ? 'Nova disciplina' : 'Novo módulo'}
+            onAdd={onOpenAddSubject}
+            onEdit={setEditing}
+            onOpenModule={(id) => setDetail({ kind: 'subject', id })}
+            allowLinking={mode === 'module' && !isBasic}
+            focusSubjectId={workspaceFocus}
+          />
         </>
       )}
 

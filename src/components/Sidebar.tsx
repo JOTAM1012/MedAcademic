@@ -197,7 +197,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
               <Stethoscope className="w-[18px] h-[18px]" />
             </div>
             {isExpanded && (
-              <span className="overflow-hidden whitespace-nowrap font-bold text-[15px] tracking-tight text-white animate-in fade-in duration-200">
+              <span className="overflow-hidden whitespace-nowrap font-black text-[24px] leading-none tracking-tight text-white animate-in fade-in duration-200">
                 Med<span className="text-sky-400">Academic</span>
               </span>
             )}
