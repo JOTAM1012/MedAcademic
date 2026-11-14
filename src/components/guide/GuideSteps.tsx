@@ -354,8 +354,8 @@ export const GUIDE_STEPS: GuideStep[] = [
         </ol>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <div className="rounded-2xl border border-slate-200 dark:border-slate-800 p-3">
-            <p className="text-sm font-black text-slate-800 dark:text-slate-100">📦 Não coube hoje</p>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">O que passar do seu tempo fica separado, com “Passar para amanhã”. Sem culpa.</p>
+            <p className="text-sm font-black text-slate-800 dark:text-slate-100">🌙 Encerrar o dia</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">No fim do dia você diz o que não deu: passa para amanhã, outro dia ou tira. Sem culpa.</p>
           </div>
           <div className="rounded-2xl border border-slate-200 dark:border-slate-800 p-3">
             <p className="text-sm font-black text-slate-800 dark:text-slate-100">🫶 Dia difícil</p>

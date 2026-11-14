@@ -1,12 +1,14 @@
-// "Planejar dia": personalizar o dia de hoje. Tipo do dia, quanto tempo tem, a ordem das tarefas,
-// o que entra (fixar) ou sai (tirar de hoje / amanhã), escolher o tema novo e somar tarefas suas.
+// "Planejar dia": personalizar o dia de hoje. Tipo do dia, quanto tempo tem, a ordem das tarefas
+// (arrastando), o que sai (tirar de hoje / amanhã), escolher o tema novo e somar tarefas suas.
+// Tema novo só entra se o aluno escolher; o que ele adiciona aparece logo abaixo, com X para tirar.
 import React, { useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, ArrowUpToLine, BookOpen, CalendarClock, Layers, Minus, Pin, PinOff, Plus, RotateCcw, SlidersHorizontal, Undo2, X } from 'lucide-react';
+import { ArrowUpToLine, BookOpen, CalendarClock, Layers, Lightbulb, Minus, Pin, PinOff, Plus, RotateCcw, SlidersHorizontal, Undo2, X } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { addDaysYMD, formatDM, parseYMD, ymd } from '../../data/blockReview';
 import { WEEKDAY_NAMES, type PlanTask } from '../../data/studyMethod';
 import { semesterNumberOf } from '../../data/subjectFormats';
-import { useDayPlan } from '../../hooks/useStudyPlan';
+import { useDayPlan, useDayThemes } from '../../hooks/useStudyPlan';
+import { ReorderList, type ReorderHandleProps } from '../shared/ReorderList';
 import { OptionChip, PlanModal, blocksToHours, readLocal, stepByBlock, taskSizeLabel, userLocalKey, writeLocal } from './planShared';
 import { StudyContentModal } from './StudyContentModal';
 import { QuickThemeModal } from './QuickThemeModal';
@@ -58,12 +60,12 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose, date:
     removeCustomTask,
     moveTaskToDate,
     addCustomTask,
-    updateTopicBlock,
     showNotification,
     userProfile,
   } = useApp();
   const plan = useDayPlan(dateProp);
   const date = plan.date;
+  const themes = useDayThemes(date);
   const todayStr = ymd(new Date());
   const isToday = date === todayStr;
   // "hoje" quando é o dia de hoje; nos outros dias, "neste dia"
@@ -92,7 +94,7 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose, date:
 
   const all = useMemo(() => [...plan.tasks, ...plan.overflow], [plan]);
   const order = all.map((t) => t.id);
-  const inToday = new Set(plan.tasks.map((t) => t.id));
+
   const pinned = new Set(state.pinned || []);
   const capacity = state.capacity || plan.capacity;
 
@@ -112,14 +114,8 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose, date:
     else setDayShift(date, t);
   };
 
-  const move = (id: string, dir: -1 | 1) => {
-    const i = order.indexOf(id);
-    const j = i + dir;
-    if (i < 0 || j < 0 || j >= order.length) return;
-    const next = [...order];
-    [next[i], next[j]] = [next[j], next[i]];
-    setDayPlanState(date, (s) => ({ ...s, order: next }));
-  };
+  // Arrastar (ou ↑/↓ na alça): a nova ordem fica guardada no plano do dia
+  const commitOrder = (ids: string[]) => setDayPlanState(date, (s) => ({ ...s, order: ids }));
   // Prioridade: vai para o topo e fica fixada hoje
   const toTop = (id: string) => {
     setDayPlanState(date, (s) => ({ ...s, order: [id, ...order.filter((x) => x !== id)], pinned: Array.from(new Set([...(s.pinned || []), id])) }));
@@ -135,9 +131,10 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose, date:
     else addCustomTask(date, b.title, b.blocks);
     showNotification(`"${b.title}" entrou no plano ${isToday ? 'de hoje' : 'deste dia'}.`, 'success');
   };
-  // X: tarefa que você somou sai de vez; as do plano saem só de hoje
+  // X: tarefa que você somou sai de vez; o tema volta a ficar sem data; as do plano saem só de hoje
   const removeOrSkip = (t: PlanTask) => {
     if (t.kind === 'custom' && t.customId) removeCustomTask(date, t.customId);
+    else if (t.kind === 'new_block' && t.blockId && !t.skipped) themes.removeTheme(t.blockId);
     else skipTask(date, t.id, !t.skipped);
   };
   const fixedTasks = (kind: string) => all.filter((t) => t.kind === kind);
@@ -155,17 +152,21 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose, date:
   const setCapacity = (n: number) => setDayPlanState(date, (s) => ({ ...s, capacity: n }));
   const resetDay = () => {
     setDayPlanState(date, (s) => ({ ...s, order: undefined, pinned: undefined, capacity: undefined }));
-    showNotification('O dia voltou ao plano automático.', 'info');
+    showNotification('Ordem e tempo voltaram ao padrão.', 'info');
   };
 
-  // Tema novo para hoje: temas ligados, em estudo, que não estão programados para hoje
+  // O que já está no dia: temas (com X para tirar) e tarefas que o aluno somou
+  const dayThemes = plan.tasks.filter((t) => t.kind === 'new_block' || t.kind === 'new_topics');
+  const dayCustom = plan.tasks.filter((t) => t.kind === 'custom' && !!t.customId);
+  const themeIdsInDay = new Set(dayThemes.map((t) => t.blockId).filter(Boolean));
+  // Tema novo para o dia: temas ligados, em estudo, que ainda não estão neste dia
   const themeOptions = topicBlocks.filter(
-    (b) => currentSubjectIds.includes(b.subjectId) && b.reviewStatus === 'estudando' && !b.paused && b.plannedDate !== date
+    (b) => currentSubjectIds.includes(b.subjectId) && b.reviewStatus === 'estudando' && !b.paused && !themeIdsInDay.has(b.id)
   );
   const addTheme = (id: string) => {
     const b = topicBlocks.find((x) => x.id === id);
     if (!b) return;
-    updateTopicBlock(id, { plannedDate: date });
+    themes.addTheme(id);
     showNotification(`"${b.name}" entrou no plano ${isToday ? 'de hoje' : 'deste dia'}.`, 'success');
   };
 
@@ -187,13 +188,13 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose, date:
       id: 'normal',
       label: 'Normal',
       hint: 'plano completo',
-      desc: `Plano completo da sua rotina: revisões primeiro, depois tema novo, questões e o que mais couber em ${blocksToHours(daily)} de foco.`,
+      desc: `Plano completo da sua rotina: revisões primeiro, depois questões e os temas que você escolher. Seu tempo de foco: ${blocksToHours(daily)}.`,
     },
     {
       id: 'dificil',
       label: 'Dia difícil',
       hint: 'só o essencial',
-      desc: `O tempo cai para cerca de ${lowCap}, tudo em blocos curtos de ${shortMin} min. Revisões vêm primeiro e o plano não puxa tema novo sozinho.`,
+      desc: `O tempo cai para cerca de ${lowCap}, tudo em blocos curtos de ${shortMin} min. Revisões vêm primeiro e o site não sugere tema novo.`,
       capped: true,
     },
     ...(showPlantao
@@ -230,35 +231,19 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose, date:
   ];
   const activeType = typeChips.find((c) => c.id === dayType) || typeChips[0];
 
-  const row = (t: PlanTask, i: number) => {
-    const isIn = inToday.has(t.id) && !t.skipped;
+  // Linha da lista: no modo detalhado a alça (⋮⋮) arrasta a tarefa; ↑/↓ no teclado também move
+  const row = (t: PlanTask, handle: (p: ReorderHandleProps) => React.ReactNode) => {
+    const i = all.findIndex((x) => x.id === t.id);
+    const status = t.skipped ? (isToday ? 'fora de hoje' : 'fora deste dia') : t.done ? 'feita' : pinned.has(t.id) ? 'fixada' : t.optional ? 'opcional' : '';
     return (
-      <li key={t.id} id={`dayplan-task-${t.id}`} className={`flex items-center gap-2 px-2.5 py-2 ${t.skipped ? 'opacity-50' : ''}`}>
-        <div className={`flex-col shrink-0 ${mode === 'detalhado' ? 'flex' : 'hidden'}`}>
-          <button
-            type="button"
-            aria-label={`Subir ${t.title}`}
-            disabled={i === 0}
-            onClick={() => move(t.id, -1)}
-            className="h-6 w-8 flex items-center justify-center rounded-md text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30"
-          >
-            <ArrowUp className="h-3.5 w-3.5" />
-          </button>
-          <button
-            type="button"
-            aria-label={`Descer ${t.title}`}
-            disabled={i === all.length - 1}
-            onClick={() => move(t.id, 1)}
-            className="h-6 w-8 flex items-center justify-center rounded-md text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30"
-          >
-            <ArrowDown className="h-3.5 w-3.5" />
-          </button>
-        </div>
+      <div className={`flex items-center gap-1.5 px-2 py-2 bg-white dark:bg-slate-900 ${t.skipped ? 'opacity-50' : ''}`}>
+        {mode === 'detalhado' && handle({ id: `dayplan-grip-${t.id}`, label: `Arrastar ${t.title} para mudar a ordem`, className: 'h-10 w-8' })}
         <span className="text-lg leading-none shrink-0">{t.emoji}</span>
         <div className="min-w-0 flex-1">
           <p className={`text-[13px] font-bold truncate ${t.done ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-900 dark:text-white'}`}>{t.title}</p>
           <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-            {taskSizeLabel(t)} · {t.skipped ? (isToday ? 'fora de hoje' : 'fora deste dia') : isIn ? (pinned.has(t.id) ? 'fixada' : 'cabe no dia') : 'não coube'}
+            {taskSizeLabel(t)}
+            {status ? ` · ${status}` : ''}
           </p>
         </div>
         <div className="flex items-center gap-0.5 shrink-0">
@@ -279,7 +264,7 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose, date:
               type="button"
               id={`dayplan-pin-${t.id}`}
               aria-pressed={pinned.has(t.id)}
-              aria-label={pinned.has(t.id) ? 'Desafixar' : 'Fixar no dia mesmo se não couber'}
+              aria-label={pinned.has(t.id) ? 'Desafixar' : 'Fixar no dia (deixa de ser opcional)'}
               title={pinned.has(t.id) ? 'Desafixar' : 'Fixar no dia'}
               onClick={() => togglePin(t.id)}
               className={`h-10 w-10 flex items-center justify-center rounded-xl ${pinned.has(t.id) ? 'text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-500/10' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
@@ -311,9 +296,48 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose, date:
             </button>
           )}
         </div>
-      </li>
+      </div>
     );
   };
+
+  // "Já está no dia": o que o aluno colocou, com X para tirar
+  const addedList = (list: PlanTask[], id: string, label: string) =>
+    list.length > 0 && (
+      <div id={id} className="mt-2.5">
+        <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1">
+          {label} · {list.length}
+        </p>
+        <ul className="space-y-1">
+          {list.map((t) => (
+            <li key={t.id} className="flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/40 pl-2.5 pr-1 py-1">
+              <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: t.color }} aria-hidden />
+              <span className="min-w-0 flex-1">
+                <span className={`block text-[12px] font-bold truncate ${t.done ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-900 dark:text-white'}`}>
+                  {t.title.replace(/^Tema novo: /, '')}
+                </span>
+                <span className="block text-[10px] text-slate-500 dark:text-slate-400 truncate">
+                  {taskSizeLabel(t)}
+                  {t.kind !== 'custom' && t.subtitle ? ` · ${t.subtitle}` : ''}
+                </span>
+              </span>
+              {!t.done && (t.kind === 'custom' || t.kind === 'new_block') ? (
+                <button
+                  type="button"
+                  aria-label={`Tirar ${t.title} ${isToday ? 'de hoje' : 'deste dia'}`}
+                  title={isToday ? 'Tirar de hoje' : 'Tirar deste dia'}
+                  onClick={() => removeOrSkip(t)}
+                  className="shrink-0 h-9 w-9 flex items-center justify-center rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-rose-600 dark:hover:text-rose-400"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              ) : (
+                <span className="shrink-0 px-2 text-[10px] font-bold text-slate-400 dark:text-slate-500">{t.done ? 'feito' : '1º contato'}</span>
+              )}
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
 
   return (
     <>
@@ -325,7 +349,7 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose, date:
         maxWidth="max-w-2xl"
         icon={<SlidersHorizontal className="h-5 w-5" />}
         title={`Planejar meu dia · ${WEEKDAY_NAMES[parseYMD(date).getDay()]}, ${formatDM(date)}`}
-        subtitle="O plano automático é o ponto de partida. Aqui você deixa o dia do seu jeito."
+        subtitle="O site organiza e sugere; você decide o que entra. Aqui você deixa o dia do seu jeito."
       >
         <div className="space-y-5">
           {/* Modo */}
@@ -334,7 +358,7 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose, date:
             stretch
             fontSize={13}
             options={[
-              { id: 'simples', label: 'Simples', hint: 'o plano pronto + o básico' },
+              { id: 'simples', label: 'Simples', hint: 'o essencial + o básico' },
               { id: 'detalhado', label: 'Detalhado', hint: 'você escolhe tudo' },
             ]}
             value={mode}
@@ -413,7 +437,7 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose, date:
           {mode === 'simples' && (
             <section>
               <p className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Somar o básico do método</p>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-2">O plano já vem pronto. Se quiser, some um destes:</p>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-2">As revisões já estão no dia. Se quiser, some um destes:</p>
               {basicsToAdd.length === 0 ? (
                 <p className="text-[12px] text-slate-500 dark:text-slate-400">O básico já está no seu dia. 👍</p>
               ) : (
@@ -469,14 +493,31 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose, date:
                 onChange={(e) => e.target.value && addTheme(e.target.value)}
                 className="w-full min-w-0 min-h-[44px] rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 text-sm font-bold text-slate-800 dark:text-slate-100"
               >
-                <option value="">{themeOptions.length ? 'Escolher um bloco em estudo…' : 'Nenhum tema ligado sem data'}</option>
+                <option value="">{themeOptions.length ? 'Escolher um tema em estudo…' : 'Nenhum outro tema ligado em estudo'}</option>
                 {themeOptions.map((b) => (
                   <option key={b.id} value={b.id}>
                     {b.name}
-                    {b.plannedDate ? ` (estava para ${formatDM(b.plannedDate)})` : ''}
+                    {b.plannedDate ? ` (${b.plannedDate < date ? 'estava para' : 'marcado para'} ${formatDM(b.plannedDate)})` : ''}
                   </option>
                 ))}
               </select>
+              {isToday && plan.suggestions.length > 0 && (
+                <div id="dayplan-suggestions" className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 inline-flex items-center gap-1">
+                    <Lightbulb className="h-3.5 w-3.5 text-amber-500" /> Cabem no seu tempo:
+                  </span>
+                  {plan.suggestions.map((t) => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => t.blockId && addTheme(t.blockId)}
+                      className="min-h-[36px] max-w-full px-2.5 rounded-xl border border-dashed border-sky-300 dark:border-sky-700 text-[12px] font-bold text-sky-700 dark:text-sky-300 hover:bg-sky-50 dark:hover:bg-sky-500/10 inline-flex items-center gap-1"
+                    >
+                      <Plus className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">{t.title}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
@@ -496,6 +537,10 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose, date:
               </button>
               </div>
             </div>
+            {addedList(dayThemes, 'dayplan-added-themes', isToday ? 'Temas de hoje' : 'Temas deste dia')}
+            {dayThemes.length === 0 && (
+              <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">Nenhum tema {isToday ? 'em hoje' : 'neste dia'} ainda. O que você escolher aparece aqui.</p>
+            )}
           </section>
 
           {/* Tarefa minha */}
@@ -533,6 +578,7 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose, date:
                 </button>
               </div>
             </form>
+            {addedList(dayCustom, 'dayplan-added-tasks', isToday ? 'Suas tarefas de hoje' : 'Suas tarefas deste dia')}
           </section>
           </div>
           </Step>
@@ -543,19 +589,30 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose, date:
             <div className="flex items-end justify-between gap-2 mb-2">
               <p className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">{mode === 'detalhado' ? 'Tarefas, ordem e prioridade' : 'Seu dia'}</p>
               <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                {mode === 'detalhado' ? 'Setas mudam a ordem · ⤒ prioridade · alfinete fixa no dia · X tira do dia' : 'X tira do dia · relógio passa para o dia seguinte'}
+                {mode === 'detalhado' ? 'Arraste pela alça para mudar a ordem · ⤒ prioridade · X tira do dia' : 'X tira do dia · relógio passa para o dia seguinte'}
               </p>
             </div>
+            {plan.overBy > 0 && (
+              <p id="dayplan-over-time" className="mb-2 text-[11px] text-slate-500 dark:text-slate-400">
+                Passou {blocksToHours(plan.overBy)} do seu tempo. Tudo bem: você decide no fim do dia.
+              </p>
+            )}
             {all.length === 0 ? (
               <p className="rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 p-4 text-sm text-center text-slate-600 dark:text-slate-300">Nada no plano {isToday ? 'de hoje' : 'deste dia'} ainda.</p>
             ) : (
-              <ul id="dayplan-list" className="rounded-2xl border border-slate-200 dark:border-slate-800 divide-y divide-slate-200 dark:divide-slate-800">
-                {all.map(row)}
-              </ul>
+              <div id="dayplan-list">
+              <ReorderList
+                items={all}
+                onCommit={commitOrder}
+                className="rounded-2xl border border-slate-200 dark:border-slate-800 divide-y divide-slate-200 dark:divide-slate-800 overflow-hidden"
+                itemProps={(t) => ({ id: `dayplan-task-${t.id}` })}
+                renderItem={row}
+              />
+              </div>
             )}
             <div className="mt-3 flex justify-end">
               <button type="button" id="dayplan-reset" onClick={resetDay} className="min-h-[40px] px-3 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 inline-flex items-center gap-1.5">
-                <RotateCcw className="h-4 w-4" /> Voltar ao automático
+                <RotateCcw className="h-4 w-4" /> Voltar ordem e tempo ao padrão
               </button>
             </div>
           </section>

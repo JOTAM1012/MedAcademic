@@ -1,5 +1,6 @@
 // Plano do dia ("Hoje"): um cartão grande "Agora" com o próximo passo e o botão Começar,
-// progresso do dia, lista recolhível de tarefas, o que não coube, controles de 1 toque
+// progresso do dia, lista recolhível de tarefas, sugestões de tema (só entram se o aluno aceitar),
+// "Encerrar o dia" (o aluno decide o que fazer com o que ficou), controles de 1 toque
 // (dia difícil, plantão) e lembretes de sono/cuidado. `compact` = versão do Painel.
 import React, { useMemo, useState } from 'react';
 import IconSwap from '../shared/IconSwap';
@@ -17,6 +18,7 @@ import {
   HeartHandshake,
   Hospital,
   Lightbulb,
+  MoonStar,
   MoreHorizontal,
   Play,
   Plus,
@@ -33,7 +35,8 @@ import {
 import { useApp } from '../../context/AppContext';
 import { formatDM, parseYMD } from '../../data/blockReview';
 import { PHASE_INFO, WEEKDAY_NAMES, WELLBEING_NOTE, type PlanTask } from '../../data/studyMethod';
-import { useDayPlan } from '../../hooks/useStudyPlan';
+import { useDayPlan, useDayThemes } from '../../hooks/useStudyPlan';
+import { CloseDayModal } from './CloseDayModal';
 import { AUTO_KINDS, DAY_KIND_INFO, blocksToHours, isRealTask, readLocal, startPlanTask, taskSizeLabel, userLocalKey, writeLocal } from './planShared';
 import { QuickThemeModal } from './QuickThemeModal';
 import { WeeklyPlanModal } from './WeeklyPlanModal';
@@ -86,6 +89,20 @@ export const TodayPlanPanel: React.FC<TodayPlanPanelProps> = ({ compact, onOpenW
   const plan = useDayPlan();
   const date = plan.date;
   const dayState = studyMethod.dayPlans[date] || {};
+  const { addTheme, dismissSuggestion, removeTheme } = useDayThemes(date);
+  const [closeOpen, setCloseOpen] = useState(false);
+  const acceptSuggestion = (t: PlanTask) => {
+    if (!t.blockId) return;
+    addTheme(t.blockId);
+    showNotification(`"${t.title}" entrou no seu plano de hoje.`, 'success');
+  };
+  // Tirar de hoje: o tema volta a ficar sem data; o resto sai só de hoje (dá para voltar)
+  const takeOut = (t: PlanTask) => {
+    if (t.kind === 'new_block' && t.blockId) {
+      removeTheme(t.blockId);
+      showNotification(`"${t.title.replace(/^Tema novo: /, '')}" saiu de hoje.`, 'info');
+    } else skipTask(date, t.id);
+  };
   const phase = PHASE_INFO[studyPhase];
   const isInternato = studyPhase === 'internato';
 
@@ -343,8 +360,8 @@ export const TodayPlanPanel: React.FC<TodayPlanPanelProps> = ({ compact, onOpenW
                   <CornerDownRight className="h-3.5 w-3.5" /> Passar para amanhã
                 </button>
               )}
-              <button type="button" id={`today-skip-${domId(t.id)}`} onClick={() => skipTask(date, t.id)} className={btnGhost}>
-                <SkipForward className="h-3.5 w-3.5" /> Pular hoje
+              <button type="button" id={`today-skip-${domId(t.id)}`} onClick={() => takeOut(t)} className={btnGhost}>
+                <SkipForward className="h-3.5 w-3.5" /> Tirar de hoje
               </button>
             </>
           )
@@ -593,8 +610,78 @@ export const TodayPlanPanel: React.FC<TodayPlanPanelProps> = ({ compact, onOpenW
       <div className="mt-1.5 h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
         <div className="h-full rounded-full bg-gradient-to-r from-sky-500 to-emerald-500 transition-all" style={{ width: `${plan.doneCount > 0 ? Math.max(pct, 4) : 0}%` }} />
       </div>
+      {plan.overBy > 0 && !allDone && (
+        <p id="today-over-time" className="mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+          Passou {blocksToHours(plan.overBy)} do seu tempo. Tudo bem: você decide no fim do dia.
+        </p>
+      )}
     </div>
   );
+
+  // Sugestões de tema: cabem no tempo de hoje e só entram se o aluno adicionar
+  const Suggestions = ({ small }: { small?: boolean }) => {
+    const list = small ? plan.suggestions.slice(0, 1) : plan.suggestions;
+    if (list.length === 0 && (small || plan.suggestionsWaiting === 0)) return null;
+    return (
+      <div id="today-suggestions" className={`rounded-2xl border border-dashed border-violet-300/80 dark:border-violet-500/30 bg-violet-50/50 dark:bg-violet-500/[0.05] ${small ? 'p-2.5' : 'p-3'}`}>
+        {list.length > 0 && (
+          <>
+            <p className="px-0.5 text-[11px] font-black uppercase tracking-wider text-violet-700 dark:text-violet-300 flex items-center gap-1.5">
+              <Lightbulb className="h-3.5 w-3.5" /> Sugestões para hoje <span className="font-bold normal-case tracking-normal text-slate-500 dark:text-slate-400">· cabem no seu tempo</span>
+            </p>
+            <ul className="mt-1.5 space-y-1.5">
+              {list.map((t) => (
+                <li key={t.id} id={`today-suggestion-${domId(t.id)}`} className="flex items-center gap-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-2 pl-2.5">
+                  <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: t.color }} aria-hidden />
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[13px] font-bold text-slate-900 dark:text-white truncate">{t.title}</span>
+                    <span className="block text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                      {taskSizeLabel(t)}
+                      {t.subtitle ? ` · ${t.subtitle}` : ''}
+                    </span>
+                  </span>
+                  <button
+                    type="button"
+                    id={`today-suggestion-add-${domId(t.id)}`}
+                    onClick={() => acceptSuggestion(t)}
+                    className="shrink-0 min-h-[40px] px-3 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-black inline-flex items-center gap-1"
+                  >
+                    <Plus className="h-3.5 w-3.5" /> Adicionar
+                  </button>
+                  {!small && (
+                    <button
+                      type="button"
+                      id={`today-suggestion-no-${domId(t.id)}`}
+                      onClick={() => t.blockId && dismissSuggestion(t.blockId)}
+                      aria-label={`Agora não: ${t.title}`}
+                      title="Agora não"
+                      className="shrink-0 h-10 w-9 flex items-center justify-center rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+        {!small && (
+          <p className={`px-0.5 text-[11px] text-slate-500 dark:text-slate-400 ${list.length > 0 ? 'mt-1.5' : ''}`}>
+            {list.length > 0 ? 'Nada entra sozinho: só o que você adicionar.' : 'Sem sugestão que caiba no tempo de hoje.'}
+            {plan.suggestionsWaiting > 0 && (
+              <>
+                {' '}
+                {plan.suggestionsWaiting === 1 ? 'Mais 1 tema espera um dia.' : `Mais ${plan.suggestionsWaiting} temas esperam um dia.`}{' '}
+                <button type="button" id="today-suggestions-more" onClick={() => setDayPlanOpen(true)} className="font-bold text-sky-700 dark:text-sky-300 hover:underline">
+                  Escolher
+                </button>
+              </>
+            )}
+          </p>
+        )}
+      </div>
+    );
+  };
 
   const EmptyCard = ({ small }: { small?: boolean }) => (
     <div id="today-empty-card" className={`rounded-3xl border border-dashed border-sky-300 dark:border-sky-700/60 bg-sky-50/60 dark:bg-sky-500/[0.05] ${small ? 'p-4' : 'p-5'}`}>
@@ -641,6 +728,7 @@ export const TodayPlanPanel: React.FC<TodayPlanPanelProps> = ({ compact, onOpenW
       <QuickThemeModal open={quickOpen} onClose={() => setQuickOpen(false)} />
       {!onOpenWeekPlan && <WeeklyPlanModal open={weekOpen} onClose={() => setWeekOpen(false)} />}
       <DayPlanModal open={dayPlanOpen} onClose={() => setDayPlanOpen(false)} />
+      <CloseDayModal open={closeOpen} onClose={() => setCloseOpen(false)} />
     </>
   );
 
@@ -681,6 +769,7 @@ export const TodayPlanPanel: React.FC<TodayPlanPanelProps> = ({ compact, onOpenW
             </div>
           )
         )}
+        {Suggestions({ small: true })}
         <button
           type="button"
           id="today-open-plan"
@@ -734,12 +823,12 @@ export const TodayPlanPanel: React.FC<TodayPlanPanelProps> = ({ compact, onOpenW
 
       {/* No celular o cartão "Agora" vem primeiro (Começar na 1ª tela); avisos do dia logo abaixo */}
       <div className="flex flex-col gap-3">
-      {/* Bem-vindo de volta: revisões que não cabem */}
+      {/* Bem-vindo de volta: revisões que passam do tempo de hoje */}
       {plan.overflowReviews > 0 && (
         <div id="today-welcome-back" className="order-last sm:order-none rounded-3xl border border-sky-200 dark:border-sky-500/30 bg-sky-50 dark:bg-sky-500/[0.06] p-4">
           <p className="text-sm font-black text-slate-900 dark:text-white">Bem-vindo(a) de volta 👋</p>
           <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5">
-            {plan.overflowReviews} revis{plan.overflowReviews > 1 ? 'ões ficaram' : 'ão ficou'} para trás e não cabe{plan.overflowReviews > 1 ? 'm' : ''} hoje. Sem culpa: a gente espalha pelos próximos dias, as mais importantes primeiro.
+            {plan.overflowReviews} revis{plan.overflowReviews > 1 ? 'ões passam' : 'ão passa'} do seu tempo de hoje. Sem culpa: se quiser, a gente espalha pelos próximos dias, as mais importantes primeiro.
           </p>
           <button
             type="button"
@@ -929,6 +1018,8 @@ export const TodayPlanPanel: React.FC<TodayPlanPanelProps> = ({ compact, onOpenW
         </div>
       )}
 
+      {Suggestions({})}
+
       {/* Lista do dia */}
       <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs">
         <button
@@ -983,11 +1074,26 @@ export const TodayPlanPanel: React.FC<TodayPlanPanelProps> = ({ compact, onOpenW
         )}
       </div>
 
-      {/* Não coube hoje */}
+      {/* Encerrar o dia: o aluno decide o que fazer com o que ficou sem marcar */}
+      <div id="today-close-day" className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-2">
+        <p className="flex-1 text-[12px] text-slate-600 dark:text-slate-300">
+          {dayState.closed ? 'Dia encerrado. ✓ Você pode rever o que ficou.' : 'Acabou de estudar? Diga o que não deu: passa para amanhã, outro dia ou tira.'}
+        </p>
+        <button
+          type="button"
+          id="today-close-day-btn"
+          onClick={() => setCloseOpen(true)}
+          className="shrink-0 min-h-[44px] px-4 rounded-xl border border-indigo-300 dark:border-indigo-500/40 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 text-xs font-black inline-flex items-center justify-center gap-1.5"
+        >
+          <MoonStar className="h-4 w-4" /> {dayState.closed ? 'Rever o dia' : 'Encerrar o dia'}
+        </button>
+      </div>
+
+      {/* Fora de hoje: só o que o aluno tirou (pode voltar) */}
       {plan.overflow.length > 0 && (
         <div id="today-overflow" className="rounded-3xl border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-950/30 p-3">
-          <p className="px-1 text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Não coube hoje · {plan.overflow.length}</p>
-          <p className="px-1 text-[11px] text-slate-500 dark:text-slate-400 mb-2">Tudo bem. Revisões vêm primeiro; o resto pode ir para amanhã.</p>
+          <p className="px-1 text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Você tirou de hoje · {plan.overflow.length}</p>
+          <p className="px-1 text-[11px] text-slate-500 dark:text-slate-400 mb-2">Se mudar de ideia, é só voltar para hoje.</p>
           <ul className="space-y-1.5">
             {plan.overflow.map((t) => (
               <React.Fragment key={t.id}>{TaskRow({ t, inOverflow: true })}</React.Fragment>

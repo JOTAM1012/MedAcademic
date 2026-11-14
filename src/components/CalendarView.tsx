@@ -614,14 +614,20 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       });
 
     // 3a. Blocos em estudo (D0): um card por bloco, com a % de tópicos vistos.
-    // O D0 que passou da data sobe para hoje com selo neutro ("remarcado").
+    // Só o que está de fato planejado: tema com data aparece no dia marcado. Se a data passou, ele NÃO
+    // sobe sozinho para hoje (vira sugestão no plano de hoje); só aparece se o aluno adicionou hoje.
     const todayStr = formatToYMD(new Date());
     const isTodayCol = dayInfo.dateStr === todayStr;
     // Pendência com data já passada aparece SÓ em hoje (remarcada); nunca também no dia original.
     const landsHere = (d: string) => (d < todayStr ? isTodayCol : d === dayInfo.dateStr);
+    const acceptedHere = new Set(studyMethod.dayPlans?.[dayInfo.dateStr]?.accepted || []);
     topicBlocks
       .filter((bk) => {
-        if (bk.reviewStatus !== 'estudando') return false;
+        if (bk.reviewStatus !== 'estudando' || bk.paused) return false;
+        if (bk.plannedDate) {
+          if (bk.plannedDate === dayInfo.dateStr) return dayInfo.dateStr >= todayStr;
+          return isTodayCol && bk.plannedDate < todayStr && acceptedHere.has(`new:${bk.id}`);
+        }
         const sd = studyDateOf(bk);
         return !!sd && landsHere(sd);
       })
@@ -1290,7 +1296,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                         </span>
                       )}
                       {!past && (
-                        <div title={`Estudo previsto: ${blocksToHours(load.demand)} de ${blocksToHours(load.capacity)} · ${load.reviews} revisões · ${load.newTopics} temas novos`}>
+                        <div title={`Planejado: ${blocksToHours(load.demand)} de ${blocksToHours(load.capacity)} · ${load.reviews} revisões · ${load.newTopics} temas novos`}>
                           <div className="h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
                             <div
                               className={`h-full rounded-full ${load.overloaded ? 'bg-amber-500' : 'bg-sky-500'}`}

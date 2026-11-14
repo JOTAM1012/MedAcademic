@@ -238,6 +238,12 @@ export interface DayPlanState {
   order?: string[];
   /** "Planejar dia": tarefas que o aluno quer hoje mesmo se não couberem */
   pinned?: string[];
+  /** Temas novos que o aluno aceitou para este dia (ids das tarefas, ex.: "new:<id do bloco>"). Tema novo só entra com o aceite dele */
+  accepted?: string[];
+  /** Sugestões que o aluno dispensou neste dia ("Agora não") */
+  dismissed?: string[];
+  /** O aluno encerrou o dia (decidiu o que fazer com o que ficou sem marcar) */
+  closed?: boolean;
 }
 
 export type PersonalProjectKind = 'faculdade' | 'residencia' | 'liga' | 'idioma' | 'curso' | 'leitura' | 'pesquisa' | 'outro';

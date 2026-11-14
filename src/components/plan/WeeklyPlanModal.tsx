@@ -1,5 +1,5 @@
-// "Planejar semana": os próximos 7 dias (tipo do dia, revisões previstas, temas novos, se cabe
-// no dia, provas) + temas em estudo sem data, com dia por tema e "Distribuir automaticamente".
+// "Planejar semana": os próximos 7 dias só com o que está de fato planejado (revisões, temas que o
+// aluno marcou, rotina, provas) + temas em estudo sem data, com dia por tema e "Distribuir automaticamente".
 import React, { useMemo, useState } from 'react';
 import { AlertTriangle, CalendarRange, ChevronDown, GraduationCap, Layers, Plus, Repeat, SlidersHorizontal, Sparkles, Sprout, Wand2 } from 'lucide-react';
 import { DayPlanModal } from './DayPlanModal';
@@ -65,7 +65,7 @@ export const WeeklyPlanModal: React.FC<WeeklyPlanModalProps> = ({ open, onClose 
     if (ids.length === 0) showNotification('A semana já está cheia. Escolha os dias à mão ou deixe alguns temas para a próxima.', 'info');
     else
       showNotification(
-        `${ids.length} tema${ids.length > 1 ? 's' : ''} distribuído${ids.length > 1 ? 's' : ''} pela semana${ids.length < unscheduled.length ? `; ${unscheduled.length - ids.length} não coube${unscheduled.length - ids.length > 1 ? 'ram' : ''}` : ''}.`,
+        `${ids.length} tema${ids.length > 1 ? 's' : ''} distribuído${ids.length > 1 ? 's' : ''} pela semana${ids.length < unscheduled.length ? `; ${unscheduled.length - ids.length} ${unscheduled.length - ids.length > 1 ? 'ficaram' : 'ficou'} sem data` : ''}.`,
         'success'
       );
   };
@@ -109,7 +109,7 @@ export const WeeklyPlanModal: React.FC<WeeklyPlanModalProps> = ({ open, onClose 
           <section>
             <div className="flex items-center justify-between gap-2 mb-2">
               <p className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Próximos 7 dias</p>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">cabe no seu dia?</p>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">só o que está planejado</p>
             </div>
             <ul id="weekly-plan-days" className="space-y-2">
               {load.map((l) => {
@@ -173,7 +173,7 @@ export const WeeklyPlanModal: React.FC<WeeklyPlanModalProps> = ({ open, onClose 
                       </div>
                       <div className="mt-1 flex items-center justify-between gap-2 text-[11px]">
                         <span className="text-slate-500 dark:text-slate-400" title={`≈ ${blocksToHours(l.demand)} de foco previstos`}>
-                          ≈ {blocksToHours(l.demand)} previstos · seu dia tem {blocksToHours(l.capacity)}
+                          ≈ {blocksToHours(l.demand)} planejados · seu dia tem {blocksToHours(l.capacity)}
                         </span>
                         {l.overloaded && (
                           <span className="font-bold text-amber-700 dark:text-amber-300 flex items-center gap-1">
@@ -181,14 +181,17 @@ export const WeeklyPlanModal: React.FC<WeeklyPlanModalProps> = ({ open, onClose 
                           </span>
                         )}
                       </div>
-                      {l.overloaded && <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">Revisões vêm primeiro. Passe um tema novo para um dia mais leve.</p>}
+                      {l.overloaded && (
+                        <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                          Passou {blocksToHours(Math.max(0, l.demand - l.capacity))} do seu tempo. Se quiser, mova algo para um dia mais leve.
+                        </p>
+                      )}
                     </div>
 
                     {/* Tarefas do dia: ver, mover de dia e somar uma tarefa sua */}
                     {(() => {
-                      const dayTasks = [...l.plan.tasks, ...l.plan.overflow.filter((t) => !t.skipped)];
+                      const dayTasks = l.plan.tasks;
                       const open = !closed[l.date];
-                      const inPlan = new Set(l.plan.tasks.map((t) => t.id));
                       return (
                         <div className="mt-2.5 border-t border-slate-200/70 dark:border-slate-800 pt-2">
                           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -226,8 +229,7 @@ export const WeeklyPlanModal: React.FC<WeeklyPlanModalProps> = ({ open, onClose 
                                         <span className={`block text-[12px] font-bold leading-snug truncate ${t.done ? 'line-through text-slate-400' : 'text-slate-900 dark:text-white'}`}>{t.title}</span>
                                         <span className="block text-[10px] text-slate-500 dark:text-slate-400">
                                           {taskSizeLabel(t)}
-                                          {!inPlan.has(t.id) && <span className="font-bold text-amber-700 dark:text-amber-300"> · não coube</span>}
-                                          {t.optional && inPlan.has(t.id) && ' · opcional'}
+                                          {t.optional && ' · opcional'}
                                         </span>
                                       </span>
                                       {t.movable && !t.done && (
@@ -380,7 +382,7 @@ export const WeeklyPlanModal: React.FC<WeeklyPlanModalProps> = ({ open, onClose 
             </div>
             {load.some((l) => l.overloaded) && (
               <p className="text-[11px] text-amber-700 dark:text-amber-300 flex items-center gap-1">
-                <AlertTriangle className="h-3 w-3 shrink-0" /> Há dia cheio. Volte em "Sua semana" e passe um tema novo para um dia mais leve.
+                <AlertTriangle className="h-3 w-3 shrink-0" /> Há dia cheio. Se quiser, volte em "Sua semana" e mova algo para um dia mais leve.
               </p>
             )}
           {/* ---------- Já programados nesta semana ---------- */}

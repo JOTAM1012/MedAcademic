@@ -71,3 +71,31 @@ export const useDueReviewCount = () => {
   const today = todayYMD();
   return useMemo(() => dueReviewCount(topicBlocks, subjects, today, studyMethod.projects), [topicBlocks, subjects, today, studyMethod.projects]);
 };
+
+/**
+ * Temas novos de um dia: nada entra sozinho. O aluno adiciona (sugestão aceita ou tema escolhido),
+ * dispensa a sugestão ("Agora não") ou tira o tema do dia.
+ */
+export const useDayThemes = (date?: string) => {
+  const { topicBlocks, setDayPlanState, updateTopicBlock } = useApp();
+  const d = date || todayYMD();
+  const without = (list: string[] | undefined, id: string) => (list || []).filter((x) => x !== id);
+  const withId = (list: string[] | undefined, id: string) => Array.from(new Set([...(list || []), id]));
+  /** Adiciona o tema ao dia (fica guardado no plano do dia e a data vai para o tema) */
+  const addTheme = (blockId: string) => {
+    const id = `new:${blockId}`;
+    setDayPlanState(d, (s) => ({ ...s, accepted: withId(s.accepted, id), dismissed: without(s.dismissed, id), skipped: without(s.skipped, id) }));
+    const b = topicBlocks.find((x) => x.id === blockId);
+    if (b && b.plannedDate !== d) updateTopicBlock(blockId, { plannedDate: d });
+  };
+  /** "Agora não": some das sugestões só neste dia */
+  const dismissSuggestion = (blockId: string) => setDayPlanState(d, (s) => ({ ...s, dismissed: withId(s.dismissed, `new:${blockId}`) }));
+  /** Tira o tema do dia: volta a ficar sem data (não é sugerido de novo neste dia) */
+  const removeTheme = (blockId: string) => {
+    const id = `new:${blockId}`;
+    setDayPlanState(d, (s) => ({ ...s, accepted: without(s.accepted, id), dismissed: withId(s.dismissed, id), order: s.order ? without(s.order, id) : s.order, pinned: s.pinned ? without(s.pinned, id) : s.pinned }));
+    const b = topicBlocks.find((x) => x.id === blockId);
+    if (b && b.plannedDate && b.plannedDate <= d) updateTopicBlock(blockId, { plannedDate: undefined });
+  };
+  return { addTheme, dismissSuggestion, removeTheme };
+};

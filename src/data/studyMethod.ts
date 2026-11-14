@@ -29,7 +29,7 @@ import type {
   TopicDifficulty,
   UserProfile,
 } from '../types';
-import { addDaysYMD, daysBetween, isBlockDue, isTopicSeen, nextIntervalDays, overdueDays, parseYMD, scheduleReviewDate, ymd } from './blockReview';
+import { addDaysYMD, daysBetween, formatDM, isBlockDue, isTopicSeen, nextIntervalDays, overdueDays, parseYMD, scheduleReviewDate, ymd } from './blockReview';
 import { cycleOfSemester, type CycleId } from './subjectFormats';
 import { examDisplayTitle, getActivityCategory, occursOn } from './planning';
 import { EXAM_TASKS, examProgress, examReminderText, examReminderToday, nextExamStep } from './examTopics';
@@ -619,7 +619,18 @@ export const mergeStudyMethod = (local: StudyMethodState, cloudRaw: any, _today 
     dayPlans: mergeByDate(local.dayPlans, cloud.dayPlans, (l, c) => {
       const uni = (a?: string[], b?: string[]) => (a || b ? Array.from(new Set([...(b || []), ...(a || [])])) : undefined);
       const custom = c.custom || l.custom ? [...(c.custom || []), ...(l.custom || []).filter((x) => !(c.custom || []).some((y) => y.id === x.id))] : undefined;
-      return { ...l, ...c, done: uni(l.done, c.done), skipped: uni(l.skipped, c.skipped), ...(custom ? { custom } : {}) };
+      const accepted = uni(l.accepted, c.accepted);
+      const dismissed = uni(l.dismissed, c.dismissed);
+      return {
+        ...l,
+        ...c,
+        done: uni(l.done, c.done),
+        skipped: uni(l.skipped, c.skipped),
+        ...(accepted ? { accepted } : {}),
+        ...(dismissed ? { dismissed } : {}),
+        ...(l.closed || c.closed ? { closed: true } : {}),
+        ...(custom ? { custom } : {}),
+      };
     }),
     guideSeen: cloud.guideSeen || local.guideSeen,
     deleted: Object.keys(deleted).length ? deleted : undefined,
@@ -977,12 +988,19 @@ export interface DayPlan {
   dayKind: DayKind;
   /** Capacidade em blocos de 25 min */
   capacity: number;
-  /** Blocos das tarefas que couberam */
+  /** Blocos das tarefas do dia (pode passar da capacidade: o aluno decide no fim do dia) */
   planned: number;
+  /** Tudo o que está de fato no dia: revisões, o que o aluno marcou/aceitou e a rotina */
   tasks: PlanTask[];
-  /** Tarefas que não couberam hoje */
+  /** Tarefas que o aluno tirou do dia (podem voltar). Nada vem para cá sozinho */
   overflow: PlanTask[];
-  /** Revisões que ficaram de fora (para o aviso "+N na fila") */
+  /** Temas novos que cabem no tempo de hoje: só sugestão, entram se o aluno aceitar */
+  suggestions: PlanTask[];
+  /** Temas em estudo que ficaram fora das sugestões (sem tempo ou acima do "temas por dia") */
+  suggestionsWaiting: number;
+  /** Quanto o planejado passa do tempo do dia (unidades de 25 min; 0 = cabe) */
+  overBy: number;
+  /** Revisões pendentes além do tempo do dia (para o aviso "Replanejar") */
   overflowReviews: number;
   doneCount: number;
   totalCount: number;
@@ -1075,6 +1093,11 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
   const state: DayPlanState = method.dayPlans?.[date] || {};
   const doneSet = new Set(state.done || []);
   const skipSet = new Set(state.skipped || []);
+  const acceptedSet = new Set(state.accepted || []);
+  const dismissedSet = new Set(state.dismissed || []);
+  /** Temas em estudo que podem virar sugestão de hoje (os que tinham data e ficaram para trás vêm primeiro) */
+  let suggestionPool: TopicBlock[] = [];
+  let suggestionSlots = 0;
   const dow = parseYMD(date).getDay();
   const residencyPrep = !!input.residencyPrep;
 
@@ -1539,19 +1562,24 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
           });
       }
 
-      // 8. Conteúdo novo: blocos programados, 1º contato programado, ou uma sugestão
+      // 8. Conteúdo novo: só o que o aluno escolheu (data marcada para o dia ou sugestão aceita) e o 1º contato programado.
+      // Tema com data que já passou NÃO sobe sozinho para hoje: vira sugestão (o aluno decide).
       const examFocus = soon2.size > 0;
       const plannedBlocks = blocks.filter(
         (b) =>
           currentIds.has(b.subjectId) &&
           !b.paused &&
-          // Programado para o dia, ou concluído no dia (inclusive a sugestão que o aluno aceitou e terminou)
-          ((b.reviewStatus === 'estudando' && !!b.plannedDate && (isToday ? b.plannedDate <= today : !isPast && b.plannedDate === date)) || b.completedDate === date)
+          // Marcado para o dia, aceito no dia (e não remarcado para depois), ou concluído no dia
+          ((b.reviewStatus === 'estudando' &&
+            !isPast &&
+            (b.plannedDate === date || (acceptedSet.has(`new:${b.id}`) && (!b.plannedDate || b.plannedDate <= date)))) ||
+            b.completedDate === date)
       );
       plannedBlocks
         .sort((a, b) => Number(soon7.has(b.subjectId)) - Number(soon7.has(a.subjectId)))
         .forEach((b) => {
           const late = isToday && b.reviewStatus === 'estudando' && b.plannedDate && b.plannedDate < today ? daysBetween(b.plannedDate, today) : 0;
+          const picked = acceptedSet.has(`new:${b.id}`);
           const bt = topics.filter((t) => t.blockId === b.id);
           const seen = bt.filter(isTopicSeen).length;
           const offFocus = examFocus && !soon2.has(b.subjectId) && b.completedDate !== date;
@@ -1564,7 +1592,7 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
               color: subjectColor(subjects, b.subjectId),
               title: `Tema novo: ${b.name}`,
               subtitle: `${subjectName(subjects, b.subjectId)}${bt.length ? ` · ${seen}/${bt.length} tópicos vistos` : ''}`,
-              reason: offFocus ? 'Véspera de prova: este tema pode esperar; foque na disciplina da prova.' : late > 0 ? `Remarcado: estava para ${late} dia${late > 1 ? 's' : ''} atrás.` : TECHNIQUES.estudo_inicial.why,
+              reason: offFocus ? 'Véspera de prova: este tema pode esperar; foque na disciplina da prova.' : late > 0 ? `Você adicionou hoje: estava para ${late} dia${late > 1 ? 's' : ''} atrás.` : picked ? 'Você adicionou este tema ao dia.' : TECHNIQUES.estudo_inicial.why,
               steps: firstSteps,
               pomodoros: units(newFocus, newTopicBlocks(newFocus)),
               sized: true,
@@ -1572,7 +1600,6 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
               technique: 'estudo_inicial',
               subjectId: b.subjectId,
               blockId: b.id,
-              overdueDays: late,
               optional: offFocus,
               movable: 'new_block',
               autoDone: b.completedDate === date,
@@ -1623,35 +1650,26 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
         );
       });
       const newCount = plannedBlocks.length + bySubject.size;
-      if (isToday && !lowEnergy && prefs.topicMode !== 'manual' && newCount < prefs.newTopicsPerDay) {
-        const candidates = blocks
-          .filter((b) => currentIds.has(b.subjectId) && b.reviewStatus === 'estudando' && !b.plannedDate && !b.paused)
-          .sort((a, b) => Number(soon7.has(b.subjectId)) - Number(soon7.has(a.subjectId)) || a.createdAt.localeCompare(b.createdAt))
-          .slice(0, prefs.newTopicsPerDay - newCount);
-        candidates.forEach((b) =>
-          all.push(
-            mk({
-              id: `new:${b.id}`,
-              kind: 'new_block',
-              priority: 3,
-              emoji: '💡',
-              color: subjectColor(subjects, b.subjectId),
-              title: `Sugestão de tema novo: ${b.name}`,
-              subtitle: subjectName(subjects, b.subjectId),
-              reason: soon7.has(b.subjectId) ? 'Sugestão: tem prova desta disciplina em breve.' : 'Sugestão automática: é o tema em estudo mais antigo sem data.',
-              steps: firstSteps,
-              pomodoros: units(newFocus, newTopicBlocks(newFocus)),
-              sized: true,
-              focus: newFocus,
-              technique: 'estudo_inicial',
-              subjectId: b.subjectId,
-              blockId: b.id,
-              suggested: true,
-              optional: true,
-              movable: 'new_block',
-            })
-          )
+      // Sugestões (só hoje): nada entra sozinho. Primeiro os temas que tinham data e ficaram para trás;
+      // no modo Automático, também os temas ligados sem data (prova perto primeiro, depois os mais antigos).
+      if (isToday && !lowEnergy) {
+        const inPlan = new Set(plannedBlocks.map((b) => b.id));
+        const open = blocks.filter(
+          (b) =>
+            currentIds.has(b.subjectId) &&
+            b.reviewStatus === 'estudando' &&
+            !b.paused &&
+            !inPlan.has(b.id) &&
+            !dismissedSet.has(`new:${b.id}`) &&
+            !skipSet.has(`new:${b.id}`) &&
+            // Véspera de prova: só sugere tema da disciplina da prova
+            (!examFocus || soon2.has(b.subjectId))
         );
+        const bySoon = (a: TopicBlock, b: TopicBlock) => Number(soon7.has(b.subjectId)) - Number(soon7.has(a.subjectId));
+        const lateOnes = open.filter((b) => !!b.plannedDate && b.plannedDate < today).sort((a, b) => bySoon(a, b) || (a.plannedDate || '').localeCompare(b.plannedDate || ''));
+        const undated = prefs.topicMode !== 'manual' ? open.filter((b) => !b.plannedDate).sort((a, b) => bySoon(a, b) || a.createdAt.localeCompare(b.createdAt)) : [];
+        suggestionPool = [...lateOnes, ...undated];
+        suggestionSlots = Math.max(0, prefs.newTopicsPerDay - newCount);
       }
 
       // 9. Estudos pessoais (mínimo protegido de 1 bloco nos dias escolhidos)
@@ -1736,11 +1754,14 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
     all.sort((a, b) => (pos.get(a.id) ?? 1000 + (idx.get(a.id) || 0)) - (pos.get(b.id) ?? 1000 + (idx.get(b.id) || 0)));
   }
   const pinnedSet = new Set(state.pinned || []);
-  // Encaixa pela capacidade (a ordem acima já é a prioridade). Uma revisão sempre entra.
+  // Tudo o que está planejado fica no dia, na ordem acima. Nada vai sozinho para "não coube":
+  // se passar do tempo, o aluno vê um aviso discreto e decide no fim do dia ("Encerrar o dia").
   const tasks: PlanTask[] = [];
+  /** Só o que o aluno tirou do dia (pode voltar) */
   const overflow: PlanTask[] = [];
   let used = 0;
   let reviewsIn = 0;
+  let overflowReviews = 0;
   for (const t0 of all) {
     // Fixada pelo aluno no "Planejar dia" deixa de ser opcional
     const t = pinnedSet.has(t0.id) && t0.optional ? { ...t0, optional: false, reason: 'Você fixou esta tarefa para hoje no Planejar dia.' } : t0;
@@ -1753,23 +1774,54 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
       continue;
     }
     const isReview = t.kind === 'review' || t.kind === 'project_review';
-    const always = t.done || pinnedSet.has(t.id) || t.kind === 'blank_page' || t.kind === 'custom' || t.kind === 'weekly_planning' || (isReview && reviewsIn === 0);
-    const protectedProject = t.kind === 'project' && !lowEnergy && !plantao && !examEve && !overflow.some((o) => o.kind === 'project');
-    if (always || used + t.pomodoros <= capacity + EPS || (protectedProject && taskBlocks(t.pomodoros, t.focus) <= 1)) {
-      tasks.push(t);
-      if (!t.optional || t.done) used += t.pomodoros;
-      if (isReview) reviewsIn++;
-    } else if (t.optional) {
-      overflow.push(t);
-    } else {
-      overflow.push(t);
-    }
+    const counts = !t.optional || t.done;
+    // Revisões pendentes além do tempo do dia (a primeira nunca conta): aviso "Replanejar"
+    if (isReview && !t.done && counts && reviewsIn > 0 && used + t.pomodoros > capacity + EPS) overflowReviews++;
+    tasks.push(t);
+    if (counts) used += t.pomodoros;
+    if (isReview) reviewsIn++;
   }
+  used = Math.round(used * 1000) / 1000;
+  // Dia de descanso não tem "tempo estourado"
+  const overBy = rest ? 0 : Math.max(0, Math.round((used - capacity) * 1000) / 1000);
+
+  // Sugestões de tema novo: só as que cabem no tempo que sobra (e até "temas novos por dia")
+  const themeUnits = units(newFocus, newTopicBlocks(newFocus));
+  const fits = themeUnits > 0 ? Math.max(0, Math.floor((capacity - used) / themeUnits + EPS)) : 0;
+  const suggestCount = Math.min(suggestionPool.length, suggestionSlots, fits);
+  const suggestions: PlanTask[] = suggestionPool.slice(0, suggestCount).map((b) => {
+    const bt = topics.filter((t) => t.blockId === b.id);
+    const seen = bt.filter(isTopicSeen).length;
+    const wasFor = b.plannedDate && b.plannedDate < today ? b.plannedDate : undefined;
+    return mk({
+      id: `new:${b.id}`,
+      kind: 'new_block',
+      priority: 3,
+      emoji: '💡',
+      color: subjectColor(subjects, b.subjectId),
+      title: b.name,
+      subtitle: [subjectName(subjects, b.subjectId), bt.length && seen > 0 ? `${seen}/${bt.length} tópicos vistos` : '', wasFor ? `estava para ${formatDM(wasFor)}` : ''].filter(Boolean).join(' · '),
+      reason: wasFor
+        ? 'Você tinha marcado este tema e ele ficou para trás. Só entra hoje se você adicionar.'
+        : soon7.has(b.subjectId)
+          ? 'Sugestão: tem prova desta disciplina em breve.'
+          : 'Sugestão: é o seu tema em estudo mais antigo sem data.',
+      steps: firstSteps,
+      pomodoros: themeUnits,
+      sized: true,
+      focus: newFocus,
+      technique: 'estudo_inicial',
+      subjectId: b.subjectId,
+      blockId: b.id,
+      suggested: true,
+      optional: true,
+      movable: 'new_block',
+    });
+  });
 
   const counted = tasks.filter((t) => !t.optional || t.done);
   const doneCount = counted.filter((t) => t.done).length;
   const next = tasks.find((t) => !t.done && !t.optional && t.kind !== 'blank_page') || tasks.find((t) => !t.done && t.kind !== 'blank_page');
-  const overflowReviews = overflow.filter((t) => (t.kind === 'review' || t.kind === 'project_review') && !t.skipped).length;
 
   const examReminders = isToday
     ? exams
@@ -1786,18 +1838,19 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
     message = `Dia de prova${examToday ? `: ${examToday.title}` : ''}. Só uma revisão leve antes (resumo ou flashcards), nada de conteúdo novo. Boa prova!`;
   else if (plantao) message = 'Dia de plantão: só o essencial. Use os pacientes como gatilho para revisar temas.';
   else if (examEve) message = `Prova ${examEve.date === date ? 'hoje' : 'amanhã'}: ${examEve.title}. Não passe da conta e durma no horário de sempre.`;
-  else if (overflowReviews > 0) message = `+${overflowReviews} revisão${overflowReviews > 1 ? 'ões' : ''} na fila que não coube${overflowReviews > 1 ? 'ram' : ''} hoje. Use "Replanejar" para espalhar pelos próximos dias.`;
-  else if (overflow.some((t) => !t.skipped && !t.optional)) message = 'Hoje tem mais do que cabe. As revisões vêm primeiro; o resto pode ir para amanhã.';
   else if (tasks.filter((t) => !['blank_page', 'flashcards', 'summary', 'phase_questions'].includes(t.kind)).length === 0)
-    message = 'Nada agendado para hoje. Escolha um tema novo para começar ou faça questões.';
+    message = suggestions.length > 0 ? 'Nada marcado para hoje. Veja as sugestões abaixo ou escolha um tema.' : 'Nada marcado para hoje. Escolha um tema novo para começar ou faça questões.';
 
   return {
     date,
     dayKind,
     capacity,
-    planned: Math.round(used * 1000) / 1000,
+    planned: used,
     tasks,
     overflow,
+    suggestions,
+    suggestionsWaiting: Math.max(0, suggestionPool.length - suggestCount),
+    overBy,
     overflowReviews,
     doneCount,
     totalCount: counted.length,
@@ -1826,11 +1879,12 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
 export const buildWeekLoad = (input: Omit<PlanInput, 'date'>, dates: string[]) =>
   dates.map((date) => {
     const p = buildDayPlan({ ...input, date });
-    const every = [...p.tasks, ...p.overflow];
+    // Só o que está de fato no dia (sugestões e o que o aluno tirou não contam)
+    const every = p.tasks;
     const reviews = every.filter((t) => t.kind === 'review' || t.kind === 'project_review').length;
     const newTopics = every.filter((t) => (t.kind === 'new_block' || t.kind === 'new_topics') && !t.suggested).length;
     const demand = Math.round(every.filter((t) => !t.optional).reduce((a, t) => a + t.pomodoros, 0) * 1000) / 1000;
-    return { date, dayKind: p.dayKind, capacity: p.capacity, demand, reviews, newTopics, overloaded: demand > p.capacity + EPS, plan: p };
+    return { date, dayKind: p.dayKind, capacity: p.capacity, demand, reviews, newTopics, overloaded: p.dayKind !== 'rest' && p.dayKind !== 'pos_plantao' && p.dayKind !== 'pos_prova' && demand > p.capacity + EPS, plan: p };
   });
 
 /**
@@ -1848,7 +1902,7 @@ export const autoDistributeNewTopics = (input: Omit<PlanInput, 'date'>, blockIds
     const p = buildDayPlan({ ...input, date, today: fromDate });
     // Plantão, pós-plantão e descanso não recebem conteúdo novo
     if (p.dayKind === 'plantao' || p.dayKind === 'pos_plantao' || p.dayKind === 'rest' || p.dayKind === 'prova' || p.dayKind === 'pos_prova') continue;
-    const every = [...p.tasks, ...p.overflow];
+    const every = p.tasks;
     const already = every.filter((t) => (t.kind === 'new_block' || t.kind === 'new_topics') && !t.suggested).length + Object.values(result).filter((d) => d === date).length;
     const load = every.filter((t) => !t.optional && t.kind !== 'new_block' && t.kind !== 'new_topics').reduce((a, t) => a + t.pomodoros, 0);
     let slots = Math.max(0, input.prefs.newTopicsPerDay - already);

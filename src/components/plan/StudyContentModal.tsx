@@ -1,6 +1,6 @@
 // "Meus conteúdos": pega as disciplinas e os blocos (temas) do semestre e deixa o aluno escolher o
-// que entra na rotina. Cada tema pode ser ligado/desligado; no modo automático o plano escolhe sozinho
-// entre os temas ativos, no manual só entra o que tiver data.
+// que entra na rotina. Cada tema pode ser ligado/desligado; no modo automático o site SUGERE temas
+// ligados que cabem no dia (nada entra sem o aluno aceitar); no manual só aparece o que tiver data.
 import React, { useMemo, useState } from 'react';
 import { BookOpen, CalendarPlus, Layers, Plus, Sparkles, Wand2 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
@@ -55,7 +55,7 @@ export const StudyContentModal: React.FC<StudyContentModalProps> = ({ open, onCl
 
   const togglePaused = (b: TopicBlock, on: boolean) => {
     updateTopicBlock(b.id, on ? { paused: undefined } : { paused: true, plannedDate: undefined });
-    showNotification(on ? `"${b.name}" voltou para a rotina.` : `"${b.name}" saiu da rotina. O plano não vai sugerir nem cobrar este tema.`, 'info');
+    showNotification(on ? `"${b.name}" voltou para a rotina.` : `"${b.name}" saiu da rotina. O site não vai sugerir nem cobrar este tema.`, 'info');
   };
 
   const distribute = () => {
@@ -110,7 +110,7 @@ export const StudyContentModal: React.FC<StudyContentModalProps> = ({ open, onCl
                   <Sparkles className="h-4 w-4" /> Automático
                 </span>
                 <span className={`block text-[11px] font-semibold ${auto ? 'text-sky-100' : 'text-slate-500 dark:text-slate-400'}`}>
-                  O plano escolhe entre os temas ligados (prova perto primeiro)
+                  O site sugere temas ligados que cabem no dia. Só entra o que você aceitar
                 </span>
               </OptionChip>
               <OptionChip id="content-mode-manual" active={!auto} onClick={() => updateStudyPrefs({ topicMode: 'manual' })} className="min-h-[56px] text-left">
@@ -118,7 +118,7 @@ export const StudyContentModal: React.FC<StudyContentModalProps> = ({ open, onCl
                   <CalendarPlus className="h-4 w-4" /> Manual
                 </span>
                 <span className={`block text-[11px] font-semibold ${!auto ? 'text-sky-100' : 'text-slate-500 dark:text-slate-400'}`}>
-                  Só entra o tema que você colocar uma data
+                  Sem sugestões: só entra o tema que você colocar uma data
                 </span>
               </OptionChip>
             </div>
@@ -193,8 +193,8 @@ export const StudyContentModal: React.FC<StudyContentModalProps> = ({ open, onCl
                             onChange={(e) => updateTopicBlock(b.id, { plannedDate: e.target.value && e.target.value !== 'late' ? e.target.value : undefined })}
                             className="shrink-0 max-w-[132px] min-h-[40px] rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-2 text-[12px] font-bold text-slate-800 dark:text-slate-100"
                           >
-                            <option value="">{auto ? 'Automático' : 'Sem data'}</option>
-                            {b.plannedDate && b.plannedDate < today && <option value="late">Atrasado ({formatDM(b.plannedDate)})</option>}
+                            <option value="">{auto ? 'Sem data (sugerir)' : 'Sem data'}</option>
+                            {b.plannedDate && b.plannedDate < today && <option value="late">Estava para {formatDM(b.plannedDate)}</option>}
                             {dates.map((d) => (
                               <option key={d} value={d}>
                                 {dayName(d)}
