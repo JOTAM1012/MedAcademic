@@ -46,7 +46,7 @@ export interface TechniqueInfo {
   when: string; // "24 h depois"
   why: string;
   steps: string[];
-  /** Blocos de 25 min sugeridos */
+  /** Nº de blocos curtos sugeridos (no bloco curto do aluno; o plano converte para unidades de 25 min) */
   pomodoros: number;
   /** Nº de questões sugerido (modelo para adaptar, não regra fixa) */
   questions?: number;
@@ -820,7 +820,7 @@ export const PROJECT_KINDS: Record<PersonalProjectKind, ProjectKindInfo> = {
     label: 'Idioma',
     emoji: '🌎',
     color: '#0ea5e9',
-    hint: 'Inglês médico, espanhol… (25 min, 3x por semana)',
+    hint: 'Inglês médico, espanhol… (1 bloco, 3x por semana)',
     template: ['Vocabulário de anamnese', 'Ler 1 artigo curto em inglês', 'Ouvir 1 podcast médico'],
     days: [1, 3, 5],
   },
@@ -859,13 +859,17 @@ export const weekStart = (date: string) => {
 /** Data local (YYYY-MM-DD) de uma sessão */
 export const sessionDate = (s: Pick<StudySession, 'timestamp'>) => ymd(new Date(s.timestamp));
 
-/** Blocos de foco feitos na semana (seg–dom) para um projeto */
+/**
+ * Foco feito na semana (seg–dom) para um projeto, em unidades internas de 25 min (mesma unidade da meta).
+ * Sem arredondar por sessão: um bloco de 30 min conta 1,2 (cada sessão vale no mínimo 1 unidade).
+ */
 export const projectWeekPomodoros = (project: PersonalProject, sessions: StudySession[], date = ymd(new Date())) => {
   const start = weekStart(date);
   const end = addDaysYMD(6, start);
-  return sessions
+  const total = sessions
     .filter((s) => s.projectId === project.id && sessionDate(s) >= start && sessionDate(s) <= end)
-    .reduce((acc, s) => acc + Math.max(1, Math.round((s.durationMinutes || 25) / 25)), 0);
+    .reduce((acc, s) => acc + Math.max(1, (s.durationMinutes || 25) / 25), 0);
+  return Math.round(total * 1000) / 1000;
 };
 
 export const nextProjectItem = (p: PersonalProject) => p.items.find((i) => !i.done);
@@ -1625,6 +1629,9 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
         if (remaining <= 0 && !doneToday) return;
         const item = nextProjectItem(p);
         const daysLeft = p.days && p.days.length > 0 ? p.days.length : 5;
+        // Texto em blocos do aluno (a meta e o feito estão em unidades de 25 min)
+        const projBlocks = (u: number) => Math.round((u * 25) / Math.max(5, prefs.focusMinutes));
+        const weekText = `Meta da semana: ${projBlocks(doneWeek)}/${Math.max(1, projBlocks(p.weeklyPomodoros))} blocos de ${prefs.focusMinutes} min`;
         all.push(
           mk({
             id: `proj:${p.id}:${date}`,
@@ -1633,8 +1640,8 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
             emoji: p.emoji || '✨',
             color: p.color || '#64748b',
             title: `Estudo pessoal: ${p.title}`,
-            subtitle: item ? `Próximo: ${item.title}` : `Meta da semana: ${doneWeek}/${p.weeklyPomodoros} blocos`,
-            reason: `Meta da semana: ${doneWeek}/${p.weeklyPomodoros} blocos. Este bloco fica protegido nos dias que você escolheu.`,
+            subtitle: item ? `Próximo: ${item.title}` : weekText,
+            reason: `${weekText}. Este bloco fica protegido nos dias que você escolheu.`,
             steps: item ? [`Estude: ${item.title}`, 'No fim, escreva de memória o que tirou daqui (folha em branco de 5 min)'] : ['Escolha o próximo passo do projeto'],
             pomodoros: Math.max(1, Math.min(2, Math.ceil(remaining / daysLeft))),
             sized: true,

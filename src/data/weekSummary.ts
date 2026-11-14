@@ -111,7 +111,7 @@ export const buildWeekSummary = (input: {
   else if (accuracy !== undefined && questions >= 10 && accuracy < 60) feedback = 'Os acertos estão abaixo de 60%. Revise os erros antes de seguir.';
   else if (daysStudied >= Math.max(1, Math.ceil((elapsed + 1) * 0.7)) && minutes >= lastWeekMinutes)
     feedback = isSunday ? 'Boa semana. Descanse e planeje a próxima.' : 'Boa semana. Mantenha o ritmo.';
-  else if (lastWeekMinutes - minutes >= 30) feedback = 'Semana mais leve que a passada. Um bloco de 25 min já ajuda.';
+  else if (lastWeekMinutes - minutes >= 30) feedback = 'Semana mais leve que a passada. Um bloco de foco já ajuda.';
   else feedback = 'Bom começo. Tente estudar um pouco todo dia.';
 
   return {

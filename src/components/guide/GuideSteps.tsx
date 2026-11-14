@@ -303,7 +303,7 @@ export const GUIDE_STEPS: GuideStep[] = [
     short: 'Seu plano do dia',
     title: 'Seu plano do dia',
     color: '#10b981',
-    render: () => (
+    render: ({ prefs }) => (
       <div className="space-y-4">
         <Lead>Todo dia o site monta sozinho o que estudar, na ordem certa e do tamanho do seu tempo. Quando o dia aperta, a prioridade é sempre esta:</Lead>
         <div className="grid grid-cols-3 gap-2">
@@ -324,7 +324,7 @@ export const GUIDE_STEPS: GuideStep[] = [
           <div className="min-w-0 flex-1">
             <p className="text-[10px] font-black uppercase tracking-wider text-sky-600 dark:text-sky-300">Agora</p>
             <p className="text-sm font-bold text-slate-900 dark:text-white truncate">R1 · Folha em branco: Insuficiência cardíaca</p>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400">1 × 25 min</p>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400">1 × {prefs.shortFocusMinutes} min</p>
           </div>
           <span className="shrink-0 inline-flex items-center gap-1.5 rounded-xl bg-sky-600 px-3 py-2 text-xs font-black text-white" aria-hidden>
             <Play className="h-3.5 w-3.5 fill-current" /> Começar
@@ -359,7 +359,7 @@ export const GUIDE_STEPS: GuideStep[] = [
           </div>
           <div className="rounded-2xl border border-slate-200 dark:border-slate-800 p-3">
             <p className="text-sm font-black text-slate-800 dark:text-slate-100">🫶 Dia difícil</p>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">Ligue quando estiver sem energia: o plano encolhe para o essencial, em blocos de 25 min.</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">Ligue quando estiver sem energia: o plano encolhe para o essencial, em blocos de {prefs.shortFocusMinutes} min.</p>
           </div>
         </div>
         <p className="text-[11px] text-slate-400 dark:text-slate-500 italic">{ROUTINE_DISCLAIMER}</p>
@@ -507,27 +507,36 @@ export const GUIDE_STEPS: GuideStep[] = [
     short: 'Pomodoro e Feynman',
     title: 'Pomodoro e Feynman',
     color: '#f97316',
-    render: () => (
+    render: ({ prefs }) => (
       <div className="space-y-4">
         <Lead>Duas ferramentas simples que tornam o estudo ativo: blocos de foco com pausa de verdade, e explicar para aprender.</Lead>
         <IllustrationFrame caption="Escolha o formato pelo tipo de tarefa. Na pausa: levante, beba água, longe do celular.">
-          <PomodoroBarsArt />
+          <PomodoroBarsArt
+            blocks={[
+              { focus: prefs.shortFocusMinutes, rest: prefs.shortBreakMinutes },
+              { focus: prefs.focusMinutes, rest: prefs.breakMinutes },
+            ]}
+          />
         </IllustrationFrame>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <div className="rounded-2xl border border-orange-500/25 bg-orange-500/5 p-3">
-            <p className="text-sm font-black text-orange-600 dark:text-orange-300">25/5</p>
+            <p className="text-sm font-black text-orange-600 dark:text-orange-300">
+              {prefs.shortFocusMinutes}/{prefs.shortBreakMinutes} <span className="text-[11px] font-bold opacity-80">· bloco curto</span>
+            </p>
             <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5 leading-relaxed">Dias de pouca motivação, revisões e tarefas curtas.</p>
           </div>
           <div className="rounded-2xl border border-orange-500/25 bg-orange-500/5 p-3">
-            <p className="text-sm font-black text-orange-600 dark:text-orange-300">50/10</p>
+            <p className="text-sm font-black text-orange-600 dark:text-orange-300">
+              {prefs.focusMinutes}/{prefs.breakMinutes} <span className="text-[11px] font-bold opacity-80">· bloco longo</span>
+            </p>
             <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5 leading-relaxed">Imersão: tema novo, caso clínico longo.</p>
           </div>
         </div>
         <div id="guide-my-block" className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50 p-3">
           <p className="text-sm font-black text-slate-900 dark:text-white">Seu bloco, do seu jeito</p>
           <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5 leading-relaxed">
-            25/5 e 50/10 são pontos de partida. Se 60/10 ou 45/15 funcionam melhor para você, escolha em Planner › Rotina (até um tempo personalizado). O plano do
-            dia, o Pomodoro e o ciclo de estudos passam a usar o seu bloco.
+            Os números acima são o seu bloco de agora. Formatos como 25/5, 50/10, 60/10 ou 45/15 são pontos de partida: escolha o que funciona para você em
+            Planner › Rotina (até um tempo personalizado). O plano do dia, o Pomodoro e o ciclo de estudos passam a usar o seu bloco.
           </p>
         </div>
         <ul className="space-y-3">

@@ -5,14 +5,12 @@ import { BlockStatsModal } from '../structure/BlockStatsModal';
 
 type Unit = 'min' | 'h';
 
-const QUICK: Array<{ label: string; minutes: number }> = [
-  { label: '25 min', minutes: 25 },
-  { label: '50 min', minutes: 50 },
-  { label: '1h', minutes: 60 },
-  { label: '1h30', minutes: 90 },
-  { label: '2h', minutes: 120 },
-  { label: '3h', minutes: 180 },
-];
+/** Atalhos fixos; os blocos do aluno (curto e longo) entram junto, no lugar do antigo "25 min" */
+const QUICK_FIXED = [50, 60, 90, 120, 180];
+const quickOptions = (blocks: number[]) =>
+  Array.from(new Set([...blocks.filter((m) => m > 0).map((m) => Math.round(m)), ...QUICK_FIXED]))
+    .sort((a, b) => a - b)
+    .map((minutes) => ({ label: formatMinutes(minutes), minutes }));
 
 export const formatMinutes = (m: number) => {
   const h = Math.floor(m / 60);
@@ -23,7 +21,8 @@ export const formatMinutes = (m: number) => {
 
 // Aba de conclusão: ao fechar um bloco (Dia 0) ou concluir uma revisão, pergunta quanto tempo durou o estudo
 export const StudyTimeModal: React.FC = () => {
-  const { studyTimePrompt, completeStudyTimePrompt, topicBlocks } = useApp();
+  const { studyTimePrompt, completeStudyTimePrompt, topicBlocks, studyPrefs } = useApp();
+  const QUICK = quickOptions([studyPrefs.shortFocusMinutes, studyPrefs.focusMinutes]);
   const [value, setValue] = useState('');
   const [unit, setUnit] = useState<Unit>('min');
 

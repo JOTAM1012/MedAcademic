@@ -211,7 +211,7 @@ export const TAB_HELP: Record<string, TabHelp> = {
         emoji: '⏱️',
         title: 'Começar',
         steps: [
-          'Escolha o bloco: 25/5, 50/10 ou o seu ("Meu bloco"). O primeiro número é o foco, o segundo é a pausa.',
+          'Escolha o formato: o seu bloco curto (revisões), o seu bloco longo (tema novo) ou Livre. No bloco, o primeiro número é o foco e o segundo é a pausa.',
           'Escolha a disciplina ou a tarefa e toque em "Iniciar".',
           'Quando o foco acaba, o site avisa e começa a pausa.',
         ],

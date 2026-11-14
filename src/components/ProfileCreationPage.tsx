@@ -170,6 +170,8 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
   const lastStep = showRoutineStep ? 5 : 4;
   const [routineAnswers, setRoutineAnswers] = useState<RoutineAnswers>(EMPTY_ROUTINE_ANSWERS);
   const routineDone = showRoutineStep && hasRoutineAnswers(routineAnswers);
+  // No passo Rotina o cartão de identificação some e o formulário ocupa a largura
+  const onRoutineStep = showRoutineStep && currentStep === 4;
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Form State
@@ -570,7 +572,7 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
           
           {/* Form Wizard (Left / Main) */}
-          <div className="lg:col-span-8 relative flex flex-col gap-2.5">
+          <div className={`relative flex flex-col gap-2.5 ${onRoutineStep ? "lg:col-span-12 w-full max-w-3xl mx-auto" : "lg:col-span-8"}`}>
             {currentStep === lastStep && !isEditingProfileSetup && (
               <p id="profile-welcome-line" className="px-2 text-xs text-slate-400 flex items-center gap-1.5 lg:absolute lg:bottom-full lg:left-0 lg:mb-2.5">
                 <span aria-hidden>✨</span>
@@ -1412,7 +1414,7 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
           </div>
 
           {/* Live Preview Card (Right Sidebar) */}
-          <div className="lg:col-span-4 flex flex-col">
+          <div className={`lg:col-span-4 flex-col ${onRoutineStep ? "hidden" : "flex"}`}>
             <motion.div
               id="profile-badge-card"
               onMouseMove={handleBadgeMove}

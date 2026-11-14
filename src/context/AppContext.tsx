@@ -554,12 +554,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Bipes já agendados no relógio de áudio ("end@1730000000000"), para não reagendar à toa
   const scheduledBeepsRef = useRef<Set<string>>(new Set());
 
+  // Padrão de fábrica; sem escolha do aluno, passa a seguir o bloco da rotina (efeito perto de studyPrefs)
   const [pomodoroSettings, setPomodoroSettings] = useState({
     workMinutes: 25,
     shortBreakMinutes: 5,
     mediumBreakMinutes: 10,
     longBreakMinutes: 15,
   });
+  // Relógio parado no tempo cheio acompanha o bloco do Pomodoro quando ele muda ou é carregado
+  // (ex.: abriu o app com 30 min salvos e o relógio ainda estava no 25:00 inicial)
+  const lastWorkRef = useRef(25);
+  useEffect(() => {
+    const prevWork = lastWorkRef.current;
+    const work = pomodoroSettings.workMinutes;
+    lastWorkRef.current = work;
+    if (prevWork === work) return;
+    setTimer((t) =>
+      !t.isRunning && t.mode === 'pomodoro' && !t.customDurationSeconds && !t.cycle && t.timeLeftSeconds === prevWork * 60
+        ? { ...t, timeLeftSeconds: work * 60 }
+        : t
+    );
+  }, [pomodoroSettings.workMinutes]);
+  /** Usuário que escolheu um formato do Pomodoro nesta sessão (o padrão automático não mexe mais) */
+  const pomoTouchedRef = useRef<string | null>(null);
 
   // Rehydrate state on activeUserId change & subscribe to Firestore
   useEffect(() => {
@@ -1225,6 +1242,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updatePomodoroSettings = (settings: { workMinutes: number; shortBreakMinutes: number; mediumBreakMinutes: number; longBreakMinutes: number }) => {
+    // Escolha do aluno: o padrão automático (bloco da rotina) não mexe mais nesta sessão
+    pomoTouchedRef.current = activeUserId || null;
     setPomodoroSettings(settings);
     setTimer((prev) => {
       if (prev.isRunning) return prev;
@@ -1671,6 +1690,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Grade de horários do semestre atual (as de semestres anteriores ficam guardadas no histórico)
   const currentSchedule = schedule.filter((s) => !s.semesterId || !currentSemester || s.semesterId === currentSemester.id);
+
+  // Pomodoro: o padrão de fábrica (25/5/10/15) segue o bloco longo do aluno (Minha rotina).
+  // Só troca se o aluno não escolheu um formato: o que ele escolhe (atalhos, configurações) fica.
+  const pomoAutoRef = useRef<{ user: string; work: number; rest: number } | null>(null);
+  useEffect(() => {
+    if (!activeUserId || !isInitialLoadComplete) return;
+    if (pomoTouchedRef.current === activeUserId) return;
+    const s = pomodoroSettings;
+    const isFactory = s.workMinutes === 25 && s.shortBreakMinutes === 5 && s.mediumBreakMinutes === 10 && s.longBreakMinutes === 15;
+    const auto = pomoAutoRef.current;
+    const isOurs = !!auto && auto.user === activeUserId && s.workMinutes === auto.work && s.shortBreakMinutes === auto.rest;
+    if (!isFactory && !isOurs) return;
+    const isBlock = (work: number, rest: number) => s.workMinutes === work && s.shortBreakMinutes === rest;
+    // 25/5 também é um bloco possível: se já é um dos blocos do aluno, não mexe
+    if (isFactory && (isBlock(studyPrefs.focusMinutes, studyPrefs.breakMinutes) || isBlock(studyPrefs.shortFocusMinutes, studyPrefs.shortBreakMinutes))) return;
+    const work = studyPrefs.focusMinutes;
+    const rest = studyPrefs.breakMinutes;
+    if (isBlock(work, rest)) return;
+    const next = { workMinutes: work, shortBreakMinutes: rest, mediumBreakMinutes: Math.max(10, rest), longBreakMinutes: Math.max(15, rest) };
+    pomoAutoRef.current = { user: activeUserId, work, rest };
+    setPomodoroSettings(next);
+    // O relógio parado no tempo cheio do padrão anterior acompanha; foco em andamento ou pausado no meio fica como está
+    setTimer((prev) =>
+      !prev.isRunning && prev.mode === 'pomodoro' && !prev.customDurationSeconds && !prev.cycle && prev.timeLeftSeconds === s.workMinutes * 60
+        ? { ...prev, timeLeftSeconds: work * 60 }
+        : prev
+    );
+  }, [activeUserId, isInitialLoadComplete, pomodoroSettings, studyPrefs.focusMinutes, studyPrefs.breakMinutes, studyPrefs.shortFocusMinutes, studyPrefs.shortBreakMinutes]);
 
   // Organiza dados antigos no calendário acadêmico: semestre ganha período (2026.1 / 2026.2) e
   // disciplinas, provas e grade de horários sem semestre passam a pertencer ao semestre atual.
@@ -2740,7 +2787,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setTimer({
       isRunning: false,
       mode: 'pomodoro',
-      timeLeftSeconds: 25 * 60,
+      timeLeftSeconds: pomodoroSettings.workMinutes * 60,
       elapsedSeconds: 0,
       totalPomodorosCompleted: 0,
     });
@@ -2775,7 +2822,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setTimer({
       isRunning: false,
       mode: 'pomodoro',
-      timeLeftSeconds: 25 * 60,
+      timeLeftSeconds: pomodoroSettings.workMinutes * 60,
       elapsedSeconds: 0,
       selectedSubjectId: '',
       totalPomodorosCompleted: 0,
@@ -3148,7 +3195,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
     showNotification('Revisão registrada.', 'success');
   };
-  const logProjectBlock = (projectId: string, minutes = 25) => {
+  const logProjectBlock = (projectId: string, minutes = studyPrefs.focusMinutes) => {
     const p = studyMethod.projects.find((x) => x.id === projectId);
     logStudySession({ durationMinutes: minutes, type: 'stopwatch', xpEarned: 0, projectId, activity: 'project', notes: `Estudo pessoal • ${p?.title || ''}` });
     showNotification('Bloco somado à meta da semana.', 'success');

@@ -3,6 +3,7 @@
 import React from 'react';
 import { Check, Play, ArrowRight } from 'lucide-react';
 import { FORGETTING_CURVE, TECHNIQUES } from '../../data/studyMethod';
+import { useApp } from '../../context/AppContext';
 
 /** Moldura padrão das ilustrações */
 export const IllustrationFrame: React.FC<{ children: React.ReactNode; className?: string; caption?: React.ReactNode; id?: string }> = ({
@@ -210,18 +211,45 @@ export const QuestionMockArt: React.FC = () => (
 );
 
 // ---------------------------------------------------------------------------------------------
-// Passo 7 · Pomodoro 25/5 × 50/10 numa hora
+// Passo 7 · Pomodoro: os blocos do aluno (curto e longo) em cerca de uma hora
 // ---------------------------------------------------------------------------------------------
-export const PomodoroBarsArt: React.FC = () => {
+export const PomodoroBarsArt: React.FC<{ blocks?: Array<{ focus: number; rest: number }> }> = ({
+  blocks = [
+    { focus: 30, rest: 5 },
+    { focus: 50, rest: 10 },
+  ],
+}) => {
   const L = 52;
   const W = 276;
-  const px = W / 60;
-  const rows = [
-    { y: 14, label: '25/5', parts: [25, 5, 25, 5] },
-    { y: 50, label: '50/10', parts: [50, 10] },
-  ];
+  // Cada linha repete foco + pausa até cobrir 60 min (sem cortar bloco); a escala vai até a linha mais longa
+  const seen = new Set<string>();
+  const uniq = blocks.filter((b) => {
+    const k = `${b.focus}/${b.rest}`;
+    if (seen.has(k) || b.focus <= 0) return false;
+    seen.add(k);
+    return true;
+  });
+  const built = uniq.map((b, i) => {
+    const parts: number[] = [];
+    let total = 0;
+    while (total < 60 && parts.length < 12) {
+      parts.push(b.focus, b.rest);
+      total += b.focus + b.rest;
+    }
+    return { y: 14 + i * 36, label: `${b.focus}/${b.rest}`, parts, total, focus: b.focus, rest: b.rest };
+  });
+  const span = Math.max(60, ...built.map((r) => r.total));
+  const px = W / span;
+  const rows = built;
+  const height = 24 + rows.length * 36;
+  const aria = rows
+    .map((r) => {
+      const n = r.parts.length / 2;
+      return `Em ${r.label}: ${n} bloco${n > 1 ? 's' : ''} de ${r.focus} minutos com pausa de ${r.rest}`;
+    })
+    .join('. ');
   return (
-    <svg viewBox="0 0 340 96" className="w-full h-auto" role="img" aria-label="Uma hora em 25/5: dois blocos de 25 minutos com pausas de 5. Em 50/10: um bloco de 50 minutos e pausa de 10">
+    <svg viewBox={`0 0 340 ${height}`} className="w-full h-auto" role="img" aria-label={aria}>
       {rows.map((r) => {
         let x = L;
         return (
@@ -233,10 +261,12 @@ export const PomodoroBarsArt: React.FC = () => {
               const focus = i % 2 === 0;
               const el = (
                 <g key={i}>
-                  <rect x={x + 1} y={r.y} width={m * px - 2} height="22" rx="6" fill={focus ? '#f97316' : '#10b981'} opacity={focus ? 1 : 0.85} />
-                  <text x={x + (m * px) / 2} y={r.y + 15} textAnchor="middle" fill="#fff" fontSize="10" fontWeight="800">
-                    {focus ? `${m} min foco` : `${m}`}
-                  </text>
+                  <rect x={x + 1} y={r.y} width={Math.max(1, m * px - 2)} height="22" rx="6" fill={focus ? '#f97316' : '#10b981'} opacity={focus ? 1 : 0.85} />
+                  {m * px >= 12 && (
+                    <text x={x + (m * px) / 2} y={r.y + 15} textAnchor="middle" fill="#fff" fontSize="10" fontWeight="800">
+                      {focus && m * px >= 62 ? `${m} min foco` : `${m}`}
+                    </text>
+                  )}
                 </g>
               );
               x += m * px;
@@ -245,11 +275,11 @@ export const PomodoroBarsArt: React.FC = () => {
           </g>
         );
       })}
-      <text x={L} y={90} className="fill-slate-400 dark:fill-slate-500" fontSize="9">
+      <text x={L} y={height - 6} className="fill-slate-400 dark:fill-slate-500" fontSize="9">
         0
       </text>
-      <text x={L + W} y={90} textAnchor="end" className="fill-slate-400 dark:fill-slate-500" fontSize="9">
-        60 min
+      <text x={L + W} y={height - 6} textAnchor="end" className="fill-slate-400 dark:fill-slate-500" fontSize="9">
+        {span} min
       </text>
     </svg>
   );
@@ -315,6 +345,9 @@ export const QuickNextStepArt: React.FC = () => (
 );
 
 export const QuickFocusArt: React.FC = () => {
+  // O relógio mostra o bloco de foco do aluno (ex.: 30:00)
+  const { studyPrefs } = useApp();
+  const minutes = Math.max(1, Math.round(studyPrefs.focusMinutes || 30));
   const r = 46;
   const c = 2 * Math.PI * r;
   return (
@@ -323,7 +356,7 @@ export const QuickFocusArt: React.FC = () => {
         <circle cx="60" cy="60" r={r} fill="none" className="stroke-slate-200 dark:stroke-slate-800" strokeWidth="9" />
         <circle cx="60" cy="60" r={r} fill="none" stroke="#f97316" strokeWidth="9" strokeLinecap="round" strokeDasharray={`${c * 0.72} ${c}`} transform="rotate(-90 60 60)" />
         <text x="60" y="62" textAnchor="middle" className="fill-slate-900 dark:fill-white" fontSize="22" fontWeight="900">
-          25:00
+          {`${minutes}:00`}
         </text>
         <text x="60" y="80" textAnchor="middle" className="fill-slate-500 dark:fill-slate-400" fontSize="9" fontWeight="700">
           foco

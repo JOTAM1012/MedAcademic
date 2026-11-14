@@ -19,12 +19,12 @@ import { useApp } from '../../context/AppContext';
 import type { PersonalProject, PersonalProjectItem } from '../../types';
 import { PROJECT_KINDS, WEEKDAY_SHORT, nextProjectItem } from '../../data/studyMethod';
 import { formatDM, parseYMD } from '../../data/blockReview';
-import { DAY_ORDER, ProgressRing, deadlineInfo, effectiveGoal, fmtMinutes, projectFocusSteps, splitLines } from './shared';
+import { DAY_ORDER, ProgressRing, deadlineInfo, effectiveGoal, fmtMinutes, projectFocusSteps, splitLines, unitsToBlocks, unitsToMinutes } from './shared';
 
 interface ProjectCardProps {
   project: PersonalProject;
   today: string;
-  /** Blocos de foco feitos nesta semana (projectWeekPomodoros) */
+  /** Foco feito nesta semana, em unidades internas de 25 min (projectWeekPomodoros) */
   weekDone: number;
   /** Semana pesada (dias cheios, plantão, dia difícil): a meta é ajustada, nunca "falhou" */
   heavyWeek: boolean;
@@ -45,10 +45,20 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project: p, today, wee
   const color = p.color || kind.color;
   const next = nextProjectItem(p);
   const doneItems = p.items.filter((i) => i.done).length;
+  // Meta e feito em unidades internas de 25 min; na tela, blocos do aluno (bloco longo, o mesmo do "Começar")
+  const focus = studyPrefs.focusMinutes;
   const goal = p.weeklyPomodoros;
-  const target = effectiveGoal(p, heavyWeek);
-  const adjusted = heavyWeek && target < goal;
-  const left = Math.max(0, target - weekDone);
+  const target = effectiveGoal(p, heavyWeek, focus);
+  const adjusted = heavyWeek && target < goal - 1e-6;
+  const metGoal = weekDone >= goal - 1e-6;
+  const metTarget = weekDone >= target - 1e-6;
+  const goalBlocks = Math.max(1, unitsToBlocks(goal, focus));
+  const targetBlocks = Math.max(1, unitsToBlocks(target, focus));
+  const doneBlocksRaw = unitsToBlocks(weekDone, focus);
+  // Sem bater a meta, o arredondamento não pode mostrar "6/6"
+  const doneBlocks = metTarget ? doneBlocksRaw : Math.min(doneBlocksRaw, targetBlocks - 1);
+  const left = metTarget ? 0 : Math.max(1, targetBlocks - doneBlocks);
+  const leftMinutes = Math.max(0, unitsToMinutes(target - weekDone));
   const deadline = deadlineInfo(p.deadline, today);
   const dow = parseYMD(today).getDay();
   const isTodayDay = !!p.days?.length && p.days.includes(dow);
@@ -83,10 +93,10 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project: p, today, wee
   };
 
   let status: { text: string; tone: 'done' | 'calm' | 'adjusted' };
-  if (weekDone >= goal) status = { text: 'Meta da semana feita ✨', tone: 'done' };
-  else if (adjusted && weekDone >= target) status = { text: 'Meta ajustada feita. Semana pesada, ótimo trabalho!', tone: 'done' };
+  if (metGoal) status = { text: 'Meta da semana feita ✨', tone: 'done' };
+  else if (adjusted && metTarget) status = { text: 'Meta ajustada feita. Semana pesada, ótimo trabalho!', tone: 'done' };
   else if (adjusted) status = { text: `Meta ajustada (semana pesada) · faltam ${left}`, tone: 'adjusted' };
-  else status = { text: `Faltam ${left} bloco${left > 1 ? 's' : ''} · ${fmtMinutes(left * 25)}`, tone: 'calm' };
+  else status = { text: `Faltam ${left} bloco${left > 1 ? 's' : ''} · ${fmtMinutes(leftMinutes)}`, tone: 'calm' };
 
   const statusCls =
     status.tone === 'done'
@@ -144,8 +154,8 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project: p, today, wee
             <ProgressRing value={weekDone} max={target} color={color}>
               <div className="text-center leading-none">
                 <div className="text-sm font-black text-slate-900 dark:text-white">
-                  {weekDone}
-                  <span className="text-[10px] font-bold text-slate-400">/{target}</span>
+                  {doneBlocks}
+                  <span className="text-[10px] font-bold text-slate-400">/{targetBlocks}</span>
                 </div>
                 <div className="text-[8px] font-bold uppercase tracking-wide text-slate-400 mt-0.5">semana</div>
               </div>
@@ -204,7 +214,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project: p, today, wee
         {/* Status + dias */}
         {!p.archived && (
           <div className="mt-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
-            <p className={`text-xs font-bold ${statusCls}`} title={adjusted ? `Meta normal: ${goal} blocos. Nesta semana, ${target} já está ótimo.` : undefined}>
+            <p className={`text-xs font-bold ${statusCls}`} title={adjusted ? `Meta normal: ${goalBlocks} blocos de ${focus} min. Nesta semana, ${targetBlocks} já está ótimo.` : undefined}>
               {status.text}
             </p>
             {p.days && p.days.length > 0 && (
@@ -258,14 +268,14 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project: p, today, wee
               onClick={start}
               className="h-10 px-4 inline-flex items-center gap-1.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold shadow-xs"
             >
-              <Play className="h-3.5 w-3.5" fill="currentColor" /> Começar · 25 min
+              <Play className="h-3.5 w-3.5" fill="currentColor" /> Começar · {focus} min
             </button>
             <button
               id={`personal-log-${p.id}`}
               type="button"
-              onClick={() => logProjectBlock(p.id, 25)}
+              onClick={() => logProjectBlock(p.id, focus)}
               className="h-10 px-3 inline-flex items-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800"
-              title="Somar um bloco de 25 min que você fez longe do site"
+              title={`Somar um bloco de ${focus} min que você fez longe do site`}
             >
               <Plus className="h-3.5 w-3.5" /> 1 bloco feito fora do site
             </button>

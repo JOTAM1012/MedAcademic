@@ -5,7 +5,20 @@ import { useApp } from '../../context/AppContext';
 import type { PersonalProject, PersonalProjectKind } from '../../types';
 import { PHASE_INFO, PROJECT_KINDS, PROJECT_KIND_ORDER, WEEKDAY_SHORT } from '../../data/studyMethod';
 import { DatePickerField } from '../DatePickerField';
-import { DAY_ORDER, PROJECT_COLORS, PROJECT_EMOJIS, fmtMinutes, projectFocusSteps, splitLines, suggestedTitle, type ProjectPreset } from './shared';
+import { UNIT_MINUTES, stepByBlock } from '../plan/planShared';
+import {
+  DAY_ORDER,
+  PROJECT_COLORS,
+  PROJECT_EMOJIS,
+  blocksToUnits,
+  fmtMinutes,
+  projectFocusSteps,
+  splitLines,
+  suggestedTitle,
+  unitsToBlocks,
+  unitsToMinutes,
+  type ProjectPreset,
+} from './shared';
 
 interface NewProjectModalProps {
   open: boolean;
@@ -20,6 +33,7 @@ const inputCls =
   'w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3 py-2.5 text-sm font-medium text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:outline-hidden focus:border-sky-500';
 const labelCls = 'block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1.5 uppercase tracking-wide';
 
+/** Limites da meta semanal, em unidades internas de 25 min (25 min a 8h20 de foco) */
 const GOAL_MIN = 1;
 const GOAL_MAX = 20;
 
@@ -28,7 +42,10 @@ const NUMBERED_PREFIXES = ['Capítulo', 'Aula', 'Módulo', 'Semana'];
 export const NewProjectModal: React.FC<NewProjectModalProps> = ({ open, onClose, editing, preset }) => {
   const { addProject, updateProject, startTask, userProfile, studyPhase, showNotification, studyPrefs } = useApp();
   const phase = PHASE_INFO[studyPhase];
-  const suggestedGoal = phase.projectWeekly;
+  // A meta é salva em unidades internas de 25 min; na tela ela anda e aparece em blocos do aluno (ex.: 30 min)
+  const focus = studyPrefs.focusMinutes;
+  const suggestedBlocks = Math.max(1, unitsToBlocks(phase.projectWeekly, focus));
+  const suggestedGoal = blocksToUnits(suggestedBlocks, focus);
 
   const [step, setStep] = useState<1 | 2>(1);
   const [kind, setKind] = useState<PersonalProjectKind>('residencia');
@@ -154,6 +171,14 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({ open, onClose,
   };
 
   const showResidencyHint = kind === 'residencia' && !userProfile.targetExam?.trim();
+
+  // − / + andam 1 bloco do aluno e caem num múltiplo do bloco
+  const goalBlocks = Math.max(1, unitsToBlocks(goal, focus));
+  const goalLess = stepByBlock(goal, -1, focus, GOAL_MIN * UNIT_MINUTES, GOAL_MAX * UNIT_MINUTES);
+  const goalMore = stepByBlock(goal, 1, focus, GOAL_MIN * UNIT_MINUTES, GOAL_MAX * UNIT_MINUTES);
+  const canLess = goalLess < goal - 1e-6;
+  const canMore = goalMore > goal + 1e-6;
+  const isSuggested = Math.abs(goal - suggestedGoal) < 1e-6;
 
   return (
     <div
@@ -405,21 +430,21 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({ open, onClose,
                 <div className="inline-flex items-center rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-1">
                   <button
                     type="button"
-                    onClick={() => setGoal((g) => Math.max(GOAL_MIN, g - 1))}
-                    disabled={goal <= GOAL_MIN}
+                    onClick={() => setGoal(goalLess)}
+                    disabled={!canLess}
                     className="h-10 w-10 rounded-xl flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 disabled:opacity-40"
                     aria-label="Menos um bloco"
                   >
                     <Minus className="h-4 w-4" />
                   </button>
                   <div className="w-16 text-center" aria-live="polite">
-                    <div className="text-lg font-black text-slate-900 dark:text-white leading-none">{goal}</div>
-                    <div className="text-[10px] font-semibold text-slate-500">{goal === 1 ? 'bloco' : 'blocos'}</div>
+                    <div className="text-lg font-black text-slate-900 dark:text-white leading-none">{goalBlocks}</div>
+                    <div className="text-[10px] font-semibold text-slate-500">{goalBlocks === 1 ? 'bloco' : 'blocos'}</div>
                   </div>
                   <button
                     type="button"
-                    onClick={() => setGoal((g) => Math.min(GOAL_MAX, g + 1))}
-                    disabled={goal >= GOAL_MAX}
+                    onClick={() => setGoal(goalMore)}
+                    disabled={!canMore}
                     className="h-10 w-10 rounded-xl flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 disabled:opacity-40"
                     aria-label="Mais um bloco"
                   >
@@ -427,15 +452,20 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({ open, onClose,
                   </button>
                 </div>
                 <div className="text-xs text-slate-600 dark:text-slate-300 min-w-0">
-                  <div className="font-bold">≈ {fmtMinutes(goal * 25)} por semana</div>
-                  <div className="text-[11px] text-slate-500 dark:text-slate-400">1 bloco = 25 min de foco + 5 de pausa</div>
+                  <div className="font-bold">≈ {fmtMinutes(unitsToMinutes(goal))} de foco por semana</div>
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                    1 bloco = {focus} min de foco + {studyPrefs.breakMinutes} de pausa
+                  </div>
                 </div>
               </div>
               <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
                 <span>
-                  Sugestão para o {phase.label} {phase.emoji}: <b className="text-slate-700 dark:text-slate-200">{suggestedGoal} blocos</b>
+                  Sugestão para o {phase.label} {phase.emoji}:{' '}
+                  <b className="text-slate-700 dark:text-slate-200">
+                    {suggestedBlocks} {suggestedBlocks === 1 ? 'bloco' : 'blocos'}
+                  </b>
                 </span>
-                {goal !== suggestedGoal && (
+                {!isSuggested && (
                   <button type="button" onClick={() => setGoal(suggestedGoal)} className="font-bold text-sky-600 dark:text-sky-400 hover:underline">
                     usar sugestão
                   </button>

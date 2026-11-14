@@ -246,7 +246,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ block, expanded = true, 
                 />
                 <p className="text-[11px] text-slate-500 dark:text-slate-400">
                   {tech.questions ? <>sugestão: <strong className="text-slate-700 dark:text-slate-200">{tech.questions} questões</strong> · </> : null}
-                  {tech.pomodoros} × 25 min
+                  {tech.pomodoros} × {studyPrefs.shortFocusMinutes} min
                   {tech.extraStep ? ' · com um passo extra porque a última foi difícil' : ''}
                 </p>
               </div>

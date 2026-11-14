@@ -107,7 +107,7 @@ export const ProjectReviewCard: React.FC<ProjectReviewCardProps> = ({ project, i
                 })
               }
             />
-            <p className="text-[11px] text-slate-500 dark:text-slate-400">sugestão: 1 × 25 min</p>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400">sugestão: 1 × {studyPrefs.shortFocusMinutes} min</p>
           </div>
 
           <button

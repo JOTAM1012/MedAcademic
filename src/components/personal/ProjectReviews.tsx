@@ -106,7 +106,7 @@ export const ProjectReviews: React.FC<{ projects: PersonalProject[]; today: stri
                   ))}
                 </ol>
                 <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-slate-500 dark:text-slate-400">
-                  <span>Sugestão: 1 bloco de 25 min</span>
+                  <span>Sugestão: 1 bloco de {studyPrefs.shortFocusMinutes} min</span>
                   {tech.questions ? <span>· cerca de {tech.questions} questões</span> : null}
                   {late && <span>· remarcada, desde {formatDM(item.nextReviewDate)}</span>}
                 </div>

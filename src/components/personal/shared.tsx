@@ -2,6 +2,7 @@
 import React from 'react';
 import type { PersonalProject, PersonalProjectItem, PersonalProjectKind } from '../../types';
 import { daysBetween } from '../../data/blockReview';
+import { UNIT_MINUTES } from '../plan/planShared';
 
 /** Ordem dos dias nos chips (segunda primeiro). Valores = getDay() (0 = domingo) */
 export const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
@@ -90,16 +91,32 @@ export const deadlineInfo = (deadline: string | undefined, today: string) => {
 };
 
 /** Minutos em texto curto: 50 min, 1h40, 3h */
-export const fmtMinutes = (min: number) => {
+export const fmtMinutes = (raw: number) => {
+  const min = Math.round(raw);
   if (min < 60) return `${min} min`;
   const h = Math.floor(min / 60);
   const m = min % 60;
   return m ? `${h}h${String(m).padStart(2, '0')}` : `${h}h`;
 };
 
-/** Meta efetiva da semana: em semana pesada, a meta cai pela metade (sem cobrança) */
-export const effectiveGoal = (p: Pick<PersonalProject, 'weeklyPomodoros'>, heavyWeek: boolean) =>
-  heavyWeek ? Math.max(1, Math.ceil(p.weeklyPomodoros / 2)) : p.weeklyPomodoros;
+// A meta (weeklyPomodoros) e o feito da semana ficam em unidades internas de 25 min (UNIT_MINUTES).
+// O aluno vê blocos no tamanho do bloco dele (studyPrefs.focusMinutes, ex.: 30 min).
+/** Unidades internas → minutos de foco */
+export const unitsToMinutes = (units: number) => Math.round(units * UNIT_MINUTES);
+/** Unidades internas → nº de blocos do aluno (arredondado) */
+export const unitsToBlocks = (units: number, focus: number) => Math.round((units * UNIT_MINUTES) / Math.max(5, focus || UNIT_MINUTES));
+/** Nº de blocos do aluno → unidades internas (pode ser fracionado, ex.: 1 bloco de 30 min = 1,2) */
+export const blocksToUnits = (blocks: number, focus: number) => Math.round(((blocks * Math.max(5, focus || UNIT_MINUTES)) / UNIT_MINUTES) * 1000) / 1000;
+
+/**
+ * Meta efetiva da semana (em unidades internas): em semana pesada, a meta cai pela metade (sem cobrança).
+ * A metade é contada em blocos do aluno (`focus`), para cair num número inteiro de blocos.
+ */
+export const effectiveGoal = (p: Pick<PersonalProject, 'weeklyPomodoros'>, heavyWeek: boolean, focus: number = UNIT_MINUTES) => {
+  if (!heavyWeek) return p.weeklyPomodoros;
+  const blocks = Math.max(1, unitsToBlocks(p.weeklyPomodoros, focus));
+  return Math.min(p.weeklyPomodoros, blocksToUnits(Math.max(1, Math.ceil(blocks / 2)), focus));
+};
 
 /** Divide o texto colado em itens (um por linha, sem marcadores) */
 export const splitLines = (raw: string) =>
