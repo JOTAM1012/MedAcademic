@@ -1,6 +1,6 @@
 import React from 'react';
 import { ChevronRight, Plus } from 'lucide-react';
-import type { Subject, Topic } from '../../types';
+import type { Subject, Topic, TopicBlock } from '../../types';
 import { MEDICAL_AREAS, OTHER_AREA, getMedicalArea, type MedicalArea } from '../../data/areas';
 import { Bar, topicStats } from './shared';
 
@@ -25,16 +25,17 @@ export const groupByArea = (subjects: Subject[]): AreaGroup[] =>
 interface Props {
   groups: AreaGroup[];
   topics: Topic[];
+  topicBlocks?: TopicBlock[];
   onOpen: (areaId: string) => void;
   onAdd: () => void;
 }
 
 // Visão por grandes áreas: um card grande por área (disciplinas, assuntos e % de conclusão)
-export const AreaGrid: React.FC<Props> = ({ groups, topics, onOpen, onAdd }) => (
+export const AreaGrid: React.FC<Props> = ({ groups, topics, topicBlocks = [], onOpen, onAdd }) => (
   <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
     {groups.map(({ area, items }) => {
       const ids = new Set(items.map((s) => s.id));
-      const st = topicStats(topics.filter((t) => ids.has(t.subjectId)));
+      const st = topicStats(topics.filter((t) => ids.has(t.subjectId)), topicBlocks.filter((b) => ids.has(b.subjectId)));
       const isOther = area.id === OTHER_AREA.id;
       return (
         <button

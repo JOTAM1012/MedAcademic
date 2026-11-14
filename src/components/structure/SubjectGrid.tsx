@@ -19,7 +19,7 @@ interface Props {
 export const SubjectGrid: React.FC<Props> = ({ subjects, topics, topicBlocks, onOpen, onAdd, today }) => (
   <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
     {subjects.map((s) => {
-      const st = topicStats(topics.filter((t) => t.subjectId === s.id));
+      const st = topicStats(topics.filter((t) => t.subjectId === s.id), topicBlocks.filter((b) => b.subjectId === s.id));
       const color = subjectColor(s);
       const blocks = topicBlocks.filter((b) => b.subjectId === s.id);
       const studying = blocks.filter((b) => b.reviewStatus === 'estudando').length;

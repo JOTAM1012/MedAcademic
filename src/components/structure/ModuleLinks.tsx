@@ -82,7 +82,7 @@ export const ModuleLinks: React.FC<Props> = ({ module, onOpenSubject, embedded, 
       {!embedded && linkedSubjects.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           {linkedSubjects.map((s) => {
-            const st = topicStats(topics.filter((t) => t.subjectId === s.id));
+            const st = topicStats(topics.filter((t) => t.subjectId === s.id), topicBlocks.filter((b) => b.subjectId === s.id));
             return (
               <div key={s.id} className="flex items-center gap-2 rounded-2xl border border-slate-200 dark:border-slate-800 p-2.5">
                 <button type="button" onClick={() => onOpenSubject(s.id)} className="flex min-w-0 flex-1 items-center gap-2.5 text-left">

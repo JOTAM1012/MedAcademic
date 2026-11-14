@@ -160,7 +160,7 @@ export const AcademicStructureView: React.FC<AcademicStructureViewProps> = ({ on
     if (free.length || !list.length) list.push({ id: '__free__', title: list.length ? 'Sem módulo' : 'Disciplinas', code: '•••', color: '#64748b', items: free, domId: 'struct-module-free' });
     return list;
   }, [subjects]);
-  const stats = topicStats(topics.filter((t) => subjects.some((s) => s.id === t.subjectId)));
+  const stats = topicStats(topics.filter((t) => subjects.some((s) => s.id === t.subjectId)), topicBlocks.filter((b) => subjects.some((s) => s.id === b.subjectId)));
 
   const showContests = contestsActive;
   const showPastTop = isBasic;
@@ -226,7 +226,7 @@ export const AcademicStructureView: React.FC<AcademicStructureViewProps> = ({ on
     const { area } = detailArea;
     const items = [...detailArea.items].sort((a, b) => specialtyOrder(a) - specialtyOrder(b));
     const ids = new Set(items.map((s) => s.id));
-    const st = topicStats(topics.filter((t) => ids.has(t.subjectId)));
+    const st = topicStats(topics.filter((t) => ids.has(t.subjectId)), topicBlocks.filter((b) => ids.has(b.subjectId)));
     const isOther = area.id === OTHER_AREA.id;
     return (
       <div className="space-y-4 pb-12">
@@ -371,6 +371,14 @@ export const AcademicStructureView: React.FC<AcademicStructureViewProps> = ({ on
               onOpenAddSubject();
             }}
             onEdit={setEditing}
+            onAddSubject={() => {
+              try {
+                window.dispatchEvent(new CustomEvent(ADD_SUBJECT_PRESET_EVENT, { detail: { kind: 'subject' } }));
+              } catch {
+                /* sem CustomEvent */
+              }
+              onOpenAddSubject();
+            }}
             allowLinking={mode === 'module' && !isBasic}
             focusSubjectId={workspaceFocus}
             onFocusConsumed={() => setDetail(null)}

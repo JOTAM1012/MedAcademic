@@ -75,6 +75,8 @@ interface Props {
   addLabel: string;
   onAdd: () => void;
   onEdit: (s: Subject) => void;
+  /** cadastrar disciplina (atalho ao lado da lista; na visão por módulos o cartão da estante cria módulo) */
+  onAddSubject?: () => void;
   allowLinking?: boolean;
   focusSubjectId?: string | null;
   /** avisa que o pedido de fora já foi aberto (para poder pedir o mesmo de novo) */
@@ -91,6 +93,7 @@ export const StructureWorkspace: React.FC<Props> = ({
   addLabel,
   onAdd,
   onEdit,
+  onAddSubject,
   allowLinking = false,
   focusSubjectId,
   onFocusConsumed,
@@ -174,7 +177,7 @@ export const StructureWorkspace: React.FC<Props> = ({
 
   const infoOf = (s: Subject) => {
     const list = topics.filter((t) => t.subjectId === s.id);
-    const st = topicStats(list);
+    const st = topicStats(list, topicBlocks.filter((b) => b.subjectId === s.id));
     const status: Status = st.total > 0 && st.pct >= 100 ? 'feita' : st.seen > 0 ? 'andamento' : 'nova';
     const blocks = topicBlocks.filter((b) => b.subjectId === s.id);
     const nextReview = blocks
@@ -245,7 +248,8 @@ export const StructureWorkspace: React.FC<Props> = ({
   }, [open]);
 
   if (!shelf) return null;
-  const shelfStats = topicStats(topics.filter((t) => shelf.items.some((s) => s.id === t.subjectId) || (shelf.module && t.subjectId === shelf.module.id)));
+  const inShelf = (g: Shelf, subjectId: string) => g.items.some((s) => s.id === subjectId) || (!!g.module && subjectId === g.module.id);
+  const shelfStats = topicStats(topics.filter((t) => inShelf(shelf, t.subjectId)), topicBlocks.filter((b) => inShelf(shelf, b.subjectId)));
 
   // ---------- peças ----------
   const examBadge = (r: Info) =>
@@ -289,7 +293,24 @@ export const StructureWorkspace: React.FC<Props> = ({
     );
   };
 
-  const listBody = <ul className="aw-chips">{ordered.map(chip)}</ul>;
+  // atalho para cadastrar sem subir até o topo (não aparece nos módulos, que usam "Vincular")
+  const addChip =
+    onAddSubject && !shelf.module ? (
+      <li key="__add__" className="aw-chip aw-chip--add">
+        <button type="button" id="struct-add-subject-chip" onClick={onAddSubject} className="aw-chip__main">
+          <span className="h-9 w-9 shrink-0 rounded-full grid place-items-center bg-sky-500/10 text-sky-600 dark:text-sky-400">
+            <Plus className="h-4 w-4" />
+          </span>
+          <span className="text-[13px] font-bold text-sky-700 dark:text-sky-300">Nova disciplina</span>
+        </button>
+      </li>
+    ) : null;
+  const listBody = (
+    <ul className="aw-chips">
+      {ordered.map(chip)}
+      {addChip}
+    </ul>
+  );
 
   return (
     <div className="space-y-5">
@@ -311,7 +332,7 @@ export const StructureWorkspace: React.FC<Props> = ({
       {/* Estante de cadernos */}
       <div className="aw-shelf -mx-1 px-1 pt-2 flex gap-5 overflow-x-auto pb-3 scrollbar-none" role="tablist" aria-label="Cadernos">
         {shelves.map((g) => {
-          const st = topicStats(topics.filter((t) => g.items.some((s) => s.id === t.subjectId) || (g.module && t.subjectId === g.module.id)));
+          const st = topicStats(topics.filter((t) => inShelf(g, t.subjectId)), topicBlocks.filter((b) => inShelf(g, b.subjectId)));
           const active = g.id === shelf.id;
           return (
             <button
@@ -441,6 +462,9 @@ export const StructureWorkspace: React.FC<Props> = ({
                 : 'Nenhuma disciplina vinculada a este módulo.'
               : 'Nenhuma disciplina neste caderno ainda.'}
           </p>
+        ) : null}
+        {shelf.items.length === 0 ? (
+          addChip && <ul className="aw-chips">{addChip}</ul>
         ) : sorted.length ? (
           <div className="space-y-3">{listBody}</div>
         ) : (

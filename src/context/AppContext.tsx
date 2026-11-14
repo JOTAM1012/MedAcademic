@@ -250,7 +250,8 @@ interface AppContextType {
 
   // Questões registradas (por bloco ou tópico)
   questionLogs: QuestionLog[];
-  addQuestionLog: (log: Omit<QuestionLog, 'id' | 'date' | 'semesterId'>) => void;
+  /** opts.date (YYYY-MM-DD): registro de um dia passado (estudo antigo lançado agora) */
+  addQuestionLog: (log: Omit<QuestionLog, 'id' | 'date' | 'semesterId'>, opts?: { date?: string }) => void;
   deleteQuestionLog: (id: string) => void;
 
   // Blocos de tópicos (a revisão espaçada é feita por bloco)
@@ -332,7 +333,8 @@ interface AppContextType {
 
   // Study Sessions & Gamification
   studySessions: StudySession[];
-  logStudySession: (session: Omit<StudySession, 'id' | 'timestamp'>) => string;
+  /** opts.date (YYYY-MM-DD): sessão de um dia passado; não mexe na sequência de dias */
+  logStudySession: (session: Omit<StudySession, 'id' | 'timestamp'>, opts?: { date?: string }) => string;
   studyTimePrompt: StudyTimePrompt | null;
   completeStudyTimePrompt: (minutes: number) => void;
   achievements: Achievement[];
@@ -1611,17 +1613,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Nível e XP saíram do site (deixá-lo mais leve). A função fica como no-op para as chamadas antigas.
   const addXp = (_amount: number, _reason?: string) => {};
 
-  const logStudySession = (session: Omit<StudySession, 'id' | 'timestamp'>) => {
+  const logStudySession = (session: Omit<StudySession, 'id' | 'timestamp'>, opts?: { date?: string }) => {
+    const pastDate = opts?.date && opts.date < ymd(new Date()) ? opts.date : undefined;
     const newSession: StudySession = {
       ...session,
       id: 'sess-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
-      timestamp: new Date().toISOString(),
+      // dia passado: meio-dia local daquele dia (cai no dia certo nas métricas)
+      timestamp: pastDate ? new Date(pastDate + 'T12:00:00').toISOString() : new Date().toISOString(),
     };
     setStudySessions((prev) => [newSession, ...prev]);
 
     // Check & update streak and achievements (data local: estudo depois das 21h conta para hoje)
     const today = ymd(new Date());
-    setUserProfile((prev) => {
+    // estudo antigo lançado agora não conta como "estudou hoje" na sequência
+    if (!pastDate) setUserProfile((prev) => {
       const lastDate = prev.lastStudyDate;
       let newStreak = prev.currentStreakDays;
       if (!lastDate) {
@@ -2058,13 +2063,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     syncBlockStatus(t.blockId, next);
   };
 
-  const addQuestionLog = (log: Omit<QuestionLog, 'id' | 'date' | 'semesterId'>) => {
+  const addQuestionLog = (log: Omit<QuestionLog, 'id' | 'date' | 'semesterId'>, opts?: { date?: string }) => {
     if (!log.total || log.total <= 0) return;
+    const today = ymd(new Date());
     const entry: QuestionLog = {
       ...log,
       correct: Math.max(0, Math.min(log.correct, log.total)),
       id: 'qlog-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
-      date: ymd(new Date()),
+      date: opts?.date && opts.date < today ? opts.date : today,
       semesterId: currentSemester?.id,
     };
     setQuestionLogs((prev) => [entry, ...prev]);

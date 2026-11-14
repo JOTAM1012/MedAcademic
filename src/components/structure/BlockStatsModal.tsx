@@ -3,7 +3,7 @@ import { Check, Clock, Plus, Trash2, X, CalendarDays, Target, Lightbulb } from '
 import { useApp } from '../../context/AppContext';
 import type { BlockStudyDay, TopicBlock } from '../../types';
 import { DatePickerField } from '../DatePickerField';
-import { addDaysYMD, formatDM, ymd } from '../../data/blockReview';
+import { addDaysYMD, FIRST_REVIEW_DAY, formatDM, ymd } from '../../data/blockReview';
 import { formatMin } from './shared';
 
 type Activity = NonNullable<TopicBlock['activities']>[number];
@@ -128,27 +128,56 @@ export const BlockStatsModal: React.FC<Props> = ({ open, blockId, onClose, celeb
     const before = block.studyDays && block.studyDays.length ? sumDays(block.studyDays) : { minutes: block.studyMinutes || 0, questions: 0, correct: 0 };
     const now = sumDays(studyDays);
     const dMin = now.minutes - before.minutes;
-    const dQ = now.questions - before.questions;
-    const dC = Math.max(0, Math.min(dQ, now.correct - before.correct));
+
+    // Registro de estudo antigo: enquanto nenhuma revisão foi feita, o "Estudado em" (Dia 0) é o último
+    // dia informado e a 1ª revisão conta a partir dele (não do dia em que o tema foi marcado no site)
+    const lastDay = studyDays.length ? studyDays[studyDays.length - 1].date : undefined;
+    const noReviewsYet = block.reviewStatus === 'revisao' && !block.reviewsDone && !(block.reviewLog && block.reviewLog.length);
+    const redate = noReviewsYet && lastDay && lastDay !== block.completedDate ? { completedDate: lastDay, nextReviewDate: addDaysYMD(FIRST_REVIEW_DAY, lastDay) } : {};
 
     updateTopicBlock(block.id, {
+      ...redate,
       studyDays,
       activities,
       studyMinutes: now.minutes || undefined,
       // gatilho do método: nenhuma questão no tema → as revisões cobram questões
       needsQuestions: now.questions === 0 && !(block.reviewLog || []).some((r) => r.questions) ? true : undefined,
     });
-    if (dMin > 0) {
-      logStudySession({
-        subjectId: block.subjectId,
-        blockId: block.id,
-        durationMinutes: dMin,
-        type: 'stopwatch',
-        notes: `Estudo do tema · ${block.name}`,
-        xpEarned: 0,
-      });
-    }
-    if (dQ > 0) addQuestionLog({ kind: 'block', subjectId: block.subjectId, blockId: block.id, total: dQ, correct: dC, mode: 'tema' });
+    // Cada dia entra nas métricas com a própria data (estudo antigo não vira "hoje").
+    // Só a diferença em relação ao já salvo naquele dia; o registro antigo sem dias conta como do Dia 0.
+    const beforeByDate = new Map<string, { minutes: number; questions: number; correct: number }>();
+    const oldDays: BlockStudyDay[] =
+      block.studyDays && block.studyDays.length ? block.studyDays : block.studyMinutes ? [{ date: block.completedDate || ymd(new Date()), minutes: block.studyMinutes }] : [];
+    oldDays.forEach((d) => {
+      const cur = beforeByDate.get(d.date) || { minutes: 0, questions: 0, correct: 0 };
+      const s = sumDays([d]);
+      beforeByDate.set(d.date, { minutes: cur.minutes + s.minutes, questions: cur.questions + s.questions, correct: cur.correct + s.correct });
+    });
+    const nowByDate = new Map<string, { minutes: number; questions: number; correct: number }>();
+    studyDays.forEach((d) => {
+      const cur = nowByDate.get(d.date) || { minutes: 0, questions: 0, correct: 0 };
+      const s = sumDays([d]);
+      nowByDate.set(d.date, { minutes: cur.minutes + s.minutes, questions: cur.questions + s.questions, correct: cur.correct + s.correct });
+    });
+    let loggedQ = false;
+    nowByDate.forEach((n, date) => {
+      const b = beforeByDate.get(date) || { minutes: 0, questions: 0, correct: 0 };
+      const m = n.minutes - b.minutes;
+      const q = n.questions - b.questions;
+      const c = Math.max(0, Math.min(q, n.correct - b.correct));
+      if (m > 0)
+        logStudySession(
+          { subjectId: block.subjectId, blockId: block.id, durationMinutes: m, type: 'stopwatch', notes: `Estudo do tema · ${block.name}`, xpEarned: 0 },
+          { date }
+        );
+      if (q > 0) {
+        addQuestionLog({ kind: 'block', subjectId: block.subjectId, blockId: block.id, total: q, correct: c, mode: 'tema' }, { date });
+        loggedQ = true;
+      }
+    });
+    if (loggedQ) {
+      /* o aviso das questões já aparece */
+    } else if (redate.completedDate) showNotification(`Estudo salvo. Estudado em ${formatDM(redate.completedDate)} · 1ª revisão em ${formatDM(redate.nextReviewDate)}.`, 'success');
     else showNotification(dMin > 0 ? `⏱ ${formatMin(dMin)} de estudo registrados.` : 'Estudo do tema salvo.', 'success');
     onClose();
   };

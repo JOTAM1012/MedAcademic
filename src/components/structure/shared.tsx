@@ -1,5 +1,5 @@
 import React from 'react';
-import type { Subject, Topic } from '../../types';
+import type { Subject, Topic, TopicBlock } from '../../types';
 import { OTHER_AREA, getMedicalArea, getSpecialty } from '../../data/areas';
 import { subjectFormatOf, subjectOrganization } from '../../data/subjectFormats';
 import { isTopicPending, isTopicSeen } from '../../data/blockReview';
@@ -16,14 +16,17 @@ export interface TopicStats {
 }
 
 /** Progresso de uma lista de tópicos, sem contar as aulas bônus */
-export const topicStats = (list: Topic[]): TopicStats => {
+export const topicStats = (list: Topic[], blocks: TopicBlock[] = []): TopicStats => {
   const counted = list.filter(countsInProgress);
+  // bloco ainda em estudo e sem tópicos conta como 1 parte não feita (senão 1 bloco pronto = 100%)
+  const emptyBlocks = blocks.filter((b) => b.reviewStatus === 'estudando' && !counted.some((t) => t.blockId === b.id)).length;
+  const total = counted.length + emptyBlocks;
   const seen = counted.filter(isTopicSeen).length;
   return {
-    total: counted.length,
+    total,
     seen,
     pending: counted.filter(isTopicPending).length,
-    pct: counted.length ? Math.round((seen / counted.length) * 100) : 0,
+    pct: total ? Math.round((seen / total) * 100) : 0,
   };
 };
 
@@ -42,6 +45,7 @@ export const hasArea = (s: Subject) => getMedicalArea(s.majorArea).id !== OTHER_
 
 /** Cor de exibição: especialidade → grande área → formato → cor própria */
 export const subjectColor = (s: Subject) => {
+  if (s.customColor) return s.customColor;
   const sp = getSpecialty(s.specialty);
   if (sp) return sp.color;
   const area = getMedicalArea(s.majorArea);

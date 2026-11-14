@@ -22,7 +22,7 @@ interface Props {
 
 // Uma disciplina com seu painel (blocos, checklist ou tutorias)
 export const SubjectSection: React.FC<Props> = ({ subject, standalone, defaultOpen, allowLinking, onEdit }) => {
-  const { topics, deleteSubject, updateSubject } = useApp();
+  const { topics, topicBlocks, deleteSubject, updateSubject } = useApp();
   const [open, setOpen] = useState(!!(standalone || defaultOpen));
   const [menu, setMenu] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -31,7 +31,7 @@ export const SubjectSection: React.FC<Props> = ({ subject, standalone, defaultOp
   const [moduleDraft, setModuleDraft] = useState('');
 
   const color = subjectColor(subject);
-  const st = topicStats(topics.filter((t) => t.subjectId === subject.id));
+  const st = topicStats(topics.filter((t) => t.subjectId === subject.id), topicBlocks.filter((b) => b.subjectId === subject.id));
   const mod = moduleOf(subject);
   const f = subjectFormatOf(subject);
   const org = subjectOrganization(subject);

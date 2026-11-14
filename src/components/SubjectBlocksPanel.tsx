@@ -95,7 +95,7 @@ export const SubjectBlocksPanel: React.FC<SubjectBlocksPanelProps> = ({ subject,
   // Ordem do array (o aluno pode reordenar arrastando; blocos novos entram no fim, como antes)
   const blocks = useMemo(() => topicBlocks.filter((b) => b.subjectId === subject.id), [topicBlocks, subject.id]);
   const subjectTopics = topics.filter((t) => t.subjectId === subject.id);
-  const subjectStats = topicStats(subjectTopics);
+  const subjectStats = topicStats(subjectTopics, blocks);
   const inReview = blocks.filter((b) => b.reviewStatus === 'revisao').length;
   const mastered = blocks.filter((b) => b.reviewStatus !== 'estudando' && b.reviewsDone >= BLOCK_REVIEWS_TO_MASTER).length;
 

@@ -10,6 +10,8 @@ import { CycleSubjectForm } from './CycleSubjectForm';
 import { cycleOfSemester, getSubjectFormat } from '../../data/subjectFormats';
 import type { SubjectFormat, SubjectOrganization } from '../../types';
 
+const SUBJECT_COLORS = ['#ef4444', '#f97316', '#f59e0b', '#22c55e', '#10b981', '#14b8a6', '#06b6d4', '#0ea5e9', '#3b82f6', '#6366f1', '#8b5cf6', '#a855f7', '#ec4899', '#f43f5e', '#64748b'];
+
 interface EditSubjectModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -29,9 +31,11 @@ export const EditSubjectModal: React.FC<EditSubjectModalProps> = ({
   const [specialty, setSpecialty] = useState('');
   const [format, setFormat] = useState<SubjectFormat | null>(null);
   const [organization, setOrganization] = useState<SubjectOrganization>('blocos');
+  const [customColor, setCustomColor] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     if (subject) {
+      setCustomColor(subject.customColor);
       setFormat(subject.format || 'personalizada');
       setOrganization(subject.organization || 'blocos');
       setName(subject.universitySubject || subject.name || '');
@@ -56,7 +60,8 @@ export const EditSubjectModal: React.FC<EditSubjectModalProps> = ({
         universitySubject: name.trim(),
         format,
         organization,
-        color: f.color,
+        color: customColor || f.color,
+        customColor,
         code: f.label.slice(0, 3).toUpperCase(),
       };
       if (prevOrg === 'checklist' && organization === 'blocos') convertChecklistToBlocks(subject.id);
@@ -77,7 +82,8 @@ export const EditSubjectModal: React.FC<EditSubjectModalProps> = ({
       majorArea: area,
       specialty: isClinicaMedica(area) ? getSpecialty(specialty)?.id : undefined,
       code: areaInfo.short,
-      color: areaInfo.color,
+      color: customColor || areaInfo.color,
+      customColor,
     });
 
     showNotification('Disciplina atualizada com sucesso!', 'success');
@@ -174,6 +180,39 @@ export const EditSubjectModal: React.FC<EditSubjectModalProps> = ({
 
           </>
           )}
+
+          {/* Cor: para organizar do seu jeito (ex.: Simulação realística com a cor da Pediatria) */}
+          <div>
+            <p className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">Cor</p>
+            <div className="flex flex-wrap items-center gap-1.5" role="radiogroup" aria-label="Cor da disciplina">
+              <button
+                type="button"
+                id="edit-subject-color-auto"
+                role="radio"
+                aria-checked={!customColor}
+                onClick={() => setCustomColor(undefined)}
+                className={`h-8 px-3 rounded-full border text-[11px] font-bold transition-colors ${
+                  !customColor ? 'bg-sky-600 border-sky-600 text-white' : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-sky-400'
+                }`}
+              >
+                Automática
+              </button>
+              {SUBJECT_COLORS.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  id={`edit-subject-color-${c.slice(1)}`}
+                  role="radio"
+                  aria-checked={customColor === c}
+                  aria-label={`Cor ${c}`}
+                  onClick={() => setCustomColor(c)}
+                  className={`h-8 w-8 rounded-full transition-transform hover:scale-110 ${customColor === c ? 'ring-2 ring-offset-2 ring-sky-500 ring-offset-white dark:ring-offset-slate-900' : ''}`}
+                  style={{ backgroundColor: c }}
+                />
+              ))}
+            </div>
+            <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">"Automática" usa a cor do tipo ou da grande área.</p>
+          </div>
 
           <div className="pt-3 flex items-center justify-between gap-2 border-t border-slate-100 dark:border-slate-800">
             <button

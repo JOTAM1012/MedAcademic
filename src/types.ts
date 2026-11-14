@@ -312,6 +312,8 @@ export interface Subject {
   name: string;
   code: string;
   color: string;
+  /** Cor escolhida pelo aluno (vale sobre a cor do formato/área); vazio = automática */
+  customColor?: string;
   iconName?: string;
   majorArea?: string;
   specialty?: string; // especialidade dentro da Clínica Médica (Cardiologia, Neurologia...)

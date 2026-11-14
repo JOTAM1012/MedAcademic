@@ -97,7 +97,7 @@ export const ModuleList: React.FC<Props> = ({ subjects, topics, topicBlocks, onO
           )}
           <div className="rounded-3xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 divide-y divide-slate-100 dark:divide-slate-800">
             {items.map((s) => {
-              const st = topicStats(topics.filter((t) => t.subjectId === s.id));
+              const st = topicStats(topics.filter((t) => t.subjectId === s.id), topicBlocks.filter((b) => b.subjectId === s.id));
               const color = subjectColor(s);
               const links = topicBlocks
                 .filter((b) => b.subjectId === s.id)
