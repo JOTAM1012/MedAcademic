@@ -35,6 +35,17 @@ import { CARTOON_AVATARS } from '../data/avatars';
 import { UniversityPicker } from './UniversityPicker';
 import { FieldError, shakeElement, shakeField } from './shared/ErrorShake';
 import { fileToAvatarDataUrl, avatarErrorMessage } from '../data/avatarImage';
+import { periodByCode } from '../data/academicCalendar';
+import { buildSemesterName, canonicalSemesterName, parsePeriodCode, periodCodeOf, periodYearOptions, pickPeriodCode } from './onboarding/semesterLabel';
+import { SignupRoutineStep } from './onboarding/SignupRoutineStep';
+import {
+  EMPTY_ROUTINE_ANSWERS,
+  hasRoutineAnswers,
+  markRoutineAnswered,
+  routineAnswersToPrefs,
+  savePendingRoutine,
+  type RoutineAnswers,
+} from './onboarding/routineSetup';
 
 const SPECIALTIES_R1 = [
   'Clínica Médica',
@@ -70,11 +81,12 @@ export interface MedicalCycleConfig {
   semesters: SemesterOption[];
 }
 
-// Boas-vindas de conta nova: tour → depois o app "aperta" o botão "Como Usar a Plataforma"
+// Boas-vindas de conta nova: (pesquisa de rotina, se não respondeu no cadastro) → configuração do site → tour
+// → depois o app "aperta" o botão "Como Usar a Plataforma". 'routine' = rotina já respondida no cadastro.
 export const NEW_USER_WELCOME_EVENT = 'medacademic:new-user-welcome';
-const startNewUserWelcome = () => {
+const startNewUserWelcome = (routineDone = false) => {
   try {
-    sessionStorage.setItem('medacademic_new_user_welcome', '1');
+    sessionStorage.setItem('medacademic_new_user_welcome', routineDone ? 'routine' : '1');
   } catch {}
   window.dispatchEvent(new Event(NEW_USER_WELCOME_EVENT));
 };
@@ -134,6 +146,7 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
     setIsEditingProfileSetup,
     isEditingProfileSetup,
     currentSemester,
+    updateStudyPrefs,
   } = useApp();
 
   // Edição de perfil (não é o cadastro inicial): passos 2 e 3 são opcionais
@@ -146,13 +159,17 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
     return {
       cycle: cycle.id as 'ciclo_basico' | 'ciclo_clinico' | 'internato',
       num: n,
-      name: currentSemester?.name || '',
-      code: currentSemester?.code || currentSemester?.period || '2026.1',
+      code: pickPeriodCode(currentSemester?.period, currentSemester?.code),
     };
   })();
   const [editAcademic, setEditAcademic] = useState(false);
 
   const [currentStep, setCurrentStep] = useState<number>(1);
+  // Passo "Rotina" (só no cadastro / 1ª configuração): Você, Faculdade, Metas, Rotina, Acesso/Pronto
+  const showRoutineStep = !editMode;
+  const lastStep = showRoutineStep ? 5 : 4;
+  const [routineAnswers, setRoutineAnswers] = useState<RoutineAnswers>(EMPTY_ROUTINE_ANSWERS);
+  const routineDone = showRoutineStep && hasRoutineAnswers(routineAnswers);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Form State
@@ -197,7 +214,7 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
   };
   // Voltar é livre; avançar valida todos os passos do atual até o destino
   const goToStep = (target: number) => {
-    const next = Math.min(4, Math.max(1, target));
+    const next = Math.min(lastStep, Math.max(1, target));
     if (next > currentStep) {
       for (let s = currentStep; s < next; s++) if (!validateStep(s)) return;
     }
@@ -209,8 +226,11 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedCycle, setSelectedCycle] = useState<'ciclo_basico' | 'ciclo_clinico' | 'internato'>(initialAcademic?.cycle || 'ciclo_clinico');
   const [selectedSemesterNum, setSelectedSemesterNum] = useState<number>(initialAcademic?.num || 5);
-  const [semesterName, setSemesterName] = useState(initialAcademic?.name || '5º Semestre - Ciclo Clínico');
-  const [semesterCode, setSemesterCode] = useState(initialAcademic?.code || '2026.1');
+  // Nome do semestre: sempre gerado pela escolha (sem digitar). Período: ano × 1º/2º semestre → "2026.1"
+  const semesterName = buildSemesterName(selectedSemesterNum);
+  const [semesterCode, setSemesterCode] = useState(initialAcademic?.code || pickPeriodCode());
+  const periodParts = parsePeriodCode(semesterCode) || parsePeriodCode(pickPeriodCode())!;
+  const periodDates = periodByCode(semesterCode);
   const [dreamSpecialty, setDreamSpecialty] = useState(userProfile.dreamSpecialty || 'Clínica Médica');
   const [targetExam, setTargetExam] = useState(userProfile.targetExam || '');
   const [contestsEnabled, setContestsEnabled] = useState<boolean>(!!userProfile.contestsEnabled);
@@ -263,17 +283,12 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
     setSelectedCycle(cycleId);
     const found = MEDICAL_CYCLES.find((c) => c.id === cycleId);
     if (found && found.semesters.length > 0) {
-      const firstSem = found.semesters[0];
-      setSelectedSemesterNum(firstSem.number);
-      setSemesterName(`${firstSem.label} - ${found.title}`);
-      setSemesterCode(firstSem.semCode);
+      setSelectedSemesterNum(found.semesters[0].number);
     }
   };
 
   const handleSelectSemester = (semOption: SemesterOption) => {
     setSelectedSemesterNum(semOption.number);
-    setSemesterName(`${semOption.label} - ${activeCycleConfig.title}`);
-    setSemesterCode(semOption.semCode);
   };
 
   // Upload Custom Photo
@@ -324,7 +339,8 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
     }
 
     setIsSubmitting(true);
-    const chosenSemesterName = semesterName.trim() || `${selectedSemesterNum}º Semestre - ${activeCycleConfig.title}`;
+    const chosenSemesterName = semesterName;
+    const routinePrefs = routineDone ? routineAnswersToPrefs(routineAnswers) : null;
     const profile: UserProfile = {
       ...INITIAL_USER_PROFILE,
       name: name.trim(),
@@ -349,7 +365,9 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
         ...INITIAL_SEMESTERS[0],
         id: 'sem-1',
         name: chosenSemesterName,
-        code: semesterCode.trim() || `SEM${selectedSemesterNum}`,
+        code: semesterCode,
+        period: semesterCode,
+        ...(periodDates ? { startDate: periodDates.start, endDate: periodDates.end } : {}),
         targetHoursWeekly: Number(weeklyTargetHours),
         description: `${activeCycleConfig.title} • ${chosenSemesterName}`,
         isCurrent: true,
@@ -367,7 +385,11 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
         avatarUrl: selectedAvatarUrl,
         onboardingCompleted: true,
       },
-      (uid) => seedNewUserData(uid, profile, semesters)
+      (uid) => {
+        seedNewUserData(uid, profile, semesters);
+        // A conta ainda está nascendo: a rotina é aplicada quando o perfil carregar (usePendingRoutine)
+        if (routinePrefs) savePendingRoutine(uid, routinePrefs);
+      }
     );
     setIsSubmitting(false);
 
@@ -378,7 +400,7 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
     if (res.needsEmailConfirmation) return; // back to the login screen with the confirmation notice
     triggerConfetti();
     showNotification(`Bem-vindo(a), ${name.trim()}! Sua conta foi criada. Use ${cleanEmail} e sua senha para entrar.`, 'success');
-    setTimeout(() => startNewUserWelcome(), 800);
+    setTimeout(() => startNewUserWelcome(!!routinePrefs), 800);
   };
 
   const handleFinish = () => {
@@ -398,10 +420,13 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
     // Nunca apaga dados. Na 1ª configuração só dá nome ao semestre inicial
     // (para trocar de semestre depois, use "Ciclo acadêmico e semestre" no Perfil).
     if (!isEditingProfileSetup && semesters.length <= 1) {
-      const chosenSemesterName = semesterName.trim() || `${selectedSemesterNum}º Semestre - ${activeCycleConfig.title}`;
+      const chosenSemesterName = semesterName;
       const firstId = semesters[0]?.id || 'sem-1';
       updateSemester(firstId, {
         name: chosenSemesterName,
+        code: semesterCode,
+        period: semesterCode,
+        ...(periodDates ? { startDate: periodDates.start, endDate: periodDates.end } : {}),
         targetHoursWeekly: Number(weeklyTargetHours),
         description: `${activeCycleConfig.title} • ${chosenSemesterName}`,
       });
@@ -409,13 +434,26 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
 
     // Edição: só altera ciclo/semestre se o usuário escolheu editar
     if (editMode && editAcademic && currentSemester) {
-      const chosen = semesterName.trim() || `${selectedSemesterNum}º Semestre - ${activeCycleConfig.title}`;
+      const chosen = semesterName;
+      const periodChanged = semesterCode !== currentSemester.period;
       updateSemester(currentSemester.id, {
         name: chosen,
-        code: semesterCode.trim() || currentSemester.code,
-        period: semesterCode.trim() || currentSemester.period,
+        code: semesterCode,
+        period: semesterCode,
+        // datas padrão do novo período (datas personalizadas pelo usuário continuam)
+        ...(periodChanged && periodDates && !currentSemester.customDates ? { startDate: periodDates.start, endDate: periodDates.end } : {}),
         description: `${activeCycleConfig.title} • ${chosen}`,
       });
+    } else if (editMode && currentSemester) {
+      // Nome digitado à mão antes (ex.: "Ciclo Básicosssss") volta ao nome padrão do semestre
+      const canon = canonicalSemesterName(currentSemester.name);
+      if (canon !== currentSemester.name) updateSemester(currentSemester.id, { name: canon });
+    }
+
+    // 1ª configuração (conta já existe): a rotina respondida vai direto para as preferências do Planner
+    if (!isEditingProfileSetup && routineDone) {
+      updateStudyPrefs(routineAnswersToPrefs(routineAnswers));
+      markRoutineAnswered(email.trim() || userProfile.email);
     }
 
     // Update user profile
@@ -463,7 +501,7 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
       showNotification(`Bem-vindo(a), ${name.trim()}! Seu perfil foi configurado com sucesso e o painel iniciado no ${selectedSemesterNum}º Semestre.`, 'success');
       // Open quick tutorial guide right after finishing
       setTimeout(() => {
-        startNewUserWelcome();
+        startNewUserWelcome(routineDone);
       }, 600);
     } else {
       showNotification(`Perfil atualizado com sucesso!`, 'success');
@@ -533,10 +571,10 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
           
           {/* Form Wizard (Left / Main) */}
           <div className="lg:col-span-8 relative flex flex-col gap-2.5">
-            {currentStep === 4 && !isEditingProfileSetup && (
+            {currentStep === lastStep && !isEditingProfileSetup && (
               <p id="profile-welcome-line" className="px-2 text-xs text-slate-400 flex items-center gap-1.5 lg:absolute lg:bottom-full lg:left-0 lg:mb-2.5">
                 <span aria-hidden>✨</span>
-                <span><strong className="text-sky-300">Boas-vindas!</strong> Ao concluir, você responde uma pesquisa rápida de rotina e ganha o tutorial de boas-vindas.</span>
+                <span><strong className="text-sky-300">Boas-vindas!</strong> Ao concluir, você deixa o site do seu jeito em poucos toques e ganha o tutorial de boas-vindas.</span>
               </p>
             )}
           <div className="profile-glass-card relative flex-1 rounded-3xl">
@@ -755,7 +793,7 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
                       </div>
                       <div className="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800">
                         <div className="text-[10px] text-slate-500 font-bold uppercase">Semestre atual</div>
-                        <div className="text-sm font-black text-slate-200 mt-0.5 truncate">{currentSemester?.name || '—'}</div>
+                        <div className="text-sm font-black text-slate-200 mt-0.5 truncate">{canonicalSemesterName(currentSemester?.name) || '—'}</div>
                       </div>
                     </div>
                     <label className="flex items-start gap-3 cursor-pointer select-none">
@@ -870,29 +908,54 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
                     </div>
                   </div>
 
-                  {/* Semester Active Code / Name */}
+                  {/* Nome do semestre (gerado pela escolha, sem digitar) e período letivo (seleção) */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                     <div>
-                      <label className="block text-[11px] font-bold text-slate-400 mb-1">
-                        Identificação do Semestre
-                      </label>
-                      <input
-                        type="text"
-                        value={semesterName}
-                        onChange={(e) => setSemesterName(e.target.value)}
-                        className="w-full rounded-xl bg-slate-950 border border-slate-800 px-3 py-2 text-xs text-white focus:outline-hidden focus:border-sky-500"
-                      />
+                      <span className="block text-[11px] font-bold text-slate-400 mb-1">Identificação do Semestre</span>
+                      <div
+                        id="profile-semester-name"
+                        className="w-full min-h-[38px] rounded-xl bg-sky-500/10 border border-sky-500/30 px-3 py-2 text-xs font-black text-sky-200 flex items-center gap-1.5"
+                      >
+                        <GraduationCap className="h-3.5 w-3.5 shrink-0 text-sky-400" />
+                        <span className="truncate">{semesterName}</span>
+                      </div>
+                      <p className="mt-1 text-[10px] text-slate-500">Muda sozinho com o ciclo e o semestre escolhidos.</p>
                     </div>
                     <div>
-                      <label className="block text-[11px] font-bold text-slate-400 mb-1">
-                        Período / Ano Letivo
-                      </label>
-                      <input
-                        type="text"
-                        value={semesterCode}
-                        onChange={(e) => setSemesterCode(e.target.value)}
-                        className="w-full rounded-xl bg-slate-950 border border-slate-800 px-3 py-2 text-xs text-white focus:outline-hidden focus:border-sky-500"
-                      />
+                      <span className="block text-[11px] font-bold text-slate-400 mb-1">Período / Ano Letivo</span>
+                      <div className="flex items-center gap-2">
+                        <select
+                          id="profile-period-year"
+                          aria-label="Ano letivo"
+                          value={periodParts.year}
+                          onChange={(e) => setSemesterCode(periodCodeOf(Number(e.target.value), periodParts.half))}
+                          className="flex-1 min-w-0 min-h-[38px] rounded-xl bg-slate-950 border border-slate-800 px-2.5 py-2 text-xs font-bold text-white focus:outline-hidden focus:border-sky-500 cursor-pointer"
+                        >
+                          {periodYearOptions(periodParts.year).map((y) => (
+                            <option key={y} value={y}>
+                              {y}
+                            </option>
+                          ))}
+                        </select>
+                        {([1, 2] as const).map((h) => (
+                          <button
+                            key={h}
+                            type="button"
+                            id={`profile-period-half-${h}`}
+                            aria-pressed={periodParts.half === h}
+                            aria-label={`${h}º semestre do ano`}
+                            onClick={() => setSemesterCode(periodCodeOf(periodParts.year, h))}
+                            className={`min-h-[38px] px-3 rounded-xl border text-xs font-black transition-colors cursor-pointer ${
+                              periodParts.half === h ? 'border-sky-500 bg-sky-950/50 text-sky-200' : 'border-slate-800 bg-slate-950 text-slate-400 hover:border-slate-700'
+                            }`}
+                          >
+                            .{h}
+                          </button>
+                        ))}
+                      </div>
+                      <p className="mt-1 text-[10px] text-slate-500">
+                        <strong className="text-slate-300">{semesterCode}</strong> · {periodParts.half === 1 ? 'janeiro a junho' : 'agosto a dezembro'}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -1125,7 +1188,14 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
               </div>
             </Step>
 
-            {/* Step 4 (sign-up): e-mail & password used to log in */}
+            {/* Step 4: rotina para montar o Planner (só no cadastro / 1ª configuração) */}
+            {showRoutineStep && (
+              <Step title="Rotina">
+                <SignupRoutineStep value={routineAnswers} onChange={setRoutineAnswers} />
+              </Step>
+            )}
+
+            {/* Último passo (cadastro): e-mail & senha para entrar */}
             <Step title={signupMode ? 'Acesso' : isEditingProfileSetup ? 'Salvar' : 'Pronto'}>
             {signupMode ? (
               <div className="space-y-6">
@@ -1292,15 +1362,30 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
                 )}
               </div>
 
-              {currentStep < 4 ? (
-                <button
-                  type="button"
-                  onClick={() => goToStep(currentStep + 1)}
-                  className="auth-btn-primary flex items-center gap-2 px-5 sm:px-6 py-2.5 rounded-xl text-white text-xs font-black cursor-pointer"
-                >
-                  <span>Próximo Passo</span>
-                  <ArrowRight className="h-4 w-4" />
-                </button>
+              {currentStep < lastStep ? (
+                <div className="flex items-center gap-1.5">
+                  {showRoutineStep && currentStep === 4 && (
+                    <button
+                      type="button"
+                      id="profile-routine-skip"
+                      onClick={() => {
+                        setRoutineAnswers(EMPTY_ROUTINE_ANSWERS);
+                        goToStep(currentStep + 1);
+                      }}
+                      className="px-3 py-2.5 rounded-xl text-xs font-bold text-slate-400 hover:text-slate-200 cursor-pointer"
+                    >
+                      Pular
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => goToStep(currentStep + 1)}
+                    className="auth-btn-primary flex items-center gap-2 px-5 sm:px-6 py-2.5 rounded-xl text-white text-xs font-black cursor-pointer"
+                  >
+                    <span>Próximo Passo</span>
+                    <ArrowRight className="h-4 w-4" />
+                  </button>
+                </div>
               ) : (
                 <button
                   type="button"

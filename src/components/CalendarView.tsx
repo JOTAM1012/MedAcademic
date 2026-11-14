@@ -617,11 +617,13 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     // O D0 que passou da data sobe para hoje com selo neutro ("remarcado").
     const todayStr = formatToYMD(new Date());
     const isTodayCol = dayInfo.dateStr === todayStr;
+    // Pendência com data já passada aparece SÓ em hoje (remarcada); nunca também no dia original.
+    const landsHere = (d: string) => (d < todayStr ? isTodayCol : d === dayInfo.dateStr);
     topicBlocks
       .filter((bk) => {
         if (bk.reviewStatus !== 'estudando') return false;
         const sd = studyDateOf(bk);
-        return !!sd && (sd === dayInfo.dateStr || (isTodayCol && sd < todayStr));
+        return !!sd && landsHere(sd);
       })
       .forEach((bk) => {
         const sub = getSubject(bk.subjectId);
@@ -656,7 +658,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         (t) =>
           t.scheduleFirstContact &&
           !!t.firstContactDate &&
-          (t.firstContactDate === dayInfo.dateStr || (isTodayCol && t.firstContactDate < todayStr)) &&
+          landsHere(t.firstContactDate) &&
           t.status === 'nao_iniciado' &&
           !t.cabide &&
           !topicBlocks.some((bk) => bk.id === t.blockId && bk.reviewStatus === 'estudando')
@@ -690,7 +692,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           bk.reviewStatus === 'revisao' &&
           !!bk.nextReviewDate &&
           subjects.some((s) => s.id === bk.subjectId) &&
-          (bk.nextReviewDate === dayInfo.dateStr || (isTodayCol && bk.nextReviewDate < todayStr))
+          landsHere(bk.nextReviewDate)
       )
       .forEach((bk) => {
         const sub = getSubject(bk.subjectId);

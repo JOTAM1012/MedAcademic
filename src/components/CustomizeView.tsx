@@ -1,8 +1,9 @@
 // Personalizar: o painel (cartões e ordem) e a barra de baixo do celular/tablet.
 // Tudo fica salvo na conta e vale para todos os semestres.
 import React, { useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, CalendarClock, Check, LayoutGrid, RotateCcw, Smartphone, SlidersHorizontal } from 'lucide-react';
+import { ArrowDown, ArrowUp, CalendarClock, Check, LayoutGrid, RotateCcw, Smartphone, SlidersHorizontal, Wand2 } from 'lucide-react';
 import { StudyRoutineModal } from './plan/StudyRoutineModal';
+import { SetupWizard } from './onboarding/SetupWizard';
 import { blocksToHours } from './plan/planShared';
 import { TURN_LABELS, WEEKDAY_SHORT } from '../data/studyMethod';
 import { useApp } from '../context/AppContext';
@@ -15,6 +16,7 @@ import { DEFAULT_MOBILE_TABS, MOBILE_TAB_OPTIONS, MOBILE_TABS_MAX, resolveMobile
 export const CustomizeView: React.FC = () => {
   const { studyMethod, studyPrefs, setDashboardPrefs, setMobileTabs, contestsActive, setCurrentTab, showNotification } = useApp();
   const [routineOpen, setRoutineOpen] = useState(false);
+  const [setupOpen, setSetupOpen] = useState(false);
   const freeTurns = studyPrefs.weekTurns ? studyPrefs.weekTurns.reduce((n, d) => n + d.filter((t) => t === 'livre').length, 0) : null;
   const bestIdx = studyPrefs.bestTurn ? ['manha', 'tarde', 'noite'].indexOf(studyPrefs.bestTurn) : -1;
 
@@ -58,12 +60,24 @@ export const CustomizeView: React.FC = () => {
 
   return (
     <div className="tab-root space-y-5 pb-12 max-w-3xl">
-      <div>
-        <h1 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
-          <SlidersHorizontal className="h-6 w-6 text-sky-600 dark:text-sky-400" /> Personalizar
-        </h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Deixe o site do seu jeito. Fica salvo na sua conta e vale para todos os semestres.</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
+            <SlidersHorizontal className="h-6 w-6 text-sky-600 dark:text-sky-400" /> Personalizar
+          </h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Deixe o site do seu jeito. Fica salvo na sua conta e vale para todos os semestres.</p>
+        </div>
+        {/* Roteiro de perguntas: painel, barras, método e aparência, passo a passo */}
+        <button
+          type="button"
+          id="customize-setup-wizard-btn"
+          onClick={() => setSetupOpen(true)}
+          className="shrink-0 min-h-[44px] px-4 rounded-xl border border-sky-300 dark:border-sky-800 bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 hover:bg-sky-100 dark:hover:bg-sky-900/50 text-sm font-black inline-flex items-center gap-2"
+        >
+          <Wand2 className="h-4 w-4" /> Refazer configuração
+        </button>
       </div>
+      <SetupWizard open={setupOpen} onClose={() => setSetupOpen(false)} />
 
       {/* 0. Minha rotina (a mesma do Planner) */}
       <section id="customize-routine" className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs p-4 sm:p-5">

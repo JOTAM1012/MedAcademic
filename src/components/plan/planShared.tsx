@@ -59,9 +59,26 @@ export const DAY_KIND_INFO: Record<DayKind, { label: string; emoji: string; cls:
   pos_prova: { label: 'Pós-prova', emoji: '🛋️', cls: 'bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-500/10 dark:text-teal-300 dark:border-teal-500/30' },
 };
 
-/** Blocos de 25 min → "1h40" (tempo de foco) */
+/** Unidade interna da capacidade do plano (minutos). O que o aluno vê segue o bloco dele. */
+export const UNIT_MINUTES = 25;
+
+/**
+ * Botões − / + do tempo de foco: anda 1 bloco do aluno (ex.: 30 min) e cai sempre num múltiplo do bloco.
+ * Recebe e devolve a capacidade em unidades internas de 25 min.
+ */
+export const stepByBlock = (units: number, dir: 1 | -1, blockMinutes: number, minMinutes: number, maxMinutes: number) => {
+  const step = Math.max(5, Math.round(blockMinutes) || UNIT_MINUTES);
+  const cur = units * UNIT_MINUTES;
+  const n = dir > 0 ? Math.floor(cur / step + 1e-6) + 1 : Math.ceil(cur / step - 1e-6) - 1;
+  const lo = Math.max(1, Math.ceil(minMinutes / step)) * step;
+  const hi = Math.max(lo, Math.floor(maxMinutes / step) * step);
+  const minutes = Math.min(hi, Math.max(lo, n * step));
+  return Math.round((minutes / UNIT_MINUTES) * 1000) / 1000;
+};
+
+/** Unidades de 25 min → "1h40" (tempo de foco) */
 export const blocksToHours = (blocks: number) => {
-  const min = blocks * 25;
+  const min = Math.round(blocks * UNIT_MINUTES);
   const h = Math.floor(min / 60);
   const m = min % 60;
   if (h === 0) return `${m} min`;

@@ -435,7 +435,7 @@ export const PHASE_INFO: Record<StudyPhase, PhaseInfo> = {
       'Anatomia e histologia: flashcards com imagem (oclusão) funcionam muito bem.',
       'Treine com as questões das provas da sua própria faculdade.',
     ],
-    defaults: { focusMinutes: 50, breakMinutes: 10, shortFocusMinutes: 25, shortBreakMinutes: 5, newTopicsPerDay: 1, longTermGoal: false },
+    defaults: { focusMinutes: 50, breakMinutes: 10, shortFocusMinutes: 30, shortBreakMinutes: 5, newTopicsPerDay: 1, longTermGoal: false },
     projectWeekly: 2,
   },
   ciclo_clinico: {
@@ -449,7 +449,7 @@ export const PHASE_INFO: Record<StudyPhase, PhaseInfo> = {
       'Flashcards de critérios diagnósticos e condutas.',
       'Feynman para fisiopatologia: explique por que cada sinal aparece.',
     ],
-    defaults: { focusMinutes: 50, breakMinutes: 10, shortFocusMinutes: 25, shortBreakMinutes: 5, newTopicsPerDay: 1, longTermGoal: false },
+    defaults: { focusMinutes: 50, breakMinutes: 10, shortFocusMinutes: 30, shortBreakMinutes: 5, newTopicsPerDay: 1, longTermGoal: false },
     projectWeekly: 2,
   },
   internato: {
@@ -463,7 +463,7 @@ export const PHASE_INFO: Record<StudyPhase, PhaseInfo> = {
       'Poucos cartões novos por dia, mas flashcards todo dia.',
       'Cada paciente vira gatilho para revisar o tema.',
     ],
-    defaults: { focusMinutes: 25, breakMinutes: 5, shortFocusMinutes: 25, shortBreakMinutes: 5, newTopicsPerDay: 1, longTermGoal: true },
+    defaults: { focusMinutes: 30, breakMinutes: 5, shortFocusMinutes: 30, shortBreakMinutes: 5, newTopicsPerDay: 1, longTermGoal: true },
     projectWeekly: 4,
   },
 };
@@ -1511,7 +1511,7 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
           currentIds.has(b.subjectId) &&
           !b.paused &&
           // Programado para o dia, ou concluído no dia (inclusive a sugestão que o aluno aceitou e terminou)
-          ((b.reviewStatus === 'estudando' && !!b.plannedDate && (isToday ? b.plannedDate <= today : b.plannedDate === date)) || b.completedDate === date)
+          ((b.reviewStatus === 'estudando' && !!b.plannedDate && (isToday ? b.plannedDate <= today : !isPast && b.plannedDate === date)) || b.completedDate === date)
       );
       plannedBlocks
         .sort((a, b) => Number(soon7.has(b.subjectId)) - Number(soon7.has(a.subjectId)))
@@ -1549,7 +1549,7 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
           currentIds.has(t.subjectId) &&
           t.scheduleFirstContact &&
           t.firstContactDate &&
-          (isToday ? t.firstContactDate <= today && (!isTopicSeen(t) || t.lastStudiedDate === today) : t.firstContactDate === date) &&
+          (isToday ? t.firstContactDate <= today && (!isTopicSeen(t) || t.lastStudiedDate === today) : t.firstContactDate === date && (!isPast || isTopicSeen(t))) &&
           !plannedBlocks.some((b) => b.id === t.blockId) &&
           !t.cabide &&
           // Na tutoria (Básico/Clínico) os objetivos já entram no passo 7
@@ -1733,7 +1733,7 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
         .map(({ e, left }) => ({ examId: e.id, daysLeft: left, text: examReminderText(e, left) }))
     : [];
   let message: string | undefined;
-  if (lowEnergy) message = 'Dia difícil? Tudo bem. Faça só o essencial, em blocos curtos de 25 minutos. Um passo pequeno ainda conta.';
+  if (lowEnergy) message = `Dia difícil? Tudo bem. Faça só o essencial, em blocos curtos de ${prefs.shortFocusMinutes} minutos. Um passo pequeno ainda conta.`;
   else if (posProva) message = 'Pós-prova: dia de descanso. Você merece. Se der vontade, só os flashcards ou o resumo.';
   else if (posPlantao) message = 'Pós-plantão: dia de descanso. Descanse; se der, faça só os flashcards.';
   else if (rest) message = 'Hoje é dia de descanso de verdade. Separe só 20 minutos para planejar a semana.';

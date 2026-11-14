@@ -44,6 +44,8 @@ import { NotificationToast } from './components/shared/NotificationToast';
 import { userLocalKey, writeLocal } from './components/plan/planShared';
 import { AuthModal } from './components/modals/AuthModal';
 import { useWideLayout } from './hooks/useWideLayout';
+import { SetupWizard } from './components/onboarding/SetupWizard';
+import { usePendingRoutine } from './components/onboarding/routineSetup';
 
 const AppContent: React.FC = () => {
   const { activeUserId, activeUser, logout, isDeleting, isSigningUp } = useAuth();
@@ -100,18 +102,23 @@ const AppContent: React.FC = () => {
   // o guia rápido do método não pode abrir no meio
   const [isShellFlowBusy, setIsShellFlowBusy] = useState(false);
   const [isRoutineSurveyOpen, setIsRoutineSurveyOpen] = useState(false);
+  // Assistente de configuração do site (depois da pesquisa de rotina, antes do tour)
+  const [isSetupWizardOpen, setIsSetupWizardOpen] = useState(false);
+  // Rotina respondida no cadastro: aplica nas preferências assim que o perfil novo carrega
+  usePendingRoutine();
   useEffect(() => {
     const start = () => {
-      let pending = false;
+      let flag: string | null = null;
       try {
-        pending = sessionStorage.getItem('medacademic_new_user_welcome') === '1';
+        flag = sessionStorage.getItem('medacademic_new_user_welcome');
         sessionStorage.removeItem('medacademic_new_user_welcome');
       } catch {}
-      if (!pending) return;
+      if (flag !== '1' && flag !== 'routine') return;
       newUserFlowRef.current = true;
       setIsShellFlowBusy(true);
       setCurrentTab('dashboard');
-      setTimeout(() => setIsRoutineSurveyOpen(true), 400);
+      // 'routine' = já respondeu a rotina no cadastro: vai direto para a configuração do site
+      setTimeout(() => (flag === 'routine' ? setIsSetupWizardOpen(true) : setIsRoutineSurveyOpen(true)), 400);
     };
     window.addEventListener('medacademic:new-user-welcome', start);
     start();
@@ -135,11 +142,18 @@ const AppContent: React.FC = () => {
     }, 350);
   };
 
-  // Pesquisa respondida: não abre de novo no Planner e segue para o tour
+  // Pesquisa respondida: não abre de novo no Planner e segue para a configuração do site
   const handleCloseRoutineSurvey = () => {
     setIsRoutineSurveyOpen(false);
     writeLocal(userLocalKey('routine_setup_shown', userProfile.email), '1');
-    setTimeout(() => setIsTourOpen(true), 350);
+    setTimeout(() => setIsSetupWizardOpen(true), 350);
+  };
+
+  // Configuração do site concluída ou pulada: na conta nova, segue para o tour
+  const handleCloseSetupWizard = () => {
+    setIsSetupWizardOpen(false);
+    if (newUserFlowRef.current) setTimeout(() => setIsTourOpen(true), 350);
+    else setIsShellFlowBusy(false);
   };
 
   const handleCloseTour = () => {
@@ -163,7 +177,7 @@ const AppContent: React.FC = () => {
     if (!activeUserId || autoGuideUserRef.current === activeUserId) return;
     if (methodGuideSeen || methodGuide.open) return;
     if (!isInitialLoadComplete || cloudSyncStatus === 'syncing') return;
-    if (isTourOpen || isOnboardingOpen || isEditingProfileSetup || !isSetupDone || isShellFlowBusy || isRoutineSurveyOpen) return;
+    if (isTourOpen || isOnboardingOpen || isEditingProfileSetup || !isSetupDone || isShellFlowBusy || isRoutineSurveyOpen || isSetupWizardOpen) return;
     // pequena espera: deixa a tela assentar e evita abrir no meio de uma troca de janela
     const t = setTimeout(() => {
       autoGuideUserRef.current = activeUserId;
@@ -183,6 +197,7 @@ const AppContent: React.FC = () => {
     isSetupDone,
     isShellFlowBusy,
     isRoutineSurveyOpen,
+    isSetupWizardOpen,
   ]);
 
   // Modals state
@@ -533,10 +548,13 @@ const AppContent: React.FC = () => {
       <NotificationToast />
 
       {/* Disciplina recebida por link (só depois da pesquisa da conta nova) */}
-      {!isRoutineSurveyOpen && <ImportSharedGate />}
+      {!isRoutineSurveyOpen && !isSetupWizardOpen && <ImportSharedGate />}
 
       {/* Conta nova: pesquisa de perfil e rotina (3 perguntas obrigatórias + opcionais) */}
       <StudyRoutineModal open={isRoutineSurveyOpen} required onClose={handleCloseRoutineSurvey} />
+
+      {/* Conta nova: roteiro para deixar o site do seu jeito (painel, barras, método, aparência) */}
+      <SetupWizard open={isSetupWizardOpen} mode="first" onClose={handleCloseSetupWizard} />
 
       {/* Guided Overlay Tour for New Users */}
       <GuidedTour

@@ -41,6 +41,7 @@ import { fileToAvatarDataUrl, avatarErrorMessage } from '../data/avatarImage';
 import { OwnerName } from './OwnerName';
 import { ChangePhotoModal } from './modals/ChangePhotoModal';
 import { SemesterSwitcher } from './SemesterSwitcher';
+import { canonicalSemesterName } from './onboarding/semesterLabel';
 import { GoalsEditor } from './dashboard/DashboardInsights';
 import { useAccess } from '../context/AccessContext';
 import { getMedicalArea, getSpecialty } from '../data/areas';
@@ -450,7 +451,11 @@ export const ProfileView: React.FC = () => {
               <div className="mt-4 flex flex-wrap items-center justify-center md:justify-start gap-3">
                 <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 text-xs font-bold border border-indigo-100 dark:border-indigo-900/50">
                   <GraduationCap className="h-4 w-4" />
-                  <span>{currentSemester?.name || 'Ciclo Médico'}</span>
+                  {/* Nome sempre no padrão "Nº Semestre - Ciclo" (sem digitar), com o período letivo */}
+                  <span id="profile-semester-badge">
+                    {canonicalSemesterName(currentSemester?.name) || 'Ciclo Médico'}
+                    {currentSemester?.period ? ` · ${currentSemester.period}` : ''}
+                  </span>
                 </div>
                 {isInternato && userProfile.targetExam && (
                   <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 text-xs font-bold border border-sky-100 dark:border-sky-900/50">

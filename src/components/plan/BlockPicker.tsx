@@ -1,20 +1,20 @@
-// Escolha do "meu bloco" de foco: atalhos comuns (25/5, 50/10, 60/10, 45/15...) ou um personalizado.
-// Usado em Minha rotina (bloco longo e bloco curto) e no Pomodoro.
+// Escolha do "meu bloco" de foco: atalhos comuns (25, 30, 40, 45, 50, 60 min) ou outro tempo (10 a 120 min).
+// Usado em Minha rotina (bloco longo e bloco curto).
 import React, { useEffect, useState } from 'react';
 import { Pencil } from 'lucide-react';
 import { OptionChip } from './planShared';
 
 export const BLOCK_PRESETS: Array<{ focus: number; rest: number; hint: string }> = [
   { focus: 25, rest: 5, hint: 'Pomodoro clássico' },
-  { focus: 30, rest: 5, hint: 'curto' },
+  { focus: 30, rest: 5, hint: 'recomendado' },
+  { focus: 40, rest: 10, hint: 'médio' },
   { focus: 45, rest: 15, hint: 'pausa maior' },
   { focus: 50, rest: 10, hint: 'imersão' },
   { focus: 60, rest: 10, hint: 'foco longo' },
-  { focus: 90, rest: 15, hint: 'bem longo' },
 ];
 
 export const FOCUS_MIN = 10;
-export const FOCUS_MAX = 180;
+export const FOCUS_MAX = 120;
 export const REST_MAX = 60;
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, Math.round(v) || lo));
@@ -72,10 +72,10 @@ export const BlockPicker: React.FC<BlockPickerProps> = ({ idPrefix, focus, rest,
         })}
         <OptionChip id={`${idPrefix}-custom`} active={custom} onClick={() => setCustom(true)} className="min-h-[48px] text-left">
           <span className="flex items-center gap-1 text-sm">
-            <Pencil className="h-3.5 w-3.5" /> Meu jeito
+            <Pencil className="h-3.5 w-3.5" /> Outro
           </span>
           <span className={`block text-[10px] font-semibold ${custom ? 'text-sky-100' : 'text-slate-500 dark:text-slate-400'}`}>
-            {custom ? `${focus}/${rest}` : 'personalizado'}
+            {custom ? `${focus}/${rest}` : 'você escolhe'}
           </span>
         </OptionChip>
       </div>

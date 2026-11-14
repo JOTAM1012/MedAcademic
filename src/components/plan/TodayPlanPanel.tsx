@@ -868,7 +868,7 @@ export const TodayPlanPanel: React.FC<TodayPlanPanelProps> = ({ compact, onOpenW
             className="w-full min-h-[44px] rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 text-sm font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500"
           />
           {adding === 'patient' ? (
-            <p className="text-[11px] text-slate-500 dark:text-slate-400">Vira a tarefa "Revisar: tema" (1 bloco de 25 min). Cada paciente é um gatilho de revisão.</p>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400">Vira a tarefa "Revisar: tema" (1 bloco de {app.studyPrefs.shortFocusMinutes} min). Cada paciente é um gatilho de revisão.</p>
           ) : (
             <div className="flex flex-wrap items-center gap-1.5">
               <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 mr-1">Tamanho:</span>
@@ -884,7 +884,7 @@ export const TodayPlanPanel: React.FC<TodayPlanPanelProps> = ({ compact, onOpenW
                       : 'bg-slate-50 dark:bg-slate-950/60 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200'
                   }`}
                 >
-                  {n === 0 ? '10 min' : `${n} × 25`}
+                  {n === 0 ? '10 min' : `${n} × ${app.studyPrefs.shortFocusMinutes}`}
                 </button>
               ))}
             </div>

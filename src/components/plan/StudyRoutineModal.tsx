@@ -6,7 +6,7 @@ import { Minus, Plus, RotateCcw, Settings2, Sparkles } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { PHASE_INFO, ROUTINE_DISCLAIMER, TURN_KEYS, TURN_LABELS, WEEKDAY_NAMES, WEEKDAY_SHORT } from '../../data/studyMethod';
 import type { ExamShift, StudyPlanPrefs, TurnState } from '../../types';
-import { OptionChip, PlanModal, blocksToHours } from './planShared';
+import { OptionChip, PlanModal, UNIT_MINUTES, blocksToHours, stepByBlock } from './planShared';
 import { BlockPicker } from './BlockPicker';
 import { WeekTurnsEditor } from './WeekTurnsEditor';
 import SquishSwitch from '../shared/SquishSwitch';
@@ -268,7 +268,7 @@ export const StudyRoutineModal: React.FC<StudyRoutineModalProps> = ({ open, onCl
               rest={draft.breakMinutes}
               onChange={(fo, re) => setDraft((d) => ({ ...d, focusMinutes: fo, breakMinutes: re }))}
             />
-            <p className="mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">Foco/pausa em minutos. Na dúvida, 25/5 é um ótimo começo.</p>
+            <p className="mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">Foco/pausa em minutos. Na dúvida, 30/5 é um ótimo começo.</p>
           </section>
         </div>
           </Step>
@@ -375,6 +375,12 @@ export const StudyRoutineModal: React.FC<StudyRoutineModalProps> = ({ open, onCl
   // ---------------------------------------------------------------- versão completa
   const focusLabel = `${draft.focusMinutes}/${draft.breakMinutes}`;
   const FULL_STEPS = 4;
+  // Tempo de foco por dia: − / + andam 1 bloco de foco (ex.: 30 min), de ~50 min até ~6h40
+  const dailyMinus = stepByBlock(draft.dailyPomodoros, -1, draft.focusMinutes, 50, 400);
+  const dailyPlus = stepByBlock(draft.dailyPomodoros, 1, draft.focusMinutes, 50, 400);
+  const dailyMin = Math.round(draft.dailyPomodoros * UNIT_MINUTES);
+  const longBlocks = Math.max(1, Math.round(dailyMin / draft.focusMinutes));
+  const shortBlocks = Math.max(1, Math.round(dailyMin / draft.shortFocusMinutes));
   return (
     <PlanModal
       id="routine-modal"
@@ -382,7 +388,7 @@ export const StudyRoutineModal: React.FC<StudyRoutineModalProps> = ({ open, onCl
       onClose={onClose}
       icon={<Settings2 className="h-5 w-5" />}
       title="Minha rotina"
-      subtitle="O plano do dia segue estas escolhas. Comece pelos padrões da sua fase e ajuste ao seu jeito."
+      subtitle="O plano do dia segue estas escolhas. Ajuste tudo ao seu jeito."
       footer={
         <>
           <button type="button" onClick={onClose} className="min-h-[40px] px-4 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">
@@ -406,30 +412,28 @@ export const StudyRoutineModal: React.FC<StudyRoutineModalProps> = ({ open, onCl
       >
         <Step title="Tempo">
       <div className="space-y-5">
-        {/* Fase atual */}
-        <div className="rounded-2xl border p-3.5 flex items-start gap-3" style={{ borderColor: `${phase.color}55`, backgroundColor: `${phase.color}12` }}>
-          <span className="text-2xl leading-none">{phase.emoji}</span>
-          <div className="min-w-0">
-            <p className="text-[11px] font-black uppercase tracking-wider ink" style={{ '--ink': phase.color } as React.CSSProperties}>
-              Sua fase: {phase.label}
-            </p>
-            <p className="text-xs text-slate-700 dark:text-slate-200 mt-0.5">{phase.priority}.</p>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-              Padrão da fase: bloco {phase.defaults.focusMinutes}/{phase.defaults.breakMinutes} para tema novo e {phase.defaults.shortFocusMinutes}/{phase.defaults.shortBreakMinutes} para revisões, {phase.defaults.newTopicsPerDay} tema novo por dia
-              {phase.defaults.longTermGoal ? ', intervalos longos de manutenção' : ''}.
-            </p>
-          </div>
+        {/* Fase atual: só o selo (tudo abaixo é personalizável) */}
+        <div id="routine-phase" className="flex flex-wrap items-center gap-2">
+          <span
+            className="ink inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-black"
+            style={{ borderColor: `${phase.color}55`, backgroundColor: `${phase.color}14`, '--ink': phase.color } as React.CSSProperties}
+          >
+            <span className="leading-none">{phase.emoji}</span> {phase.label}
+          </span>
+          <span className="text-[11px] text-slate-500 dark:text-slate-400">Sua fase. Tudo aqui é personalizável.</span>
         </div>
 
         {/* Blocos por dia */}
         <section>
-          <SectionTitle hint="Quanto tempo de foco cabe no seu dia (sem contar as pausas). Cada ponto = 25 min.">Tempo de foco por dia</SectionTitle>
+          <SectionTitle hint={`Quanto tempo de foco cabe no seu dia (sem contar as pausas). Cada toque = 1 bloco de ${draft.focusMinutes} min.`}>Tempo de foco por dia</SectionTitle>
           <div className="flex items-center gap-3">
             <button
               type="button"
-              aria-label="Menos 25 minutos"
-              onClick={() => set('dailyPomodoros', Math.max(2, draft.dailyPomodoros - 1))}
-              className="h-11 w-11 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950/60 flex items-center justify-center text-slate-700 dark:text-slate-200 hover:border-sky-400"
+              id="routine-blocks-minus"
+              aria-label={`Menos ${draft.focusMinutes} minutos`}
+              disabled={dailyMinus >= draft.dailyPomodoros}
+              onClick={() => set('dailyPomodoros', dailyMinus)}
+              className="h-11 w-11 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950/60 flex items-center justify-center text-slate-700 dark:text-slate-200 hover:border-sky-400 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <Minus className="h-4 w-4" />
             </button>
@@ -438,15 +442,16 @@ export const StudyRoutineModal: React.FC<StudyRoutineModalProps> = ({ open, onCl
                 {blocksToHours(draft.dailyPomodoros)} <span className="text-sm font-bold text-slate-500 dark:text-slate-400">de foco</span>
               </p>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                ≈ {Math.max(1, Math.round((draft.dailyPomodoros * 25) / draft.focusMinutes))} bloco{Math.round((draft.dailyPomodoros * 25) / draft.focusMinutes) > 1 ? 's' : ''} de {draft.focusMinutes} min ·{' '}
-                {Math.max(1, Math.round((draft.dailyPomodoros * 25) / draft.shortFocusMinutes))} de {draft.shortFocusMinutes} min
+                ≈ {longBlocks} bloco{longBlocks > 1 ? 's' : ''} de {draft.focusMinutes} min · {shortBlocks} de {draft.shortFocusMinutes} min
               </p>
             </div>
             <button
               type="button"
-              aria-label="Mais 25 minutos"
-              onClick={() => set('dailyPomodoros', Math.min(16, draft.dailyPomodoros + 1))}
-              className="h-11 w-11 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950/60 flex items-center justify-center text-slate-700 dark:text-slate-200 hover:border-sky-400"
+              id="routine-blocks-plus"
+              aria-label={`Mais ${draft.focusMinutes} minutos`}
+              disabled={dailyPlus <= draft.dailyPomodoros}
+              onClick={() => set('dailyPomodoros', dailyPlus)}
+              className="h-11 w-11 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950/60 flex items-center justify-center text-slate-700 dark:text-slate-200 hover:border-sky-400 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <Plus className="h-4 w-4" />
             </button>

@@ -7,7 +7,7 @@ import { addDaysYMD, formatDM, parseYMD, ymd } from '../../data/blockReview';
 import { WEEKDAY_NAMES, type PlanTask } from '../../data/studyMethod';
 import { semesterNumberOf } from '../../data/subjectFormats';
 import { useDayPlan } from '../../hooks/useStudyPlan';
-import { OptionChip, PlanModal, blocksToHours, readLocal, taskSizeLabel, userLocalKey, writeLocal } from './planShared';
+import { OptionChip, PlanModal, blocksToHours, readLocal, stepByBlock, taskSizeLabel, userLocalKey, writeLocal } from './planShared';
 import { StudyContentModal } from './StudyContentModal';
 import { QuickThemeModal } from './QuickThemeModal';
 import Segmented from '../shared/Segmented';
@@ -148,7 +148,11 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose, date:
       else set.add(id);
       return { ...s, pinned: [...set] };
     });
-  const setCapacity = (n: number) => setDayPlanState(date, (s) => ({ ...s, capacity: Math.max(1, Math.min(24, n)) }));
+  // − / + andam 1 bloco de foco da sua rotina (ex.: 30 min), de 1 bloco até 10 h
+  const blockMin = studyPrefs.focusMinutes;
+  const capMinus = stepByBlock(capacity, -1, blockMin, blockMin, 600);
+  const capPlus = stepByBlock(capacity, 1, blockMin, blockMin, 600);
+  const setCapacity = (n: number) => setDayPlanState(date, (s) => ({ ...s, capacity: n }));
   const resetDay = () => {
     setDayPlanState(date, (s) => ({ ...s, order: undefined, pinned: undefined, capacity: undefined }));
     showNotification('O dia voltou ao plano automático.', 'info');
@@ -173,19 +177,58 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose, date:
     setBlocks(1);
   };
 
-  const typeChips: Array<{ id: DayType; label: string; hint: string }> = [
-    { id: 'normal', label: 'Normal', hint: 'plano completo' },
-    { id: 'dificil', label: 'Dia difícil', hint: 'só o essencial' },
+  // O que cada tipo muda no plano (mesma regra do cálculo do dia em studyMethod.ts)
+  const daily = studyPrefs.dailyPomodoros;
+  const shortMin = studyPrefs.shortFocusMinutes;
+  const lowCap = blocksToHours(Math.min(daily, Math.max(2, Math.round(daily / 3))));
+  const essentialCap = blocksToHours(Math.min(2, daily));
+  const typeChips: Array<{ id: DayType; label: string; hint: string; desc: string; capped?: boolean }> = [
+    {
+      id: 'normal',
+      label: 'Normal',
+      hint: 'plano completo',
+      desc: `Plano completo da sua rotina: revisões primeiro, depois tema novo, questões e o que mais couber em ${blocksToHours(daily)} de foco.`,
+    },
+    {
+      id: 'dificil',
+      label: 'Dia difícil',
+      hint: 'só o essencial',
+      desc: `O tempo cai para cerca de ${lowCap}, tudo em blocos curtos de ${shortMin} min. Revisões vêm primeiro e o plano não puxa tema novo sozinho.`,
+      capped: true,
+    },
     ...(showPlantao
-      ? ([
-          { id: 'plantao', label: isToday ? 'Plantão hoje' : 'Dia de plantão', hint: 'pouco tempo' },
-          { id: 'pos_plantao', label: 'Pós-plantão', hint: 'descanso' },
-        ] as const)
-      : ([
-          { id: 'prova', label: isToday ? 'Prova hoje' : 'Dia de prova', hint: 'revisão leve' },
-          { id: 'pos_prova', label: 'Pós-prova', hint: 'descanso' },
-        ] as const)),
+      ? [
+          {
+            id: 'plantao' as const,
+            label: isToday ? 'Plantão hoje' : 'Dia de plantão',
+            hint: 'pouco tempo',
+            desc: `No máximo ${essentialCap} de foco, em blocos curtos de ${shortMin} min: revisões e flashcards. Sem tema novo e sem misturadas.`,
+            capped: true,
+          },
+          {
+            id: 'pos_plantao' as const,
+            label: 'Pós-plantão',
+            hint: 'descanso',
+            desc: 'Vira dia de descanso: revisões, flashcards e resumo ficam opcionais. No dia seguinte o plano volta ao normal.',
+          },
+        ]
+      : [
+          {
+            id: 'prova' as const,
+            label: isToday ? 'Prova hoje' : 'Dia de prova',
+            hint: 'revisão leve',
+            desc: `No máximo ${essentialCap} de foco, em blocos curtos de ${shortMin} min: só revisão leve (resumo e flashcards). Sem tema novo e sem misturadas.`,
+            capped: true,
+          },
+          {
+            id: 'pos_prova' as const,
+            label: 'Pós-prova',
+            hint: 'descanso',
+            desc: 'Vira dia de descanso: revisões, flashcards e resumo ficam opcionais. No dia seguinte o plano volta ao normal.',
+          },
+        ]),
   ];
+  const activeType = typeChips.find((c) => c.id === dayType) || typeChips[0];
 
   const row = (t: PlanTask, i: number) => {
     const isIn = inToday.has(t.id) && !t.skipped;
@@ -312,6 +355,14 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose, date:
                 </OptionChip>
               ))}
             </div>
+            <div id="dayplan-type-help" aria-live="polite" className="mt-2.5 rounded-xl border border-sky-200 dark:border-sky-500/30 bg-sky-50 dark:bg-sky-500/10 px-3 py-2.5">
+              <p className="text-[12px] text-slate-700 dark:text-slate-200 leading-relaxed">
+                <span className="font-black text-sky-700 dark:text-sky-300">{activeType.label}:</span> {activeType.desc}
+              </p>
+              {activeType.capped && (
+                <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">Se você escolher o tempo no próximo passo, vale o tempo que você escolher.</p>
+              )}
+            </div>
           </section>
           </Step>
 
@@ -322,9 +373,12 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose, date:
             <div className="flex items-center gap-3">
               <button
                 type="button"
-                aria-label="Menos 25 minutos"
-                onClick={() => setCapacity(capacity - 1)}
-                className="h-11 w-11 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950/60 flex items-center justify-center text-slate-700 dark:text-slate-200 hover:border-sky-400"
+                id="dayplan-time-minus"
+                aria-label={`Menos ${blockMin} minutos`}
+                title={`Menos 1 bloco (${blockMin} min)`}
+                disabled={capMinus >= capacity}
+                onClick={() => setCapacity(capMinus)}
+                className="h-11 w-11 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950/60 flex items-center justify-center text-slate-700 dark:text-slate-200 hover:border-sky-400 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <Minus className="h-4 w-4" />
               </button>
@@ -336,13 +390,19 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose, date:
               </div>
               <button
                 type="button"
-                aria-label="Mais 25 minutos"
-                onClick={() => setCapacity(capacity + 1)}
-                className="h-11 w-11 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950/60 flex items-center justify-center text-slate-700 dark:text-slate-200 hover:border-sky-400"
+                id="dayplan-time-plus"
+                aria-label={`Mais ${blockMin} minutos`}
+                title={`Mais 1 bloco (${blockMin} min)`}
+                disabled={capPlus <= capacity}
+                onClick={() => setCapacity(capPlus)}
+                className="h-11 w-11 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950/60 flex items-center justify-center text-slate-700 dark:text-slate-200 hover:border-sky-400 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <Plus className="h-4 w-4" />
               </button>
             </div>
+            <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400 text-center">
+              Cada toque muda 1 bloco de foco ({blockMin} min), o tamanho que você escolheu na sua rotina.
+            </p>
           </section>
           </Step>
 
