@@ -51,6 +51,10 @@ interface WeekHoursProps {
   onChange: (v: number[] | undefined) => void;
   /** Dias de descanso (ficam em 0) */
   restDays: number[];
+  /** Texto do dia de descanso (ex.: "Descanso de manhã · 3h de estudo") */
+  restLabel?: string;
+  /** Minutos de estudo no dia de descanso (somam na meta) */
+  restStudyMin?: number;
   /** Meta semanal em horas (perfil) */
   targetHours?: number;
   /** Tempo de foco por dia atual (unidades de 25 min), para começar o preenchimento */
@@ -58,7 +62,7 @@ interface WeekHoursProps {
   variant?: Variant;
 }
 
-export const WeekHoursEditor: React.FC<WeekHoursProps> = ({ idPrefix, value, onChange, restDays, targetHours, defaultUnits, variant = 'app' }) => {
+export const WeekHoursEditor: React.FC<WeekHoursProps> = ({ idPrefix, value, onChange, restDays, restLabel, restStudyMin = 0, targetHours, defaultUnits, variant = 'app' }) => {
   const c = css(variant as Variant);
   const [lastDay, setLastDay] = useState<number | null>(null);
   const isRest = (d: number) => restDays.includes(d);
@@ -92,7 +96,7 @@ export const WeekHoursEditor: React.FC<WeekHoursProps> = ({ idPrefix, value, onC
   const refDay = lastDay !== null && !isRest(lastDay) ? lastDay : WEEK_ORDER.find((d) => !isRest(d)) ?? 1;
   const sameEveryDay = () => onChange(hours.map((_, d) => (isRest(d) ? 0 : hours[refDay])));
   const allSame = WEEK_ORDER.filter((d) => !isRest(d)).every((d) => hours[d] === hours[refDay]);
-  const tip = weeklyHoursTip(hours, targetHours, restDays);
+  const tip = weeklyHoursTip(hours, targetHours, restDays, restStudyMin);
 
   return (
     <div className="space-y-2">
@@ -104,7 +108,7 @@ export const WeekHoursEditor: React.FC<WeekHoursProps> = ({ idPrefix, value, onC
             <li key={d} className="flex items-center gap-2 px-2.5 py-1.5">
               <span className={`w-10 shrink-0 text-[12px] font-black ${c.text}`}>{WEEKDAY_SHORT[d]}</span>
               {rest ? (
-                <span className={`flex-1 text-center text-[12px] font-bold ${c.muted}`}>Descanso · 0h</span>
+                <span className={`flex-1 text-center text-[12px] font-bold ${c.muted}`}>{restLabel || 'Descanso · 0h'}</span>
               ) : (
                 <>
                   <button
@@ -221,6 +225,99 @@ export const DayTimesEditor: React.FC<TimesProps> = ({ idPrefix, value, onChange
           <span>{tip}</span>
         </p>
       )}
+    </div>
+  );
+};
+
+type RestCfg = Pick<StudyPlanPrefs, 'restMode' | 'restTurn' | 'restMinutes' | 'restExamWeek' | 'restExamMinutes'>;
+const REST_MODES: Array<{ id: NonNullable<RestCfg['restMode']>; label: string; hint: string }> = [
+  { id: 'dia', label: 'Dia todo', hint: 'Sem estudo. Só 20 min para planejar a semana.' },
+  { id: 'turno', label: 'Um turno', hint: 'Descansa um turno e estuda um pouco no resto do dia.' },
+  { id: 'horas', label: 'Algumas horas', hint: 'Dia leve: estuda só as horas que escolher.' },
+];
+const REST_TURNS: Array<{ id: 'manha' | 'tarde' | 'noite'; label: string }> = [
+  { id: 'manha', label: 'Manhã' },
+  { id: 'tarde', label: 'Tarde' },
+  { id: 'noite', label: 'Noite' },
+];
+
+interface RestProps {
+  idPrefix: string;
+  /** Dia de descanso escolhido (0 = domingo) */
+  restDay: number;
+  value: RestCfg;
+  onChange: (patch: Partial<RestCfg>) => void;
+  variant?: Variant;
+}
+
+/** Como é o dia de descanso: o dia todo, um turno ou algumas horas — e o que muda na semana de prova */
+export const RestDayEditor: React.FC<RestProps> = ({ idPrefix, restDay, value, onChange, variant = 'app' }) => {
+  const c = css(variant as Variant);
+  const mode = value.restMode || 'dia';
+  const exam = value.restExamWeek || 'igual';
+  const chip = (on: boolean) =>
+    `min-h-[40px] px-3 rounded-xl border text-xs font-bold transition-colors ${on ? 'bg-sky-600 border-sky-600 text-white' : c.btn}`;
+  const stepper = (id: string, v: number, set: (n: number) => void, label: string) => (
+    <div className="flex items-center gap-2">
+      <button type="button" id={`${id}-minus`} aria-label={`Menos 30 minutos (${label})`} disabled={v <= HOURS_STEP_MIN} onClick={() => set(v - HOURS_STEP_MIN)} className={`h-9 w-9 shrink-0 rounded-lg border flex items-center justify-center disabled:opacity-40 ${c.btn}`}>
+        <Minus className="h-4 w-4" />
+      </button>
+      <span id={`${id}-value`} className={`min-w-[64px] text-center text-sm font-black ${c.text}`}>{formatFreeHours(v)}</span>
+      <button type="button" id={`${id}-plus`} aria-label={`Mais 30 minutos (${label})`} disabled={v >= HOURS_MAX_MIN} onClick={() => set(v + HOURS_STEP_MIN)} className={`h-9 w-9 shrink-0 rounded-lg border flex items-center justify-center disabled:opacity-40 ${c.btn}`}>
+        <Plus className="h-4 w-4" />
+      </button>
+      <span className={`text-[11px] ${c.muted}`}>de estudo</span>
+    </div>
+  );
+  const clamp = (n: number) => Math.min(HOURS_MAX_MIN, Math.max(HOURS_STEP_MIN, n));
+  const restMin = value.restMinutes ?? (mode === 'turno' ? 180 : 60);
+  const examMin = value.restExamMinutes ?? 180;
+  const day = WEEKDAY_SHORT[restDay];
+
+  return (
+    <div id={`${idPrefix}`} className={`${c.box} p-3 space-y-3`}>
+      <div>
+        <p className={`text-[12px] font-black mb-1.5 ${c.text}`}>Como é o descanso de {day}?</p>
+        <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Tipo de descanso">
+          {REST_MODES.map((m) => (
+            <button key={m.id} type="button" role="radio" aria-checked={mode === m.id} id={`${idPrefix}-mode-${m.id}`} onClick={() => onChange({ restMode: m.id === 'dia' ? undefined : m.id })} className={chip(mode === m.id)}>
+              {m.label}
+            </button>
+          ))}
+        </div>
+        <p className={`mt-1 text-[11px] ${c.muted}`}>{REST_MODES.find((m) => m.id === mode)?.hint}</p>
+      </div>
+
+      {mode === 'turno' && (
+        <div className="space-y-2">
+          <div>
+            <p className={`text-[11px] font-bold mb-1 ${c.muted}`}>Turno de descanso</p>
+            <div className="flex flex-wrap gap-1.5">
+              {REST_TURNS.map((t) => (
+                <button key={t.id} type="button" id={`${idPrefix}-turn-${t.id}`} aria-pressed={(value.restTurn || 'manha') === t.id} onClick={() => onChange({ restTurn: t.id })} className={chip((value.restTurn || 'manha') === t.id)}>
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          {stepper(`${idPrefix}-rest`, restMin, (n) => onChange({ restMinutes: clamp(n) }), 'no resto do dia')}
+        </div>
+      )}
+      {mode === 'horas' && stepper(`${idPrefix}-rest`, restMin, (n) => onChange({ restMinutes: clamp(n) }), `na ${day}`)}
+
+      <div className={`pt-3 border-t ${c.row}`}>
+        <p className={`text-[12px] font-black mb-1.5 ${c.text}`}>Na semana de prova</p>
+        <div className="flex flex-wrap gap-1.5">
+          <button type="button" id={`${idPrefix}-exam-igual`} aria-pressed={exam === 'igual'} onClick={() => onChange({ restExamWeek: undefined })} className={chip(exam === 'igual')}>
+            Igual aos outros
+          </button>
+          <button type="button" id={`${idPrefix}-exam-estudar`} aria-pressed={exam === 'estudar'} onClick={() => onChange({ restExamWeek: 'estudar' })} className={chip(exam === 'estudar')}>
+            Estudar
+          </button>
+        </div>
+        {exam === 'estudar' && <div className="mt-2">{stepper(`${idPrefix}-exam`, examMin, (n) => onChange({ restExamMinutes: clamp(n) }), 'na semana de prova')}</div>}
+        <p className={`mt-1 text-[11px] ${c.muted}`}>Vale só nas semanas marcadas como semana de prova.</p>
+      </div>
     </div>
   );
 };

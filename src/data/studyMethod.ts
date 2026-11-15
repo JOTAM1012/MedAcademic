@@ -579,8 +579,9 @@ const joinPt = (parts: string[]) => (parts.length <= 1 ? parts.join('') : `${par
  * Dica da meta semanal: soma as horas livres e compara com a meta. Se faltar, sugere onde pôr o que falta
  * (de 30 em 30 min nos dias com menos horas, nunca no descanso). Não aplica nada: `suggestion` é a semana sugerida.
  */
-export const weeklyHoursTip = (hours: number[], targetHours: number | undefined, restDays: number[]) => {
-  const totalMin = hours.reduce((a, x, i) => a + (restDays.includes(i) ? 0 : x), 0);
+export const weeklyHoursTip = (hours: number[], targetHours: number | undefined, restDays: number[], restExtraMin = 0) => {
+  // horas de estudo no dia de descanso (descanso de um turno / algumas horas) também contam
+  const totalMin = hours.reduce((a, x, i) => a + (restDays.includes(i) ? 0 : x), 0) + Math.max(0, restExtraMin);
   const target = targetHours && targetHours > 0 ? Math.round(targetHours * 60) : 0;
   if (!target) return { totalMin, targetMin: 0, text: `Sua semana tem ${formatFreeHours(totalMin)} livres.`, suggestion: null as number[] | null };
   const head = `Sua semana tem ${formatFreeHours(totalMin)} livres. Meta: ${formatFreeHours(target)}.`;
@@ -712,6 +713,30 @@ export const TURN_METHODS: Array<{ id: TurnMethod; label: string; emoji: string 
   { id: 'resumo', label: 'Resumo', emoji: '📝' },
   { id: 'leitura', label: 'Leitura / aula', emoji: '🎧' },
 ];
+/**
+ * Dia de descanso com estudo: minutos livres de estudo nesse dia, ou null = descanso do dia todo.
+ * Na semana de prova vale a escolha própria (restExamWeek), se o aluno marcou "estudar".
+ */
+export const restDayStudyMinutes = (
+  prefs: Pick<StudyPlanPrefs, 'restDay' | 'restMode' | 'restMinutes' | 'restExamWeek' | 'restExamMinutes'>,
+  dow: number,
+  examWeek: boolean
+): number | null => {
+  if (prefs.restDay === null || prefs.restDay === undefined || prefs.restDay !== dow) return null;
+  if (examWeek && prefs.restExamWeek === 'estudar') return Math.max(HOURS_STEP_MIN, prefs.restExamMinutes ?? 180);
+  if (prefs.restMode === 'turno' || prefs.restMode === 'horas') return Math.max(HOURS_STEP_MIN, prefs.restMinutes ?? (prefs.restMode === 'turno' ? 180 : 60));
+  return null;
+};
+/** "Descanso · dia todo", "Descanso de manhã · 3h de estudo", "Estudo leve · 1h" */
+export const restDayLabel = (prefs: Pick<StudyPlanPrefs, 'restMode' | 'restTurn' | 'restMinutes'>) => {
+  if (prefs.restMode === 'turno') {
+    const t = prefs.restTurn === 'tarde' ? 'à tarde' : prefs.restTurn === 'noite' ? 'à noite' : 'de manhã';
+    return `Descanso ${t} · ${formatFreeHours(prefs.restMinutes ?? 180)} de estudo`;
+  }
+  if (prefs.restMode === 'horas') return `Estudo leve · ${formatFreeHours(prefs.restMinutes ?? 60)}`;
+  return 'Descanso · dia todo';
+};
+
 /** Semana de prova marcada pelo aluno */
 export const isExamWeek = (prefs: Pick<StudyPlanPrefs, 'examWeeks'>, date: string) => !!prefs.examWeeks?.includes(weekStart(date));
 
@@ -1323,7 +1348,9 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
   const turnsDay = turnCapacity(prefs, dow);
   const firstSteps = firstContactSteps(prefs);
   const examWeek = isExamWeek(prefs, date);
-  const rest = prefs.restDay === dow || posPlantao || !!turnsDay?.allRest;
+  // Dia de descanso com estudo (um turno de descanso, algumas horas, ou a semana de prova): vira dia leve, não descanso
+  const restStudyMin = restDayStudyMinutes(prefs, dow, examWeek);
+  const rest = (prefs.restDay === dow && restStudyMin === null) || posPlantao || (!!turnsDay?.allRest && restStudyMin === null);
   const mixed = prefs.mixedDay === dow && !rest && !plantao;
   const dayKind: DayKind = lowEnergy
     ? 'low_energy'
@@ -1356,7 +1383,11 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
   const hoursWeek = hoursByWeekdayOf(prefs);
   let capacity = state.capacity && state.capacity > 0 ? state.capacity : dayBaseCapacity(prefs, dow);
   if (rest && !state.capacity) capacity = 1;
-  else {
+  else if (restStudyMin !== null && !state.capacity) {
+    // tempo de estudo escolhido para o dia de descanso (sem os +50% da semana de prova: o aluno já escolheu)
+    capacity = freeMinutesToUnits(restStudyMin);
+    if (lowEnergy) capacity = Math.min(capacity, units(prefs.shortFocusMinutes, 1));
+  } else {
     // Dia difícil e plantão: vale o menor dos dois
     // Semana por turnos: menos turnos livres, menos foco
     if (turnsDay && !hoursWeek && !state.capacity) capacity = Math.min(capacity, turnsDay.capacity);

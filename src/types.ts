@@ -178,6 +178,15 @@ export interface StudyPlanPrefs {
   shortBreakMinutes: number;
   /** Dia de descanso (0 = domingo … 6 = sábado); null = sem descanso fixo */
   restDay: number | null;
+  /** Como é o descanso: 'dia' = o dia todo (padrão); 'turno' = descansa um turno e estuda no resto; 'horas' = estuda algumas horas */
+  restMode?: 'dia' | 'turno' | 'horas';
+  /** Turno de descanso (restMode 'turno') */
+  restTurn?: ExamShift;
+  /** Horas livres de estudo no dia de descanso, em minutos (restMode 'turno' ou 'horas') */
+  restMinutes?: number;
+  /** Semana de prova: 'igual' = descanso como sempre; 'estudar' = estuda restExamMinutes no dia de descanso */
+  restExamWeek?: 'igual' | 'estudar';
+  restExamMinutes?: number;
   /** Dia de questões misturadas + caderno de erros (6 = sábado); null = nenhum */
   mixedDay: number | null;
   /** Temas novos por dia */

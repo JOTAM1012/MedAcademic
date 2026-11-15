@@ -4,8 +4,8 @@
 import React, { useEffect, useState } from 'react';
 import { Minus, Plus, RotateCcw, Settings2, Sparkles } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
-import { PHASE_INFO, ROUTINE_DISCLAIMER, TURN_KEYS, TURN_LABELS, WEEKDAY_NAMES, WEEKDAY_SHORT, hoursByWeekdayOf, restDaysOf } from '../../data/studyMethod';
-import { DayTimesEditor, WeekHoursEditor } from './WeekHoursEditor';
+import { PHASE_INFO, ROUTINE_DISCLAIMER, TURN_KEYS, TURN_LABELS, WEEKDAY_NAMES, WEEKDAY_SHORT, hoursByWeekdayOf, restDayLabel, restDayStudyMinutes, restDaysOf } from '../../data/studyMethod';
+import { DayTimesEditor, RestDayEditor, WeekHoursEditor } from './WeekHoursEditor';
 import type { ExamShift, StudyPlanPrefs, TurnState } from '../../types';
 import { OptionChip, PlanModal, UNIT_MINUTES, blocksToHours, stepByBlock } from './planShared';
 import { BlockPicker } from './BlockPicker';
@@ -342,6 +342,11 @@ export const StudyRoutineModal: React.FC<StudyRoutineModalProps> = ({ open, onCl
               </OptionChip>
             </div>
             <p className="mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">Descanso de verdade também faz parte do método: só 20 min para planejar a semana.</p>
+            {draft.restDay !== null && (!required || touched.rest) && (
+              <div className="mt-2">
+                <RestDayEditor idPrefix="routine-rest-cfg" restDay={draft.restDay} value={draft} onChange={(p) => setDraft((d) => ({ ...d, ...p }))} />
+              </div>
+            )}
           </section>
         </div>
           </Step>
@@ -487,6 +492,8 @@ export const StudyRoutineModal: React.FC<StudyRoutineModalProps> = ({ open, onCl
             value={draft.hoursByWeekday}
             onChange={(v) => set('hoursByWeekday', v)}
             restDays={restDaysOf(draft)}
+            restLabel={draft.restDay !== null ? restDayLabel(draft) : undefined}
+            restStudyMin={draft.restDay !== null ? restDayStudyMinutes(draft, draft.restDay, false) ?? 0 : 0}
             targetHours={userProfile.weeklyTargetHours}
             defaultUnits={draft.dailyPomodoros}
           />
@@ -549,6 +556,11 @@ export const StudyRoutineModal: React.FC<StudyRoutineModalProps> = ({ open, onCl
               Nenhum
             </OptionChip>
           </div>
+          {draft.restDay !== null && (
+            <div className="mt-2">
+              <RestDayEditor idPrefix="routine-restday-cfg" restDay={draft.restDay} value={draft} onChange={(p) => setDraft((d) => ({ ...d, ...p }))} />
+            </div>
+          )}
         </section>
 
         {/* Misturadas */}

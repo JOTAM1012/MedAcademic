@@ -81,7 +81,7 @@ export const WeeklyPlanModal: React.FC<WeeklyPlanModalProps> = ({ open, onClose 
       <option value="">Sem data</option>
       {dates.map((d) => {
         const dow = parseYMD(d).getDay();
-        const tag = dow === studyPrefs.restDay ? ' · descanso' : dow === studyPrefs.mixedDay ? ' · misturadas' : '';
+        const tag = dow === studyPrefs.restDay ? (studyPrefs.restMode === 'turno' || studyPrefs.restMode === 'horas' ? ' · dia leve' : ' · descanso') : dow === studyPrefs.mixedDay ? ' · misturadas' : '';
         return (
           <option key={d} value={d}>
             {d === today ? 'Hoje' : `${WEEKDAY_SHORT[dow]} ${formatDM(d)}`}
