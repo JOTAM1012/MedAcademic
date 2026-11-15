@@ -55,8 +55,11 @@ export const AddSubjectModal: React.FC<AddSubjectModalProps> = ({ isOpen, onClos
   // Quem abre pode pedir o tipo inicial (ex.: "Novo módulo" já em Módulo da faculdade)
   useEffect(() => {
     const onPreset = (e: Event) => {
-      const k = (e as CustomEvent<{ kind?: string }>).detail?.kind;
+      const d = (e as CustomEvent<{ kind?: string; area?: string }>).detail;
+      const k = d?.kind;
       if (k === 'module' || k === 'subject') setKind(k);
+      // já entra na grande área do caderno aberto
+      if (d?.area) setArea(d.area);
     };
     window.addEventListener(ADD_SUBJECT_PRESET_EVENT, onPreset);
     return () => window.removeEventListener(ADD_SUBJECT_PRESET_EVENT, onPreset);

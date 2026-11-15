@@ -309,7 +309,8 @@ export const SubjectBlocksPanel: React.FC<SubjectBlocksPanelProps> = ({ subject,
         const st = topicStats(list);
         const counted = list.filter(countsInProgress);
         const resolved = counted.filter(isTopicResolved).length;
-        const isCollapsed = collapsed[block.id] ?? false;
+        // abre tudo recolhido: o aluno toca no bloco para abrir
+        const isCollapsed = collapsed[block.id] ?? true;
         const due = isBlockDue(block, todayStr);
         const acts = block.activities || [];
         const actsDone = acts.filter((a) => a.done).length;
@@ -345,7 +346,15 @@ export const SubjectBlocksPanel: React.FC<SubjectBlocksPanelProps> = ({ subject,
                     className="w-full bg-transparent text-sm font-black text-slate-900 dark:text-white border-b border-sky-500 focus:outline-hidden"
                   />
                 ) : (
-                  <h3 className="flex items-center gap-1.5 min-w-0 text-sm font-black text-slate-900 dark:text-white" onDoubleClick={() => setRenaming(block.id)}>
+                  <h3
+                    className="flex items-center gap-1.5 min-w-0 text-sm font-black text-slate-900 dark:text-white cursor-pointer select-none"
+                    title="Toque para abrir ou fechar · dois toques para renomear"
+                    onClick={(e) => {
+                      if (e.detail > 1) return; // o 2º clique é do renomear
+                      setCollapsed((c) => ({ ...c, [block.id]: !isCollapsed }));
+                    }}
+                    onDoubleClick={() => setRenaming(block.id)}
+                  >
                     <span aria-hidden className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: accent }} />
                     <span className="truncate">{block.name}</span>
                   </h3>

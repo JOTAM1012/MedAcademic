@@ -371,9 +371,11 @@ export const AcademicStructureView: React.FC<AcademicStructureViewProps> = ({ on
               onOpenAddSubject();
             }}
             onEdit={setEditing}
-            onAddSubject={() => {
+            onAddSubject={(shelf) => {
+              // já entra no caderno escolhido (grande área); "Sem grande área" abre sem área marcada
+              const area = mode === 'area' && shelf.id !== OTHER_AREA.id ? shelf.id : undefined;
               try {
-                window.dispatchEvent(new CustomEvent(ADD_SUBJECT_PRESET_EVENT, { detail: { kind: 'subject' } }));
+                window.dispatchEvent(new CustomEvent(ADD_SUBJECT_PRESET_EVENT, { detail: { kind: 'subject', area } }));
               } catch {
                 /* sem CustomEvent */
               }

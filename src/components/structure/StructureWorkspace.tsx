@@ -76,7 +76,7 @@ interface Props {
   onAdd: () => void;
   onEdit: (s: Subject) => void;
   /** cadastrar disciplina (atalho ao lado da lista; na visão por módulos o cartão da estante cria módulo) */
-  onAddSubject?: () => void;
+  onAddSubject?: (shelf: Shelf) => void;
   allowLinking?: boolean;
   focusSubjectId?: string | null;
   /** avisa que o pedido de fora já foi aberto (para poder pedir o mesmo de novo) */
@@ -297,7 +297,7 @@ export const StructureWorkspace: React.FC<Props> = ({
   const addChip =
     onAddSubject && !shelf.module ? (
       <li key="__add__" className="aw-chip aw-chip--add">
-        <button type="button" id="struct-add-subject-chip" onClick={onAddSubject} className="aw-chip__main">
+        <button type="button" id="struct-add-subject-chip" onClick={() => onAddSubject(shelf)} className="aw-chip__main">
           <span className="h-9 w-9 shrink-0 rounded-full grid place-items-center bg-sky-500/10 text-sky-600 dark:text-sky-400">
             <Plus className="h-4 w-4" />
           </span>
