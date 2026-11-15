@@ -129,9 +129,10 @@ export const AcademicStructureView: React.FC<AcademicStructureViewProps> = ({ on
     }
   }, [detail?.kind, detail?.id]);
 
-  // Grandes áreas e Módulos são visões independentes: o que está num módulo fica só em Módulos
+  // Disciplina com grande área sempre aparece no caderno da área (mesmo vinculada a um módulo);
+  // só as sem área que estão num módulo ficam apenas em Módulos
   const moduleLinked = useMemo(() => new Set(subjects.filter((s) => s.kind === 'module').flatMap((m) => m.linkedSubjectIds || [])), [subjects]);
-  const areaSubjects = useMemo(() => (isBasic ? subjects : subjects.filter((s) => !moduleLinked.has(s.id))), [subjects, moduleLinked, isBasic]);
+  const areaSubjects = useMemo(() => (isBasic ? subjects : subjects.filter((s) => hasArea(s) || !moduleLinked.has(s.id))), [subjects, moduleLinked, isBasic]);
   const areaGroups = useMemo(() => groupByArea(areaSubjects), [areaSubjects]);
   // No internato, fora da Clínica Médica, o caderno da área guarda assuntos (cada um com seus tópicos)
   const assuntoArea = (areaId: string) => studyPhase === 'internato' && areaId !== OTHER_AREA.id && !isClinicaMedica(areaId);
