@@ -117,6 +117,21 @@ export const StudyRoutineModal: React.FC<StudyRoutineModalProps> = ({ open, onCl
   }, [open, firstTime]);
 
   const set = <K extends keyof StudyPlanPrefs>(k: K, v: StudyPlanPrefs[K]) => setDraft((d) => ({ ...d, [k]: v }));
+  /**
+   * Turnos e horas por dia andam juntos: se as horas por dia estão preenchidas, o dia cujo nº de turnos livres
+   * mudou (ou todos, ao mudar quanto vale um turno: prevTurns null) passa a ter turnos livres × tempo do turno.
+   */
+  const syncTurns = (d: StudyPlanPrefs, prevTurns: TurnState[][] | undefined | null): StudyPlanPrefs => {
+    if (!d.hoursByWeekday || !d.weekTurns) return d;
+    const per = d.turnMinutes ?? 120;
+    const free = (t?: TurnState[]) => (t || []).filter((x) => x === 'livre').length;
+    const hours = d.hoursByWeekday.map((h, dow) => {
+      if (dow === d.restDay) return h;
+      const changed = prevTurns === null || free(prevTurns?.[dow]) !== free(d.weekTurns![dow]);
+      return changed ? Math.min(12 * 60, free(d.weekTurns![dow]) * per) : h;
+    });
+    return { ...d, hoursByWeekday: hours };
+  };
   // Versão rápida: sábado sem turno livre = sábado ocupado; o dia das misturadas nunca cai no descanso
   const saturdayBusy = weekendFree === null ? null : weekendFree.length === 0;
   const quickTurns = weekdayFree !== null || weekendFree !== null ? buildWeekTurns(weekdayFree ?? ['manha', 'tarde', 'noite'], weekendFree ?? []) : undefined;
@@ -533,13 +548,14 @@ export const StudyRoutineModal: React.FC<StudyRoutineModalProps> = ({ open, onCl
           </SectionTitle>
           <WeekTurnsEditor
             value={draft.weekTurns}
-            onChange={(v) => set('weekTurns', v)}
+            onChange={(v) => setDraft((d) => syncTurns({ ...d, weekTurns: v, turnsDetailed: undefined, turnMinutes: v ? d.turnMinutes ?? 120 : d.turnMinutes }, d.weekTurns))}
             bestTurn={draft.bestTurn}
             onBestTurn={(v) => set('bestTurn', v)}
-            detailed={draft.turnsDetailed}
-            onDetailed={(v) => set('turnsDetailed', v || undefined)}
+            detailed={false}
             turnPlans={draft.turnPlans}
             onTurnPlans={(v) => set('turnPlans', v)}
+            turnMinutes={draft.turnMinutes}
+            onTurnMinutes={(v) => setDraft((d) => syncTurns({ ...d, turnMinutes: v }, null))}
           />
         </section>
 

@@ -201,6 +201,8 @@ export interface StudyPlanPrefs {
   longTermGoal: boolean;
   /** Semana por turnos: índice = dia (0 dom … 6 sáb), cada dia = [manhã, tarde, noite]. Sem isso, todo dia vale igual */
   weekTurns?: TurnState[][];
+  /** Quanto vale cada turno livre, em minutos de estudo (padrão 120). Com isso, o dia = turnos livres × este tempo */
+  turnMinutes?: number;
   /** Turno em que o aluno rende mais (o plano sugere o tema novo nele) */
   bestTurn?: ExamShift;
   /** Meu método: passos do 1º contato com o tema (tema novo). Sem isso, vale o padrão do guia */

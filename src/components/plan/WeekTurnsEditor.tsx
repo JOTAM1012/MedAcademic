@@ -1,11 +1,10 @@
 // "Minha semana por turnos": manhã, tarde e noite de cada dia como livre, ocupado ou descanso.
 // Tocar no quadrado troca o estado. O plano do dia usa isso para saber quanto cabe em cada dia.
 import React, { useMemo, useState } from 'react';
-import { BookOpen, Briefcase, CalendarCheck, Eraser, Leaf } from 'lucide-react';
+import { BookOpen, Briefcase, CalendarCheck, Eraser, Leaf, Minus, Plus } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import type { ExamShift, TurnPlan, TurnState } from '../../types';
-import { TURN_KEYS, TURN_LABELS, TURN_METHODS, WEEKDAY_NAMES, WEEKDAY_SHORT, emptyWeekTurns, turnKey, turnOfTime } from '../../data/studyMethod';
-import Segmented from '../shared/Segmented';
+import { TURN_KEYS, TURN_LABELS, TURN_METHODS, WEEKDAY_NAMES, WEEKDAY_SHORT, emptyWeekTurns, formatFreeHours, turnKey, turnOfTime } from '../../data/studyMethod';
 
 const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0];
 const NEXT: Record<TurnState, TurnState> = { livre: 'ocupado', ocupado: 'descanso', descanso: 'livre' };
@@ -35,12 +34,16 @@ interface Props {
   onBestTurn: (v: ExamShift | undefined) => void;
   /** Modo detalhado: cada turno livre com matéria, assunto e forma de estudo */
   detailed?: boolean;
-  onDetailed: (v: boolean) => void;
+  onDetailed?: (v: boolean) => void;
   turnPlans?: Record<string, TurnPlan>;
   onTurnPlans: (v: Record<string, TurnPlan> | undefined) => void;
+  /** Quanto vale cada turno livre (min de estudo) */
+  turnMinutes?: number;
+  onTurnMinutes: (v: number) => void;
 }
 
-export const WeekTurnsEditor: React.FC<Props> = ({ value, onChange, bestTurn, onBestTurn, detailed, onDetailed, turnPlans, onTurnPlans }) => {
+export const WeekTurnsEditor: React.FC<Props> = ({ value, onChange, bestTurn, onBestTurn, detailed, turnPlans, onTurnPlans, turnMinutes, onTurnMinutes }) => {
+  const turnMin = turnMinutes ?? 120;
   const { schedule, currentSemester, subjects, topics } = useApp();
   const grid = value || emptyWeekTurns();
   const [sel, setSel] = useState<{ dow: number; i: number } | null>(null);
@@ -88,21 +91,6 @@ export const WeekTurnsEditor: React.FC<Props> = ({ value, onChange, bestTurn, on
 
   return (
     <div id="routine-week-turns" className="space-y-3">
-      {/* Simples (só livre/ocupado/descanso) ou Detalhado (o que fazer em cada turno) */}
-      <Segmented
-        ariaLabel="Como montar a semana"
-        stretch
-        options={[
-          { id: 'simple', label: 'Simples', hint: 'Livre, ocupado ou descanso' },
-          { id: 'detailed', label: 'Detalhado', hint: 'Matéria e forma de estudo' },
-        ]}
-        value={detailed ? 'detailed' : 'simple'}
-        onChange={(id) => {
-          onDetailed(id === 'detailed');
-          setSel(null);
-        }}
-        idFor={(id) => `routine-turns-mode-${id}`}
-      />
 
       {/* Grade: dias em colunas, turnos em linhas */}
       <div className="overflow-x-auto -mx-1 px-1">
@@ -291,13 +279,46 @@ export const WeekTurnsEditor: React.FC<Props> = ({ value, onChange, bestTurn, on
         )}
       </div>
 
-      <p className="text-[11px] text-slate-500 dark:text-slate-400">
-        {value
-          ? freeTotal === 0
-            ? 'Nenhum turno livre: o plano fica só com revisões curtas.'
-            : 'O dia com mais turnos livres recebe todo o seu tempo de foco. Dias com menos turnos livres recebem menos. Dia todo em descanso vira dia de descanso.'
-          : 'Sem turnos marcados, todo dia de estudo recebe o mesmo tempo de foco.'}
-      </p>
+      {/* Quanto vale cada turno livre: entra direto na conta do dia */}
+      {value && (
+        <div id="routine-turn-minutes" className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50 p-3 space-y-1.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-bold text-slate-700 dark:text-slate-200">Cada turno livre vale</span>
+            <span className="flex items-center gap-1.5">
+              <button
+                type="button"
+                id="routine-turn-minutes-minus"
+                aria-label="Menos 30 minutos por turno"
+                disabled={turnMin <= 30}
+                onClick={() => onTurnMinutes(Math.max(30, turnMin - 30))}
+                className="h-9 w-9 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 flex items-center justify-center disabled:opacity-40"
+              >
+                <Minus className="h-4 w-4" />
+              </button>
+              <span id="routine-turn-minutes-value" className="min-w-[56px] text-center text-sm font-black text-slate-900 dark:text-white">
+                {formatFreeHours(turnMin)}
+              </span>
+              <button
+                type="button"
+                id="routine-turn-minutes-plus"
+                aria-label="Mais 30 minutos por turno"
+                disabled={turnMin >= 300}
+                onClick={() => onTurnMinutes(Math.min(300, turnMin + 30))}
+                className="h-9 w-9 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 flex items-center justify-center disabled:opacity-40"
+              >
+                <Plus className="h-4 w-4" />
+              </button>
+            </span>
+            <span className="text-xs text-slate-500 dark:text-slate-400">de estudo</span>
+          </div>
+          <p className="text-[11px] text-slate-500 dark:text-slate-400">
+            {freeTotal === 0
+              ? 'Nenhum turno livre: o plano fica só com revisões curtas.'
+              : `Dia com 2 turnos livres = ${formatFreeHours(Math.min(720, turnMin * 2))}. Sua semana: ${freeTotal} turno${freeTotal === 1 ? '' : 's'} livre${freeTotal === 1 ? '' : 's'} ≈ ${formatFreeHours(freeTotal * turnMin)}. Dia todo em descanso vira dia de descanso.`}
+          </p>
+        </div>
+      )}
+      {!value && <p className="text-[11px] text-slate-500 dark:text-slate-400">Sem turnos marcados, todo dia de estudo recebe o mesmo tempo de foco.</p>}
 
       {/* Melhor turno */}
       <div>

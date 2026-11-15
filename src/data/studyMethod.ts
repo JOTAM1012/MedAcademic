@@ -534,6 +534,11 @@ export const turnCapacity = (prefs: StudyPlanPrefs, dow: number): { capacity: nu
   // Os outros: proporcional, num número inteiro de blocos do aluno.
   const daily = prefs.dailyPomodoros;
   const block = prefs.focusMinutes || 25;
+  // Com "cada turno livre vale X": o dia = turnos livres × X (horas livres → foco)
+  if (prefs.turnMinutes && prefs.turnMinutes > 0) {
+    const cap = free === 0 ? Math.min(daily, minFocusUnits(block)) : freeMinutesToUnits(Math.min(HOURS_MAX_MIN, free * prefs.turnMinutes));
+    return { capacity: cap, allRest, turns };
+  }
   const capacity =
     free === 0
       ? Math.min(daily, minFocusUnits(block))
@@ -1390,7 +1395,8 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
   } else {
     // Dia difícil e plantão: vale o menor dos dois
     // Semana por turnos: menos turnos livres, menos foco
-    if (turnsDay && !hoursWeek && !state.capacity) capacity = Math.min(capacity, turnsDay.capacity);
+    // Com "cada turno livre vale X", os turnos livres mandam no tempo do dia; sem isso, só limitam
+    if (turnsDay && !hoursWeek && !state.capacity) capacity = prefs.turnMinutes ? turnsDay.capacity : Math.min(capacity, turnsDay.capacity);
     if (lowEnergy && !state.capacity) capacity = Math.min(capacity, Math.max(minFocusUnits(prefs.shortFocusMinutes), roundToBlock(dayBaseCapacity(prefs, dow) / 3, prefs.shortFocusMinutes)));
     if (plantao && !state.capacity) capacity = Math.min(capacity, minFocusUnits(prefs.shortFocusMinutes));
     // Semana de prova: estudo intensificado (+50%), menos no dia difícil e no plantão
