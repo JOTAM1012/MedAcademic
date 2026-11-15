@@ -1,5 +1,6 @@
 import IconSwap from '../shared/IconSwap';
 import React, { useState, useEffect } from 'react';
+import { ForgotPasswordPanel } from '../auth/PasswordTools';
 import { confirmDialog } from '../shared/ConfirmDialog';
 import { shakeElement } from '../shared/ErrorShake';
 import {
@@ -97,6 +98,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isPage = false }) => {
   // Login Tab State
   const [loginEmail, setLoginEmail] = useState<string>('');
   const [loginPassword, setLoginPassword] = useState<string>('');
+  const [forgotOpen, setForgotOpen] = useState(false);
 
   if (!isPage && !isAuthModalOpen && activeUserId) return null;
 
@@ -230,6 +232,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isPage = false }) => {
                   aria-selected={isOn}
                   onClick={() => {
                     setActiveTab(tab);
+                    setForgotOpen(false);
                     setErrorMessage(null);
                   }}
                   className={`relative py-2 px-2 rounded-xl text-xs font-semibold transition-colors duration-150 flex items-center justify-center gap-2 cursor-pointer ${
@@ -269,8 +272,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isPage = false }) => {
             </div>
           )}
 
+          {/* Esqueci minha senha: link para criar uma nova */}
+          {activeTab === 'login' && forgotOpen && (
+            <ForgotPasswordPanel
+              initialEmail={loginEmail}
+              onBack={() => setForgotOpen(false)}
+              inputClassName="w-full pl-9 pr-3 py-2 auth-input rounded-xl border text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-hidden focus:ring-2 focus:ring-sky-500/60 focus:border-sky-500/60 transition-colors"
+            />
+          )}
+
           {/* TAB 2: Email Login */}
-          {activeTab === 'login' && (
+          {activeTab === 'login' && !forgotOpen && (
             <form onSubmit={handleLoginSubmit} className="space-y-4 max-w-md mx-auto py-2">
               <div className="text-center mb-4">
                 <div className="w-12 h-12 rounded-2xl bg-sky-500/10 ring-1 ring-inset ring-sky-400/25 text-sky-600 dark:text-sky-300 flex items-center justify-center mx-auto mb-2">
@@ -327,6 +339,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isPage = false }) => {
                     className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600"
                   >
                     <IconSwap swapped={showPassword} from={<Eye className="h-4 w-4" />} to={<EyeOff className="h-4 w-4" />} />
+                  </button>
+                </div>
+                <div className="mt-1.5 text-right">
+                  <button
+                    type="button"
+                    id="auth-forgot-link"
+                    onClick={() => {
+                      setForgotOpen(true);
+                      setErrorMessage(null);
+                    }}
+                    className="text-[11px] font-bold text-sky-700 dark:text-sky-300 hover:underline"
+                  >
+                    Esqueci minha senha
                   </button>
                 </div>
               </div>

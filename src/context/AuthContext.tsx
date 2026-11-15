@@ -49,6 +49,14 @@ interface AuthContextType {
   startSignup: () => void;
   cancelSignup: () => void;
   logout: () => Promise<void>;
+  /** "Esqueci minha senha": manda o link de troca para o e-mail (só com a nuvem) */
+  requestPasswordReset: (email: string) => Promise<AuthResult>;
+  /** Trocar a senha da conta ativa: confere a senha atual antes */
+  changePassword: (currentPassword: string, newPassword: string) => Promise<AuthResult>;
+  /** Abriu pelo link do e-mail: o app pede a nova senha */
+  isPasswordRecovery: boolean;
+  completePasswordRecovery: (newPassword: string) => Promise<AuthResult>;
+  cancelPasswordRecovery: () => void;
   updateAccount: (userId: string, data: Partial<UserAccount>) => Promise<void>;
   deleteAccount: (userId: string) => Promise<void>;
 }
@@ -193,6 +201,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [selectedAccountForLogin, setSelectedAccountForLogin] = useState<UserAccount | null>(null);
   const [isSigningUp, setIsSigningUp] = useState<boolean>(false);
   const [authNotice, setAuthNotice] = useState<string | null>(null);
+  const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
   const startSignup = () => setIsSigningUp(true);
   const cancelSignup = () => {
     setIsSigningUp(false);
@@ -246,6 +255,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     supabase.auth.getSession().then(({ data }) => applySession(data.session));
     const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'INITIAL_SESSION') return; // handled by getSession above
+      // Abriu pelo link "Esqueci minha senha": entra e pede a nova senha
+      if (event === 'PASSWORD_RECOVERY') setIsPasswordRecovery(true);
       if (event === 'SIGNED_OUT') {
         if (!isDeletingRef.current) {
           clearActiveSession();
@@ -306,6 +317,54 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     activateAccount(accountFromUser(data.user, cached));
     return { success: true };
   };
+
+  // ---------- Senha: esqueci, trocar, nova senha pelo link ----------
+  const MIN_PASSWORD = 6;
+  const requestPasswordReset = async (email: string): Promise<AuthResult> => {
+    const cleanEmail = normalizeEmail(email);
+    if (!cleanEmail || !cleanEmail.includes('@')) return { success: false, error: 'Digite o e-mail da sua conta.' };
+    if (!supabase) {
+      return { success: false, error: 'No modo local não há envio de e-mail. Peça para apagar o perfil e criar de novo, ou use a versão na nuvem.' };
+    }
+    const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, { redirectTo: window.location.origin });
+    if (error) return { success: false, error: translateAuthError(error.message) };
+    return { success: true };
+  };
+
+  const changePassword = async (currentPassword: string, newPassword: string): Promise<AuthResult> => {
+    const next = newPassword.trim();
+    if (next.length < MIN_PASSWORD) return { success: false, error: `A nova senha precisa de pelo menos ${MIN_PASSWORD} caracteres.` };
+    if (!activeUserId) return { success: false, error: 'Entre na sua conta primeiro.' };
+    if (!supabase) {
+      const target = accounts.find((a) => a.email === activeUserId);
+      if (!target) return { success: false, error: 'Perfil não encontrado.' };
+      if (!(await verifyLocalPassword(target, currentPassword))) return { success: false, error: 'A senha atual está errada.' };
+      const { hash, salt } = await hashPassword(next);
+      setAccounts((prev) => {
+        const list = prev.map((a) => (a.email === activeUserId ? { ...a, passwordHash: hash, passwordSalt: salt } : a));
+        saveAccountsLocal(list);
+        return list;
+      });
+      return { success: true };
+    }
+    // confere a senha atual (quem está com o aparelho aberto não troca sem saber a senha)
+    const check = await supabase.auth.signInWithPassword({ email: activeUserId, password: currentPassword });
+    if (check.error) return { success: false, error: 'A senha atual está errada.' };
+    const { error } = await supabase.auth.updateUser({ password: next });
+    if (error) return { success: false, error: translateAuthError(error.message) };
+    return { success: true };
+  };
+
+  const completePasswordRecovery = async (newPassword: string): Promise<AuthResult> => {
+    const next = newPassword.trim();
+    if (next.length < MIN_PASSWORD) return { success: false, error: `A nova senha precisa de pelo menos ${MIN_PASSWORD} caracteres.` };
+    if (!supabase) return { success: false, error: 'Indisponível no modo local.' };
+    const { error } = await supabase.auth.updateUser({ password: next });
+    if (error) return { success: false, error: translateAuthError(error.message) };
+    setIsPasswordRecovery(false);
+    return { success: true };
+  };
+  const cancelPasswordRecovery = () => setIsPasswordRecovery(false);
 
   const selectAccount = async (userId: string, password?: string): Promise<AuthResult> => {
     const target = accounts.find((a) => a.id === userId || a.email === normalizeEmail(userId));
@@ -478,6 +537,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         startSignup,
         cancelSignup,
         logout,
+        requestPasswordReset,
+        changePassword,
+        isPasswordRecovery,
+        completePasswordRecovery,
+        cancelPasswordRecovery,
         updateAccount,
         deleteAccount,
       }}

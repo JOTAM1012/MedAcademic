@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { AccountPasswordCard } from './auth/PasswordTools';
 import {
   User,
   GraduationCap,
@@ -638,6 +639,11 @@ export const ProfileView: React.FC = () => {
           <SemesterHistoryModal open={historyOpen} onClose={() => setHistoryOpen(false)} />
           <ContestsModal open={contestsOpen} onClose={() => setContestsOpen(false)} />
 
+          {/* Conta e senha: e-mail de acesso e trocar senha */}
+          <div className="mt-6">
+            <AccountPasswordCard />
+          </div>
+
           {dangerZone}
         </div>
       ) : (
@@ -847,6 +853,9 @@ export const ProfileView: React.FC = () => {
           </form>
 
           <div className="mt-8 space-y-6">
+            {/* Conta e senha: e-mail de acesso e trocar senha */}
+            <AccountPasswordCard />
+
             {/* Backup and Storage Utilities */}
             <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-xs space-y-4">
               <h3 className="text-sm font-bold text-slate-900 dark:text-white pb-2 border-b border-slate-100 dark:border-slate-800">

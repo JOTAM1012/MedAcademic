@@ -46,6 +46,7 @@ import { AuthModal } from './components/modals/AuthModal';
 import { useWideLayout } from './hooks/useWideLayout';
 import { SetupWizard } from './components/onboarding/SetupWizard';
 import { usePendingRoutine } from './components/onboarding/routineSetup';
+import { PasswordRecoveryModal } from './components/auth/PasswordTools';
 
 const AppContent: React.FC = () => {
   const { activeUserId, activeUser, logout, isDeleting, isSigningUp } = useAuth();
@@ -496,6 +497,7 @@ const AppContent: React.FC = () => {
       />
 
       <AuthModal />
+      <PasswordRecoveryModal />
 
       {/* Guia "Como funciona o Método MedAcademic" (completo ou modo rápido do 1º acesso) */}
       <MethodGuideModal />
