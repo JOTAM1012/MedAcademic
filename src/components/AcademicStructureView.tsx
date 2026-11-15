@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, BookOpen, Plus, Trophy, FileClock, LayoutGrid, FolderTree } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import type { Subject } from '../types';
-import { CLINICA_MEDICA_SPECIALTIES, OTHER_AREA } from '../data/areas';
+import { CLINICA_MEDICA_SPECIALTIES, OTHER_AREA, getMedicalArea, isClinicaMedica } from '../data/areas';
 import { CYCLE_INFO } from '../data/subjectFormats';
 import { EditSubjectModal } from './modals/EditSubjectModal';
 import { FOCUS_SUBJECT_KEY } from './TutoriaGradesSection';
@@ -40,7 +40,7 @@ const specialtyOrder = (s: Subject) => {
 
 // Disciplinas & assuntos (todos os ciclos): visão por grandes áreas ou por módulo da faculdade
 export const AcademicStructureView: React.FC<AcademicStructureViewProps> = ({ onOpenAddSubject }) => {
-  const { currentSemester, subjects: allSubjects, topics, topicBlocks, exams, studyPhase, contestsActive, deleteSubjects } = useApp();
+  const { currentSemester, subjects: allSubjects, topics, topicBlocks, exams, studyPhase, contestsActive, deleteSubjects, addSubject, addTopicBlock } = useApp();
   const [confirmDeleteAll, setConfirmDeleteAll] = useState(false);
   // Só as disciplinas do semestre atual (as anteriores ficam no Histórico)
   const subjects = useMemo(
@@ -129,7 +129,12 @@ export const AcademicStructureView: React.FC<AcademicStructureViewProps> = ({ on
     }
   }, [detail?.kind, detail?.id]);
 
-  const areaGroups = useMemo(() => groupByArea(subjects), [subjects]);
+  // Grandes áreas e Módulos são visões independentes: o que está num módulo fica só em Módulos
+  const moduleLinked = useMemo(() => new Set(subjects.filter((s) => s.kind === 'module').flatMap((m) => m.linkedSubjectIds || [])), [subjects]);
+  const areaSubjects = useMemo(() => (isBasic ? subjects : subjects.filter((s) => !moduleLinked.has(s.id))), [subjects, moduleLinked, isBasic]);
+  const areaGroups = useMemo(() => groupByArea(areaSubjects), [areaSubjects]);
+  // No internato, fora da Clínica Médica, o caderno da área guarda assuntos (cada um com seus tópicos)
+  const assuntoArea = (areaId: string) => studyPhase === 'internato' && areaId !== OTHER_AREA.id && !isClinicaMedica(areaId);
   // Cadernos da estante: grandes áreas ou módulos da faculdade (com as disciplinas vinculadas)
   const areaShelves: Shelf[] = useMemo(
     () =>
@@ -140,8 +145,10 @@ export const AcademicStructureView: React.FC<AcademicStructureViewProps> = ({ on
         color: area.color,
         items: [...items].sort((a, b) => specialtyOrder(a) - specialtyOrder(b)),
         domId: `struct-area-${areaSlug(area.id)}`,
+        noun: assuntoArea(area.id) ? { one: 'assunto', many: 'assuntos' } : isClinicaMedica(area.id) ? { one: 'especialidade', many: 'especialidades' } : undefined,
+        quickAdd: assuntoArea(area.id),
       })),
-    [areaGroups]
+    [areaGroups, studyPhase] // eslint-disable-line react-hooks/exhaustive-deps
   );
   const moduleShelves: Shelf[] = useMemo(() => {
     const modules = subjects.filter((s) => s.kind === 'module');
@@ -157,9 +164,10 @@ export const AcademicStructureView: React.FC<AcademicStructureViewProps> = ({ on
       domId: `struct-module-${m.id}`,
     }));
     const free = plain.filter((s) => !linked.has(s.id));
-    if (free.length || !list.length) list.push({ id: '__free__', title: list.length ? 'Sem módulo' : 'Disciplinas', code: '•••', color: '#64748b', items: free, domId: 'struct-module-free' });
+    // Fora do ciclo básico, o que não está em módulo fica só em Grandes áreas (sem o caderno "Sem módulo")
+    if (isBasic && (free.length || !list.length)) list.push({ id: '__free__', title: list.length ? 'Sem módulo' : 'Disciplinas', code: '•••', color: '#64748b', items: free, domId: 'struct-module-free' });
     return list;
-  }, [subjects]);
+  }, [subjects, isBasic]);
   const stats = topicStats(topics.filter((t) => subjects.some((s) => s.id === t.subjectId)), topicBlocks.filter((b) => subjects.some((s) => s.id === b.subjectId)));
 
   const showContests = contestsActive;
@@ -380,6 +388,22 @@ export const AcademicStructureView: React.FC<AcademicStructureViewProps> = ({ on
                 /* sem CustomEvent */
               }
               onOpenAddSubject();
+            }}
+            onQuickAdd={(shelf, rawName) => {
+              // "+ Novo assunto": cria o assunto já com o bloco dele (os tópicos entram dentro)
+              const name = rawName.trim();
+              if (!name) return;
+              const area = getMedicalArea(shelf.id);
+              const id = addSubject({
+                name,
+                code: area.short,
+                color: area.color,
+                majorArea: area.id,
+                targetGrade: 7,
+                semesterId: currentSemester?.id,
+                universitySubject: name,
+              });
+              addTopicBlock(id, name);
             }}
             allowLinking={mode === 'module' && !isBasic}
             focusSubjectId={workspaceFocus}

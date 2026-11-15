@@ -487,3 +487,39 @@
 .aw-chip--add::before {
   display: none;
 }
+
+/* Setas da estante (só quando há mais cadernos para o lado) */
+.aw-shelf-arrow {
+  position: absolute;
+  top: 50%;
+  z-index: 5;
+  width: 40px;
+  height: 40px;
+  margin-top: -24px;
+  display: grid;
+  place-items: center;
+  border-radius: 9999px;
+  color: #0f172a;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 6px 18px -6px rgba(15, 23, 42, 0.35), inset 0 0 0 1px #e2e8f0;
+  transition: transform 160ms ease;
+}
+.aw-shelf-arrow:hover {
+  transform: scale(1.08);
+}
+.dark .aw-shelf-arrow {
+  color: #f1f5f9;
+  background: rgba(30, 41, 59, 0.95);
+  box-shadow: 0 6px 18px -6px rgba(0, 0, 0, 0.6), inset 0 0 0 1px #334155;
+}
+.aw-shelf-arrow--l {
+  left: -6px;
+}
+.aw-shelf-arrow--r {
+  right: -6px;
+}
+@media (hover: none) {
+  .aw-shelf-arrow {
+    display: none;
+  }
+}

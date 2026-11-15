@@ -1,7 +1,7 @@
 // Disciplinas em cadernos: estante (grandes áreas ou módulos) em cima, barra com as disciplinas
 // do caderno escolhido logo abaixo, e a disciplina abre numa janela em forma de caderno.
 // Extras: "Continuar de onde parou", favoritas (⭐) e prova próxima.
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, ChevronLeft, ChevronRight, Link2, Play, Plus, Search, Star, X } from 'lucide-react';
 import IconSwap from '../shared/IconSwap';
@@ -24,6 +24,10 @@ export interface Shelf {
   /** módulo da faculdade dono do caderno (tem assuntos próprios) */
   module?: Subject;
   domId?: string;
+  /** como chamar os itens do caderno (padrão: disciplina/disciplinas) */
+  noun?: { one: string; many: string };
+  /** caderno de assuntos: campo "+ Novo assunto" direto na lista */
+  quickAdd?: boolean;
 }
 
 type Sort = 'situacao' | 'progresso' | 'prova' | 'az';
@@ -77,6 +81,8 @@ interface Props {
   onEdit: (s: Subject) => void;
   /** cadastrar disciplina (atalho ao lado da lista; na visão por módulos o cartão da estante cria módulo) */
   onAddSubject?: (shelf: Shelf) => void;
+  /** "+ Novo assunto" (cadernos com quickAdd): cria na hora com o nome digitado */
+  onQuickAdd?: (shelf: Shelf, name: string) => void;
   allowLinking?: boolean;
   focusSubjectId?: string | null;
   /** avisa que o pedido de fora já foi aberto (para poder pedir o mesmo de novo) */
@@ -94,6 +100,7 @@ export const StructureWorkspace: React.FC<Props> = ({
   onAdd,
   onEdit,
   onAddSubject,
+  onQuickAdd,
   allowLinking = false,
   focusSubjectId,
   onFocusConsumed,
@@ -133,6 +140,7 @@ export const StructureWorkspace: React.FC<Props> = ({
   const [query, setQuery] = useState('');
   const [openId, setOpenId] = useState<string | null>(null);
   const [linkOpen, setLinkOpen] = useState(false);
+  const [quickName, setQuickName] = useState('');
 
   const setShelfId = (id: string) => {
     setShelfIdState(id);
@@ -247,7 +255,65 @@ export const StructureWorkspace: React.FC<Props> = ({
     };
   }, [open]);
 
-  if (!shelf) return null;
+  // ---------- estante: rolagem para o lado (setas, roda do mouse, caderno ativo à vista) ----------
+  const shelfRef = useRef<HTMLDivElement>(null);
+  const [edge, setEdge] = useState({ l: false, r: false });
+  const updateEdge = useCallback(() => {
+    const el = shelfRef.current;
+    if (!el) return;
+    const l = el.scrollLeft > 4;
+    const r = el.scrollLeft + el.clientWidth < el.scrollWidth - 4;
+    setEdge((p) => (p.l === l && p.r === r ? p : { l, r }));
+  }, []);
+  useEffect(() => {
+    const el = shelfRef.current;
+    if (!el) return;
+    updateEdge();
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(updateEdge) : null;
+    ro?.observe(el);
+    el.addEventListener('scroll', updateEdge, { passive: true });
+    // roda do mouse (vertical) rola a estante para o lado; nas pontas, a página volta a rolar
+    const onWheel = (e: WheelEvent) => {
+      const max = el.scrollWidth - el.clientWidth;
+      if (max <= 0 || Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+      if ((e.deltaY < 0 && el.scrollLeft <= 0) || (e.deltaY > 0 && el.scrollLeft >= max - 1)) return;
+      e.preventDefault();
+      el.scrollLeft += e.deltaY;
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => {
+      ro?.disconnect();
+      el.removeEventListener('scroll', updateEdge);
+      el.removeEventListener('wheel', onWheel);
+    };
+  }, [shelves.length, updateEdge]);
+  const firstShelfRun = useRef(true);
+  useEffect(() => {
+    if (firstShelfRun.current) {
+      firstShelfRun.current = false;
+      return;
+    }
+    const el = shelfRef.current?.querySelector<HTMLElement>('.aw-notebook.is-active');
+    el?.scrollIntoView({ behavior: 'smooth', inline: 'nearest', block: 'nearest' });
+  }, [shelfId]);
+  const scrollShelf = (dir: 1 | -1) => {
+    const el = shelfRef.current;
+    if (el) el.scrollBy({ left: dir * Math.max(240, el.clientWidth * 0.8), behavior: 'smooth' });
+  };
+
+  // nenhum caderno ainda (ex.: visão Módulos sem módulos): só o cartão de criar
+  if (!shelf)
+    return (
+      <div className="space-y-3">
+        <div className="aw-shelf -mx-1 px-1 pt-2 flex gap-5 pb-3">
+          <button type="button" onClick={onAdd} className="aw-notebook aw-notebook--add">
+            <Plus className="h-5 w-5" />
+            <span className="text-[11px] font-bold">{addLabel}</span>
+          </button>
+        </div>
+        <p className="text-xs text-slate-500 dark:text-slate-400">Nada aqui ainda. Toque em "{addLabel}" para começar.</p>
+      </div>
+    );
   const inShelf = (g: Shelf, subjectId: string) => g.items.some((s) => s.id === subjectId) || (!!g.module && subjectId === g.module.id);
   const shelfStats = topicStats(topics.filter((t) => inShelf(shelf, t.subjectId)), topicBlocks.filter((b) => inShelf(shelf, b.subjectId)));
 
@@ -294,14 +360,41 @@ export const StructureWorkspace: React.FC<Props> = ({
   };
 
   // atalho para cadastrar sem subir até o topo (não aparece nos módulos, que usam "Vincular")
-  const addChip =
-    onAddSubject && !shelf.module ? (
+  const addChip = shelf.quickAdd && onQuickAdd ? (
+    // caderno de assuntos: digita e aperta Enter, sem abrir janela
+    <li key="__add__" className="aw-chip aw-chip--add">
+      <form
+        className="aw-chip__main"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (!quickName.trim()) return;
+          onQuickAdd(shelf, quickName);
+          setQuickName('');
+        }}
+      >
+        <span className="h-9 w-9 shrink-0 rounded-full grid place-items-center bg-sky-500/10 text-sky-600 dark:text-sky-400">
+          <Plus className="h-4 w-4" />
+        </span>
+        <input
+          id="struct-quick-add"
+          value={quickName}
+          onChange={(e) => setQuickName(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') setQuickName('');
+          }}
+          placeholder="Novo assunto e Enter"
+          aria-label={`Novo assunto em ${shelf.title}`}
+          className="min-w-0 flex-1 bg-transparent text-[13px] font-bold text-slate-900 dark:text-white placeholder:text-sky-700 dark:placeholder:text-sky-300 focus:outline-hidden"
+        />
+      </form>
+    </li>
+  ) : onAddSubject && !shelf.module ? (
       <li key="__add__" className="aw-chip aw-chip--add">
         <button type="button" id="struct-add-subject-chip" onClick={() => onAddSubject(shelf)} className="aw-chip__main">
           <span className="h-9 w-9 shrink-0 rounded-full grid place-items-center bg-sky-500/10 text-sky-600 dark:text-sky-400">
             <Plus className="h-4 w-4" />
           </span>
-          <span className="text-[13px] font-bold text-sky-700 dark:text-sky-300">Nova disciplina</span>
+          <span className="text-[13px] font-bold text-sky-700 dark:text-sky-300">Nova {shelf.noun?.one === 'especialidade' ? 'especialidade' : 'disciplina'}</span>
         </button>
       </li>
     ) : null;
@@ -330,7 +423,18 @@ export const StructureWorkspace: React.FC<Props> = ({
       )}
 
       {/* Estante de cadernos */}
-      <div className="aw-shelf -mx-1 px-1 pt-2 flex gap-5 overflow-x-auto pb-3 scrollbar-none" role="tablist" aria-label="Cadernos">
+      <div className="relative">
+      {edge.l && (
+        <button type="button" id="struct-shelf-prev" onClick={() => scrollShelf(-1)} aria-label="Cadernos anteriores" className="aw-shelf-arrow aw-shelf-arrow--l">
+          <ChevronLeft className="h-5 w-5" />
+        </button>
+      )}
+      {edge.r && (
+        <button type="button" id="struct-shelf-next" onClick={() => scrollShelf(1)} aria-label="Mais cadernos" className="aw-shelf-arrow aw-shelf-arrow--r">
+          <ChevronRight className="h-5 w-5" />
+        </button>
+      )}
+      <div ref={shelfRef} className="aw-shelf -mx-1 px-1 pt-2 flex gap-5 overflow-x-auto pb-3 scrollbar-none" role="tablist" aria-label="Cadernos">
         {shelves.map((g) => {
           const st = topicStats(topics.filter((t) => inShelf(g, t.subjectId)), topicBlocks.filter((b) => inShelf(g, b.subjectId)));
           const active = g.id === shelf.id;
@@ -351,7 +455,7 @@ export const StructureWorkspace: React.FC<Props> = ({
                 <span className="aw-notebook__code">{g.code}</span>
                 <span className="aw-notebook__name">{g.title}</span>
                 <span className="aw-notebook__meta">
-                  {g.items.length} disciplina{g.items.length === 1 ? '' : 's'} · {st.seen}/{st.total} vistos
+                  {g.items.length} {g.items.length === 1 ? g.noun?.one || 'disciplina' : g.noun?.many || 'disciplinas'} · {st.seen}/{st.total} vistos
                 </span>
                 <span className="aw-notebook__foot">
                   <span className="aw-notebook__pct">{st.pct}%</span>
@@ -367,6 +471,7 @@ export const StructureWorkspace: React.FC<Props> = ({
           <Plus className="h-5 w-5" />
           <span className="text-[11px] font-bold">{addLabel}</span>
         </button>
+      </div>
       </div>
 
       {/* Módulo da faculdade: o próprio módulo aparece direto, com os assuntos dele */}
@@ -431,7 +536,7 @@ export const StructureWorkspace: React.FC<Props> = ({
                 id="struct-area-search"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Buscar disciplina"
+                placeholder={`Buscar ${shelf.noun?.one || 'disciplina'}`}
                 className="w-full h-9 pl-8 pr-3 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-hidden focus:border-sky-500"
               />
             </label>
@@ -460,7 +565,9 @@ export const StructureWorkspace: React.FC<Props> = ({
               ? allowLinking
                 ? 'Nenhuma disciplina vinculada ainda. Toque em "Vincular" para ligar disciplinas a este módulo.'
                 : 'Nenhuma disciplina vinculada a este módulo.'
-              : 'Nenhuma disciplina neste caderno ainda.'}
+              : shelf.quickAdd
+                ? 'Nenhum assunto ainda. Escreva o nome abaixo e aperte Enter.'
+                : 'Nenhuma disciplina neste caderno ainda.'}
           </p>
         ) : null}
         {shelf.items.length === 0 ? (
@@ -468,7 +575,7 @@ export const StructureWorkspace: React.FC<Props> = ({
         ) : sorted.length ? (
           <div className="space-y-3">{listBody}</div>
         ) : (
-          <p className="py-6 text-center text-xs text-slate-400">Nenhuma disciplina com esse nome.</p>
+          <p className="py-6 text-center text-xs text-slate-400">Nada com esse nome.</p>
         )}
 
         {shelf.module && <ModuleLinks key={shelf.module.id} module={shelf.module} embedded pickerOpen={linkOpen} onOpenSubject={goToSubject} />}

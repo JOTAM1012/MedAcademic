@@ -310,7 +310,7 @@ export const SubjectBlocksPanel: React.FC<SubjectBlocksPanelProps> = ({ subject,
         const counted = list.filter(countsInProgress);
         const resolved = counted.filter(isTopicResolved).length;
         // abre tudo recolhido: o aluno toca no bloco para abrir
-        const isCollapsed = collapsed[block.id] ?? true;
+        const isCollapsed = collapsed[block.id] ?? blocks.length > 1; // bloco único já abre
         const due = isBlockDue(block, todayStr);
         const acts = block.activities || [];
         const actsDone = acts.filter((a) => a.done).length;
