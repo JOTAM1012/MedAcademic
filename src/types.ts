@@ -204,6 +204,14 @@ export interface StudyPlanPrefs {
   turnPlans?: Record<string, TurnPlan>;
   /** Semanas de prova (segunda-feira de cada uma, YYYY-MM-DD): estudo intensificado */
   examWeeks?: string[];
+  /** Horas livres de estudo em cada dia da semana, em minutos (índice 0 = domingo, como Date.getDay()).
+   *  Vira o tempo padrão do dia no Planner. Sem isso, vale o tempo de foco por dia (+ turnos) */
+  hoursByWeekday?: number[];
+  /** Questionário de horário (opcional), "HH:MM": acordar, dormir, almoço e jantar */
+  wakeTime?: string;
+  sleepTime?: string;
+  lunchTime?: string;
+  dinnerTime?: string;
 }
 
 export interface PlanCustomTask {
@@ -250,6 +258,8 @@ export interface DayPlanState {
   mood?: 'normal' | 'cansado' | 'estressado' | 'destruido';
   /** Dia difícil: o dia mínimo que o aluno escolheu */
   minimal?: 'revisoes' | 'questoes' | 'flashcards' | 'folha';
+  /** Dia das misturadas: questões por tema estudado na semana (5 a 10; padrão 5) */
+  mixedPerTheme?: number;
 }
 
 /** Escolhas do aluno para uma tarefa do dia (modo Detalhado do "Planejar dia") */

@@ -543,6 +543,157 @@ export const turnCapacity = (prefs: StudyPlanPrefs, dow: number): { capacity: nu
   return { capacity, allRest, turns };
 };
 const TURN_WORD: Record<TurnState, string> = { livre: 'livre', ocupado: 'ocupada', descanso: 'de descanso' };
+
+// ---------- Horas livres por dia da semana (opcional)
+/** Passo do controle de horas (min) e máximo por dia */
+export const HOURS_STEP_MIN = 30;
+export const HOURS_MAX_MIN = 12 * 60;
+/** Lista válida de horas livres (7 dias) ou null (não preenchido: vale o comportamento antigo) */
+export const hoursByWeekdayOf = (prefs: Pick<StudyPlanPrefs, 'hoursByWeekday'>): number[] | null => {
+  const h = prefs.hoursByWeekday;
+  if (!Array.isArray(h) || h.length !== 7 || h.some((x) => typeof x !== 'number' || !isFinite(x) || x < 0)) return null;
+  return h.map((x) => Math.min(HOURS_MAX_MIN, Math.round(x)));
+};
+/** Horas livres → tempo de foco em unidades de 25 min (mesma conta da rotina: 1 hora livre ≈ 50 min de foco) */
+export const freeMinutesToUnits = (min: number) => Math.round((Math.max(0, min) / 30) * 1000) / 1000;
+/** Tempo de foco → horas livres (min), em passos de 30 min (para começar o preenchimento) */
+export const unitsToFreeMinutes = (u: number) => Math.min(HOURS_MAX_MIN, Math.max(HOURS_STEP_MIN, Math.round((u * 30) / HOURS_STEP_MIN) * HOURS_STEP_MIN));
+/** Tempo padrão do dia (unidades de 25 min), antes dos ajustes do dia: horas livres do dia ou o tempo de foco por dia */
+export const dayBaseCapacity = (prefs: StudyPlanPrefs, dow: number): number => {
+  const h = hoursByWeekdayOf(prefs);
+  if (!h) return prefs.dailyPomodoros;
+  return h[dow] > 0 ? freeMinutesToUnits(h[dow]) : Math.min(prefs.dailyPomodoros, minFocusUnits(prefs.shortFocusMinutes));
+};
+/** "3h", "1h30", "30 min" (horas livres) */
+export const formatFreeHours = (min: number) => {
+  const m0 = Math.max(0, Math.round(min));
+  const h = Math.floor(m0 / 60);
+  const m = m0 % 60;
+  if (h === 0) return m ? `${m} min` : '0h';
+  return m ? `${h}h${String(m).padStart(2, '0')}` : `${h}h`;
+};
+const WEEKDAY_IN = ['no domingo', 'na segunda', 'na terça', 'na quarta', 'na quinta', 'na sexta', 'no sábado'];
+const joinPt = (parts: string[]) => (parts.length <= 1 ? parts.join('') : `${parts.slice(0, -1).join(', ')} e ${parts[parts.length - 1]}`);
+
+/**
+ * Dica da meta semanal: soma as horas livres e compara com a meta. Se faltar, sugere onde pôr o que falta
+ * (de 30 em 30 min nos dias com menos horas, nunca no descanso). Não aplica nada: `suggestion` é a semana sugerida.
+ */
+export const weeklyHoursTip = (hours: number[], targetHours: number | undefined, restDays: number[]) => {
+  const totalMin = hours.reduce((a, x, i) => a + (restDays.includes(i) ? 0 : x), 0);
+  const target = targetHours && targetHours > 0 ? Math.round(targetHours * 60) : 0;
+  if (!target) return { totalMin, targetMin: 0, text: `Sua semana tem ${formatFreeHours(totalMin)} livres.`, suggestion: null as number[] | null };
+  const head = `Sua semana tem ${formatFreeHours(totalMin)} livres. Meta: ${formatFreeHours(target)}.`;
+  if (totalMin === target) return { totalMin, targetMin: target, text: `${head} Bate certinho com a meta.`, suggestion: null };
+  if (totalMin > target) return { totalMin, targetMin: target, text: `Você passou da meta em ${formatFreeHours(totalMin - target)}. Ótimo, ou use as horas extras para descanso.`, suggestion: null };
+  const next = hours.map((x, i) => (restDays.includes(i) ? 0 : x));
+  const open = [1, 2, 3, 4, 5, 6, 0].filter((i) => !restDays.includes(i));
+  let left = Math.ceil((target - totalMin) / HOURS_STEP_MIN) * HOURS_STEP_MIN;
+  while (left > 0) {
+    const cands = open.filter((i) => next[i] + HOURS_STEP_MIN <= HOURS_MAX_MIN);
+    if (!cands.length) break;
+    // Dia com menos horas (empate: o primeiro da semana, segunda antes)
+    const day = cands.reduce((best, i) => (next[i] < next[best] ? i : best), cands[0]);
+    next[day] += HOURS_STEP_MIN;
+    left -= HOURS_STEP_MIN;
+  }
+  const days = [1, 2, 3, 4, 5, 6, 0].filter((i) => next[i] > hours[i]);
+  let adds = days.map((i) => `${formatFreeHours(next[i] - hours[i])} ${WEEKDAY_IN[i]}`);
+  // Muitos dias: frase curta ("some 2h na segunda e 1h30 nos outros 6 dias")
+  if (days.length > 3) {
+    const count: Record<number, number> = {};
+    days.forEach((i) => (count[next[i] - hours[i]] = (count[next[i] - hours[i]] || 0) + 1));
+    const common = Number(Object.entries(count).sort((a, b) => b[1] - a[1])[0][0]);
+    const others = days.filter((i) => next[i] - hours[i] !== common);
+    const n = days.length - others.length;
+    const rest = others.length ? `${formatFreeHours(common)} nos outros ${n} dias` : `${formatFreeHours(common)} em cada dia`;
+    adds = [...others.map((i) => `${formatFreeHours(next[i] - hours[i])} ${WEEKDAY_IN[i]}`), rest];
+  }
+  const missing = formatFreeHours(target - totalMin);
+  return {
+    totalMin,
+    targetMin: target,
+    text: adds.length ? `${head} Faltam ${missing}: some ${joinPt(adds)}.` : `${head} Faltam ${missing}.`,
+    suggestion: adds.length ? next : null,
+  };
+};
+
+// ---------- Questionário de horário (acordar, dormir, refeições)
+const toMin = (t?: string) => {
+  if (!t || !/^\d{1,2}:\d{2}$/.test(t)) return null;
+  const [h, m] = t.split(':').map((x) => parseInt(x, 10));
+  return h * 60 + m;
+};
+/** "7h" / "7h30" */
+export const formatClock = (min: number) => {
+  const m0 = ((Math.round(min) % 1440) + 1440) % 1440;
+  const h = Math.floor(m0 / 60);
+  const m = m0 % 60;
+  return m ? `${h}h${String(m).padStart(2, '0')}` : `${h}h`;
+};
+const ceil30 = (m: number) => Math.ceil(m / 30) * 30;
+const floor30 = (m: number) => Math.floor(m / 30) * 30;
+/**
+ * Janela de estudo de um turno pelo horário do aluno: começa 30 min depois de acordar, para no almoço/jantar
+ * (volta 1 h depois da refeição) e termina 1 h antes de dormir. No máximo 4 h. Sem horário: null.
+ */
+export const turnWindow = (prefs: Pick<StudyPlanPrefs, 'wakeTime' | 'sleepTime' | 'lunchTime' | 'dinnerTime'>, turn: ExamShift): { start: number; end: number } | null => {
+  const wake = toMin(prefs.wakeTime);
+  let sleep = toMin(prefs.sleepTime);
+  if (wake === null && sleep === null) return null;
+  // Dormir depois da meia-noite (ex.: 00:30) conta como o fim do mesmo dia
+  if (sleep !== null && sleep < 12 * 60) sleep += 1440;
+  const lunch = toMin(prefs.lunchTime);
+  const dinner = toMin(prefs.dinnerTime);
+  const dayStart = wake !== null ? wake + 30 : 7 * 60;
+  const dayEnd = sleep !== null ? sleep - 60 : 23 * 60;
+  let start: number;
+  let end: number;
+  if (turn === 'manha') {
+    start = dayStart;
+    end = lunch !== null && lunch > start ? lunch : 12 * 60;
+  } else if (turn === 'tarde') {
+    start = Math.max(dayStart, lunch !== null ? lunch + 60 : 13 * 60);
+    end = dinner !== null && dinner > start ? Math.min(dinner, 19 * 60) : 18 * 60;
+  } else {
+    start = Math.max(dayStart, dinner !== null ? dinner + 60 : 19 * 60);
+    end = dayEnd;
+  }
+  start = ceil30(start);
+  end = floor30(Math.min(end, dayEnd, start + 240));
+  return end - start >= 60 ? { start, end } : null;
+};
+/** Dica de turno da rotina: "Você rende melhor de manhã? Seus blocos podem ir das 7h às 11h." */
+export const turnTip = (prefs: Pick<StudyPlanPrefs, 'wakeTime' | 'sleepTime' | 'lunchTime' | 'dinnerTime' | 'bestTurn'>): string | null => {
+  const turn = prefs.bestTurn || 'manha';
+  const w = turnWindow(prefs, turn);
+  if (!w) return null;
+  const head = turn === 'manha' ? 'de manhã' : turn === 'tarde' ? 'à tarde' : 'à noite';
+  return `${prefs.bestTurn ? `Você rende melhor ${head}.` : `Você rende melhor ${head}?`} Seus blocos podem ir das ${formatClock(w.start)} às ${formatClock(w.end)}.`;
+};
+/** Fala do horário no plano do dia: "das 7h às 11h" do melhor turno */
+const bestWindowText = (prefs: StudyPlanPrefs) => {
+  if (!prefs.bestTurn) return '';
+  const w = turnWindow(prefs, prefs.bestTurn);
+  return w ? ` (das ${formatClock(w.start)} às ${formatClock(w.end)})` : '';
+};
+
+// ---------- Dia das misturadas: temas da semana
+export const MIXED_PER_THEME_MIN = 5;
+export const MIXED_PER_THEME_MAX = 10;
+export const clampPerTheme = (n?: number) => Math.min(MIXED_PER_THEME_MAX, Math.max(MIXED_PER_THEME_MIN, Math.round(n || MIXED_PER_THEME_MIN)));
+/** Temas estudados de domingo até o dia anterior (estudo inicial, dia 0 ou revisão feita na semana) */
+export const weekStudiedBlocks = (blocks: TopicBlock[], date: string, subjectIds?: Set<string>) => {
+  const dow = parseYMD(date).getDay();
+  const from = addDaysYMD(-(dow === 0 ? 7 : dow), date);
+  const to = addDaysYMD(-1, date);
+  const inRange = (d?: string) => !!d && d >= from && d <= to;
+  return blocks.filter(
+    (b) =>
+      (!subjectIds || subjectIds.has(b.subjectId)) &&
+      (inRange(b.completedDate) || (b.studyDays || []).some((s) => inRange(s.date)) || (b.reviewLog || []).some((r) => inRange(r.date)))
+  );
+};
 /** Dias da semana de descanso: o dia fixo + os dias com os três turnos em descanso */
 export const restDaysOf = (prefs: Pick<StudyPlanPrefs, 'restDay' | 'weekTurns'>): number[] => {
   const out = new Set<number>();
@@ -641,6 +792,8 @@ export const mergeStudyMethod = (local: StudyMethodState, cloudRaw: any, _today 
         ...(dismissed ? { dismissed } : {}),
         ...(detail ? { detail } : {}),
         ...(l.closed || c.closed ? { closed: true } : {}),
+        // Misturadas: questões por tema (a nuvem vale; sem valor lá, fica o deste aparelho)
+        ...(c.mixedPerTheme ?? l.mixedPerTheme ? { mixedPerTheme: c.mixedPerTheme ?? l.mixedPerTheme } : {}),
         ...(custom ? { custom } : {}),
       };
     }),
@@ -995,6 +1148,10 @@ export interface PlanTask {
   skipped: boolean;
   /** O que "Passar para amanhã" muda */
   movable?: 'review' | 'new_block' | 'new_topics' | 'custom' | 'project_review';
+  /** Dia das misturadas: temas estudados na semana (de domingo até o dia anterior) */
+  mixThemes?: Array<{ blockId: string; name: string; subjectId: string; color: string }>;
+  /** Dia das misturadas: questões por tema (5 a 10) */
+  perTheme?: number;
 }
 
 export type DayKind = 'normal' | 'mixed' | 'rest' | 'low_energy' | 'plantao' | 'pos_plantao' | 'prova' | 'pos_prova';
@@ -1195,16 +1352,18 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
   // Dia difícil vale sobre o humor da prova (o aluno escolheu o dia mínimo)
   const mood = provaDay && !lowEnergy ? state.mood : undefined;
   const minimal = lowEnergy ? state.minimal : undefined;
-  let capacity = state.capacity && state.capacity > 0 ? state.capacity : prefs.dailyPomodoros;
+  // Horas livres por dia da semana (se o aluno preencheu): o tempo padrão do dia sai delas, no lugar dos turnos
+  const hoursWeek = hoursByWeekdayOf(prefs);
+  let capacity = state.capacity && state.capacity > 0 ? state.capacity : dayBaseCapacity(prefs, dow);
   if (rest && !state.capacity) capacity = 1;
   else {
     // Dia difícil e plantão: vale o menor dos dois
     // Semana por turnos: menos turnos livres, menos foco
-    if (turnsDay && !state.capacity) capacity = Math.min(capacity, turnsDay.capacity);
-    if (lowEnergy && !state.capacity) capacity = Math.min(capacity, Math.max(minFocusUnits(prefs.shortFocusMinutes), roundToBlock(prefs.dailyPomodoros / 3, prefs.shortFocusMinutes)));
+    if (turnsDay && !hoursWeek && !state.capacity) capacity = Math.min(capacity, turnsDay.capacity);
+    if (lowEnergy && !state.capacity) capacity = Math.min(capacity, Math.max(minFocusUnits(prefs.shortFocusMinutes), roundToBlock(dayBaseCapacity(prefs, dow) / 3, prefs.shortFocusMinutes)));
     if (plantao && !state.capacity) capacity = Math.min(capacity, minFocusUnits(prefs.shortFocusMinutes));
     // Semana de prova: estudo intensificado (+50%), menos no dia difícil e no plantão
-    if (examWeek && !state.capacity && !lowEnergy && !plantao) capacity = Math.min(16, roundToBlock(capacity * 1.5, prefs.focusMinutes));
+    if (examWeek && !state.capacity && !lowEnergy && !plantao) capacity = Math.max(capacity, Math.min(16, roundToBlock(capacity * 1.5, prefs.focusMinutes)));
     // Prova hoje (humor depois da prova) e dia mínimo do Dia difícil: o tempo cai para o tamanho do que fica
     if (!state.capacity) {
       if (mood === 'cansado' || mood === 'estressado' || mood === 'destruido') capacity = Math.min(capacity, units(prefs.shortFocusMinutes, 1));
@@ -1473,7 +1632,36 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
     if (!plantao) {
       // 6. Sábado: misturadas + caderno (só temas com base: R2 feita); reta final: 1 tarefa da prova mais próxima
       const withBase = blocks.filter((b) => subjectIds.has(b.subjectId) && b.reviewStatus !== 'estudando' && b.reviewsDone >= 2).length;
-      if (mixed) {
+      // Temas da semana (domingo até ontem): de 5 a 10 questões de cada, misturadas (o aluno ajusta)
+      const weekThemes = mixed ? weekStudiedBlocks(blocks, date, subjectIds) : [];
+      if (mixed && weekThemes.length > 0) {
+        const perTheme = clampPerTheme(state.mixedPerTheme);
+        const total = perTheme * weekThemes.length;
+        // ~2 min por questão, em blocos curtos (de 2 a 6 blocos)
+        const mixBlocks = Math.min(6, Math.max(2, Math.ceil((total * 2) / Math.max(5, shortFocus))));
+        all.push(
+          mk({
+            id: `mix:${date}`,
+            kind: 'mixed',
+            priority: 2,
+            emoji: '🔀',
+            color: '#ec4899',
+            title: 'Questões misturadas dos temas da semana',
+            subtitle: `${weekThemes.length} tema${weekThemes.length > 1 ? 's' : ''} · ${total} questões`,
+            reason: 'Misturar os temas da semana treina o que a prova cobra: reconhecer o assunto sozinho.',
+            steps: [
+              `Faça ${perTheme} questões de cada tema, misturadas: ${weekThemes.map((b) => b.name).join(', ')}`,
+              'Responda o caderno de erros tentando lembrar a regra antes de olhar',
+              'Anote os erros novos',
+            ],
+            pomodoros: mixBlocks,
+            focus: shortFocus,
+            questions: total,
+            perTheme,
+            mixThemes: weekThemes.map((b) => ({ blockId: b.id, name: b.name, subjectId: b.subjectId, color: subjectColor(subjects, b.subjectId) })),
+          })
+        );
+      } else if (mixed) {
         all.push(
           mk({
             id: `mix:${date}`,
@@ -2063,11 +2251,22 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
     sleepNote: SLEEP_NOTE,
     turnsNote: (() => {
       const wk = examWeek ? 'Semana de prova: estudo intensificado e foco nas matérias da prova.' : '';
-      if (!turnsDay) return wk || undefined;
+      const win = !rest && !plantao ? bestWindowText(prefs) : '';
+      // Horas livres do dia (quando preenchidas, valem no lugar dos turnos)
+      if (hoursWeek && !rest) {
+        const free = hoursWeek[dow];
+        let note = free > 0 ? `Hoje você tem ${formatFreeHours(free)} livres.` : 'Hoje sem horas livres: só revisões curtas.';
+        if (free > 0 && win && prefs.bestTurn) note += ` Faça o tema novo de ${TURN_LABELS[TURN_KEYS.indexOf(prefs.bestTurn)].toLowerCase()}${win}, seu melhor turno.`;
+        return wk ? `${wk} ${note}` : note;
+      }
+      if (!turnsDay) {
+        const note = win && prefs.bestTurn ? `Faça o tema novo de ${TURN_LABELS[TURN_KEYS.indexOf(prefs.bestTurn)].toLowerCase()}${win}, seu melhor turno.` : '';
+        return [wk, note].filter(Boolean).join(' ') || undefined;
+      }
       const t = turnsDay.turns;
       let note = `Seus turnos hoje: ${TURN_LABELS.map((l, i) => `${l.toLowerCase()} ${TURN_WORD[t[i]]}`).join(' · ')}.`;
       const bi = prefs.bestTurn ? TURN_KEYS.indexOf(prefs.bestTurn) : -1;
-      if (!rest && !plantao && bi >= 0 && t[bi] === 'livre') note += ` Faça o tema novo de ${TURN_LABELS[bi].toLowerCase()}, seu melhor turno.`;
+      if (!rest && !plantao && bi >= 0 && t[bi] === 'livre') note += ` Faça o tema novo de ${TURN_LABELS[bi].toLowerCase()}${win}, seu melhor turno.`;
       else if (!rest && t.every((x) => x !== 'livre')) note += ' Sem turno livre: só revisões curtas.';
       return wk ? `${wk} ${note}` : note;
     })(),

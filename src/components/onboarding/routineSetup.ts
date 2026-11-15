@@ -43,6 +43,10 @@ export interface RoutineAnswers {
   restDay: number | null | undefined;
   /** turno em que rende mais: null = tanto faz, undefined = sem resposta */
   bestTurn: ExamShift | null | undefined;
+  /** horas livres por dia (min, 0 = domingo); null = não preencheu */
+  hoursByWeekday: number[] | null;
+  /** horário (opcional): "HH:MM" */
+  times: Pick<StudyPlanPrefs, 'wakeTime' | 'sleepTime' | 'lunchTime' | 'dinnerTime'>;
 }
 
 export const EMPTY_ROUTINE_ANSWERS: RoutineAnswers = {
@@ -52,6 +56,8 @@ export const EMPTY_ROUTINE_ANSWERS: RoutineAnswers = {
   weekendFree: null,
   restDay: undefined,
   bestTurn: undefined,
+  hoursByWeekday: null,
+  times: {},
 };
 
 /** Respondeu alguma pergunta principal? (senão a rotina fica para a pesquisa depois do cadastro)
@@ -62,6 +68,8 @@ export const hasRoutineAnswers = (a: RoutineAnswers) =>
   a.weekendFree !== null ||
   a.restDay !== undefined ||
   a.bestTurn !== undefined ||
+  a.hoursByWeekday !== null ||
+  Object.values(a.times).some(Boolean) ||
   a.focus.focus !== DEFAULT_ROUTINE_FOCUS.focus ||
   a.focus.rest !== DEFAULT_ROUTINE_FOCUS.rest;
 
@@ -84,6 +92,13 @@ export const routineAnswersToPrefs = (a: RoutineAnswers): Partial<StudyPlanPrefs
   if (a.hoursBlocks !== null) out.dailyPomodoros = a.hoursBlocks;
   if (a.restDay !== undefined) out.restDay = a.restDay;
   if (a.bestTurn !== undefined) out.bestTurn = a.bestTurn ?? undefined;
+  if (a.hoursByWeekday) {
+    const rest = a.restDay ?? null;
+    out.hoursByWeekday = a.hoursByWeekday.map((x, d) => (d === rest ? 0 : x));
+  }
+  (Object.keys(a.times) as Array<keyof RoutineAnswers['times']>).forEach((k) => {
+    if (a.times[k]) out[k] = a.times[k];
+  });
   if (a.weekdayFree !== null || a.weekendFree !== null) {
     out.weekTurns = buildWeekTurns(a.weekdayFree ?? ['manha', 'tarde', 'noite'], a.weekendFree ?? []);
   }

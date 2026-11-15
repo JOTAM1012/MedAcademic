@@ -37,6 +37,7 @@ import { formatDM, parseYMD } from '../../data/blockReview';
 import { PHASE_INFO, WEEKDAY_NAMES, WELLBEING_NOTE, type PlanTask } from '../../data/studyMethod';
 import { useDayPlan, useDayThemes } from '../../hooks/useStudyPlan';
 import { CloseDayModal } from './CloseDayModal';
+import { MixedThemesCard } from './MixedThemesCard';
 import { AUTO_KINDS, DAY_KIND_INFO, blocksToHours, isRealTask, readLocal, startPlanTask, taskSizeLabel, userLocalKey, writeLocal } from './planShared';
 import { QuickThemeModal } from './QuickThemeModal';
 import { WeeklyPlanModal } from './WeeklyPlanModal';
@@ -388,6 +389,7 @@ export const TodayPlanPanel: React.FC<TodayPlanPanelProps> = ({ compact, onOpenW
         </p>
       )}
       {t.steps.length > 0 && StepList(t)}
+      {t.kind === 'mixed' && !t.done && <MixedThemesCard task={t} date={date} />}
       {t.questions && <p className="text-[11px] text-slate-500 dark:text-slate-400">{dayState.detail?.[t.id]?.questions ? `Sua meta: ${t.questions} questões.` : `Sugestão: ${t.questions} questões (modelo para adaptar, não regra).`}</p>}
       {TaskActions({ t, inOverflow })}
     </div>
@@ -554,6 +556,7 @@ export const TodayPlanPanel: React.FC<TodayPlanPanelProps> = ({ compact, onOpenW
               {nowSteps && (
                 <div className="mt-1 pb-1">
                   {StepList(t)}
+                  {t.kind === 'mixed' && !t.done && <div className="mt-2"><MixedThemesCard task={t} date={date} /></div>}
                   {t.questions && <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400 pl-7">{dayState.detail?.[t.id]?.questions ? `Sua meta: ${t.questions} questões.` : `Sugestão: ${t.questions} questões (modelo para adaptar).`}</p>}
                 </div>
               )}

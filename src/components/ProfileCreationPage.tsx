@@ -1193,7 +1193,7 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
             {/* Step 4: rotina para montar o Planner (só no cadastro / 1ª configuração) */}
             {showRoutineStep && (
               <Step title="Rotina">
-                <SignupRoutineStep value={routineAnswers} onChange={setRoutineAnswers} />
+                <SignupRoutineStep value={routineAnswers} onChange={setRoutineAnswers} targetHours={Number(weeklyTargetHours) || undefined} />
               </Step>
             )}
 

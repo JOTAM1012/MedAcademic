@@ -5,6 +5,7 @@ import { CalendarClock } from 'lucide-react';
 import { TURN_KEYS, TURN_LABELS, WEEKDAY_SHORT } from '../../data/studyMethod';
 import type { ExamShift } from '../../types';
 import { ROUTINE_FOCUS_OPTIONS, ROUTINE_HOURS_OPTIONS, ROUTINE_WEEK_ORDER, type RoutineAnswers } from './routineSetup';
+import { DayTimesEditor, WeekHoursEditor } from '../plan/WeekHoursEditor';
 
 const chip = (active: boolean) =>
   `min-h-[44px] rounded-xl border px-3 py-2 text-xs font-bold transition-colors cursor-pointer ${
@@ -19,7 +20,7 @@ const Q: React.FC<{ n: number; children: React.ReactNode }> = ({ n, children }) 
 );
 
 // onChange recebe uma função (como o setState): toques rápidos seguidos não se sobrescrevem
-export const SignupRoutineStep: React.FC<{ value: RoutineAnswers; onChange: React.Dispatch<React.SetStateAction<RoutineAnswers>> }> = ({ value, onChange }) => {
+export const SignupRoutineStep: React.FC<{ value: RoutineAnswers; onChange: React.Dispatch<React.SetStateAction<RoutineAnswers>>; targetHours?: number }> = ({ value, onChange, targetHours }) => {
   const set = <K extends keyof RoutineAnswers>(k: K, v: RoutineAnswers[K]) => onChange((prev) => ({ ...prev, [k]: v }));
   const toggleTurn = (k: 'weekdayFree' | 'weekendFree', t: ExamShift) => {
     onChange((prev) => {
@@ -121,6 +122,30 @@ export const SignupRoutineStep: React.FC<{ value: RoutineAnswers; onChange: Reac
           </button>
         </div>
         <p className="mt-1.5 text-[11px] text-slate-500">O plano coloca o tema novo nesse turno.</p>
+      </section>
+
+      <section id="signup-routine-week-hours">
+        <Q n={7}>Horas livres em cada dia (opcional)</Q>
+        <WeekHoursEditor
+          idPrefix="signup-week-hours"
+          variant="signup"
+          value={value.hoursByWeekday ?? undefined}
+          onChange={(v) => set('hoursByWeekday', v ?? null)}
+          restDays={typeof value.restDay === 'number' ? [value.restDay] : []}
+          targetHours={targetHours}
+          defaultUnits={value.hoursBlocks ?? 4}
+        />
+      </section>
+
+      <section id="signup-routine-times">
+        <Q n={8}>Seu horário (opcional)</Q>
+        <DayTimesEditor
+          idPrefix="signup-times"
+          variant="signup"
+          value={value.times}
+          onChange={(k, v) => onChange((prev) => ({ ...prev, times: { ...prev.times, [k]: v } }))}
+          bestTurn={value.bestTurn ?? undefined}
+        />
       </section>
     </div>
   );

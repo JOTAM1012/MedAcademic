@@ -4,7 +4,8 @@
 import React, { useEffect, useState } from 'react';
 import { Minus, Plus, RotateCcw, Settings2, Sparkles } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
-import { PHASE_INFO, ROUTINE_DISCLAIMER, TURN_KEYS, TURN_LABELS, WEEKDAY_NAMES, WEEKDAY_SHORT } from '../../data/studyMethod';
+import { PHASE_INFO, ROUTINE_DISCLAIMER, TURN_KEYS, TURN_LABELS, WEEKDAY_NAMES, WEEKDAY_SHORT, hoursByWeekdayOf, restDaysOf } from '../../data/studyMethod';
+import { DayTimesEditor, WeekHoursEditor } from './WeekHoursEditor';
 import type { ExamShift, StudyPlanPrefs, TurnState } from '../../types';
 import { OptionChip, PlanModal, UNIT_MINUTES, blocksToHours, stepByBlock } from './planShared';
 import { BlockPicker } from './BlockPicker';
@@ -82,7 +83,7 @@ const Toggle: React.FC<{ id: string; on: boolean; onChange: (v: boolean) => void
 
 export const StudyRoutineModal: React.FC<StudyRoutineModalProps> = ({ open, onClose, firstTime: firstTimeProp, required }) => {
   const firstTime = firstTimeProp || required;
-  const { studyPrefs, studyPhase, updateStudyPrefs, showNotification } = useApp();
+  const { studyPrefs, studyPhase, updateStudyPrefs, showNotification, userProfile } = useApp();
   const phase = PHASE_INFO[studyPhase];
   const [mode, setMode] = useState<'quick' | 'full'>(firstTime ? 'quick' : 'full');
   const [draft, setDraft] = useState<StudyPlanPrefs>(studyPrefs);
@@ -147,7 +148,13 @@ export const StudyRoutineModal: React.FC<StudyRoutineModalProps> = ({ open, onCl
       return;
     }
     if (sameDay) return;
-    const final: StudyPlanPrefs = mode === 'quick' ? { ...draft, mixedDay: quickMixed, weekTurns: quickTurns ?? draft.weekTurns } : draft;
+    const final: StudyPlanPrefs = mode === 'quick' ? { ...draft, mixedDay: quickMixed, weekTurns: quickTurns ?? draft.weekTurns } : { ...draft };
+    // Horas por dia: o dia de descanso fica sempre em 0
+    const hw = hoursByWeekdayOf(final);
+    if (hw && final.hoursByWeekday !== studyPrefs.hoursByWeekday) {
+      const rests = restDaysOf(final);
+      final.hoursByWeekday = hw.map((x, d) => (rests.includes(d) ? 0 : x));
+    }
     const changes: Partial<StudyPlanPrefs> = {};
     (Object.keys(final) as Array<keyof StudyPlanPrefs>).forEach((k) => {
       if (final[k] !== studyPrefs[k]) (changes as any)[k] = final[k];
@@ -465,6 +472,35 @@ export const StudyRoutineModal: React.FC<StudyRoutineModalProps> = ({ open, onCl
               <Plus className="h-4 w-4" />
             </button>
           </div>
+          {hoursByWeekdayOf(draft) && (
+            <p className="mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">Você preencheu as horas de cada dia: o Planner usa elas no lugar deste tempo.</p>
+          )}
+        </section>
+
+        {/* Horas livres por dia da semana (opcional) */}
+        <section id="routine-hours-section">
+          <SectionTitle hint="Quantas horas livres de estudo você tem em cada dia. Vira o tempo padrão do dia no Planner. Dá para ajustar no dia.">
+            Horas livres por dia
+          </SectionTitle>
+          <WeekHoursEditor
+            idPrefix="routine-week-hours"
+            value={draft.hoursByWeekday}
+            onChange={(v) => set('hoursByWeekday', v)}
+            restDays={restDaysOf(draft)}
+            targetHours={userProfile.weeklyTargetHours}
+            defaultUnits={draft.dailyPomodoros}
+          />
+        </section>
+
+        {/* Questionário de horário (opcional) */}
+        <section id="routine-times-section">
+          <SectionTitle hint="Opcional. Ajuda a sugerir o melhor horário para os seus blocos.">Meu horário</SectionTitle>
+          <DayTimesEditor
+            idPrefix="routine-times"
+            value={{ wakeTime: draft.wakeTime, sleepTime: draft.sleepTime, lunchTime: draft.lunchTime, dinnerTime: draft.dinnerTime }}
+            onChange={(k, v) => set(k, v)}
+            bestTurn={draft.bestTurn}
+          />
         </section>
 
         {/* Temas novos */}

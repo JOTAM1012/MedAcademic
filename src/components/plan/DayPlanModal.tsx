@@ -5,7 +5,8 @@ import React, { useMemo, useState } from 'react';
 import { ArrowUpToLine, BookOpen, CalendarClock, Layers, Lightbulb, Minus, Pin, PinOff, Plus, RotateCcw, SlidersHorizontal, Undo2, X } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { addDaysYMD, formatDM, parseYMD, ymd } from '../../data/blockReview';
-import { EXAM_MOODS, MINIMAL_DAY_OPTIONS, WEEKDAY_NAMES, formatMinutes, type PlanTask } from '../../data/studyMethod';
+import { EXAM_MOODS, MINIMAL_DAY_OPTIONS, WEEKDAY_NAMES, dayBaseCapacity, formatFreeHours, formatMinutes, hoursByWeekdayOf, type PlanTask } from '../../data/studyMethod';
+import { MixedThemesCard } from './MixedThemesCard';
 import type { DayPlanState, DayTaskDetail } from '../../types';
 import { ThemeDetailCard } from './ThemeDetailCard';
 import { semesterNumberOf } from '../../data/subjectFormats';
@@ -259,7 +260,9 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose, date:
   );
 
   // O que cada tipo muda no plano (mesma regra do cálculo do dia em studyMethod.ts)
-  const daily = studyPrefs.dailyPomodoros;
+  // Tempo padrão deste dia: horas livres do dia da semana (se preenchidas) ou o tempo de foco por dia
+  const daily = dayBaseCapacity(studyPrefs, parseYMD(date).getDay());
+  const freeToday = hoursByWeekdayOf(studyPrefs)?.[parseYMD(date).getDay()];
   const shortMin = studyPrefs.shortFocusMinutes;
   const lowCap = blocksToHours(Math.min(daily, Math.max(2, Math.round(daily / 3))));
   const essentialCap = blocksToHours(Math.min(2, daily));
@@ -519,7 +522,7 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose, date:
               <div className="flex-1 text-center">
                 <p id="dayplan-time" className="text-2xl font-black text-slate-900 dark:text-white leading-none">{blocksToHours(capacity)}</p>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                  {state.capacity ? (isToday ? 'só para hoje' : 'só para este dia') : `padrão da sua rotina (${blocksToHours(studyPrefs.dailyPomodoros)})`} · previsto {blocksToHours(plan.planned)}
+                  {state.capacity ? (isToday ? 'só para hoje' : 'só para este dia') : freeToday !== undefined ? `padrão de ${WEEKDAY_NAMES[parseYMD(date).getDay()].toLowerCase()}: ${formatFreeHours(freeToday)} livres (${blocksToHours(daily)} de foco)` : `padrão da sua rotina (${blocksToHours(daily)})`} · previsto {blocksToHours(plan.planned)}
                 </p>
               </div>
               <button
@@ -613,6 +616,17 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose, date:
               <p className="mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">Desligado sai só deste dia. No dia seguinte o plano volta ao padrão da sua rotina.</p>
             </section>
           )}
+
+          {/* Detalhado: dia das misturadas (temas da semana e questões por tema) */}
+          {mode === 'detalhado' &&
+            all
+              .filter((t) => t.kind === 'mixed' && !t.skipped && !t.done && (t.mixThemes || []).length > 0)
+              .map((t) => (
+                <section key={t.id} id="dayplan-mixed">
+                  <p className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">🔀 Questões misturadas</p>
+                  <MixedThemesCard task={t} date={date} />
+                </section>
+              ))}
 
           {/* Tema novo + conteúdos */}
           <section>

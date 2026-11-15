@@ -5,7 +5,7 @@ import { ArrowDown, ArrowUp, CalendarClock, Check, LayoutGrid, RotateCcw, Smartp
 import { StudyRoutineModal } from './plan/StudyRoutineModal';
 import { SetupWizard } from './onboarding/SetupWizard';
 import { blocksToHours } from './plan/planShared';
-import { TURN_LABELS, WEEKDAY_SHORT } from '../data/studyMethod';
+import { TURN_LABELS, WEEKDAY_SHORT, formatFreeHours, hoursByWeekdayOf } from '../data/studyMethod';
 import { useApp } from '../context/AppContext';
 import type { DashboardPrefs, DashboardWidgetId } from '../types';
 import { DashboardEditor } from './dashboard/DashboardEditor';
@@ -98,7 +98,9 @@ export const CustomizeView: React.FC = () => {
           </button>
         </div>
         <div className="mt-3 flex flex-wrap gap-1.5 text-xs">
-          <span className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold">{blocksToHours(studyPrefs.dailyPomodoros)} de foco/dia</span>
+          <span className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold">
+            {hoursByWeekdayOf(studyPrefs) ? `${formatFreeHours(hoursByWeekdayOf(studyPrefs)!.reduce((a, x) => a + x, 0))} livres/semana` : `${blocksToHours(studyPrefs.dailyPomodoros)} de foco/dia`}
+          </span>
           <span className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold">
             {freeTurns === null ? 'Turnos: todos iguais' : `${freeTurns} turno${freeTurns === 1 ? '' : 's'} livre${freeTurns === 1 ? '' : 's'} na semana`}
           </span>
