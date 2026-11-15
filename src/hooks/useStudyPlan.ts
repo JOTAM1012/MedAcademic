@@ -93,7 +93,15 @@ export const useDayThemes = (date?: string) => {
   /** Tira o tema do dia: volta a ficar sem data (não é sugerido de novo neste dia) */
   const removeTheme = (blockId: string) => {
     const id = `new:${blockId}`;
-    setDayPlanState(d, (s) => ({ ...s, accepted: without(s.accepted, id), dismissed: withId(s.dismissed, id), order: s.order ? without(s.order, id) : s.order, pinned: s.pinned ? without(s.pinned, id) : s.pinned }));
+    setDayPlanState(d, (s) => {
+      // As escolhas do Detalhado para este tema saem junto
+      let detail = s.detail;
+      if (detail && detail[id]) {
+        detail = { ...detail };
+        delete detail[id];
+      }
+      return { ...s, accepted: without(s.accepted, id), dismissed: withId(s.dismissed, id), order: s.order ? without(s.order, id) : s.order, pinned: s.pinned ? without(s.pinned, id) : s.pinned, detail };
+    });
     const b = topicBlocks.find((x) => x.id === blockId);
     if (b && b.plannedDate && b.plannedDate <= d) updateTopicBlock(blockId, { plannedDate: undefined });
   };

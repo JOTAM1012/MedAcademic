@@ -621,6 +621,17 @@ export const mergeStudyMethod = (local: StudyMethodState, cloudRaw: any, _today 
       const custom = c.custom || l.custom ? [...(c.custom || []), ...(l.custom || []).filter((x) => !(c.custom || []).some((y) => y.id === x.id))] : undefined;
       const accepted = uni(l.accepted, c.accepted);
       const dismissed = uni(l.dismissed, c.dismissed);
+      // Escolhas do Detalhado: une por tarefa (na mesma tarefa, cada campo da nuvem vale sobre o deste aparelho)
+      const detail =
+        l.detail || c.detail
+          ? (() => {
+              const out: NonNullable<DayPlanState['detail']> = { ...(l.detail || {}) };
+              Object.entries(c.detail || {}).forEach(([id, d]) => {
+                out[id] = { ...(out[id] || {}), ...d };
+              });
+              return out;
+            })()
+          : undefined;
       return {
         ...l,
         ...c,
@@ -628,6 +639,7 @@ export const mergeStudyMethod = (local: StudyMethodState, cloudRaw: any, _today 
         skipped: uni(l.skipped, c.skipped),
         ...(accepted ? { accepted } : {}),
         ...(dismissed ? { dismissed } : {}),
+        ...(detail ? { detail } : {}),
         ...(l.closed || c.closed ? { closed: true } : {}),
         ...(custom ? { custom } : {}),
       };
@@ -975,6 +987,10 @@ export interface PlanTask {
   optional?: boolean;
   /** Sugestão automática (o aluno não programou) */
   suggested?: boolean;
+  /** Tamanho exato em minutos (temas: tempo do dia escolhido pelo aluno ou divisão do tempo livre) */
+  minutes?: number;
+  /** Tarefa da rotina (flashcards, questões do eixo, folha em branco): opcional, sai com um toque */
+  routine?: boolean;
   done: boolean;
   skipped: boolean;
   /** O que "Passar para amanhã" muda */
@@ -1069,6 +1085,43 @@ export const newTopicBlocks = (focus: number) => Math.max(1, Math.round((focus >
 export const taskBlocks = (pomodoros: number, focus: number) => Math.max(1, Math.round((pomodoros * 25) / Math.max(5, focus)));
 /** "2 × 50 min" / "1 × 60 min" / "10 min" */
 export const formatTaskSize = (pomodoros: number, focus: number) => (pomodoros <= 0 ? '10 min' : `${taskBlocks(pomodoros, focus)} × ${focus} min`);
+/** Minutos → "1h40" / "40 min" */
+export const formatMinutes = (min: number) => {
+  const m0 = Math.max(0, Math.round(min));
+  const h = Math.floor(m0 / 60);
+  const m = m0 % 60;
+  if (h === 0) return `${m} min`;
+  return m ? `${h}h${String(m).padStart(2, '0')}` : `${h}h`;
+};
+
+/** Atividades que o aluno escolhe para um tema no "Planejar dia" (Detalhado). Viram o passo a passo da tarefa */
+export const DAY_ACTIVITIES: Array<{ id: string; label: string; step: (q?: number) => string }> = [
+  { id: 'ler_resumo', label: 'Ler resumo', step: () => 'Ler o resumo, tentando lembrar antes de cada parte' },
+  { id: 'mapa_mental', label: 'Mapa mental', step: () => 'Fazer um mapa mental do tema' },
+  { id: 'fazer_resumo', label: 'Fazer resumo', step: () => 'Fazer o seu resumo, com suas palavras' },
+  { id: 'questoes', label: 'Questões', step: (q) => (q ? `Fazer ${q} questões, sem consultar` : 'Fazer questões, sem consultar') },
+  { id: 'videoaula', label: 'Videoaula', step: () => 'Assistir à videoaula' },
+  { id: 'explicar', label: 'Explicar em voz alta', step: () => 'Explicar em voz alta, sem olhar' },
+  { id: 'corrigir', label: 'Corrigir questões', step: () => 'Corrigir as questões e anotar os erros no caderno' },
+  { id: 'flashcards', label: 'Flashcards', step: () => 'Criar ou revisar os flashcards do tema' },
+];
+
+/** Dia difícil: opções de dia mínimo (o aluno escolhe uma) */
+export const MINIMAL_DAY_OPTIONS: Array<{ id: NonNullable<DayPlanState['minimal']>; label: string; hint: string }> = [
+  { id: 'revisoes', label: 'Só as revisões vencidas', hint: 'o resto fica opcional' },
+  { id: 'questoes', label: '20 min de questões', hint: 'um bloco curto' },
+  { id: 'flashcards', label: 'Só os flashcards', hint: 'os cartões do dia' },
+  { id: 'folha', label: 'Folha em branco (10 min)', hint: 'escrever o que lembra' },
+];
+
+/** Prova hoje: como o aluno está depois da prova */
+export const EXAM_MOODS: Array<{ id: NonNullable<DayPlanState['mood']>; label: string; emoji: string; desc: string }> = [
+  { id: 'normal', label: 'Normal', emoji: '🙂', desc: 'Revisão leve: resumo ou flashcards.' },
+  { id: 'cansado', label: 'Cansado', emoji: '🥱', desc: 'Só o essencial, curto. O resto fica opcional.' },
+  { id: 'estressado', label: 'Estressado', emoji: '😣', desc: 'Algo leve e uma pausa antes. O resto fica opcional.' },
+  { id: 'destruido', label: 'Destruído', emoji: '😵', desc: 'Descanso. Tudo fica opcional.' },
+];
+
 /** Texto de um bloco: "60/10" */
 export const blockLabel = (focus: number, rest: number) => `${focus}/${rest}`;
 
@@ -1138,6 +1191,10 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
     .filter((e) => e.grade === undefined && e.date >= date && daysBetween(date, e.date) <= 1)
     .sort((a, b) => a.date.localeCompare(b.date))[0];
 
+  /** Prova hoje: humor depois da prova. Dia difícil: o dia mínimo escolhido */
+  // Dia difícil vale sobre o humor da prova (o aluno escolheu o dia mínimo)
+  const mood = provaDay && !lowEnergy ? state.mood : undefined;
+  const minimal = lowEnergy ? state.minimal : undefined;
   let capacity = state.capacity && state.capacity > 0 ? state.capacity : prefs.dailyPomodoros;
   if (rest && !state.capacity) capacity = 1;
   else {
@@ -1148,6 +1205,13 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
     if (plantao && !state.capacity) capacity = Math.min(capacity, minFocusUnits(prefs.shortFocusMinutes));
     // Semana de prova: estudo intensificado (+50%), menos no dia difícil e no plantão
     if (examWeek && !state.capacity && !lowEnergy && !plantao) capacity = Math.min(16, roundToBlock(capacity * 1.5, prefs.focusMinutes));
+    // Prova hoje (humor depois da prova) e dia mínimo do Dia difícil: o tempo cai para o tamanho do que fica
+    if (!state.capacity) {
+      if (mood === 'cansado' || mood === 'estressado' || mood === 'destruido') capacity = Math.min(capacity, units(prefs.shortFocusMinutes, 1));
+      if (minimal === 'questoes') capacity = units(20, 1);
+      else if (minimal === 'flashcards') capacity = units(prefs.shortFocusMinutes, 1);
+      else if (minimal === 'folha') capacity = units(10, 1);
+    }
   }
   // Blocos do aluno: curto para revisões/questões, longo para tema novo (no dia difícil/plantão, só o curto)
   const shortFocus = prefs.shortFocusMinutes;
@@ -1178,7 +1242,9 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
         steps: ['Faça os cartões do dia no Anki ou nos seus flashcards', 'Seja honesto nos botões: errei, difícil, bom, fácil', 'Poucos cartões novos por dia'],
         pomodoros: 1,
         focus: shortFocus,
-        optional: rest,
+        // Rotina: opcional (não conta como atraso nem no "faltam N"); sai com um toque
+        optional: true,
+        routine: true,
       })
     );
   }
@@ -1398,6 +1464,8 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
           questions: residencyPrep ? 30 : phase === 'internato' ? 10 : 15,
           projectId: residencyPrep ? resProject?.id : undefined,
           autoDone: doneQ,
+          optional: true,
+          routine: true,
         })
       );
     }
@@ -1723,6 +1791,8 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
         steps: ['Sem consultar, escreva tudo o que aprendeu hoje', 'Marque o que não conseguiu lembrar para revisar amanhã'],
         pomodoros: 0,
         focus: shortFocus,
+        optional: true,
+        routine: true,
       })
     );
   } else {
@@ -1747,6 +1817,59 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
     );
   }
 
+  // Dia difícil: o dia mínimo escolhido entra como a única tarefa que conta (se ainda não estiver no dia)
+  if (minimal === 'questoes') {
+    all.unshift(
+      mk({
+        id: `minq:${date}`,
+        kind: 'phase_questions',
+        priority: 1,
+        emoji: '✍️',
+        color: '#0ea5e9',
+        title: '20 min de questões',
+        subtitle: 'Seu dia mínimo: um bloco curto e pronto',
+        reason: 'Dia difícil: um passo pequeno ainda conta.',
+        steps: ['Responda sem consultar', 'Leia o comentário das que errou', 'Pare quando der 20 minutos'],
+        pomodoros: units(20, 1),
+        focus: 20,
+        minutes: 20,
+        sized: true,
+      })
+    );
+  } else if (minimal === 'flashcards' && !all.some((t) => t.kind === 'flashcards')) {
+    all.unshift(
+      mk({
+        id: `fc:${date}`,
+        kind: 'flashcards',
+        priority: 1,
+        emoji: '🃏',
+        color: '#14b8a6',
+        title: 'Flashcards do dia',
+        subtitle: 'Seu dia mínimo: os cartões do dia',
+        reason: 'Dia difícil: um passo pequeno ainda conta.',
+        steps: ['Faça os cartões do dia', 'Seja honesto nos botões'],
+        pomodoros: 1,
+        focus: shortFocus,
+      })
+    );
+  } else if (minimal === 'folha' && !all.some((t) => t.kind === 'blank_page')) {
+    all.push(
+      mk({
+        id: `blank:${date}`,
+        kind: 'blank_page',
+        priority: 2,
+        emoji: '🌙',
+        color: '#6366f1',
+        title: 'Folha em branco do dia (10 min)',
+        subtitle: 'Seu dia mínimo: escreva o que lembra, sem consultar',
+        reason: 'Dia difícil: um passo pequeno ainda conta.',
+        steps: ['Sem consultar, escreva tudo o que lembra', 'Marque o que não conseguiu lembrar'],
+        pomodoros: 0,
+        focus: shortFocus,
+      })
+    );
+  }
+
   // "Planejar dia": a ordem escolhida pelo aluno vem antes da prioridade calculada
   if (state.order?.length) {
     const pos = new Map(state.order.map((id, i) => [id, i]));
@@ -1754,6 +1877,84 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
     all.sort((a, b) => (pos.get(a.id) ?? 1000 + (idx.get(a.id) || 0)) - (pos.get(b.id) ?? 1000 + (idx.get(b.id) || 0)));
   }
   const pinnedSet = new Set(state.pinned || []);
+  const isReviewKind = (t: PlanTask) => t.kind === 'review' || t.kind === 'project_review';
+  // Tipo do dia: o que deixa de ser obrigatório. null = regra normal
+  const firstReviewId = all.find((t) => isReviewKind(t) && !t.skipped)?.id;
+  const requiredOnly: ((t: PlanTask) => boolean) | null =
+    posProva || mood === 'destruido'
+      ? () => false
+      : mood === 'cansado' || mood === 'estressado'
+        ? (t) => t.kind === 'custom' || t.id === firstReviewId
+        : minimal === 'revisoes'
+          ? (t) => isReviewKind(t) || t.kind === 'custom'
+          : minimal === 'questoes'
+            ? (t) => t.id === `minq:${date}` || t.kind === 'custom'
+            : minimal === 'flashcards'
+              ? (t) => t.kind === 'flashcards' || t.kind === 'custom'
+              : minimal === 'folha'
+                ? (t) => t.kind === 'blank_page' || t.kind === 'custom'
+                : null;
+  // 1) O que conta no dia: tipo do dia → fixada pelo aluno → descanso
+  const prepared = all.map((t0) => {
+    let t = t0;
+    if (requiredOnly) t = requiredOnly(t) ? { ...t, optional: t.kind === 'custom' ? t.optional : false } : { ...t, optional: true };
+    // Fixada pelo aluno no "Planejar dia" deixa de ser opcional
+    if (pinnedSet.has(t.id) && t.optional) t = { ...t, optional: false, reason: 'Você fixou esta tarefa para hoje no Planejar dia.' };
+    if (rest && !t.skipped && (isReviewKind(t) || t.kind === 'flashcards' || t.kind === 'summary')) t = { ...t, optional: true };
+    return t;
+  });
+
+  // 2) Escolhas do Detalhado (tempo, questões, tópicos, atividades) e tamanho dos temas.
+  // Tema: o tempo que o aluno escolheu ou a divisão do tempo livre (depois das revisões, do que conta e da rotina).
+  const isTheme = (t: PlanTask) => (t.kind === 'new_block' || t.kind === 'new_topics') && !t.suggested;
+  const minThemeMin = Math.max(25, Math.min(50, newFocus));
+  const maxThemeMin = 240;
+  const toUnits = (min: number) => Math.round((min / 25) * 1000) / 1000;
+  const topicTitle = (id: string) => topics.find((x) => x.id === id)?.title;
+  prepared.forEach((t, i) => {
+    const d = state.detail?.[t.id];
+    if (!d) return;
+    const next: PlanTask = { ...t };
+    if (d.minutes && d.minutes > 0) {
+      next.minutes = Math.round(d.minutes);
+      next.pomodoros = toUnits(d.minutes);
+    }
+    if (d.questions && d.questions > 0) next.questions = d.questions;
+    const pickedTopics = (d.topicIds || []).filter((id) => !!topicTitle(id));
+    if (pickedTopics.length) {
+      next.topicIds = pickedTopics;
+      next.subtitle = [t.subtitle, `${pickedTopics.length} tópico${pickedTopics.length > 1 ? 's' : ''} hoje`].filter(Boolean).join(' · ');
+    }
+    const acts = DAY_ACTIVITIES.filter((a) => (d.activities || []).includes(a.id));
+    if (acts.length || pickedTopics.length) {
+      const topicStep = pickedTopics.length ? [`Hoje: ${pickedTopics.map(topicTitle).join(', ')}`] : [];
+      next.steps = [...topicStep, ...(acts.length ? acts.map((a) => a.step(next.questions)) : t.steps)];
+    }
+    prepared[i] = next;
+  });
+  const live = prepared.filter((t) => !t.skipped);
+  const autoThemes = live.filter((t) => isTheme(t) && !state.detail?.[t.id]?.minutes);
+  const fixedThemeUnits = live.filter((t) => isTheme(t) && !!state.detail?.[t.id]?.minutes).reduce((a, t) => a + t.pomodoros, 0);
+  const otherUnits = live.filter((t) => !isTheme(t) && (!t.optional || t.done)).reduce((a, t) => a + t.pomodoros, 0);
+  // A rotina (opcional) também cabe no tempo: o aluno tira e o tempo volta para os temas
+  // (a folha em branco não ocupa bloco, mas leva ~10 min)
+  const routineUnits = live.filter((t) => t.routine && t.optional && !t.done).reduce((a, t) => a + (t.pomodoros || (t.kind === 'blank_page' ? units(10, 1) : 0)), 0);
+  // Ordem: revisões e o que conta → temas (até o tamanho padrão de um tema) → rotina → o que sobra volta aos temas
+  const freeAfterRequired = Math.max(0, capacity - otherUnits - fixedThemeUnits);
+  const stdThemeUnits = units(newFocus, newTopicBlocks(newFocus));
+  const themeFree = (n: number) => Math.max(freeAfterRequired - routineUnits, Math.min(freeAfterRequired, n * stdThemeUnits));
+  const shareMinutes = (n: number) => {
+    const raw = n > 0 ? (themeFree(n) * 25) / n : 0;
+    return Math.min(maxThemeMin, Math.max(minThemeMin, Math.floor(raw / 5 + EPS) * 5));
+  };
+  if (autoThemes.length) {
+    const share = shareMinutes(autoThemes.length);
+    const ids = new Set(autoThemes.map((t) => t.id));
+    prepared.forEach((t, i) => {
+      if (ids.has(t.id)) prepared[i] = { ...t, minutes: share, pomodoros: toUnits(share) };
+    });
+  }
+
   // Tudo o que está planejado fica no dia, na ordem acima. Nada vai sozinho para "não coube":
   // se passar do tempo, o aluno vê um aviso discreto e decide no fim do dia ("Encerrar o dia").
   const tasks: PlanTask[] = [];
@@ -1762,18 +1963,12 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
   let used = 0;
   let reviewsIn = 0;
   let overflowReviews = 0;
-  for (const t0 of all) {
-    // Fixada pelo aluno no "Planejar dia" deixa de ser opcional
-    const t = pinnedSet.has(t0.id) && t0.optional ? { ...t0, optional: false, reason: 'Você fixou esta tarefa para hoje no Planejar dia.' } : t0;
+  for (const t of prepared) {
     if (t.skipped) {
       overflow.push(t);
       continue;
     }
-    if (rest && (t.kind === 'review' || t.kind === 'project_review' || t.kind === 'flashcards' || t.kind === 'summary')) {
-      tasks.push({ ...t, optional: true });
-      continue;
-    }
-    const isReview = t.kind === 'review' || t.kind === 'project_review';
+    const isReview = isReviewKind(t);
     const counts = !t.optional || t.done;
     // Revisões pendentes além do tempo do dia (a primeira nunca conta): aviso "Replanejar"
     if (isReview && !t.done && counts && reviewsIn > 0 && used + t.pomodoros > capacity + EPS) overflowReviews++;
@@ -1785,10 +1980,12 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
   // Dia de descanso não tem "tempo estourado"
   const overBy = rest ? 0 : Math.max(0, Math.round((used - capacity) * 1000) / 1000);
 
-  // Sugestões de tema novo: só as que cabem no tempo que sobra (e até "temas novos por dia")
+  // Sugestões de tema novo: só as que cabem no tempo livre (cada tema com ~1h40 de referência) e até "temas novos por dia".
+  // O tamanho mostrado é o que o tema teria se entrasse (o tempo livre dividido de novo).
   const themeUnits = units(newFocus, newTopicBlocks(newFocus));
-  const fits = themeUnits > 0 ? Math.max(0, Math.floor((capacity - used) / themeUnits + EPS)) : 0;
+  const fits = themeUnits > 0 ? Math.max(0, Math.floor(freeAfterRequired / themeUnits + EPS) - autoThemes.length) : 0;
   const suggestCount = Math.min(suggestionPool.length, suggestionSlots, fits);
+  const suggestMin = shareMinutes(autoThemes.length + 1);
   const suggestions: PlanTask[] = suggestionPool.slice(0, suggestCount).map((b) => {
     const bt = topics.filter((t) => t.blockId === b.id);
     const seen = bt.filter(isTopicSeen).length;
@@ -1807,7 +2004,8 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
           ? 'Sugestão: tem prova desta disciplina em breve.'
           : 'Sugestão: é o seu tema em estudo mais antigo sem data.',
       steps: firstSteps,
-      pomodoros: themeUnits,
+      pomodoros: toUnits(suggestMin),
+      minutes: suggestMin,
       sized: true,
       focus: newFocus,
       technique: 'estudo_inicial',
@@ -1821,7 +2019,8 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
 
   const counted = tasks.filter((t) => !t.optional || t.done);
   const doneCount = counted.filter((t) => t.done).length;
-  const next = tasks.find((t) => !t.done && !t.optional && t.kind !== 'blank_page') || tasks.find((t) => !t.done && t.kind !== 'blank_page');
+  const next =
+    tasks.find((t) => !t.done && !t.optional && (t.kind !== 'blank_page' || minimal === 'folha')) || tasks.find((t) => !t.done && t.kind !== 'blank_page');
 
   const examReminders = isToday
     ? exams
@@ -1830,7 +2029,12 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
         .map(({ e, left }) => ({ examId: e.id, daysLeft: left, text: examReminderText(e, left) }))
     : [];
   let message: string | undefined;
-  if (lowEnergy) message = `Dia difícil? Tudo bem. Faça só o essencial, em blocos curtos de ${prefs.shortFocusMinutes} minutos. Um passo pequeno ainda conta.`;
+  const minimalInfo = minimal ? MINIMAL_DAY_OPTIONS.find((o) => o.id === minimal) : undefined;
+  if (minimalInfo) message = `Dia mínimo: ${minimalInfo.label.toLowerCase()}. O resto fica opcional. Um passo pequeno ainda conta.`;
+  else if (mood === 'destruido') message = 'Depois da prova, descanso. Tudo hoje é opcional. Durma bem.';
+  else if (mood === 'estressado') message = 'Antes de tudo, pare 10 minutos: respire fundo, beba água e caminhe um pouco. Depois, só algo leve.';
+  else if (mood === 'cansado') message = `Cansado depois da prova? Faça só o essencial, um bloco curto de ${prefs.shortFocusMinutes} min. O resto fica opcional.`;
+  else if (lowEnergy) message = `Dia difícil? Tudo bem. Faça só o essencial, em blocos curtos de ${prefs.shortFocusMinutes} minutos. Um passo pequeno ainda conta.`;
   else if (posProva) message = 'Pós-prova: dia de descanso. Você merece. Se der vontade, só os flashcards ou o resumo.';
   else if (posPlantao) message = 'Pós-plantão: dia de descanso. Descanse; se der, faça só os flashcards.';
   else if (rest) message = 'Hoje é dia de descanso de verdade. Separe só 20 minutos para planejar a semana.';

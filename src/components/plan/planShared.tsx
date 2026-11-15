@@ -2,18 +2,20 @@
 // armazenamento local seguro e a moldura das janelas (modais) do plano.
 import React, { useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
-import { formatTaskSize, type PlanTask, type DayKind } from '../../data/studyMethod';
+import { formatMinutes, formatTaskSize, type PlanTask, type DayKind } from '../../data/studyMethod';
 import type { FocusTask } from '../../context/AppContext';
 
-/** "2 × 25 min", "1 × 60 min" ou "10 min" (no bloco que o aluno escolheu) */
-export const taskSizeLabel = (t: Pick<PlanTask, 'pomodoros' | 'focus' | 'kind'>) => {
+/** "2 × 25 min", "1 × 60 min", "1h40" (tema com tempo exato) ou "10 min" (no bloco que o aluno escolheu) */
+export const taskSizeLabel = (t: Pick<PlanTask, 'pomodoros' | 'focus' | 'kind'> & { minutes?: number }) => {
+  if (t.minutes) return formatMinutes(t.minutes);
   if (!t.pomodoros) return t.kind === 'weekly_planning' ? 'leve' : '10 min';
   return formatTaskSize(t.pomodoros, t.focus);
 };
 
 /** Minutos do 1º foco ao apertar "Começar" */
-export const taskStartMinutes = (t: Pick<PlanTask, 'pomodoros' | 'focus' | 'kind'>) => {
+export const taskStartMinutes = (t: Pick<PlanTask, 'pomodoros' | 'focus' | 'kind'> & { minutes?: number }) => {
   if (t.kind === 'weekly_planning') return 20;
+  if (t.minutes) return Math.min(t.focus, t.minutes);
   if (!t.pomodoros) return 10;
   return t.focus;
 };

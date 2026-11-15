@@ -244,6 +244,24 @@ export interface DayPlanState {
   dismissed?: string[];
   /** O aluno encerrou o dia (decidiu o que fazer com o que ficou sem marcar) */
   closed?: boolean;
+  /** "Planejar dia" (Detalhado): o que o aluno escolheu para cada tarefa (id da tarefa → escolhas) */
+  detail?: Record<string, DayTaskDetail>;
+  /** Prova hoje: como o aluno está depois da prova (ajusta o plano) */
+  mood?: 'normal' | 'cansado' | 'estressado' | 'destruido';
+  /** Dia difícil: o dia mínimo que o aluno escolheu */
+  minimal?: 'revisoes' | 'questoes' | 'flashcards' | 'folha';
+}
+
+/** Escolhas do aluno para uma tarefa do dia (modo Detalhado do "Planejar dia") */
+export interface DayTaskDetail {
+  /** Tempo de foco da tarefa neste dia (minutos) */
+  minutes?: number;
+  /** Quantas questões */
+  questions?: number;
+  /** Tópicos (Topic) que vai ver hoje */
+  topicIds?: string[];
+  /** Atividades (ids de DAY_ACTIVITIES) */
+  activities?: string[];
 }
 
 export type PersonalProjectKind = 'faculdade' | 'residencia' | 'liga' | 'idioma' | 'curso' | 'leitura' | 'pesquisa' | 'outro';

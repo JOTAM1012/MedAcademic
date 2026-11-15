@@ -23,7 +23,8 @@ export const CloseDayModal: React.FC<CloseDayModalProps> = ({ open, onClose }) =
   const [pickFor, setPickFor] = useState<string | null>(null);
   const tomorrow = addDaysYMD(1, date);
 
-  const pending = plan.tasks.filter((t) => !t.done && t.kind !== 'weekly_planning');
+  // Opcionais (rotina, dia leve) não ficam pendentes: não contam como atraso
+  const pending = plan.tasks.filter((t) => !t.done && !t.optional && t.kind !== 'weekly_planning');
   const doneCount = plan.tasks.filter((t) => t.done).length;
 
   const remove = (t: PlanTask) => {

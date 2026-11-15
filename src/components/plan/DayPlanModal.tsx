@@ -5,7 +5,9 @@ import React, { useMemo, useState } from 'react';
 import { ArrowUpToLine, BookOpen, CalendarClock, Layers, Lightbulb, Minus, Pin, PinOff, Plus, RotateCcw, SlidersHorizontal, Undo2, X } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { addDaysYMD, formatDM, parseYMD, ymd } from '../../data/blockReview';
-import { WEEKDAY_NAMES, type PlanTask } from '../../data/studyMethod';
+import { EXAM_MOODS, MINIMAL_DAY_OPTIONS, WEEKDAY_NAMES, formatMinutes, type PlanTask } from '../../data/studyMethod';
+import type { DayPlanState, DayTaskDetail } from '../../types';
+import { ThemeDetailCard } from './ThemeDetailCard';
 import { semesterNumberOf } from '../../data/subjectFormats';
 import { useDayPlan, useDayThemes } from '../../hooks/useStudyPlan';
 import { ReorderList, type ReorderHandleProps } from '../shared/ReorderList';
@@ -43,7 +45,10 @@ interface DayPlanModalProps {
   stacked?: boolean;
 }
 
-type DayType = 'normal' | 'dificil' | 'prova' | 'pos_prova' | 'plantao' | 'pos_plantao';
+/** Atalhos de horas do dia (passo Tempo) */
+const HOUR_CHIPS = [1, 2, 3, 4, 5, 6, 8];
+
+type DayType ='normal' | 'dificil' | 'prova' | 'pos_prova' | 'plantao' | 'pos_plantao';
 
 export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose, date: dateProp, stacked }) => {
   const {
@@ -53,6 +58,7 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose, date:
     currentSemester,
     currentSubjectIds,
     topicBlocks,
+    topics,
     setDayPlanState,
     setLowEnergy,
     setDayShift,
@@ -81,6 +87,10 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose, date:
   const handleClose = () => {
     setStep(1);
     onClose();
+  };
+  const confirmDay = () => {
+    showNotification(isToday ? 'Plano de hoje confirmado.' : 'Plano do dia confirmado.', 'success');
+    handleClose();
   };
   const modeKey = userLocalKey('dayplan_mode', userProfile?.email);
   const [mode, setModeState] = useState<'simples' | 'detalhado'>(() => (readLocal(modeKey) === 'detalhado' ? 'detalhado' : 'simples'));
@@ -178,6 +188,76 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose, date:
     setBlocks(1);
   };
 
+  // Prova hoje: humor depois da prova. Dia difícil: dia mínimo (tocar de novo tira a escolha)
+  const setMood = (m: NonNullable<DayPlanState['mood']>) => setDayPlanState(date, (s) => ({ ...s, mood: s.mood === m ? undefined : m }));
+  const setMinimal = (m: NonNullable<DayPlanState['minimal']>) => setDayPlanState(date, (s) => ({ ...s, minimal: s.minimal === m ? undefined : m }));
+  // Detalhado: escolhas de cada tema (tempo, questões, tópicos, atividades)
+  const setDetail = (taskId: string, next: DayTaskDetail | undefined) =>
+    setDayPlanState(date, (s) => {
+      const detail = { ...(s.detail || {}) };
+      if (next) detail[taskId] = next;
+      else delete detail[taskId];
+      return { ...s, detail: Object.keys(detail).length ? detail : undefined };
+    });
+  const topicsOf = (t: PlanTask) => (t.kind === 'new_block' && t.blockId ? topics.filter((x) => x.blockId === t.blockId) : []);
+
+  // Resumo do dia montado: quanto ficou para cada coisa (minutos)
+  const summary = useMemo(() => {
+    const live = plan.tasks.filter((t) => !t.skipped);
+    // Folha em branco não ocupa bloco, mas leva ~10 min
+    const min = (list: PlanTask[]) => Math.round(list.reduce((a, t) => a + (t.minutes || t.pomodoros * 25 || (t.kind === 'blank_page' ? 10 : 0)), 0));
+    const isRev = (t: PlanTask) => t.kind === 'review' || t.kind === 'project_review';
+    const isThemeT = (t: PlanTask) => t.kind === 'new_block' || t.kind === 'new_topics';
+    const reviews = live.filter((t) => isRev(t) && !t.optional);
+    const themesL = live.filter((t) => isThemeT(t) && !t.optional);
+    const others = live.filter((t) => !isRev(t) && !isThemeT(t) && !t.optional);
+    const optional = live.filter((t) => t.optional);
+    const required = min(reviews) + min(themesL) + min(others);
+    const optMin = min(optional.filter((t) => !t.done));
+    const capMin = Math.round(plan.capacity * 25);
+    return {
+      reviews: { n: reviews.length, min: min(reviews) },
+      themes: { n: themesL.length, min: min(themesL) },
+      others: { n: others.length, min: min(others) },
+      optional: { n: optional.length, min: optMin },
+      required,
+      capMin,
+      // A rotina opcional também cabe no tempo (o resto do opcional é "se der")
+      left: capMin - required - min(optional.filter((t) => t.routine && !t.done)),
+    };
+  }, [plan]);
+  const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+  const headline = [
+    `Seu dia: ${formatMinutes(summary.required)}`,
+    summary.reviews.n ? plural(summary.reviews.n, 'revisão', 'revisões') : '',
+    summary.themes.n ? plural(summary.themes.n, 'tema', 'temas') : '',
+    summary.others.n ? plural(summary.others.n, 'outra tarefa', 'outras tarefas') : '',
+    summary.optional.n ? plural(summary.optional.n, 'opcional', 'opcionais') : '',
+  ]
+    .filter(Boolean)
+    .join(' · ');
+  const SummaryList = ({ id }: { id: string }) => (
+    <ul id={id} className="space-y-1 text-[12px] text-slate-700 dark:text-slate-200">
+      {summary.reviews.n > 0 && (
+        <li className="flex justify-between gap-2"><span>Revisões ({summary.reviews.n})</span><span className="font-bold">{formatMinutes(summary.reviews.min)}</span></li>
+      )}
+      {summary.themes.n > 0 && (
+        <li className="flex justify-between gap-2"><span>Temas ({summary.themes.n})</span><span className="font-bold">{formatMinutes(summary.themes.min)}</span></li>
+      )}
+      {summary.others.n > 0 && (
+        <li className="flex justify-between gap-2"><span>Outras tarefas ({summary.others.n})</span><span className="font-bold">{formatMinutes(summary.others.min)}</span></li>
+      )}
+      {summary.optional.n > 0 && (
+        <li className="flex justify-between gap-2 text-slate-500 dark:text-slate-400"><span>Opcionais ({summary.optional.n})</span><span className="font-bold">{summary.optional.min ? formatMinutes(summary.optional.min) : 'leve'}</span></li>
+      )}
+      {summary.reviews.n + summary.themes.n + summary.others.n + summary.optional.n === 0 && <li className="text-slate-500 dark:text-slate-400">Nada no dia ainda.</li>}
+      <li className="flex justify-between gap-2 pt-1 border-t border-slate-200 dark:border-slate-800">
+        <span>{summary.capMin < summary.required ? 'Passou do seu tempo' : summary.left < 0 ? 'Sobra para os opcionais' : 'Sobra'}</span>
+        <span className="font-bold">{formatMinutes(summary.capMin < summary.required ? summary.required - summary.capMin : summary.left < 0 ? summary.capMin - summary.required : summary.left)}</span>
+      </li>
+    </ul>
+  );
+
   // O que cada tipo muda no plano (mesma regra do cálculo do dia em studyMethod.ts)
   const daily = studyPrefs.dailyPomodoros;
   const shortMin = studyPrefs.shortFocusMinutes;
@@ -188,13 +268,13 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose, date:
       id: 'normal',
       label: 'Normal',
       hint: 'plano completo',
-      desc: `Plano completo da sua rotina: revisões primeiro, depois questões e os temas que você escolher. Seu tempo de foco: ${blocksToHours(daily)}.`,
+      desc: `Revisões primeiro, depois os temas que você escolher. A rotina (flashcards, questões, folha em branco) fica opcional. Seu tempo: ${blocksToHours(daily)}.`,
     },
     {
       id: 'dificil',
       label: 'Dia difícil',
       hint: 'só o essencial',
-      desc: `O tempo cai para cerca de ${lowCap}, tudo em blocos curtos de ${shortMin} min. Revisões vêm primeiro e o site não sugere tema novo.`,
+      desc: `O tempo cai para cerca de ${lowCap}, em blocos curtos de ${shortMin} min. Sem tema novo sugerido. Se quiser, escolha um dia mínimo:`,
       capped: true,
     },
     ...(showPlantao
@@ -218,14 +298,14 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose, date:
             id: 'prova' as const,
             label: isToday ? 'Prova hoje' : 'Dia de prova',
             hint: 'revisão leve',
-            desc: `No máximo ${essentialCap} de foco, em blocos curtos de ${shortMin} min: só revisão leve (resumo e flashcards). Sem tema novo e sem misturadas.`,
+            desc: `Só revisão leve, em blocos curtos de ${shortMin} min. Sem tema novo. Como você vai estar depois da prova?`,
             capped: true,
           },
           {
             id: 'pos_prova' as const,
             label: 'Pós-prova',
             hint: 'descanso',
-            desc: 'Vira dia de descanso: revisões, flashcards e resumo ficam opcionais. No dia seguinte o plano volta ao normal.',
+            desc: 'Dia de descanso: nada é obrigatório. O que aparecer fica opcional. Amanhã o plano volta ao normal.',
           },
         ]),
   ];
@@ -358,7 +438,7 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose, date:
             stretch
             fontSize={13}
             options={[
-              { id: 'simples', label: 'Simples', hint: 'o essencial + o básico' },
+              { id: 'simples', label: 'Simples', hint: 'você diz as horas' },
               { id: 'detalhado', label: 'Detalhado', hint: 'você escolhe tudo' },
             ]}
             value={mode}
@@ -366,7 +446,7 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose, date:
             idFor={(id) => `dayplan-mode-${id}`}
           />
 
-          <Stepper id="dayplan-stepper" step={step} onStepChange={setStep} onFinalStepCompleted={handleClose} completeButtonText="Pronto">
+          <Stepper id="dayplan-stepper" step={step} onStepChange={setStep} onFinalStepCompleted={confirmDay} completeButtonText="Confirmar">
           {/* Passo 1: tipo do dia */}
           <Step title="Tipo do dia">
           <section>
@@ -383,6 +463,36 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose, date:
               <p className="text-[12px] text-slate-700 dark:text-slate-200 leading-relaxed">
                 <span className="font-black text-sky-700 dark:text-sky-300">{activeType.label}:</span> {activeType.desc}
               </p>
+              {/* Prova hoje: humor depois da prova */}
+              {dayType === 'prova' && (
+                <div id="dayplan-mood" className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                  {EXAM_MOODS.map((m) => (
+                    <OptionChip key={m.id} id={`dayplan-mood-${m.id}`} active={state.mood === m.id} onClick={() => setMood(m.id)} className="min-h-[44px]">
+                      <span aria-hidden>{m.emoji}</span> {m.label}
+                    </OptionChip>
+                  ))}
+                </div>
+              )}
+              {dayType === 'prova' && state.mood && (
+                <p id="dayplan-mood-help" className="mt-1.5 text-[12px] text-slate-700 dark:text-slate-200">
+                  {EXAM_MOODS.find((m) => m.id === state.mood)?.desc}
+                  {state.mood === 'estressado' ? ' Dica: pare 10 min, respire fundo e beba água.' : ''}
+                </p>
+              )}
+              {/* Dia difícil: dia mínimo */}
+              {dayType === 'dificil' && (
+                <div id="dayplan-minimal" className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                  {MINIMAL_DAY_OPTIONS.map((o) => (
+                    <OptionChip key={o.id} id={`dayplan-minimal-${o.id}`} active={state.minimal === o.id} onClick={() => setMinimal(o.id)} className="min-h-[44px] text-left">
+                      <span className="block text-[13px]">{o.label}</span>
+                      <span className={`block text-[10px] font-semibold ${state.minimal === o.id ? 'text-sky-100' : 'text-slate-500 dark:text-slate-400'}`}>{o.hint}</span>
+                    </OptionChip>
+                  ))}
+                </div>
+              )}
+              {dayType === 'dificil' && state.minimal && (
+                <p className="mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">Só isso conta {H}. O resto fica opcional. Toque de novo para tirar.</p>
+              )}
               {activeType.capped && (
                 <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">Se você escolher o tempo no próximo passo, vale o tempo que você escolher.</p>
               )}
@@ -425,8 +535,29 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose, date:
               </button>
             </div>
             <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400 text-center">
-              Cada toque muda 1 bloco de foco ({blockMin} min), o tamanho que você escolheu na sua rotina.
+              Cada toque muda 1 bloco de foco ({blockMin} min). Ou escolha as horas:
             </p>
+            <div id="dayplan-hours" className="mt-2 flex flex-wrap justify-center gap-1.5">
+              {HOUR_CHIPS.map((h) => {
+                const u = (h * 60) / 25;
+                const on = Math.abs(capacity - u) < 0.01;
+                return (
+                  <OptionChip key={h} id={`dayplan-hours-${h}`} active={on} onClick={() => setCapacity(u)} className="min-w-[48px]">
+                    {h}h
+                  </OptionChip>
+                );
+              })}
+            </div>
+            {/* Simples: o site monta o dia no tempo (revisões, temas, rotina) e mostra quanto ficou para cada coisa */}
+            {mode === 'simples' && (
+              <div className="mt-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/40 p-3">
+                <p className="text-[12px] font-black text-slate-900 dark:text-white mb-1.5">Como fica o seu dia</p>
+                <SummaryList id="dayplan-simple-summary" />
+                <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">
+                  Revisões vêm primeiro. Depois os temas{summary.themes.n > 1 ? ', que dividem o tempo por igual' : ''}. A rotina entra se sobrar tempo.
+                </p>
+              </div>
+            )}
           </section>
           </Step>
 
@@ -541,6 +672,27 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose, date:
             {dayThemes.length === 0 && (
               <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">Nenhum tema {isToday ? 'em hoje' : 'neste dia'} ainda. O que você escolher aparece aqui.</p>
             )}
+            {/* Detalhado: por tema, tempo, questões, tópicos e atividades */}
+            {mode === 'detalhado' && dayThemes.filter((t) => !t.done).length > 0 && (
+              <div id="dayplan-theme-details" className="mt-3 space-y-2">
+                <p className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Como estudar cada tema</p>
+                {dayThemes
+                  .filter((t) => !t.done)
+                  .map((t) => (
+                    <ThemeDetailCard
+                      key={t.id}
+                      task={t}
+                      detail={state.detail?.[t.id]}
+                      topics={topicsOf(t)}
+                      focusMinutes={studyPrefs.focusMinutes}
+                      onChange={(next) => setDetail(t.id, next)}
+                    />
+                  ))}
+              </div>
+            )}
+            {mode === 'simples' && dayThemes.length > 0 && (
+              <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">O tempo de cada tema sai do seu tempo livre. Quer escolher tempo, tópicos e atividades? Use o modo Detalhado.</p>
+            )}
           </section>
 
           {/* Tarefa minha */}
@@ -583,11 +735,18 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose, date:
           </div>
           </Step>
 
-          {/* Passo 4: revisão (ordem, prioridade e o que sai do dia) */}
-          <Step title="Revisão">
+          {/* Passo 4: confirmar (resumo do dia montado; a ordem por arrastar continua aqui) */}
+          <Step title="Confirmar">
           <section>
+            <div id="dayplan-confirm" className="mb-4 rounded-2xl border border-sky-200 dark:border-sky-500/30 bg-sky-50 dark:bg-sky-500/10 p-3">
+              <p id="dayplan-headline" className="text-sm font-black text-slate-900 dark:text-white">{headline}</p>
+              <div className="mt-2">
+                <SummaryList id="dayplan-confirm-summary" />
+              </div>
+              <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">Quer mudar algo? Volte aos passos anteriores. Está bom? Toque em Confirmar.</p>
+            </div>
             <div className="flex items-end justify-between gap-2 mb-2">
-              <p className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">{mode === 'detalhado' ? 'Tarefas, ordem e prioridade' : 'Seu dia'}</p>
+              <p className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">{mode === 'detalhado' ? 'Ordem e prioridade' : 'Tarefas'}</p>
               <p className="text-[10px] text-slate-500 dark:text-slate-400">
                 {mode === 'detalhado' ? 'Arraste pela alça para mudar a ordem · ⤒ prioridade · X tira do dia' : 'X tira do dia · relógio passa para o dia seguinte'}
               </p>

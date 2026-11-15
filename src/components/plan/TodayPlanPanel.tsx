@@ -388,7 +388,7 @@ export const TodayPlanPanel: React.FC<TodayPlanPanelProps> = ({ compact, onOpenW
         </p>
       )}
       {t.steps.length > 0 && StepList(t)}
-      {t.questions && <p className="text-[11px] text-slate-500 dark:text-slate-400">Sugestão: {t.questions} questões (modelo para adaptar, não regra).</p>}
+      {t.questions && <p className="text-[11px] text-slate-500 dark:text-slate-400">{dayState.detail?.[t.id]?.questions ? `Sua meta: ${t.questions} questões.` : `Sugestão: ${t.questions} questões (modelo para adaptar, não regra).`}</p>}
       {TaskActions({ t, inOverflow })}
     </div>
   );
@@ -424,6 +424,19 @@ export const TodayPlanPanel: React.FC<TodayPlanPanelProps> = ({ compact, onOpenW
             {t.subtitle && <span className="block text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">{t.subtitle}</span>}
             {Chips({ t })}
           </button>
+          {/* Opcional (rotina, dia leve): sai com um toque */}
+          {!inOverflow && t.optional && !t.done && !t.suggested && (
+            <button
+              type="button"
+              id={`today-drop-${domId(t.id)}`}
+              onClick={() => takeOut(t)}
+              aria-label={`Tirar de hoje: ${t.title}`}
+              title="Tirar de hoje"
+              className="shrink-0 h-10 w-10 -mt-1 flex items-center justify-center rounded-xl text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setExpanded(open ? null : t.id)}
@@ -541,7 +554,7 @@ export const TodayPlanPanel: React.FC<TodayPlanPanelProps> = ({ compact, onOpenW
               {nowSteps && (
                 <div className="mt-1 pb-1">
                   {StepList(t)}
-                  {t.questions && <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400 pl-7">Sugestão: {t.questions} questões (modelo para adaptar).</p>}
+                  {t.questions && <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400 pl-7">{dayState.detail?.[t.id]?.questions ? `Sua meta: ${t.questions} questões.` : `Sugestão: ${t.questions} questões (modelo para adaptar).`}</p>}
                 </div>
               )}
             </div>
