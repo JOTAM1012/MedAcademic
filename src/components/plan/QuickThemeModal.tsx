@@ -2,14 +2,14 @@
 // entra no plano no dia escolhido (sem digitar nada). Só se a disciplina não tiver bloco em estudo, ou o
 // aluno quiser outro tema, aparece o campo de texto (createPlannedTheme).
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, BookOpen, Check, ChevronRight, Plus } from 'lucide-react';
+import { ArrowLeft, BookOpen, CalendarDays, Check, ChevronRight, Plus } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { addDaysYMD, formatDM } from '../../data/blockReview';
 import { getMedicalArea } from '../../data/areas';
 import { todayYMD } from '../../hooks/useStudyPlan';
 import { DatePickerField } from '../DatePickerField';
 import { OptionChip, PlanModal } from './planShared';
-import type { Subject } from '../../types';
+import type { DayPlanState, Subject } from '../../types';
 
 interface QuickThemeModalProps {
   open: boolean;
@@ -24,7 +24,7 @@ interface QuickThemeModalProps {
 const ALL = '__all__';
 
 export const QuickThemeModal: React.FC<QuickThemeModalProps> = ({ open, onClose, defaultDate, stacked, by = 'area' }) => {
-  const { subjects, topicBlocks, topics, currentSubjectIds, createPlannedTheme, updateTopicBlock, showNotification, setCurrentTab, setDayPlanState } = useApp();
+  const { subjects, topicBlocks, topics, currentSubjectIds, createPlannedTheme, updateTopicBlock, showNotification, setCurrentTab, setDayPlanState, studyMethod } = useApp();
   const today = todayYMD();
   const tomorrow = addDaysYMD(1, today);
   const options = useMemo(() => subjects.filter((s) => currentSubjectIds.includes(s.id)), [subjects, currentSubjectIds]);
@@ -79,7 +79,24 @@ export const QuickThemeModal: React.FC<QuickThemeModalProps> = ({ open, onClose,
   const chosenBlocks = chosen ? studying(chosen.id) : [];
   // Tópicos do bloco escolhido (não vistos primeiro); se o bloco não tiver, os soltos da disciplina
   const [topicIds, setTopicIds] = useState<string[]>([]);
-  useEffect(() => setTopicIds([]), [blockId]);
+  // Ao trocar de bloco ou de dia: começa com o que já estava escolhido para esse dia (para editar, não sobrescrever)
+  const [repeatIds, setRepeatIds] = useState<string[]>([]);
+  useEffect(() => {
+    setTopicIds(blockId ? studyMethod.dayPlans[date]?.detail?.[`new:${blockId}`]?.topicIds || [] : []);
+    setRepeatIds([]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [blockId, date]);
+  // Em que outros dias (de hoje em diante) cada tópico deste bloco já está no plano
+  const plannedOn = useMemo(() => {
+    const map = new Map<string, string[]>();
+    if (!blockId) return map;
+    (Object.entries(studyMethod.dayPlans || {}) as Array<[string, DayPlanState]>).forEach(([d, s]) => {
+      if (d === date || d < today) return;
+      if (!(s.accepted || []).includes(`new:${blockId}`) && topicBlocks.find((b) => b.id === blockId)?.plannedDate !== d) return;
+      (s.detail?.[`new:${blockId}`]?.topicIds || []).forEach((id) => map.set(id, [...(map.get(id) || []), d].sort()));
+    });
+    return map;
+  }, [studyMethod.dayPlans, blockId, date, today, topicBlocks]);
   const blockTopics = useMemo(() => {
     if (!blockId) return [];
     let list = topics.filter((t) => t.blockId === blockId && !t.bonus);
@@ -298,7 +315,7 @@ export const QuickThemeModal: React.FC<QuickThemeModalProps> = ({ open, onClose,
           {!custom && blockId && blockTopics.length > 0 && (
             <section id="quick-theme-topics">
               <div className="flex items-center justify-between gap-2 mb-1.5">
-                <p className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Tópicos de hoje (opcional)</p>
+                <p className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Tópicos {date === today ? 'de hoje' : `de ${formatDM(date)}`} (opcional)</p>
                 <span className="flex gap-2">
                   {unseenTopics.length > 0 && (
                     <button type="button" id="quick-theme-topics-unseen" onClick={() => setTopicIds(unseenTopics.map((t) => t.id))} className="text-[11px] font-bold text-sky-700 dark:text-sky-400 hover:underline">
@@ -316,21 +333,49 @@ export const QuickThemeModal: React.FC<QuickThemeModalProps> = ({ open, onClose,
                 {blockTopics.map((t) => {
                   const on = topicIds.includes(t.id);
                   const seen = t.status !== 'nao_iniciado';
+                  const other = plannedOn.get(t.id) || [];
+                  // já está em outro dia: fica travado até o aluno tocar em "Repetir"
+                  const locked = other.length > 0 && !on && !repeatIds.includes(t.id);
                   return (
-                    <li key={t.id}>
+                    <li key={t.id} className="flex items-center">
                       <button
                         type="button"
                         id={`quick-theme-topic-${t.id}`}
                         aria-pressed={on}
-                        onClick={() => setTopicIds((ids) => (ids.includes(t.id) ? ids.filter((x) => x !== t.id) : [...ids, t.id]))}
-                        className="w-full min-h-[44px] flex items-center gap-2.5 px-3 py-2 text-left hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                        aria-disabled={locked}
+                        title={locked ? `Já está no plano de ${other.map(formatDM).join(', ')}. Toque em "Repetir" para pôr de novo.` : undefined}
+                        onClick={() => {
+                          if (locked) return;
+                          setTopicIds((ids) => (ids.includes(t.id) ? ids.filter((x) => x !== t.id) : [...ids, t.id]));
+                        }}
+                        className={`min-w-0 flex-1 min-h-[44px] flex items-center gap-2.5 px-3 py-2 text-left ${locked ? 'cursor-default opacity-70' : 'hover:bg-slate-50 dark:hover:bg-slate-800/60'}`}
                       >
                         <span className={`h-5 w-5 shrink-0 rounded-md border flex items-center justify-center ${on ? 'bg-sky-600 border-sky-600 text-white' : 'border-slate-300 dark:border-slate-600'}`}>
                           {on && <Check className="h-3.5 w-3.5" />}
                         </span>
                         <span className={`min-w-0 flex-1 text-[13px] font-bold truncate ${seen ? 'text-slate-400 dark:text-slate-500' : 'text-slate-900 dark:text-white'}`}>{t.title}</span>
                         {seen && <span className="shrink-0 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">visto</span>}
+                        {other.length > 0 && (
+                          <span id={`quick-theme-topic-date-${t.id}`} className="shrink-0 inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-black text-amber-700 dark:text-amber-300">
+                            <CalendarDays className="h-3 w-3" />
+                            {other.slice(0, 2).map(formatDM).join(', ')}
+                            {other.length > 2 ? ` +${other.length - 2}` : ''}
+                          </span>
+                        )}
                       </button>
+                      {locked && (
+                        <button
+                          type="button"
+                          id={`quick-theme-topic-repeat-${t.id}`}
+                          onClick={() => {
+                            setRepeatIds((r) => [...r, t.id]);
+                            setTopicIds((ids) => [...ids, t.id]);
+                          }}
+                          className="shrink-0 mr-2 min-h-[32px] px-2.5 rounded-lg border border-slate-200 dark:border-slate-700 text-[11px] font-bold text-sky-700 dark:text-sky-300 hover:border-sky-400"
+                        >
+                          Repetir
+                        </button>
+                      )}
                     </li>
                   );
                 })}
