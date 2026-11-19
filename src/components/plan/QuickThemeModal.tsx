@@ -24,7 +24,7 @@ interface QuickThemeModalProps {
 const ALL = '__all__';
 
 export const QuickThemeModal: React.FC<QuickThemeModalProps> = ({ open, onClose, defaultDate, stacked, by = 'area' }) => {
-  const { subjects, topicBlocks, topics, currentSubjectIds, createPlannedTheme, updateTopicBlock, showNotification, setCurrentTab } = useApp();
+  const { subjects, topicBlocks, topics, currentSubjectIds, createPlannedTheme, updateTopicBlock, showNotification, setCurrentTab, setDayPlanState } = useApp();
   const today = todayYMD();
   const tomorrow = addDaysYMD(1, today);
   const options = useMemo(() => subjects.filter((s) => currentSubjectIds.includes(s.id)), [subjects, currentSubjectIds]);
@@ -77,6 +77,16 @@ export const QuickThemeModal: React.FC<QuickThemeModalProps> = ({ open, onClose,
   const chosen = options.find((s) => s.id === subjectId);
   const studying = (sid: string) => topicBlocks.filter((b) => b.subjectId === sid && b.reviewStatus === 'estudando');
   const chosenBlocks = chosen ? studying(chosen.id) : [];
+  // Tópicos do bloco escolhido (não vistos primeiro); se o bloco não tiver, os soltos da disciplina
+  const [topicIds, setTopicIds] = useState<string[]>([]);
+  useEffect(() => setTopicIds([]), [blockId]);
+  const blockTopics = useMemo(() => {
+    if (!blockId) return [];
+    let list = topics.filter((t) => t.blockId === blockId && !t.bonus);
+    if (!list.length && chosen) list = topics.filter((t) => t.subjectId === chosen.id && !t.blockId && !t.bonus);
+    return [...list].sort((a, b) => Number(a.status !== 'nao_iniciado') - Number(b.status !== 'nao_iniciado'));
+  }, [topics, blockId, chosen]);
+  const unseenTopics = blockTopics.filter((t) => t.status === 'nao_iniciado');
 
   const pickSubject = (s: Subject) => {
     setSubjectId(s.id);
@@ -97,6 +107,17 @@ export const QuickThemeModal: React.FC<QuickThemeModalProps> = ({ open, onClose,
     if (!custom && blockId) {
       const b = topicBlocks.find((x) => x.id === blockId);
       updateTopicBlock(blockId, { plannedDate: date, paused: undefined });
+      // tópicos escolhidos: vão para o passo a passo do tema no dia (mesmo lugar do modo Detalhado)
+      const key = `new:${blockId}`;
+      setDayPlanState(date, (d) => {
+        const detail = { ...(d.detail || {}) };
+        const cur = { ...(detail[key] || {}) };
+        if (topicIds.length) cur.topicIds = topicIds;
+        else delete cur.topicIds;
+        if (Object.keys(cur).length) detail[key] = cur;
+        else delete detail[key];
+        return { ...d, detail: Object.keys(detail).length ? detail : undefined };
+      });
       showNotification(`"${b?.name || 'Tema'}" entrou no plano de ${when}.`, 'success');
     } else {
       createPlannedTheme(subjectId, name, date);
@@ -262,6 +283,53 @@ export const QuickThemeModal: React.FC<QuickThemeModalProps> = ({ open, onClose,
             <p className="text-[13px] text-slate-700 dark:text-slate-200">
               Vai estudar: <b>{chosenBlocks[0].name}</b>
             </p>
+          )}
+
+          {/* Tópicos específicos (opcional): sem marcar nada = o bloco todo */}
+          {!custom && blockId && blockTopics.length > 0 && (
+            <section id="quick-theme-topics">
+              <div className="flex items-center justify-between gap-2 mb-1.5">
+                <p className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Tópicos de hoje (opcional)</p>
+                <span className="flex gap-2">
+                  {unseenTopics.length > 0 && (
+                    <button type="button" id="quick-theme-topics-unseen" onClick={() => setTopicIds(unseenTopics.map((t) => t.id))} className="text-[11px] font-bold text-sky-700 dark:text-sky-400 hover:underline">
+                      Não vistos
+                    </button>
+                  )}
+                  {topicIds.length > 0 && (
+                    <button type="button" id="quick-theme-topics-clear" onClick={() => setTopicIds([])} className="text-[11px] font-bold text-slate-500 dark:text-slate-400 hover:underline">
+                      Limpar
+                    </button>
+                  )}
+                </span>
+              </div>
+              <ul className="max-h-56 overflow-y-auto rounded-2xl border border-slate-200 dark:border-slate-800 divide-y divide-slate-100 dark:divide-slate-800">
+                {blockTopics.map((t) => {
+                  const on = topicIds.includes(t.id);
+                  const seen = t.status !== 'nao_iniciado';
+                  return (
+                    <li key={t.id}>
+                      <button
+                        type="button"
+                        id={`quick-theme-topic-${t.id}`}
+                        aria-pressed={on}
+                        onClick={() => setTopicIds((ids) => (ids.includes(t.id) ? ids.filter((x) => x !== t.id) : [...ids, t.id]))}
+                        className="w-full min-h-[44px] flex items-center gap-2.5 px-3 py-2 text-left hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                      >
+                        <span className={`h-5 w-5 shrink-0 rounded-md border flex items-center justify-center ${on ? 'bg-sky-600 border-sky-600 text-white' : 'border-slate-300 dark:border-slate-600'}`}>
+                          {on && <Check className="h-3.5 w-3.5" />}
+                        </span>
+                        <span className={`min-w-0 flex-1 text-[13px] font-bold truncate ${seen ? 'text-slate-400 dark:text-slate-500' : 'text-slate-900 dark:text-white'}`}>{t.title}</span>
+                        {seen && <span className="shrink-0 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">visto</span>}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+              <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                {topicIds.length ? `${topicIds.length} tópico${topicIds.length > 1 ? 's' : ''} escolhido${topicIds.length > 1 ? 's' : ''}. Eles aparecem no passo a passo do tema.` : 'Sem marcar nada, entra o bloco todo.'}
+              </p>
+            </section>
           )}
 
           {custom ? (
