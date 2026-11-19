@@ -14,6 +14,11 @@ interface ThemeDetailCardProps {
   topics: Topic[];
   /** Bloco de foco do aluno (min): passo do − / + do tempo */
   focusMinutes: number;
+  /** Meta de foco do dia e o que já está planejado (min): mostra quanto falta */
+  goalMinutes?: number;
+  plannedMinutes?: number;
+  /** "hoje" ou "deste dia" */
+  dayWord?: string;
   onChange: (next: DayTaskDetail | undefined) => void;
 }
 
@@ -22,7 +27,7 @@ const SUGGEST_TOPICS = 3;
 const stepBtn =
   'h-10 w-10 shrink-0 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950/60 flex items-center justify-center text-slate-700 dark:text-slate-200 hover:border-sky-400 disabled:opacity-40 disabled:cursor-not-allowed';
 
-export const ThemeDetailCard: React.FC<ThemeDetailCardProps> = ({ task, detail, topics, focusMinutes, onChange }) => {
+export const ThemeDetailCard: React.FC<ThemeDetailCardProps> = ({ task, detail, topics, onChange, goalMinutes, plannedMinutes, dayWord = 'hoje' }) => {
   const d = detail || {};
   const domId = task.id.replace(/[^a-zA-Z0-9_-]/g, '-');
   // Limpa campos vazios: sem nada escolhido, a tarefa volta ao automático
@@ -36,7 +41,8 @@ export const ThemeDetailCard: React.FC<ThemeDetailCardProps> = ({ task, detail, 
   };
 
   const minutes = task.minutes || Math.round(task.pomodoros * 25);
-  const step = Math.max(5, focusMinutes || 25);
+  // − / + sempre de 30 em 30 min
+  const step = 30;
   const minusMin = Math.max(step, Math.ceil(minutes / step - 1e-6) * step - step);
   const plusMin = Math.min(480, Math.floor(minutes / step + 1e-6) * step + step);
   const questions = d.questions || 0;
@@ -87,6 +93,20 @@ export const ThemeDetailCard: React.FC<ThemeDetailCardProps> = ({ task, detail, 
               <RotateCcw className="h-3 w-3" /> Voltar ao automático
             </button>
           ) : null}
+          {goalMinutes !== undefined && plannedMinutes !== undefined && goalMinutes > 0 && (
+            <p
+              id={`dayplan-detail-goal-${domId}`}
+              className={`mt-1 text-[11px] font-bold ${
+                plannedMinutes < goalMinutes - 4 ? 'text-amber-600 dark:text-amber-400' : plannedMinutes > goalMinutes + 4 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'
+              }`}
+            >
+              {plannedMinutes < goalMinutes - 4
+                ? `Faltam ${formatMinutes(goalMinutes - plannedMinutes)} para a meta de ${dayWord} (${formatMinutes(goalMinutes)}).`
+                : plannedMinutes > goalMinutes + 4
+                  ? `Passou ${formatMinutes(plannedMinutes - goalMinutes)} da meta de ${dayWord} (${formatMinutes(goalMinutes)}).`
+                  : `Meta de ${dayWord} completa (${formatMinutes(goalMinutes)}).`}
+            </p>
+          )}
         </div>
         <div>
           <p className={label}>Questões</p>

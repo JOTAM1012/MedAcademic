@@ -719,6 +719,9 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose, date:
                       detail={state.detail?.[t.id]}
                       topics={topicsOf(t)}
                       focusMinutes={studyPrefs.focusMinutes}
+                      goalMinutes={Math.round(capacity * 25)}
+                      plannedMinutes={Math.round(plan.planned * 25)}
+                      dayWord={isToday ? 'hoje' : 'deste dia'}
                       onChange={(next) => setDetail(t.id, next)}
                     />
                   ))}
