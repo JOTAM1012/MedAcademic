@@ -17,29 +17,43 @@ interface QuickThemeModalProps {
   /** Data já escolhida (ex.: um dia do "Planejar semana") */
   defaultDate?: string;
   stacked?: boolean;
+  /** 1º passo por grande área (padrão) ou por módulo da faculdade */
+  by?: 'area' | 'module';
 }
 
 const ALL = '__all__';
 
-export const QuickThemeModal: React.FC<QuickThemeModalProps> = ({ open, onClose, defaultDate, stacked }) => {
+export const QuickThemeModal: React.FC<QuickThemeModalProps> = ({ open, onClose, defaultDate, stacked, by = 'area' }) => {
   const { subjects, topicBlocks, topics, currentSubjectIds, createPlannedTheme, updateTopicBlock, showNotification, setCurrentTab } = useApp();
   const today = todayYMD();
   const tomorrow = addDaysYMD(1, today);
   const options = useMemo(() => subjects.filter((s) => currentSubjectIds.includes(s.id)), [subjects, currentSubjectIds]);
 
-  // Grandes áreas presentes (internato/clínico). Sem área (básico): pula direto para as disciplinas.
+  // Grupos do 1º passo: grandes áreas (padrão) ou módulos da faculdade (by="module").
+  // Sem área (básico): pula direto para as disciplinas.
   const areas = useMemo(() => {
-    const map = new Map<string, { id: string; color: string; count: number }>();
+    if (by === 'module') {
+      return options
+        .filter((s) => s.kind === 'module')
+        .map((m) => {
+          // o próprio módulo (assuntos dele) + as disciplinas vinculadas
+          const members = [m, ...options.filter((s) => s.id !== m.id && (m.linkedSubjectIds || []).includes(s.id))];
+          return { id: m.id, label: m.universitySubject || m.name, color: m.color, count: members.length, members };
+        });
+    }
+    const map = new Map<string, { id: string; label: string; color: string; count: number; members: Subject[] }>();
     options.forEach((s) => {
       if (!s.majorArea) return;
       const a = getMedicalArea(s.majorArea);
-      const cur = map.get(a.id) || { id: a.id, color: a.color, count: 0 };
+      const cur = map.get(a.id) || { id: a.id, label: a.id, color: a.color, count: 0, members: [] };
       cur.count++;
+      cur.members.push(s);
       map.set(a.id, cur);
     });
     return Array.from(map.values());
-  }, [options]);
-  const useAreas = areas.length > 1;
+  }, [options, by]);
+  const useAreas = by === 'module' ? areas.length > 0 : areas.length > 1;
+  const groupWord = by === 'module' ? 'Módulo' : 'Grande área';
 
   const [area, setArea] = useState<string | null>(null);
   const [subjectId, setSubjectId] = useState('');
@@ -59,7 +73,7 @@ export const QuickThemeModal: React.FC<QuickThemeModalProps> = ({ open, onClose,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  const inArea = options.filter((s) => area === ALL || (s.majorArea && getMedicalArea(s.majorArea).id === area));
+  const inArea = area === ALL ? options : areas.find((g) => g.id === area)?.members || [];
   const chosen = options.find((s) => s.id === subjectId);
   const studying = (sid: string) => topicBlocks.filter((b) => b.subjectId === sid && b.reviewStatus === 'estudando');
   const chosenBlocks = chosen ? studying(chosen.id) : [];
@@ -104,7 +118,7 @@ export const QuickThemeModal: React.FC<QuickThemeModalProps> = ({ open, onClose,
       stacked={stacked}
       icon={<BookOpen className="h-5 w-5" />}
       title="O que estudar"
-      subtitle={useAreas ? 'Escolha a área, depois a disciplina. O bloco em estudo entra no plano.' : 'Escolha a disciplina. O bloco em estudo entra no plano.'}
+      subtitle={useAreas ? `Escolha ${by === 'module' ? 'o módulo' : 'a área'}, depois a disciplina. O bloco em estudo entra no plano.` : 'Escolha a disciplina. O bloco em estudo entra no plano.'}
       maxWidth="max-w-md"
       footer={
         options.length > 0 && subjectId ? (
@@ -144,7 +158,7 @@ export const QuickThemeModal: React.FC<QuickThemeModalProps> = ({ open, onClose,
           {/* 1. Área */}
           {useAreas && (
             <section>
-              {stepTitle(1, 'Grande área')}
+              {stepTitle(1, groupWord)}
               <div className="grid grid-cols-2 gap-2">
                 {areas.map((a) => (
                   <button
@@ -161,7 +175,7 @@ export const QuickThemeModal: React.FC<QuickThemeModalProps> = ({ open, onClose,
                   >
                     <span className="flex items-center gap-2 text-sm font-black text-slate-900 dark:text-white">
                       <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: a.color }} />
-                      {a.id}
+                      <span className="truncate">{a.label}</span>
                     </span>
                     <span className="block text-[11px] text-slate-500 dark:text-slate-400">
                       {a.count} disciplina{a.count > 1 ? 's' : ''}
@@ -201,7 +215,7 @@ export const QuickThemeModal: React.FC<QuickThemeModalProps> = ({ open, onClose,
                     </li>
                   );
                 })}
-                {inArea.length === 0 && <li className="px-3.5 py-3 text-sm text-slate-500 dark:text-slate-400">Nenhuma disciplina nesta área.</li>}
+                {inArea.length === 0 && <li className="px-3.5 py-3 text-sm text-slate-500 dark:text-slate-400">{by === 'module' ? 'Nada neste módulo ainda.' : 'Nenhuma disciplina nesta área.'}</li>}
               </ul>
             </section>
           )}

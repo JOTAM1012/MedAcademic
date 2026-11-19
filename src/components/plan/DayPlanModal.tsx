@@ -2,7 +2,7 @@
 // (arrastando), o que sai (tirar de hoje / amanhã), escolher o tema novo e somar tarefas suas.
 // Tema novo só entra se o aluno escolher; o que ele adiciona aparece logo abaixo, com X para tirar.
 import React, { useMemo, useState } from 'react';
-import { ArrowUpToLine, BookOpen, CalendarClock, Layers, Lightbulb, Minus, Pin, PinOff, Plus, RotateCcw, SlidersHorizontal, Undo2, X } from 'lucide-react';
+import { ArrowUpToLine, BookOpen, CalendarClock, FolderTree, Layers, Lightbulb, Minus, Pin, PinOff, Plus, RotateCcw, SlidersHorizontal, Undo2, X } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { addDaysYMD, formatDM, parseYMD, ymd } from '../../data/blockReview';
 import { EXAM_MOODS, MINIMAL_DAY_OPTIONS, WEEKDAY_NAMES, dayBaseCapacity, formatFreeHours, formatMinutes, hoursByWeekdayOf, type PlanTask } from '../../data/studyMethod';
@@ -58,6 +58,7 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose, date:
     studyPhase,
     currentSemester,
     currentSubjectIds,
+    subjects,
     topicBlocks,
     topics,
     setDayPlanState,
@@ -71,6 +72,8 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose, date:
     userProfile,
   } = useApp();
   const plan = useDayPlan(dateProp);
+  // "Por módulo" só aparece se houver módulo da faculdade no semestre
+  const hasModules = subjects.some((s) => s.kind === 'module' && currentSubjectIds.includes(s.id));
   const date = plan.date;
   const themes = useDayThemes(date);
   const todayStr = ymd(new Date());
@@ -83,6 +86,7 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose, date:
   const [blocks, setBlocks] = useState(1);
   const [contentOpen, setContentOpen] = useState(false);
   const [themeOpen, setThemeOpen] = useState(false);
+  const [themeBy, setThemeBy] = useState<'area' | 'module'>('area');
   // Passos: Tipo do dia → Tempo → Conteúdo → Revisão (volta ao primeiro ao fechar)
   const [step, setStep] = useState(1);
   const handleClose = () => {
@@ -663,15 +667,31 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose, date:
                   ))}
                 </div>
               )}
-              <div className="grid grid-cols-2 gap-2">
+              <div className={`grid gap-2 ${hasModules ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-2'}`}>
               <button
                 type="button"
                 id="dayplan-pick-area"
-                onClick={() => setThemeOpen(true)}
+                onClick={() => {
+                  setThemeBy('area');
+                  setThemeOpen(true);
+                }}
                 className="min-h-[44px] px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 text-xs font-bold inline-flex items-center justify-center gap-1.5 hover:border-sky-400"
               >
                 <BookOpen className="h-4 w-4" /> Por área e disciplina
               </button>
+              {hasModules && (
+                <button
+                  type="button"
+                  id="dayplan-pick-module"
+                  onClick={() => {
+                    setThemeBy('module');
+                    setThemeOpen(true);
+                  }}
+                  className="min-h-[44px] px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 text-xs font-bold inline-flex items-center justify-center gap-1.5 hover:border-sky-400"
+                >
+                  <FolderTree className="h-4 w-4" /> Por módulo
+                </button>
+              )}
               <button
                 type="button"
                 id="dayplan-open-content"
@@ -794,7 +814,7 @@ export const DayPlanModal: React.FC<DayPlanModalProps> = ({ open, onClose, date:
         </div>
       </PlanModal>
       <StudyContentModal open={contentOpen} onClose={() => setContentOpen(false)} stacked />
-      <QuickThemeModal open={open && themeOpen} onClose={() => setThemeOpen(false)} defaultDate={date} stacked />
+      <QuickThemeModal open={open && themeOpen} onClose={() => setThemeOpen(false)} defaultDate={date} stacked by={themeBy} />
     </>
   );
 };
