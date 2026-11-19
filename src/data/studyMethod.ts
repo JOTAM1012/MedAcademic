@@ -1865,7 +1865,7 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
           // Marcado para o dia, aceito no dia (e não remarcado para depois), ou concluído no dia
           ((b.reviewStatus === 'estudando' &&
             !isPast &&
-            (b.plannedDate === date || (acceptedSet.has(`new:${b.id}`) && (!b.plannedDate || b.plannedDate <= date)))) ||
+            (b.plannedDate === date || acceptedSet.has(`new:${b.id}`))) ||
             b.completedDate === date)
       );
       plannedBlocks
@@ -2149,6 +2149,11 @@ export const buildDayPlan = (input: PlanInput): DayPlan => {
     if (pickedTopics.length) {
       next.topicIds = pickedTopics;
       next.subtitle = [t.subtitle, `${pickedTopics.length} tópico${pickedTopics.length > 1 ? 's' : ''} hoje`].filter(Boolean).join(' · ');
+      // o nome mostra os tópicos do dia (o mesmo módulo em dias diferentes fica fácil de distinguir)
+      if (t.kind === 'new_block') {
+        const names = pickedTopics.map(topicTitle) as string[];
+        next.title = `${t.title} · ${names.slice(0, 2).join(', ')}${names.length > 2 ? ` +${names.length - 2}` : ''}`;
+      }
     }
     const acts = DAY_ACTIVITIES.filter((a) => (d.activities || []).includes(a.id));
     if (acts.length || pickedTopics.length) {

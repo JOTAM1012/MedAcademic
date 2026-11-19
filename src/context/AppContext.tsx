@@ -3135,7 +3135,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!to || to === from) return;
     const today = ymd(new Date());
     if (task.movable === 'review' && task.blockId) updateTopicBlock(task.blockId, { nextReviewDate: to });
-    else if (task.movable === 'new_block' && task.blockId) updateTopicBlock(task.blockId, { plannedDate: to });
+    else if (task.movable === 'new_block' && task.blockId) {
+      // O tema sai deste dia e vai para o outro, com as escolhas do dia (tópicos, tempo...); os outros dias não mudam
+      const id = `new:${task.blockId}`;
+      const b = topicBlocks.find((x) => x.id === task.blockId);
+      if (b && (!b.plannedDate || b.plannedDate === from || b.plannedDate < today)) updateTopicBlock(task.blockId, { plannedDate: to });
+      patchMethod((s) => {
+        const src = s.dayPlans[from] || {};
+        const dst = s.dayPlans[to] || {};
+        const det = src.detail?.[id];
+        const srcDetail = src.detail ? { ...src.detail } : undefined;
+        if (srcDetail) delete srcDetail[id];
+        return {
+          ...s,
+          dayPlans: {
+            ...s.dayPlans,
+            [from]: { ...src, accepted: (src.accepted || []).filter((x) => x !== id), detail: srcDetail && Object.keys(srcDetail).length ? srcDetail : undefined },
+            [to]: {
+              ...dst,
+              accepted: Array.from(new Set([...(dst.accepted || []), id])),
+              dismissed: (dst.dismissed || []).filter((x) => x !== id),
+              detail: det ? { ...(dst.detail || {}), [id]: det } : dst.detail,
+            },
+          },
+        };
+      });
+    }
     else if (task.movable === 'new_topics' && task.topicIds?.length) {
       const ids = new Set(task.topicIds);
       setTopics((prev) => prev.map((t) => (ids.has(t.id) ? { ...t, firstContactDate: to, scheduleFirstContact: true } : t)));

@@ -106,7 +106,10 @@ export const QuickThemeModal: React.FC<QuickThemeModalProps> = ({ open, onClose,
     if (!canSave) return;
     if (!custom && blockId) {
       const b = topicBlocks.find((x) => x.id === blockId);
-      updateTopicBlock(blockId, { plannedDate: date, paused: undefined });
+      // O mesmo tema pode ir para vários dias (ex.: MFC amanhã com Tuberculose e na sexta com Hanseníase):
+      // ele entra no dia escolhido sem sair dos outros; a data do tema só muda se ainda não tiver uma (ou já passou)
+      if (b && (!b.plannedDate || b.plannedDate < today)) updateTopicBlock(blockId, { plannedDate: date, paused: undefined });
+      else if (b?.paused) updateTopicBlock(blockId, { paused: undefined });
       // tópicos escolhidos: vão para o passo a passo do tema no dia (mesmo lugar do modo Detalhado)
       const key = `new:${blockId}`;
       setDayPlanState(date, (d) => {
@@ -116,7 +119,13 @@ export const QuickThemeModal: React.FC<QuickThemeModalProps> = ({ open, onClose,
         else delete cur.topicIds;
         if (Object.keys(cur).length) detail[key] = cur;
         else delete detail[key];
-        return { ...d, detail: Object.keys(detail).length ? detail : undefined };
+        return {
+          ...d,
+          accepted: Array.from(new Set([...(d.accepted || []), key])),
+          dismissed: (d.dismissed || []).filter((x) => x !== key),
+          skipped: (d.skipped || []).filter((x) => x !== key),
+          detail: Object.keys(detail).length ? detail : undefined,
+        };
       });
       showNotification(`"${b?.name || 'Tema'}" entrou no plano de ${when}.`, 'success');
     } else {

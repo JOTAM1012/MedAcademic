@@ -85,8 +85,9 @@ export const useDayThemes = (date?: string) => {
   const addTheme = (blockId: string) => {
     const id = `new:${blockId}`;
     setDayPlanState(d, (s) => ({ ...s, accepted: withId(s.accepted, id), dismissed: without(s.dismissed, id), skipped: without(s.skipped, id) }));
+    // O tema pode estar em vários dias: só leva a data se ainda não tiver uma (ou se a dele já passou)
     const b = topicBlocks.find((x) => x.id === blockId);
-    if (b && b.plannedDate !== d) updateTopicBlock(blockId, { plannedDate: d });
+    if (b && (!b.plannedDate || b.plannedDate < todayYMD())) updateTopicBlock(blockId, { plannedDate: d });
   };
   /** "Agora não": some das sugestões só neste dia */
   const dismissSuggestion = (blockId: string) => setDayPlanState(d, (s) => ({ ...s, dismissed: withId(s.dismissed, `new:${blockId}`) }));
@@ -103,7 +104,8 @@ export const useDayThemes = (date?: string) => {
       return { ...s, accepted: without(s.accepted, id), dismissed: withId(s.dismissed, id), order: s.order ? without(s.order, id) : s.order, pinned: s.pinned ? without(s.pinned, id) : s.pinned, detail };
     });
     const b = topicBlocks.find((x) => x.id === blockId);
-    if (b && b.plannedDate && b.plannedDate <= d) updateTopicBlock(blockId, { plannedDate: undefined });
+    // só a data deste dia sai (os outros dias em que o tema está continuam)
+    if (b && b.plannedDate === d) updateTopicBlock(blockId, { plannedDate: undefined });
   };
   return { addTheme, dismissSuggestion, removeTheme };
 };
