@@ -1,0 +1,90 @@
+/* Botão de modo claro/escuro: dia (sol e nuvens) x noite (lua e estrelas). Baseado no de rishichawda (Uiverse.io). */
+#theme-toggle-button {
+  font-size: 9px;
+  position: relative;
+  display: inline-block;
+  width: 7em;
+  cursor: pointer;
+  line-height: 0;
+  border-radius: 999px;
+}
+
+#theme-toggle-button svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* Esconde a caixinha padrão, mas mantém o foco do teclado */
+#toggle {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+#toggle:focus-visible + svg {
+  outline: 2px solid #0ea5e9;
+  outline-offset: 2px;
+  border-radius: 999px;
+}
+
+#theme-toggle-button #container,
+#theme-toggle-button #patches,
+#theme-toggle-button #stars,
+#theme-toggle-button #button,
+#theme-toggle-button #sun,
+#theme-toggle-button #moon,
+#theme-toggle-button #cloud {
+  transition-property: all;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 0.25s;
+}
+
+#theme-toggle-button #button {
+  transform: translate(2.333px, 2.333px);
+}
+
+/* céu da noite */
+#toggle:checked + svg #container {
+  fill: #2b4360;
+}
+
+/* bolinha vai para a direita */
+#toggle:checked + svg #button {
+  transform: translate(28px, 2.333px);
+}
+
+/* sol some, lua aparece */
+#theme-toggle-button #sun {
+  opacity: 1;
+}
+#toggle:checked + svg #sun {
+  opacity: 0;
+}
+#theme-toggle-button #moon {
+  opacity: 0;
+}
+#toggle:checked + svg #moon {
+  opacity: 1;
+}
+
+/* nuvens de dia, estrelas de noite */
+#theme-toggle-button #cloud {
+  opacity: 1;
+}
+#toggle:checked + svg #cloud {
+  opacity: 0;
+}
+#theme-toggle-button #stars {
+  opacity: 0;
+}
+#toggle:checked + svg #stars {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #theme-toggle-button * {
+    transition-duration: 0s !important;
+  }
+}

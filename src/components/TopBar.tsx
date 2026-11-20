@@ -24,7 +24,7 @@ import {
 import { useSidebarCollapsed, useWideLayout } from '../hooks/useWideLayout';
 import { useApp } from '../context/AppContext';
 import TooltipGroup from './shared/TooltipGroup';
-import './shared/LampSwitch.css';
+import ThemeToggle from './shared/ThemeToggle';
 import { NotificationBadge } from './shared/NotificationBadge';
 import { GlobalSearch } from './GlobalSearch';
 import { openInstallGuide, usePwaInstall } from '../lib/pwaInstall';
@@ -305,17 +305,9 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleMobileMenu, onOpenTour }
         </button>
 
         {/* Dark Mode Toggle */}
-        <span className="inline-flex" data-tooltip={isDarkMode ? 'Mudar para o modo claro' : 'Mudar para o modo escuro'}>
-        {/* Lanterna acesa = modo claro; apagada = modo escuro */}
-        <input
-          type="checkbox"
-          role="switch"
-          id="topbar-theme-toggle-btn"
-          className="lamp-switch ml-1"
-          checked={!isDarkMode}
-          onChange={() => toggleDarkMode()}
-          aria-label={isDarkMode ? 'Ativar modo claro' : 'Ativar modo escuro'}
-        />
+        <span className="inline-flex items-center ml-1 shrink-0" data-tooltip={isDarkMode ? 'Mudar para o modo claro' : 'Mudar para o modo escuro'}>
+          {/* Sol e nuvens = modo claro; lua e estrelas = modo escuro */}
+          <ThemeToggle dark={isDarkMode} onToggle={() => toggleDarkMode()} />
         </span>
       </TooltipGroup>
     </header>
