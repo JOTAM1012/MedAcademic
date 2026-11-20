@@ -1,6 +1,6 @@
 /* Botão de modo claro/escuro: dia (sol e nuvens) x noite (lua e estrelas). Baseado no de rishichawda (Uiverse.io). */
 #theme-toggle-button {
-  font-size: 9px;
+  font-size: 6px;
   position: relative;
   display: inline-block;
   width: 7em;
