@@ -7,12 +7,24 @@
   box-shadow: 18px 0 50px -18px rgba(0, 0, 0, 0.7);
 }
 
+/* Rótulo das seções (Rotina, Ferramentas, Configurações): esmeralda da marca com um tracinho antes */
 .sb-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.14em;
-  color: var(--text-muted);
+  color: var(--brand);
+}
+.sb-label::before {
+  content: '';
+  width: 10px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--brand);
+  flex-shrink: 0;
 }
 
 /* Item ativo: fundo sólido --surface-2 + barra lateral --brand (sem degradê) */
