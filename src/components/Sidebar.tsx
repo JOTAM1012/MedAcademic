@@ -8,6 +8,7 @@ import {
   LogOut,
   Layers,
   Repeat,
+  Stethoscope,
   Timer,
   GraduationCap,
   Calendar,
@@ -192,7 +193,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
         {/* Marca */}
         <div className={`flex items-center px-3.5 h-16 shrink-0 ${isExpanded ? 'justify-between' : 'justify-center'}`}>
           <div className="flex items-center gap-2.5 min-w-0 overflow-hidden">
-            <img src="/logo-mark.png" alt="" width={36} height={36} className="w-9 h-9 shrink-0 select-none" draggable={false} />
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-sky-600 to-sky-800 flex items-center justify-center shadow-lg shadow-sky-800/30 ring-1 ring-inset ring-white/20 text-white shrink-0">
+              <Stethoscope className="w-[18px] h-[18px]" />
+            </div>
             {isExpanded && (
               <span className="overflow-hidden whitespace-nowrap font-black text-[24px] leading-none tracking-tight text-white animate-in fade-in duration-200">
                 Med<span className="text-sky-600">Academic</span>

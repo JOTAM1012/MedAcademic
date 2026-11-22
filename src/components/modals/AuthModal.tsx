@@ -165,7 +165,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isPage = false }) => {
     <div className={isPage || !activeUserId ? "auth-stage dark min-h-screen w-full text-slate-100 flex flex-col items-center justify-center px-4 py-8 sm:p-8 relative overflow-x-hidden overflow-y-auto font-sans" : "fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-md p-4 overflow-y-auto font-sans"}>
       {(isPage || !activeUserId) && (
         <div className="relative text-center mb-6 max-w-xl">
-          <img src="/logo-mark.png" alt="" width={64} height={64} className="w-16 h-16 mx-auto mb-3 select-none" draggable={false} />
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-sky-600 to-sky-800 shadow-xl shadow-sky-800/30 ring-1 ring-inset ring-white/25 mx-auto mb-3 flex items-center justify-center text-white">
+            <Stethoscope className="h-7 w-7" />
+          </div>
           <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
             MedAcademic
           </h1>
