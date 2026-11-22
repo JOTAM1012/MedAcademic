@@ -60,7 +60,7 @@ export const ContestsSummaryCard: React.FC = () => {
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={data} margin={{ top: 4, right: 4, left: 4, bottom: 4 }}>
                   <YAxis hide domain={[0, 100]} />
-                  <Line type="monotone" dataKey="pct" stroke="#0284c7" strokeWidth={2.5} dot={{ r: 2.5, fill: '#0284c7' }} isAnimationActive={false} />
+                  <Line type="monotone" dataKey="pct" stroke="#2563eb" strokeWidth={2.5} dot={{ r: 2.5, fill: '#2563eb' }} isAnimationActive={false} />
                 </LineChart>
               </ResponsiveContainer>
             ) : (

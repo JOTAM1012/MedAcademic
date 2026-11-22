@@ -16,7 +16,7 @@ const TIMELINE = [
   { when: '7 dias', title: 'R2 · Questões do tema', tech: TECHNIQUES.questoes_tema, detail: 'Bloco só deste tema, marcando a certeza' },
   { when: '30 dias', title: 'R3 · Questões novas + caderno', tech: TECHNIQUES.questoes_novas, detail: 'Questões que você não viu e os erros anotados' },
   { when: '60–90 dias', title: 'R4 · Misturadas', tech: TECHNIQUES.misturadas, detail: 'Este tema no meio de outros, como na prova' },
-  { when: 'Depois', title: 'Manutenção', tech: { emoji: '🔁', color: '#64748b' }, detail: 'Questões misturadas a cada poucos meses' },
+  { when: 'Depois', title: 'Manutenção', tech: { emoji: '🔁', color: '#6c7380' }, detail: 'Questões misturadas a cada poucos meses' },
 ];
 
 const ROWS: Array<{ id: TopicDifficulty; label: string; dot: string; text: string }> = [

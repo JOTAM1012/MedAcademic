@@ -10,11 +10,11 @@
   --p17-move-dur: 160ms;
   --p17-move-ease: cubic-bezier(0.22, 1, 0.36, 1);
   --p17-bg: #ffffff;
-  --p17-fg: #334155;
+  --p17-fg: #3a3f49;
 }
 .dark {
-  --p17-bg: #1e293b;
-  --p17-fg: #f1f5f9;
+  --p17-bg: #22262d;
+  --p17-fg: #edeff2;
 }
 
 .p17-group {
@@ -41,7 +41,7 @@
   font-weight: 600;
   line-height: 16px;
   white-space: nowrap;
-  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.06), 0 2px 6px 0 rgba(15, 23, 42, 0.05), 0 4px 42px 0 rgba(15, 23, 42, 0.06);
+  box-shadow: 0 0 0 1px rgba(24, 27, 33, 0.06), 0 2px 6px 0 rgba(24, 27, 33, 0.05), 0 4px 42px 0 rgba(24, 27, 33, 0.06);
   opacity: 0;
   pointer-events: none;
   transition: opacity var(--p17-out-dur) var(--p17-out-ease), scale var(--p17-out-dur) var(--p17-out-ease),

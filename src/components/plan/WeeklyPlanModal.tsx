@@ -327,7 +327,7 @@ export const WeeklyPlanModal: React.FC<WeeklyPlanModalProps> = ({ open, onClose 
                   const sub = subjectOf(b.subjectId);
                   return (
                     <li key={b.id} className="flex items-center gap-2 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950/40 p-2 pl-3">
-                      <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: sub?.color || '#64748b' }} />
+                      <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: sub?.color || '#6c7380' }} />
                       <div className="min-w-0 flex-1">
                         <p className="text-[13px] font-bold text-slate-900 dark:text-white truncate">{b.name}</p>
                         <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">{sub?.universitySubject || sub?.name}</p>
@@ -396,7 +396,7 @@ export const WeeklyPlanModal: React.FC<WeeklyPlanModalProps> = ({ open, onClose 
                   const sub = subjectOf(b.subjectId);
                   return (
                     <li key={b.id} className="flex items-center gap-2 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/40 p-2 pl-3">
-                      <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: sub?.color || '#64748b' }} />
+                      <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: sub?.color || '#6c7380' }} />
                       <div className="min-w-0 flex-1">
                         <p className="text-[13px] font-bold text-slate-900 dark:text-white truncate">{b.name}</p>
                         <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">{sub?.universitySubject || sub?.name}</p>

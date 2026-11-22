@@ -568,7 +568,7 @@ export const TodayPlanPanel: React.FC<TodayPlanPanelProps> = ({ compact, onOpenW
             const primary = `w-full sm:w-auto sm:min-w-[220px] rounded-2xl bg-sky-600 hover:bg-sky-500 active:bg-sky-700 text-white font-black inline-flex items-center justify-center gap-2 transition-colors ${
               small ? 'min-h-[48px] px-5 text-sm' : 'min-h-[52px] px-7 text-base'
             }`;
-            const primaryStyle = { boxShadow: `0 12px 28px -12px ${t.color}, 0 4px 12px -6px rgba(2,132,199,0.45)` };
+            const primaryStyle = { boxShadow: `0 12px 28px -12px ${t.color}, 0 4px 12px -6px rgba(37,99,235,0.45)` };
             const quiet = `${small ? 'min-h-[40px]' : 'min-h-[44px]'} px-3 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 bg-white/70 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-700/80 hover:text-slate-900 dark:hover:text-white hover:border-slate-300 dark:hover:border-slate-600 inline-flex items-center gap-1.5 transition-colors`;
             return (
               <div className={`${small ? 'mt-3' : 'mt-5'} flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2`}>
@@ -1061,7 +1061,7 @@ export const TodayPlanPanel: React.FC<TodayPlanPanelProps> = ({ compact, onOpenW
                   const key = sub ? sub.id : '__rotina';
                   let g = groups.find((x) => x.key === key);
                   if (!g) {
-                    g = { key, name: sub ? sub.name : 'Rotina do dia', color: sub?.color || '#64748b', tasks: [] };
+                    g = { key, name: sub ? sub.name : 'Rotina do dia', color: sub?.color || '#6c7380', tasks: [] };
                     groups.push(g);
                   }
                   g.tasks.push(t);

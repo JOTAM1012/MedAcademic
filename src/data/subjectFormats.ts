@@ -128,7 +128,7 @@ export const DISCIPLINE_SUGGESTIONS: Record<'ciclo_basico' | 'ciclo_clinico', st
 
 export const CYCLE_INFO: Record<CycleId, { label: string; color: string }> = {
   ciclo_basico: { label: 'Ciclo Básico', color: '#10b981' },
-  ciclo_clinico: { label: 'Ciclo Clínico', color: '#0ea5e9' },
+  ciclo_clinico: { label: 'Ciclo Clínico', color: '#3b82f6' },
   internato: { label: 'Internato', color: '#8b5cf6' },
 };
 

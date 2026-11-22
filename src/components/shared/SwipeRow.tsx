@@ -101,7 +101,7 @@ export default function SwipeRow({
   children,
   actions = DEFAULT_ACTIONS,
   actionColor = '#e11d48',
-  drawerColor = '#475569',
+  drawerColor = '#4e5562',
   rowColor = 'var(--swipe-row-bg)',
   textColor = 'inherit',
   height,

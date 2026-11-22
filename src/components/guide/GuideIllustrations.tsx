@@ -83,8 +83,8 @@ export const ForgettingCurveChart: React.FC = () => {
     <svg viewBox="0 0 340 200" className="w-full h-auto" role="img" aria-label="Curva do esquecimento: a economia ao reaprender cai de 58% em 20 minutos para 34% em 1 dia e 21% em 31 dias">
       <defs>
         <linearGradient id="guide-curve-fill" x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stopColor="#0ea5e9" stopOpacity="0.28" />
-          <stop offset="100%" stopColor="#0ea5e9" stopOpacity="0" />
+          <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.28" />
+          <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
         </linearGradient>
       </defs>
       {[0, 25, 50, 75, 100].map((g) => (
@@ -101,12 +101,12 @@ export const ForgettingCurveChart: React.FC = () => {
         primeiras 24 h
       </text>
       <path d={area} fill="url(#guide-curve-fill)" />
-      <path d={line} fill="none" stroke="#0ea5e9" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+      <path d={line} fill="none" stroke="#3b82f6" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
       {pts.map((p) => {
         const isDay = p.label === '1 dia';
         return (
           <g key={p.label}>
-            <circle cx={xOf(p.lg)} cy={yOf(p.pct)} r={isDay ? 5.5 : 3.5} fill={isDay ? '#f59e0b' : '#0ea5e9'} className="stroke-white dark:stroke-slate-950" strokeWidth="2" />
+            <circle cx={xOf(p.lg)} cy={yOf(p.pct)} r={isDay ? 5.5 : 3.5} fill={isDay ? '#f59e0b' : '#3b82f6'} className="stroke-white dark:stroke-slate-950" strokeWidth="2" />
             {labelled.has(p.label) && (
               <text x={xOf(p.lg) + (p.label === '31 dias' ? -2 : 0)} y={yOf(p.pct) - 10} textAnchor={p.label === '31 dias' ? 'end' : 'middle'} className="fill-slate-700 dark:fill-slate-200" fontSize="10" fontWeight="800">
                 {fmt(p.pct)}
@@ -291,7 +291,7 @@ export const PomodoroBarsArt: React.FC<{ blocks?: Array<{ focus: number; rest: n
 export const QuickPriorityArt: React.FC = () => (
   <div className="space-y-2" aria-hidden>
     {[
-      { n: 1, t: 'Revisões do dia', c: '#0ea5e9', w: '100%', tag: 'primeiro' },
+      { n: 1, t: 'Revisões do dia', c: '#3b82f6', w: '100%', tag: 'primeiro' },
       { n: 2, t: 'Questões e caderno de erros', c: '#8b5cf6', w: '88%' },
       { n: 3, t: 'Conteúdo novo', c: '#10b981', w: '76%' },
     ].map((r) => (

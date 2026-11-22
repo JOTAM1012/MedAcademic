@@ -51,7 +51,7 @@ export const LinkedAreaBlocks: React.FC<{ block: TopicBlock; subject: Subject }>
           <ul className="flex flex-wrap gap-1.5">
             {linked.map((b) => {
               const s = subOf(b);
-              const color = s ? subjectColor(s) : '#64748b';
+              const color = s ? subjectColor(s) : '#6c7380';
               const st = topicStats(topics.filter((t) => t.blockId === b.id));
               return (
                 <li key={b.id} className="inline-flex items-center gap-1 max-w-full rounded-full pl-2.5 pr-1 h-8 text-[11px] font-bold" style={{ backgroundColor: `${color}14`, color }}>
@@ -92,7 +92,7 @@ export const LinkedAreaBlocks: React.FC<{ block: TopicBlock; subject: Subject }>
             {filtered.map((b) => {
               const s = subOf(b);
               const on = linkedSet.has(b.id);
-              const color = s ? subjectColor(s) : '#64748b';
+              const color = s ? subjectColor(s) : '#6c7380';
               return (
                 <li key={b.id}>
                   <button

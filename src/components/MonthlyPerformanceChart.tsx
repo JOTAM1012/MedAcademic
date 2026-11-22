@@ -152,8 +152,8 @@ export const MonthlyPerformanceChart: React.FC = () => {
     return chartData.reduce((acc, d) => acc + d.horas, 0).toFixed(1);
   }, [chartData]);
 
-  const gridColor = isDarkMode ? '#334155' : '#f1f5f9';
-  const textColor = isDarkMode ? '#94a3b8' : '#64748b';
+  const gridColor = isDarkMode ? '#3a3f49' : '#edeff2';
+  const textColor = isDarkMode ? '#9aa1ad' : '#6c7380';
 
   return (
     <div
@@ -367,17 +367,17 @@ export const MonthlyPerformanceChart: React.FC = () => {
               wrapperStyle={{ fontSize: '12px', fontWeight: 600 }}
             />
 
-            <ReferenceLine y={80} stroke="#94a3b8" strokeDasharray="3 3" label={{ value: 'Meta de Excelência (80%)', fill: '#94a3b8', fontSize: 10, position: 'insideTopRight' }} />
+            <ReferenceLine y={80} stroke="#9aa1ad" strokeDasharray="3 3" label={{ value: 'Meta de Excelência (80%)', fill: '#9aa1ad', fontSize: 10, position: 'insideTopRight' }} />
 
             {(activeMetric === 'all' || activeMetric === 'performance') && (
               <Line
                 type="monotone"
                 dataKey="desempenho"
                 name="Evolução do Desempenho"
-                stroke="#0284c7"
+                stroke="#2563eb"
                 strokeWidth={3}
-                dot={{ r: viewMode === 'weekly' ? 5 : 2, fill: '#0284c7', strokeWidth: 2, stroke: isDarkMode ? '#0f172a' : '#ffffff' }}
-                activeDot={{ r: 7, stroke: '#38bdf8', strokeWidth: 2 }}
+                dot={{ r: viewMode === 'weekly' ? 5 : 2, fill: '#2563eb', strokeWidth: 2, stroke: isDarkMode ? '#181b21' : '#ffffff' }}
+                activeDot={{ r: 7, stroke: '#60a5fa', strokeWidth: 2 }}
                 unit="%"
               />
             )}
@@ -390,7 +390,7 @@ export const MonthlyPerformanceChart: React.FC = () => {
                 stroke="#f59e0b"
                 strokeWidth={3}
                 strokeDasharray={activeMetric === 'all' ? undefined : undefined}
-                dot={{ r: viewMode === 'weekly' ? 5 : 2, fill: '#f59e0b', strokeWidth: 2, stroke: isDarkMode ? '#0f172a' : '#ffffff' }}
+                dot={{ r: viewMode === 'weekly' ? 5 : 2, fill: '#f59e0b', strokeWidth: 2, stroke: isDarkMode ? '#181b21' : '#ffffff' }}
                 activeDot={{ r: 7, stroke: '#fbbf24', strokeWidth: 2 }}
                 unit="%"
               />

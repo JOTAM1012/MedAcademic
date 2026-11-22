@@ -5,9 +5,43 @@
 @custom-variant can-hover (@media (hover: hover) and (pointer: fine));
 @custom-variant no-hover (@media not ((hover: hover) and (pointer: fine)));
 
+/* ==========================================================================
+   PALETA DO SITE — 3 cores
+   1. Escura  #0F1115 (grafite)  → fundo do modo escuro e textos
+   2. Clara   #F6F7F9            → fundo do modo claro
+   3. Destaque #2563EB (azul royal) → botões, links, seleção
+   "slate" vira a escala de grafite e "sky" vira a escala do azul royal,
+   então todas as classes do site seguem a paleta sem mexer em cada tela.
+   ========================================================================== */
+@theme {
+  --color-slate-50: #f6f7f9;
+  --color-slate-100: #edeff2;
+  --color-slate-200: #e1e4ea;
+  --color-slate-300: #c9ced6;
+  --color-slate-400: #9aa1ad;
+  --color-slate-500: #6c7380;
+  --color-slate-600: #4e5562;
+  --color-slate-700: #3a3f49;
+  --color-slate-800: #22262d;
+  --color-slate-900: #181b21;
+  --color-slate-950: #0f1115;
+
+  --color-sky-50: #eff6ff;
+  --color-sky-100: #dbeafe;
+  --color-sky-200: #bfdbfe;
+  --color-sky-300: #93c5fd;
+  --color-sky-400: #60a5fa;
+  --color-sky-500: #3b82f6;
+  --color-sky-600: #2563eb;
+  --color-sky-700: #1d4ed8;
+  --color-sky-800: #1e40af;
+  --color-sky-900: #1e3a8a;
+  --color-sky-950: #172554;
+}
+
 @layer base {
   body {
-    @apply bg-[#F8FAFC] dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans antialiased;
+    @apply bg-[#F6F7F9] dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans antialiased;
   }
 }
 
@@ -22,20 +56,20 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.3);
+  background: rgba(154, 161, 173, 0.3);
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(148, 163, 184, 0.5);
+  background: rgba(154, 161, 173, 0.5);
 }
 
 .dark ::-webkit-scrollbar-thumb {
-  background: rgba(51, 65, 85, 0.5);
+  background: rgba(58, 63, 73, 0.5);
 }
 
 .dark ::-webkit-scrollbar-thumb:hover {
-  background: rgba(51, 65, 85, 0.8);
+  background: rgba(58, 63, 73, 0.8);
 }
 
 /* ---------- Janelas (modais) que cabem na tela do celular/tablet ---------- */
@@ -46,10 +80,10 @@
   overscroll-behavior: contain;
 }
 .app-modal-panel.bg-slate-900 {
-  --modal-bg: #0f172a;
+  --modal-bg: #181b21;
 }
 .dark .app-modal-panel {
-  --modal-bg: #0f172a;
+  --modal-bg: #181b21;
 }
 /* Botões de concluir sempre visíveis no rodapé da janela */
 .app-modal-footer {
@@ -89,7 +123,7 @@
     width: 2.5rem;
     height: 0.3rem;
     border-radius: 9999px;
-    background: rgba(148, 163, 184, 0.45);
+    background: rgba(154, 161, 173, 0.45);
     margin: -0.25rem auto 0.6rem;
   }
   .app-modal-footer {
@@ -133,7 +167,7 @@
 }
 /* Nome do usuário comum: azul brilhante na paleta do site */
 .user-blue-name {
-  background: linear-gradient(100deg, #0284c7 0%, #38bdf8 30%, #7dd3fc 44%, #bae6fd 50%, #7dd3fc 56%, #38bdf8 70%, #0284c7 100%);
+  background: linear-gradient(100deg, #2563eb 0%, #60a5fa 30%, #93c5fd 44%, #bfdbfe 50%, #93c5fd 56%, #60a5fa 70%, #2563eb 100%);
   background-size: 250% auto;
   -webkit-background-clip: text;
   background-clip: text;
@@ -252,14 +286,14 @@
   position: relative;
   padding: 4px;
   isolation: isolate;
-  box-shadow: 0 0 18px rgba(14, 165, 233, 0.45), 0 0 42px rgba(37, 99, 235, 0.18);
+  box-shadow: 0 0 18px rgba(59, 130, 246, 0.45), 0 0 42px rgba(37, 99, 235, 0.18);
 }
 .user-blue-frame::before {
   content: '';
   position: absolute;
   inset: -40%;
   z-index: -1;
-  background: conic-gradient(from 0deg, #1e3a8a, #0284c7, #7dd3fc, #e0f2fe, #7dd3fc, #0284c7, #1e3a8a, #0284c7, #7dd3fc, #1e3a8a);
+  background: conic-gradient(from 0deg, #1e3a8a, #2563eb, #93c5fd, #dbeafe, #93c5fd, #2563eb, #1e3a8a, #2563eb, #93c5fd, #1e3a8a);
   animation: owner-frame-spin 5s linear infinite;
 }
 .user-blue-frame > img {
@@ -268,7 +302,7 @@
 }
 .user-blue-frame--sm {
   padding: 2px;
-  box-shadow: 0 0 10px rgba(14, 165, 233, 0.55);
+  box-shadow: 0 0 10px rgba(59, 130, 246, 0.55);
 }
 .user-blue-frame--sm > img { border-radius: 9999px; }
 @media (prefers-reduced-motion: reduce) {
@@ -281,58 +315,37 @@
   animation: how-to-press 1.1s ease-in-out;
 }
 @keyframes how-to-press {
-  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(14, 165, 233, 0.7); }
-  35% { transform: scale(1.08); box-shadow: 0 0 0 10px rgba(14, 165, 233, 0.25); }
+  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); }
+  35% { transform: scale(1.08); box-shadow: 0 0 0 10px rgba(59, 130, 246, 0.25); }
   55% { transform: scale(0.95); }
-  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(14, 165, 233, 0); }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
 }
 
 /* ==========================================================================
-   MODO CLARO — paleta "névoa clínica"
-   Remete ao azul-marinho/azul-celeste do modo escuro, mas sem branco puro
-   (menos brilho e menos cansaço visual em longas sessões de estudo).
+   MODO CLARO — fundo claro #F6F7F9, cartões brancos, texto grafite
+   (as cores vêm da escala do @theme lá em cima)
    ========================================================================== */
 html:not(.dark) body {
-  background: #e9eff6;
-  background-image:
-    radial-gradient(1200px 600px at 100% -10%, rgba(14, 165, 233, 0.07), transparent 60%),
-    radial-gradient(900px 500px at -10% 110%, rgba(37, 99, 235, 0.05), transparent 60%);
-  background-attachment: fixed;
-  color: #1e293b;
+  background: #f6f7f9;
+  color: #22262d;
 }
-html:not(.dark) .app-modal-panel { --modal-bg: #f7f9fc; }
+html:not(.dark) .app-modal-panel { --modal-bg: #ffffff; }
 
 @layer utilities {
-  /* superfícies: branco-gelo em vez de branco puro */
-  :where(html:not(.dark)) .bg-white:where(:not(.dark *)) { background-color: #f7f9fc; }
-  :where(html:not(.dark)) .bg-white\/80:where(:not(.dark *)),
-  :where(html:not(.dark)) .bg-white\/90:where(:not(.dark *)),
-  :where(html:not(.dark)) .bg-white\/95:where(:not(.dark *)) { background-color: rgb(247 249 252 / 0.9); }
-  :where(html:not(.dark)) .bg-slate-50:where(:not(.dark *)) { background-color: #eef2f8; }
-  :where(html:not(.dark)) .bg-slate-100:where(:not(.dark *)) { background-color: #e3e9f2; }
-  :where(html:not(.dark)) .bg-\[\#F8FAFC\]:where(:not(.dark *)) { background-color: #e9eff6; }
-  /* bordas mais definidas, porém suaves */
-  :where(html:not(.dark)) .border-slate-100:where(:not(.dark *)) { border-color: #dfe6ef; }
-  :where(html:not(.dark)) .border-slate-200:where(:not(.dark *)) { border-color: #d3dce8; }
-  :where(html:not(.dark)) .divide-slate-100 > :not(:last-child):where(:not(.dark *)) { border-color: #dfe6ef; }
-  /* texto: azul-marinho do tema escuro em vez de preto */
-  :where(html:not(.dark)) .text-slate-900:where(:not(.dark *)) { color: #172236; }
-  :where(html:not(.dark)) .text-slate-800:where(:not(.dark *)) { color: #22314a; }
-  :where(html:not(.dark)) .text-slate-700:where(:not(.dark *)) { color: #334563; }
-  :where(html:not(.dark)) .text-slate-400:where(:not(.dark *)) { color: #7b8aa3; }
-  /* sombras com leve tom azulado para dar profundidade sem contraste duro */
+  :where(html:not(.dark)) .bg-\[\#F8FAFC\]:where(:not(.dark *)) { background-color: #f6f7f9; }
+  /* sombras neutras e discretas */
   :where(html:not(.dark)) .shadow-xs:where(:not(.dark *)),
-  :where(html:not(.dark)) .shadow-sm:where(:not(.dark *)) { box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 2px 8px -2px rgba(30, 64, 120, 0.08); }
+  :where(html:not(.dark)) .shadow-sm:where(:not(.dark *)) { box-shadow: 0 1px 2px rgba(15, 17, 21, 0.05), 0 2px 8px -2px rgba(15, 17, 21, 0.06); }
 }
 
 /* nomes brilhantes legíveis sobre fundo claro */
 html:not(.dark) .user-blue-name:not(.dark *) {
-  background-image: linear-gradient(100deg, #075985 0%, #0369a1 25%, #0ea5e9 45%, #38bdf8 50%, #0ea5e9 55%, #0369a1 75%, #075985 100%);
+  background-image: linear-gradient(100deg, #1e40af 0%, #1d4ed8 25%, #3b82f6 45%, #60a5fa 50%, #3b82f6 55%, #1d4ed8 75%, #1e40af 100%);
 }
 html:not(.dark) .owner-gold-name:not(.dark *) {
   background-image: linear-gradient(100deg, #92400e 0%, #b45309 22%, #d97706 42%, #f59e0b 50%, #d97706 58%, #b45309 78%, #92400e 100%);
 }
-html:not(.dark) ::-webkit-scrollbar-thumb { background: rgba(100, 116, 139, 0.35); }
+html:not(.dark) ::-webkit-scrollbar-thumb { background: rgba(108, 115, 128, 0.35); }
 
 /* troca de tema suave */
 html.theme-anim, html.theme-anim *, html.theme-anim *::before, html.theme-anim *::after {
@@ -341,8 +354,8 @@ html.theme-anim, html.theme-anim *, html.theme-anim *::before, html.theme-anim *
 
 /* Modo claro: tons 300/400 (feitos para fundo escuro) ficam mais fortes para manter o contraste */
 @layer utilities {
-  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-sky-400:where(:not(.dark *)) { color: #0284c7; }
-  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-sky-300:where(:not(.dark *)) { color: #0369a1; }
+  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-sky-400:where(:not(.dark *)) { color: #2563eb; }
+  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-sky-300:where(:not(.dark *)) { color: #1d4ed8; }
   :where(html:not(.dark)) :is(main, .app-modal-panel) .text-blue-400:where(:not(.dark *)) { color: #2563eb; }
   :where(html:not(.dark)) :is(main, .app-modal-panel) .text-blue-300:where(:not(.dark *)) { color: #1d4ed8; }
   :where(html:not(.dark)) :is(main, .app-modal-panel) .text-indigo-400:where(:not(.dark *)) { color: #4f46e5; }
@@ -381,7 +394,7 @@ html.theme-anim, html.theme-anim *, html.theme-anim *::before, html.theme-anim *
    style={{ '--ink': cor }}. No claro a cor escurece para ter contraste; no escuro fica a cor-base.
    Fundos, bordas e ícones continuam usando a cor-base direto. */
 @layer utilities {
-  .ink { color: color-mix(in srgb, var(--ink, currentColor) 62%, #0f172a); }
+  .ink { color: color-mix(in srgb, var(--ink, currentColor) 62%, #181b21); }
   .dark .ink { color: var(--ink, currentColor); }
 }
 
@@ -416,11 +429,11 @@ html {
 .text-\[11px\], .text-\[12px\], .text-\[13px\] { font-size: 12.5px !important; }
 
 /* Cartões mais leves: borda quase invisível, sem caixa dentro de caixa pesada */
-html:not(.dark) main .border-slate-200, html:not(.dark) main .border-slate-100 { border-color: rgba(15, 23, 42, 0.07) !important; }
-.dark main .border-slate-800, .dark main .border-slate-700 { border-color: rgba(148, 163, 184, 0.11) !important; }
-main .rounded-3xl.border { box-shadow: 0 1px 2px rgba(2, 6, 23, 0.04); transition: border-color 0.2s ease, box-shadow 0.25s ease; }
-html:not(.dark) main .rounded-3xl.border:hover { box-shadow: 0 10px 30px -12px rgba(2, 6, 23, 0.14); }
-.dark main .rounded-3xl.border:hover { border-color: rgba(56, 189, 248, 0.22) !important; box-shadow: 0 12px 34px -14px rgba(14, 165, 233, 0.25); }
+html:not(.dark) main .border-slate-200, html:not(.dark) main .border-slate-100 { border-color: rgba(24, 27, 33, 0.07) !important; }
+.dark main .border-slate-800, .dark main .border-slate-700 { border-color: rgba(154, 161, 173, 0.11) !important; }
+main .rounded-3xl.border { box-shadow: 0 1px 2px rgba(15, 17, 21, 0.04); transition: border-color 0.2s ease, box-shadow 0.25s ease; }
+html:not(.dark) main .rounded-3xl.border:hover { box-shadow: 0 10px 30px -12px rgba(15, 17, 21, 0.14); }
+.dark main .rounded-3xl.border:hover { border-color: rgba(96, 165, 250, 0.22) !important; box-shadow: 0 12px 34px -14px rgba(59, 130, 246, 0.25); }
 
 /* Vidro líquido: barra de baixo do celular flutuando sobre o conteúdo */
 .glass-bar {
@@ -430,12 +443,12 @@ html:not(.dark) main .rounded-3xl.border:hover { box-shadow: 0 10px 30px -12px r
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(255, 255, 255, 0.58));
   -webkit-backdrop-filter: blur(22px) saturate(1.8);
   backdrop-filter: blur(22px) saturate(1.8);
-  box-shadow: 0 10px 34px -8px rgba(2, 6, 23, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  box-shadow: 0 10px 34px -8px rgba(15, 17, 21, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.7);
   padding-bottom: 0 !important;
 }
 .dark .glass-bar {
-  border-color: rgba(148, 163, 184, 0.16);
-  background: linear-gradient(180deg, rgba(30, 41, 59, 0.62), rgba(15, 23, 42, 0.5));
+  border-color: rgba(154, 161, 173, 0.16);
+  background: linear-gradient(180deg, rgba(34, 38, 45, 0.62), rgba(24, 27, 33, 0.5));
   box-shadow: 0 14px 40px -10px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 /* Vidro no topo e nas janelas: fundo desfocado atrás */
@@ -443,11 +456,11 @@ html:not(.dark) main .rounded-3xl.border:hover { box-shadow: 0 10px 30px -12px r
   background: rgba(255, 255, 255, 0.72) !important;
   -webkit-backdrop-filter: blur(18px) saturate(1.6);
   backdrop-filter: blur(18px) saturate(1.6);
-  border-bottom-color: rgba(15, 23, 42, 0.06) !important;
+  border-bottom-color: rgba(24, 27, 33, 0.06) !important;
 }
-.dark #tour-topbar { background: rgba(10, 16, 32, 0.6) !important; border-bottom-color: rgba(148, 163, 184, 0.1) !important; }
+.dark #tour-topbar { background: rgba(15, 17, 21, 0.6) !important; border-bottom-color: rgba(154, 161, 173, 0.1) !important; }
 .app-modal { -webkit-backdrop-filter: blur(10px) saturate(1.3); backdrop-filter: blur(10px) saturate(1.3); }
-.app-modal-panel { box-shadow: 0 30px 80px -20px rgba(2, 6, 23, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.06) !important; }
+.app-modal-panel { box-shadow: 0 30px 80px -20px rgba(15, 17, 21, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.06) !important; }
 
 /* Movimento: janelas entram com leve subida; botões respondem ao toque */
 @keyframes modal-in { from { opacity: 0; scale: 0.97; } to { opacity: 1; scale: 1; } }
@@ -458,37 +471,36 @@ main button:active:not(:disabled) { scale: 0.98; }
   main button:active:not(:disabled) { scale: 1; }
 }
 
-/* ---------- Fundo com profundidade (é ele que faz o vidro aparecer) ---------- */
+/* ---------- Fundo com profundidade (é ele que faz o vidro aparecer) ----------
+   Paleta sóbria: só um brilho discreto da cor de destaque no alto */
 .app-bg {
   background-image:
-    radial-gradient(1100px 620px at 12% -8%, rgba(56, 189, 248, 0.16), transparent 62%),
-    radial-gradient(900px 560px at 108% 4%, rgba(129, 140, 248, 0.13), transparent 60%),
-    radial-gradient(1000px 700px at 50% 118%, rgba(45, 212, 191, 0.10), transparent 62%);
+    radial-gradient(1100px 620px at 12% -8%, rgba(59, 130, 246, 0.09), transparent 62%),
+    radial-gradient(900px 560px at 108% 4%, rgba(59, 130, 246, 0.05), transparent 60%);
   background-attachment: fixed;
 }
 html:not(.dark) .app-bg {
-  background-color: #f6f8fc;
+  background-color: #f6f7f9;
   background-image:
-    radial-gradient(1100px 620px at 12% -8%, rgba(56, 189, 248, 0.20), transparent 62%),
-    radial-gradient(900px 560px at 108% 4%, rgba(129, 140, 248, 0.14), transparent 60%),
-    radial-gradient(1000px 700px at 50% 118%, rgba(45, 212, 191, 0.12), transparent 62%);
+    radial-gradient(1100px 620px at 12% -8%, rgba(59, 130, 246, 0.08), transparent 62%),
+    radial-gradient(900px 560px at 108% 4%, rgba(59, 130, 246, 0.04), transparent 60%);
 }
 
 /* ---------- Tema claro mais caprichado ---------- */
 html:not(.dark) main .rounded-3xl.border.bg-white {
   background-color: rgba(255, 255, 255, 0.86) !important;
-  box-shadow: 0 1px 1px rgba(15, 23, 42, 0.03), 0 8px 24px -14px rgba(15, 23, 42, 0.14);
+  box-shadow: 0 1px 1px rgba(24, 27, 33, 0.03), 0 8px 24px -14px rgba(24, 27, 33, 0.14);
 }
-html:not(.dark) main .bg-slate-50 { background-color: rgba(241, 245, 249, 0.7) !important; }
-html:not(.dark) main .text-slate-500 { color: #5b6b82 !important; }
-html:not(.dark) main .text-slate-400 { color: #7c8aa0 !important; }
-html:not(.dark) .glass-bar { border-color: rgba(15, 23, 42, 0.06); }
-.dark main .rounded-3xl.border.dark\:bg-slate-900 { background-color: rgba(15, 23, 42, 0.72) !important; }
+html:not(.dark) main .bg-slate-50 { background-color: rgba(237, 239, 242, 0.7) !important; }
+html:not(.dark) main .text-slate-500 { color: #5f6673 !important; }
+html:not(.dark) main .text-slate-400 { color: #828895 !important; }
+html:not(.dark) .glass-bar { border-color: rgba(24, 27, 33, 0.06); }
+.dark main .rounded-3xl.border.dark\:bg-slate-900 { background-color: rgba(24, 27, 33, 0.72) !important; }
 
 /* ---------- Esqueleto de carregamento ---------- */
 @keyframes skeleton-shine { from { background-position: 200% 0; } to { background-position: -200% 0; } }
 .skeleton {
-  background: linear-gradient(90deg, rgba(148, 163, 184, 0.16) 25%, rgba(148, 163, 184, 0.30) 37%, rgba(148, 163, 184, 0.16) 63%);
+  background: linear-gradient(90deg, rgba(154, 161, 173, 0.16) 25%, rgba(154, 161, 173, 0.30) 37%, rgba(154, 161, 173, 0.16) 63%);
   background-size: 200% 100%;
   animation: skeleton-shine 1.4s ease-in-out infinite;
 }

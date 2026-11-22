@@ -28,10 +28,10 @@
 }
 @media (hover: hover) {
   .bento-card:hover {
-    border-color: rgb(186 230 253); /* sky-200 */
+    border-color: rgb(191 219 254); /* azul-200 */
   }
   .dark .bento-card:hover {
-    border-color: rgb(7 89 133 / 0.7); /* sky-800 */
+    border-color: rgb(30 64 175 / 0.7); /* azul-800 */
   }
 }
 
@@ -45,12 +45,12 @@
 /* Bloco principal: plano de hoje, com um brilho suave no canto */
 #dash-widget-plan > #today-plan-compact {
   background-image:
-    radial-gradient(120% 80% at 100% 0%, rgb(14 165 233 / 0.10), transparent 60%),
+    radial-gradient(120% 80% at 100% 0%, rgb(59 130 246 / 0.10), transparent 60%),
     radial-gradient(90% 70% at 0% 100%, rgb(99 102 241 / 0.06), transparent 65%);
 }
 .dark #dash-widget-plan > #today-plan-compact {
   background-image:
-    radial-gradient(120% 80% at 100% 0%, rgb(14 165 233 / 0.16), transparent 60%),
+    radial-gradient(120% 80% at 100% 0%, rgb(59 130 246 / 0.16), transparent 60%),
     radial-gradient(90% 70% at 0% 100%, rgb(99 102 241 / 0.10), transparent 65%);
 }
 @media (min-width: 768px) {

@@ -1293,7 +1293,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch {
       /* sem armazenamento */
     }
-    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', themeMode === 'dark' ? '#0f172a' : '#e9eff6');
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', themeMode === 'dark' ? '#181b21' : '#f6f7f9');
   }, [themeMode]);
 
   // Global Timer Tick: recalcula pelo relógio, então o tempo fica certo mesmo que o navegador
@@ -1601,7 +1601,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         particleCount: 70,
         spread: 60,
         origin: { y: 0.7 },
-        colors: ['#0284c7', '#0d9488', '#10b981', '#f59e0b'],
+        colors: ['#2563eb', '#0d9488', '#10b981', '#f59e0b'],
       });
     } catch {
       // ignore

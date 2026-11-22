@@ -65,7 +65,7 @@ export const Ring: React.FC<{ pct: number; color: string; size?: number }> = ({ 
   return (
     <div className="relative shrink-0 grid place-items-center" style={{ width: size, height: size }} aria-label={`${pct}% concluído`} role="img">
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="absolute inset-0" aria-hidden>
-        <circle cx={mid} cy={mid} r={r} fill="none" stroke="rgba(148,163,184,0.22)" strokeWidth={stroke} />
+        <circle cx={mid} cy={mid} r={r} fill="none" stroke="rgba(154,161,173,0.22)" strokeWidth={stroke} />
         <circle
           cx={mid}
           cy={mid}

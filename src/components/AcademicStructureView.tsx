@@ -166,7 +166,7 @@ export const AcademicStructureView: React.FC<AcademicStructureViewProps> = ({ on
     }));
     const free = plain.filter((s) => !linked.has(s.id));
     // Fora do ciclo básico, o que não está em módulo fica só em Grandes áreas (sem o caderno "Sem módulo")
-    if (isBasic && (free.length || !list.length)) list.push({ id: '__free__', title: list.length ? 'Sem módulo' : 'Disciplinas', code: '•••', color: '#64748b', items: free, domId: 'struct-module-free' });
+    if (isBasic && (free.length || !list.length)) list.push({ id: '__free__', title: list.length ? 'Sem módulo' : 'Disciplinas', code: '•••', color: '#6c7380', items: free, domId: 'struct-module-free' });
     return list;
   }, [subjects, isBasic]);
   const stats = topicStats(topics.filter((t) => subjects.some((s) => s.id === t.subjectId)), topicBlocks.filter((b) => subjects.some((s) => s.id === b.subjectId)));

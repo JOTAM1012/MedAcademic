@@ -44,7 +44,7 @@ export default function Segmented<T extends string>({ options, value, onChange, 
       size="sm"
       stretch={stretch}
       className={`${nowrap ? 'gooey-nav--nowrap ' : ''}${className}`}
-      color="#0284c7"
+      color="#2563eb"
       activeTextColor="#ffffff"
       particleCount={12}
       spread={14}
@@ -52,12 +52,12 @@ export default function Segmented<T extends string>({ options, value, onChange, 
       style={
         {
           '--gn-font': `${fontSize}px`,
-          '--gn-frame': isDarkMode ? 'rgba(2, 6, 23, 0.5)' : '#f1f5f9',
-          '--gn-frame-edge': isDarkMode ? '#1e293b' : '#e2e8f0',
+          '--gn-frame': isDarkMode ? 'rgba(15, 17, 21, 0.5)' : '#edeff2',
+          '--gn-frame-edge': isDarkMode ? '#22262d' : '#e1e4ea',
           '--gn-frame-highlight': 'transparent',
           '--gn-frame-shadow': 'none',
-          '--gn-ink': isDarkMode ? '#ffffff' : '#0f172a',
-          '--gn-muted': isDarkMode ? '#94a3b8' : '#64748b',
+          '--gn-ink': isDarkMode ? '#ffffff' : '#181b21',
+          '--gn-muted': isDarkMode ? '#9aa1ad' : '#6c7380',
         } as React.CSSProperties
       }
     />

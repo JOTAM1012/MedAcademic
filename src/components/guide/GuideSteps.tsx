@@ -68,7 +68,7 @@ const SectionTitle: React.FC<{ children: React.ReactNode }> = ({ children }) => 
   <h3 className="text-[11px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 mt-1">{children}</h3>
 );
 
-const Point: React.FC<{ emoji?: string; color?: string; title: React.ReactNode; children?: React.ReactNode }> = ({ emoji, color = '#0ea5e9', title, children }) => (
+const Point: React.FC<{ emoji?: string; color?: string; title: React.ReactNode; children?: React.ReactNode }> = ({ emoji, color = '#3b82f6', title, children }) => (
   <li className="flex items-start gap-3">
     <span className="mt-0.5 h-8 w-8 shrink-0 rounded-xl grid place-items-center text-base" style={{ background: `${color}1a` }}>
       {emoji || <Check className="h-4 w-4" style={{ color }} />}
@@ -113,7 +113,7 @@ export const GUIDE_STEPS: GuideStep[] = [
     emoji: '🤔',
     short: 'Por que método?',
     title: 'Por que seguir um método?',
-    color: '#0ea5e9',
+    color: '#3b82f6',
     render: () => (
       <div className="space-y-4">
         <Lead>
@@ -123,7 +123,7 @@ export const GUIDE_STEPS: GuideStep[] = [
           <IllusionOfCompetenceArt />
         </IllustrationFrame>
         <ul className="space-y-3">
-          <Point emoji="🪞" color="#64748b" title="Reler dá a ilusão de que você sabe">
+          <Point emoji="🪞" color="#6c7380" title="Reler dá a ilusão de que você sabe">
             O texto parece familiar, e familiar parece “sei”. Mas na prova ninguém te mostra o texto.
           </Point>
           <Point emoji="🧠" color="#10b981" title="Tentar lembrar é o que fixa">
@@ -308,7 +308,7 @@ export const GUIDE_STEPS: GuideStep[] = [
         <Lead>Todo dia o site monta sozinho o que estudar, na ordem certa e do tamanho do seu tempo. Quando o dia aperta, a prioridade é sempre esta:</Lead>
         <div className="grid grid-cols-3 gap-2">
           {[
-            { n: 1, t: 'Revisões', c: '#0ea5e9' },
+            { n: 1, t: 'Revisões', c: '#3b82f6' },
             { n: 2, t: 'Questões', c: '#8b5cf6' },
             { n: 3, t: 'Conteúdo novo', c: '#10b981' },
           ].map((p) => (
@@ -378,7 +378,7 @@ export const GUIDE_STEPS: GuideStep[] = [
       const KIND = {
         normal: { e: '🌱', t: 'Temas novos', c: '#10b981' },
         mixed: { e: '🔀', t: 'Misturadas', c: '#ec4899' },
-        rest: { e: '🛋️', t: 'Descanso', c: '#0ea5e9' },
+        rest: { e: '🛋️', t: 'Descanso', c: '#3b82f6' },
       } as const;
       return (
         <div className="space-y-4">
@@ -420,7 +420,7 @@ export const GUIDE_STEPS: GuideStep[] = [
             <Point emoji="🔀" color="#ec4899" title="Dia das misturadas: questões de várias áreas + caderno de erros">
               Misturar temas treina escolher a estratégia certa, como na prova.
             </Point>
-            <Point emoji="🛋️" color="#0ea5e9" title="Descanso de verdade + 20 min para planejar">
+            <Point emoji="🛋️" color="#3b82f6" title="Descanso de verdade + 20 min para planejar">
               Use “Planejar semana” no Planner: ele distribui os temas novos nos dias sozinho, e você ajusta se quiser.
             </Point>
           </ul>
@@ -607,12 +607,12 @@ export const GUIDE_STEPS: GuideStep[] = [
     emoji: '🧭',
     short: 'Como usar o site',
     title: 'Como usar o site, passo a passo',
-    color: '#0ea5e9',
+    color: '#3b82f6',
     render: ({ goTo }) => {
       const items: Array<{ id: Parameters<GuideContext['goTo']>[0]; icon: React.ElementType; color: string; title: string; text: string }> = [
         { id: 'structure', icon: Layers, color: '#6366f1', title: 'Disciplinas', text: 'Cadastre suas disciplinas e os temas que vai estudar.' },
         { id: 'calendar', icon: CalendarDays, color: '#8b5cf6', title: 'Planner › Hoje', text: 'Abra todo dia e siga o próximo passo do plano.' },
-        { id: 'spaced_repetition', icon: Repeat, color: '#0ea5e9', title: 'Revisões', text: 'Faça a revisão com a técnica indicada e registre como foi.' },
+        { id: 'spaced_repetition', icon: Repeat, color: '#3b82f6', title: 'Revisões', text: 'Faça a revisão com a técnica indicada e registre como foi.' },
         { id: 'erros', icon: NotebookPen, color: '#f59e0b', title: 'Caderno de erros', text: 'Anote cada erro em 1 linha e refaça quando ele voltar.' },
         { id: 'stopwatch', icon: Timer, color: '#f97316', title: 'Pomodoro', text: 'Foque em blocos. O “Começar” do plano já liga a tarefa aqui.' },
         { id: 'personal', icon: FolderHeart, color: '#e11d48', title: 'Estudos pessoais', text: 'Residência, liga, idioma, cursos: com meta semanal e revisões.' },

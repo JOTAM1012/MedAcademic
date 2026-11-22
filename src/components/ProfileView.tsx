@@ -280,7 +280,7 @@ export const ProfileView: React.FC = () => {
     const area = getMedicalArea(sub?.majorArea);
     const key = spec ? 'spec:' + spec.id : sub ? 'area:' + area.id : 'none';
     const label = spec ? `${spec.emoji} ${spec.id}` : sub ? area.id : 'Sem área';
-    const color = spec ? spec.color : sub ? area.color : '#64748b';
+    const color = spec ? spec.color : sub ? area.color : '#6c7380';
     const cur = areaMap.get(key) || { label, color, total: 0, correct: 0 };
     cur.total += q.total;
     cur.correct += q.correct;

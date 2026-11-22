@@ -920,7 +920,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           <div className="mt-1 h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
             <div
               className="h-full rounded-full transition-all"
-              style={{ width: `${Math.max(item.progressPercent, 2)}%`, backgroundColor: item.accentColor || '#0ea5e9' }}
+              style={{ width: `${Math.max(item.progressPercent, 2)}%`, backgroundColor: item.accentColor || '#3b82f6' }}
             />
           </div>
         </div>
@@ -1180,7 +1180,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                             item.isCompleted ? 'opacity-60' : ''
                           }`}
                         >
-                          <span className="h-8 w-1 rounded-full shrink-0" style={{ backgroundColor: item.accentColor || '#94a3b8' }} />
+                          <span className="h-8 w-1 rounded-full shrink-0" style={{ backgroundColor: item.accentColor || '#9aa1ad' }} />
                           <span className="w-11 shrink-0 font-mono text-[11px] font-bold text-slate-600 dark:text-slate-300">{item.time === '--:--' ? '—' : item.time}</span>
                           <span className="min-w-0 flex-1">
                             <span className={`block text-[13px] font-bold truncate ${item.isCompleted ? 'line-through text-slate-500 dark:text-slate-400' : 'text-slate-900 dark:text-white'}`}>

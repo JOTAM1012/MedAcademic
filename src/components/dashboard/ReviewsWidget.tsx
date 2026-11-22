@@ -30,7 +30,7 @@ export const ReviewsWidget: React.FC = () => {
 
   const subName = (id: string) => {
     const s = subjects.find((x) => x.id === id);
-    return { name: s?.universitySubject || s?.name || '', color: s?.color || '#94a3b8' };
+    return { name: s?.universitySubject || s?.name || '', color: s?.color || '#9aa1ad' };
   };
   const weakName = weak ? weak.subject.universitySubject || weak.subject.name : '';
 

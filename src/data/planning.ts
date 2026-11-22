@@ -14,7 +14,7 @@ export const EXAM_KINDS = [
   { id: 'Formativa', short: 'FORMATIVA', color: '#059669' },
 ] as const;
 
-const LEGACY_EXAM_COLOR = '#64748b';
+const LEGACY_EXAM_COLOR = '#6c7380';
 
 export type ExamFormat = 'questions' | 'grade' | 'mixed';
 

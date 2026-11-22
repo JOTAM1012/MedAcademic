@@ -365,7 +365,7 @@ export const SpacedRepetitionView: React.FC<SpacedRepetitionViewProps> = () => {
       </div>
 
       {/* Sub-abas */}
-      <div className="sticky top-0 z-20 -mx-4 px-4 sm:mx-0 sm:px-0 py-1 bg-[#F8FAFC]/90 dark:bg-slate-950/90 backdrop-blur-sm">
+      <div className="sticky top-0 z-20 -mx-4 px-4 sm:mx-0 sm:px-0 py-1 bg-[#F6F7F9]/90 dark:bg-slate-950/90 backdrop-blur-sm">
         <div className="overflow-x-auto scrollbar-none">
           <Segmented
             ariaLabel="Revisões"

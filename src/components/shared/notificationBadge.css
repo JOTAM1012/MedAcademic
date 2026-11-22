@@ -51,7 +51,7 @@
     filter var(--badge-scale-open-dur) var(--badge-ease-scale-open);
 }
 .dark .notif-badge-inner {
-  --notif-badge-ring: #0f172a;
+  --notif-badge-ring: #181b21;
 }
 .notif-badge[data-open='false'] .notif-badge-inner {
   transform: scale(0);

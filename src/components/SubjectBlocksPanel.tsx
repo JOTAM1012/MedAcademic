@@ -621,7 +621,7 @@ export const SubjectBlocksPanel: React.FC<SubjectBlocksPanelProps> = ({ subject,
                               shape="round"
                               size={20}
                               className="border-2"
-                              offStyle={{ borderColor: dot || '#cbd5e1', backgroundColor: dot || 'transparent' }}
+                              offStyle={{ borderColor: dot || '#c9ced6', backgroundColor: dot || 'transparent' }}
                             >
                               {isPending && <X className="h-3 w-3 text-white" strokeWidth={3} />}
                             </AnimatedCheck>

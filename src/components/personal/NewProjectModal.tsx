@@ -208,7 +208,7 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({ open, onClose,
             ) : (
               <div
                 className="h-10 w-10 shrink-0 flex items-center justify-center rounded-xl text-xl"
-                style={{ backgroundColor: `${step === 2 ? color : '#0ea5e9'}1f` }}
+                style={{ backgroundColor: `${step === 2 ? color : '#3b82f6'}1f` }}
                 aria-hidden="true"
               >
                 {step === 2 ? emoji : '✨'}

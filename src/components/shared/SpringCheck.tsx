@@ -54,7 +54,7 @@ export default function SpringCheck({
   onChange,
   disabled = false,
   color = 'currentColor',
-  fillColor = '#0ea5e9',
+  fillColor = '#3b82f6',
   checkColor = '#ffffff',
   boxSize = 20,
   boxRadius = 6,

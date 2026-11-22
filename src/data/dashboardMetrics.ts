@@ -12,7 +12,7 @@ export const PERIOD_OPTIONS: Array<{ id: PeriodFilter; label: string }> = [
   { id: 'semester', label: 'Semestre' },
   { id: 'all', label: 'Sempre' },
 ];
-export const AREA_OPTIONS = [{ id: 'all', short: 'Todas', color: '#64748b' }, ...MEDICAL_AREAS.map((a) => ({ id: a.id, short: a.id, color: a.color }))];
+export const AREA_OPTIONS = [{ id: 'all', short: 'Todas', color: '#6c7380' }, ...MEDICAL_AREAS.map((a) => ({ id: a.id, short: a.id, color: a.color }))];
 
 export interface DashboardData {
   subjects: Subject[];

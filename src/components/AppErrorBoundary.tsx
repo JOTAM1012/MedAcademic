@@ -32,7 +32,7 @@ export class AppErrorBoundary extends React.Component<{ children: React.ReactNod
     return (
       <div
         id="app-recovery-screen"
-        style={{ minHeight: '100dvh', background: '#020617', color: '#e2e8f0', fontFamily: 'Inter, system-ui, sans-serif' }}
+        style={{ minHeight: '100dvh', background: '#0f1115', color: '#e1e4ea', fontFamily: 'Inter, system-ui, sans-serif' }}
         className="flex items-center justify-center p-6"
       >
         <div className="w-full max-w-sm rounded-3xl border border-slate-800 bg-slate-900 p-6 text-center space-y-4 shadow-2xl">

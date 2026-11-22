@@ -8,9 +8,9 @@ import { WEEKDAY_SHORT, formatTaskSize } from '../../data/studyMethod';
 
 /** Cor da disciplina (especialidade > área > cor própria) */
 export const subjectColor = (sub?: Subject) => {
-  if (!sub) return '#0284c7';
+  if (!sub) return '#2563eb';
   if (sub.customColor) return sub.customColor;
-  return getSpecialty(sub.specialty)?.color || (sub.majorArea ? getMedicalArea(sub.majorArea).color : sub.color) || sub.color || '#0284c7';
+  return getSpecialty(sub.specialty)?.color || (sub.majorArea ? getMedicalArea(sub.majorArea).color : sub.color) || sub.color || '#2563eb';
 };
 
 export const subjectLabel = (sub?: Subject) => (sub ? sub.universitySubject || sub.name : 'Sem disciplina');

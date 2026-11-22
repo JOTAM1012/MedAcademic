@@ -15,7 +15,7 @@ const QUICK_SCREENS = [
     kicker: 'Regra de ouro',
     title: 'Revisão vem antes do conteúdo novo',
     text: 'Esquecer é normal. Revisar no dia certo, tentando lembrar antes de olhar, é o que faz o conteúdo ficar. Por isso o seu dia começa pelas revisões.',
-    color: '#0ea5e9',
+    color: '#3b82f6',
     Art: QuickPriorityArt,
   },
   {

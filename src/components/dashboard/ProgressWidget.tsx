@@ -36,7 +36,7 @@ export const ProgressWidget: React.FC<{ subjects: Subject[]; mode: GroupMode; on
       id="dash-progress"
       title="Progresso das disciplinas"
       icon={Layers}
-      color="#0ea5e9"
+      color="#3b82f6"
       action={
         <LinkButton id="dash-progress-open" onClick={() => setCurrentTab('structure')}>
           Disciplinas
@@ -70,7 +70,7 @@ export const ProgressWidget: React.FC<{ subjects: Subject[]; mode: GroupMode; on
             </div>
             <GroupToggle id="dash-progress-mode" value={mode} onChange={onModeChange} />
           </div>
-          <Bar pct={total.pct} color="#0ea5e9" />
+          <Bar pct={total.pct} color="#3b82f6" />
 
           {/* Uma linha por grupo, separadas por linhas finas */}
           <ul className="grid grid-cols-1 lg:grid-cols-2 gap-x-6 items-start">
