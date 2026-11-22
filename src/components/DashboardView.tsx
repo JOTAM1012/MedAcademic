@@ -165,9 +165,7 @@ export const DashboardView: React.FC = () => {
         <div className="rounded-3xl border border-sky-200 dark:border-sky-800/80 bg-sky-50/70 dark:bg-slate-900 p-5 sm:p-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-start gap-3.5">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-sky-600 to-sky-800 text-white flex items-center justify-center shrink-0">
-                <Stethoscope className="w-6 h-6" />
-              </div>
+              <img src="/logo-mark.png" alt="" width={48} height={48} className="w-12 h-12 shrink-0 select-none" draggable={false} />
               <div>
                 {isReturning && (
                   <p id="greeting-date" className="text-[11px] font-bold uppercase tracking-wider text-sky-600 dark:text-sky-400 mb-0.5">{todayLabel}</p>

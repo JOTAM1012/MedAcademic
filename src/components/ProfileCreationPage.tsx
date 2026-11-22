@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion, useMotionValue, useReducedMotion, useSpring } from 'motion/react';
 import './auth.css';
 import {
-  Stethoscope,
   GraduationCap,
   Sparkles,
   ArrowRight,
@@ -528,9 +527,7 @@ export const ProfileCreationPage: React.FC<ProfileCreationPageProps> = ({ signup
       {/* Top Brand Header (o fundo com profundidade vem de .auth-stage) */}
       <header className="profile-header-bar relative z-10 w-full max-w-6xl mx-auto px-4 sm:px-6 py-5 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-600 to-sky-800 shadow-lg shadow-sky-800/30 ring-1 ring-inset ring-white/20 text-white">
-            <Stethoscope className="h-5 w-5" />
-          </div>
+          <img src="/logo-mark.png" alt="" width={40} height={40} className="h-10 w-10 shrink-0 select-none" draggable={false} />
           <div>
             <div className="flex items-center gap-2">
               <span className="text-base font-black tracking-tight text-white">MedAcademic</span>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { LogOut, Stethoscope, CloudOff, RefreshCw, X, ChevronDown, Trash2 } from 'lucide-react';
+import { LogOut, CloudOff, RefreshCw, X, ChevronDown, Trash2 } from 'lucide-react';
 import { AuthProvider, useAuth, isLocalOnly } from './context/AuthContext';
 import { AppProvider, useApp } from './context/AppContext';
 import { Sidebar } from './components/Sidebar';
@@ -305,9 +305,7 @@ const AppContent: React.FC = () => {
         {/* Esqueleto da tela: mostra o formato do site enquanto os dados chegam */}
         <div className="hidden lg:flex w-64 shrink-0 flex-col gap-3 bg-slate-900 p-4">
           <div className="flex items-center gap-2.5 mb-3">
-            <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-sky-600 to-sky-800 flex items-center justify-center">
-              <Stethoscope className="h-5 w-5 text-white" />
-            </div>
+            <img src="/logo-mark.png" alt="" width={36} height={36} className="h-9 w-9 shrink-0" />
             <div className="skeleton h-4 w-28 rounded-md" />
           </div>
           {[70, 55, 62, 80, 50, 66, 58].map((w, i) => (
