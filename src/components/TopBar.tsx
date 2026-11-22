@@ -24,7 +24,7 @@ import {
 import { useSidebarCollapsed, useWideLayout } from '../hooks/useWideLayout';
 import { useApp } from '../context/AppContext';
 import TooltipGroup from './shared/TooltipGroup';
-import ThemeToggle from './shared/ThemeToggle';
+import SquishSwitch from './shared/SquishSwitch';
 import { NotificationBadge } from './shared/NotificationBadge';
 import { GlobalSearch } from './GlobalSearch';
 import { openInstallGuide, usePwaInstall } from '../lib/pwaInstall';
@@ -305,9 +305,29 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleMobileMenu, onOpenTour }
         </button>
 
         {/* Dark Mode Toggle */}
-        <span className="inline-flex items-center ml-1 shrink-0" data-tooltip={isDarkMode ? 'Mudar para o modo claro' : 'Mudar para o modo escuro'}>
-          {/* Sol e nuvens = modo claro; lua e estrelas = modo escuro */}
-          <ThemeToggle dark={isDarkMode} onToggle={() => toggleDarkMode()} />
+        <span className="inline-flex" data-tooltip={isDarkMode ? 'Mudar para o modo claro' : 'Mudar para o modo escuro'}>
+          {/* Interruptor com sol (claro) e lua (escuro), nas cores da paleta */}
+          <SquishSwitch
+            id="topbar-theme-toggle-btn"
+            checked={isDarkMode}
+            onChange={() => toggleDarkMode()}
+            ariaLabel={isDarkMode ? 'Ativar modo claro' : 'Ativar modo escuro'}
+            width={50}
+            height={28}
+            radius={14}
+            trackColor="var(--n-200)"
+            trackOnColor="var(--b-800)"
+            thumbColor="#ffffff"
+            thumbOnColor="var(--n-600)"
+            className="shrink-0 ml-1"
+            thumbIcon={
+              <IconSwap
+                swapped={isDarkMode}
+                from={<Sun className="h-3 w-3" style={{ color: 'var(--cta)' }} />}
+                to={<Moon className="h-3 w-3" style={{ color: 'var(--brand)' }} />}
+              />
+            }
+          />
         </span>
       </TooltipGroup>
     </header>
