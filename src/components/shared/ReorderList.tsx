@@ -91,7 +91,7 @@ function Item<T extends { id: string }>({ item, tag, itemProps, transition, redu
       dragControls={controls}
       onDragEnd={onDragEnd}
       transition={transition}
-      whileDrag={reduce ? { boxShadow: '0 6px 18px rgba(24,27,33,0.18)' } : { scale: 1.02, boxShadow: '0 10px 28px rgba(24,27,33,0.22)' }}
+      whileDrag={reduce ? { boxShadow: '0 6px 18px rgba(10, 10, 10,0.18)' } : { scale: 1.02, boxShadow: '0 10px 28px rgba(10, 10, 10,0.22)' }}
       {...(itemProps as object)}
       style={{ position: 'relative', ...(itemProps?.style || {}) }}
     >

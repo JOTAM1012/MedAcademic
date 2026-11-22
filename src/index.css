@@ -6,42 +6,389 @@
 @custom-variant no-hover (@media not ((hover: hover) and (pointer: fine)));
 
 /* ==========================================================================
-   PALETA DO SITE — 3 cores
-   1. Escura  #0F1115 (grafite)  → fundo do modo escuro e textos
-   2. Clara   #F6F7F9            → fundo do modo claro
-   3. Destaque #2563EB (azul royal) → botões, links, seleção
-   "slate" vira a escala de grafite e "sky" vira a escala do azul royal,
-   então todas as classes do site seguem a paleta sem mexer em cada tela.
+   TOKENS DE COR — modo escuro é o padrão; o claro é opcional
+   Use só estes tokens. As classes do Tailwind (slate, sky, emerald...) apontam
+   para eles via @theme inline, então mudam sozinhas com o tema.
+   - neutro (n): slate/gray/zinc...      - marca esmeralda (b), base preta: sky/blue/indigo/violet/purple/cyan/teal/pink
+   - sucesso (s): emerald/green           - perigo (d): rose/red       - aviso (w): amber/yellow/orange
    ========================================================================== */
-@theme {
-  --color-slate-50: #f6f7f9;
-  --color-slate-100: #edeff2;
-  --color-slate-200: #e1e4ea;
-  --color-slate-300: #c9ced6;
-  --color-slate-400: #9aa1ad;
-  --color-slate-500: #6c7380;
-  --color-slate-600: #4e5562;
-  --color-slate-700: #3a3f49;
-  --color-slate-800: #22262d;
-  --color-slate-900: #181b21;
-  --color-slate-950: #0f1115;
-
-  --color-sky-50: #eff6ff;
-  --color-sky-100: #dbeafe;
-  --color-sky-200: #bfdbfe;
-  --color-sky-300: #93c5fd;
-  --color-sky-400: #60a5fa;
-  --color-sky-500: #3b82f6;
-  --color-sky-600: #2563eb;
-  --color-sky-700: #1d4ed8;
-  --color-sky-800: #1e40af;
-  --color-sky-900: #1e3a8a;
-  --color-sky-950: #172554;
+@theme inline {
+  --color-slate-50: var(--n-50);
+  --color-slate-100: var(--n-100);
+  --color-slate-200: var(--n-200);
+  --color-slate-300: var(--n-300);
+  --color-slate-400: var(--n-400);
+  --color-slate-500: var(--n-500);
+  --color-slate-600: var(--n-600);
+  --color-slate-700: var(--n-700);
+  --color-slate-800: var(--n-800);
+  --color-slate-900: var(--n-900);
+  --color-slate-950: var(--n-950);
+  --color-gray-50: var(--n-50);
+  --color-gray-100: var(--n-100);
+  --color-gray-200: var(--n-200);
+  --color-gray-300: var(--n-300);
+  --color-gray-400: var(--n-400);
+  --color-gray-500: var(--n-500);
+  --color-gray-600: var(--n-600);
+  --color-gray-700: var(--n-700);
+  --color-gray-800: var(--n-800);
+  --color-gray-900: var(--n-900);
+  --color-gray-950: var(--n-950);
+  --color-zinc-50: var(--n-50);
+  --color-zinc-100: var(--n-100);
+  --color-zinc-200: var(--n-200);
+  --color-zinc-300: var(--n-300);
+  --color-zinc-400: var(--n-400);
+  --color-zinc-500: var(--n-500);
+  --color-zinc-600: var(--n-600);
+  --color-zinc-700: var(--n-700);
+  --color-zinc-800: var(--n-800);
+  --color-zinc-900: var(--n-900);
+  --color-zinc-950: var(--n-950);
+  --color-neutral-50: var(--n-50);
+  --color-neutral-100: var(--n-100);
+  --color-neutral-200: var(--n-200);
+  --color-neutral-300: var(--n-300);
+  --color-neutral-400: var(--n-400);
+  --color-neutral-500: var(--n-500);
+  --color-neutral-600: var(--n-600);
+  --color-neutral-700: var(--n-700);
+  --color-neutral-800: var(--n-800);
+  --color-neutral-900: var(--n-900);
+  --color-neutral-950: var(--n-950);
+  --color-stone-50: var(--n-50);
+  --color-stone-100: var(--n-100);
+  --color-stone-200: var(--n-200);
+  --color-stone-300: var(--n-300);
+  --color-stone-400: var(--n-400);
+  --color-stone-500: var(--n-500);
+  --color-stone-600: var(--n-600);
+  --color-stone-700: var(--n-700);
+  --color-stone-800: var(--n-800);
+  --color-stone-900: var(--n-900);
+  --color-stone-950: var(--n-950);
+  --color-sky-50: var(--b-50);
+  --color-sky-100: var(--b-100);
+  --color-sky-200: var(--b-200);
+  --color-sky-300: var(--b-300);
+  --color-sky-400: var(--b-400);
+  --color-sky-500: var(--b-500);
+  --color-sky-600: var(--b-600);
+  --color-sky-700: var(--b-700);
+  --color-sky-800: var(--b-800);
+  --color-sky-900: var(--b-900);
+  --color-sky-950: var(--b-950);
+  --color-blue-50: var(--b-50);
+  --color-blue-100: var(--b-100);
+  --color-blue-200: var(--b-200);
+  --color-blue-300: var(--b-300);
+  --color-blue-400: var(--b-400);
+  --color-blue-500: var(--b-500);
+  --color-blue-600: var(--b-600);
+  --color-blue-700: var(--b-700);
+  --color-blue-800: var(--b-800);
+  --color-blue-900: var(--b-900);
+  --color-blue-950: var(--b-950);
+  --color-indigo-50: var(--b-50);
+  --color-indigo-100: var(--b-100);
+  --color-indigo-200: var(--b-200);
+  --color-indigo-300: var(--b-300);
+  --color-indigo-400: var(--b-400);
+  --color-indigo-500: var(--b-500);
+  --color-indigo-600: var(--b-600);
+  --color-indigo-700: var(--b-700);
+  --color-indigo-800: var(--b-800);
+  --color-indigo-900: var(--b-900);
+  --color-indigo-950: var(--b-950);
+  --color-violet-50: var(--b-50);
+  --color-violet-100: var(--b-100);
+  --color-violet-200: var(--b-200);
+  --color-violet-300: var(--b-300);
+  --color-violet-400: var(--b-400);
+  --color-violet-500: var(--b-500);
+  --color-violet-600: var(--b-600);
+  --color-violet-700: var(--b-700);
+  --color-violet-800: var(--b-800);
+  --color-violet-900: var(--b-900);
+  --color-violet-950: var(--b-950);
+  --color-purple-50: var(--b-50);
+  --color-purple-100: var(--b-100);
+  --color-purple-200: var(--b-200);
+  --color-purple-300: var(--b-300);
+  --color-purple-400: var(--b-400);
+  --color-purple-500: var(--b-500);
+  --color-purple-600: var(--b-600);
+  --color-purple-700: var(--b-700);
+  --color-purple-800: var(--b-800);
+  --color-purple-900: var(--b-900);
+  --color-purple-950: var(--b-950);
+  --color-cyan-50: var(--b-50);
+  --color-cyan-100: var(--b-100);
+  --color-cyan-200: var(--b-200);
+  --color-cyan-300: var(--b-300);
+  --color-cyan-400: var(--b-400);
+  --color-cyan-500: var(--b-500);
+  --color-cyan-600: var(--b-600);
+  --color-cyan-700: var(--b-700);
+  --color-cyan-800: var(--b-800);
+  --color-cyan-900: var(--b-900);
+  --color-cyan-950: var(--b-950);
+  --color-teal-50: var(--b-50);
+  --color-teal-100: var(--b-100);
+  --color-teal-200: var(--b-200);
+  --color-teal-300: var(--b-300);
+  --color-teal-400: var(--b-400);
+  --color-teal-500: var(--b-500);
+  --color-teal-600: var(--b-600);
+  --color-teal-700: var(--b-700);
+  --color-teal-800: var(--b-800);
+  --color-teal-900: var(--b-900);
+  --color-teal-950: var(--b-950);
+  --color-fuchsia-50: var(--b-50);
+  --color-fuchsia-100: var(--b-100);
+  --color-fuchsia-200: var(--b-200);
+  --color-fuchsia-300: var(--b-300);
+  --color-fuchsia-400: var(--b-400);
+  --color-fuchsia-500: var(--b-500);
+  --color-fuchsia-600: var(--b-600);
+  --color-fuchsia-700: var(--b-700);
+  --color-fuchsia-800: var(--b-800);
+  --color-fuchsia-900: var(--b-900);
+  --color-fuchsia-950: var(--b-950);
+  --color-pink-50: var(--b-50);
+  --color-pink-100: var(--b-100);
+  --color-pink-200: var(--b-200);
+  --color-pink-300: var(--b-300);
+  --color-pink-400: var(--b-400);
+  --color-pink-500: var(--b-500);
+  --color-pink-600: var(--b-600);
+  --color-pink-700: var(--b-700);
+  --color-pink-800: var(--b-800);
+  --color-pink-900: var(--b-900);
+  --color-pink-950: var(--b-950);
+  --color-emerald-50: var(--s-50);
+  --color-emerald-100: var(--s-100);
+  --color-emerald-200: var(--s-200);
+  --color-emerald-300: var(--s-300);
+  --color-emerald-400: var(--s-400);
+  --color-emerald-500: var(--s-500);
+  --color-emerald-600: var(--s-600);
+  --color-emerald-700: var(--s-700);
+  --color-emerald-800: var(--s-800);
+  --color-emerald-900: var(--s-900);
+  --color-emerald-950: var(--s-950);
+  --color-green-50: var(--s-50);
+  --color-green-100: var(--s-100);
+  --color-green-200: var(--s-200);
+  --color-green-300: var(--s-300);
+  --color-green-400: var(--s-400);
+  --color-green-500: var(--s-500);
+  --color-green-600: var(--s-600);
+  --color-green-700: var(--s-700);
+  --color-green-800: var(--s-800);
+  --color-green-900: var(--s-900);
+  --color-green-950: var(--s-950);
+  --color-lime-50: var(--s-50);
+  --color-lime-100: var(--s-100);
+  --color-lime-200: var(--s-200);
+  --color-lime-300: var(--s-300);
+  --color-lime-400: var(--s-400);
+  --color-lime-500: var(--s-500);
+  --color-lime-600: var(--s-600);
+  --color-lime-700: var(--s-700);
+  --color-lime-800: var(--s-800);
+  --color-lime-900: var(--s-900);
+  --color-lime-950: var(--s-950);
+  --color-rose-50: var(--d-50);
+  --color-rose-100: var(--d-100);
+  --color-rose-200: var(--d-200);
+  --color-rose-300: var(--d-300);
+  --color-rose-400: var(--d-400);
+  --color-rose-500: var(--d-500);
+  --color-rose-600: var(--d-600);
+  --color-rose-700: var(--d-700);
+  --color-rose-800: var(--d-800);
+  --color-rose-900: var(--d-900);
+  --color-rose-950: var(--d-950);
+  --color-red-50: var(--d-50);
+  --color-red-100: var(--d-100);
+  --color-red-200: var(--d-200);
+  --color-red-300: var(--d-300);
+  --color-red-400: var(--d-400);
+  --color-red-500: var(--d-500);
+  --color-red-600: var(--d-600);
+  --color-red-700: var(--d-700);
+  --color-red-800: var(--d-800);
+  --color-red-900: var(--d-900);
+  --color-red-950: var(--d-950);
+  --color-amber-50: var(--w-50);
+  --color-amber-100: var(--w-100);
+  --color-amber-200: var(--w-200);
+  --color-amber-300: var(--w-300);
+  --color-amber-400: var(--w-400);
+  --color-amber-500: var(--w-500);
+  --color-amber-600: var(--w-600);
+  --color-amber-700: var(--w-700);
+  --color-amber-800: var(--w-800);
+  --color-amber-900: var(--w-900);
+  --color-amber-950: var(--w-950);
+  --color-yellow-50: var(--w-50);
+  --color-yellow-100: var(--w-100);
+  --color-yellow-200: var(--w-200);
+  --color-yellow-300: var(--w-300);
+  --color-yellow-400: var(--w-400);
+  --color-yellow-500: var(--w-500);
+  --color-yellow-600: var(--w-600);
+  --color-yellow-700: var(--w-700);
+  --color-yellow-800: var(--w-800);
+  --color-yellow-900: var(--w-900);
+  --color-yellow-950: var(--w-950);
+  --color-orange-50: var(--w-50);
+  --color-orange-100: var(--w-100);
+  --color-orange-200: var(--w-200);
+  --color-orange-300: var(--w-300);
+  --color-orange-400: var(--w-400);
+  --color-orange-500: var(--w-500);
+  --color-orange-600: var(--w-600);
+  --color-orange-700: var(--w-700);
+  --color-orange-800: var(--w-800);
+  --color-orange-900: var(--w-900);
+  --color-orange-950: var(--w-950);
 }
+
+:root {
+  --bg: #edeae3; --cta-hover: #9e730a; --surface: #f7f5f0; --surface-2: #e5e1d8; --border: #d9d5cc; --field-border: #7a746b;
+  --text: #0a0a0a; --text-muted: #45413c;
+  --brand: #04402f; --cta: #b8860b; --cta-text: #0a0a0a;
+  --success: #15803d; --danger: #b91c1c; --warning: #c2410c;
+  --n-50: #edeae3;
+  --n-100: #e5e1d8;
+  --n-200: #d9d5cc;
+  --n-300: #c4bfb4;
+  --n-400: #625c55;
+  --n-500: #45413c;
+  --n-600: #3a3732;
+  --n-700: #2f2c28;
+  --n-800: #1f1d1a;
+  --n-900: #0a0a0a;
+  --n-950: #050505;
+  --b-50: #e6f4ee;
+  --b-100: #cdebdd;
+  --b-200: #9fd8bf;
+  --b-300: #6cc29f;
+  --b-400: #0b5e46;
+  --b-500: #04402f;
+  --b-600: #04402f;
+  --b-700: #033326;
+  --b-800: #0a2a20;
+  --b-900: #08211a;
+  --b-950: #051510;
+  --s-50: #f0fdf4;
+  --s-100: #dcfce7;
+  --s-200: #bbf7d0;
+  --s-300: #86efac;
+  --s-400: #15803d;
+  --s-500: #15803d;
+  --s-600: #15803d;
+  --s-700: #166534;
+  --s-800: #14532d;
+  --s-900: #0f3d22;
+  --s-950: #052e16;
+  --d-50: #fff1f2;
+  --d-100: #ffe4e6;
+  --d-200: #fecdd3;
+  --d-300: #fda4af;
+  --d-400: #b91c1c;
+  --d-500: #b91c1c;
+  --d-600: #b91c1c;
+  --d-700: #991b1b;
+  --d-800: #7f1d1d;
+  --d-900: #5f1616;
+  --d-950: #3b0d0d;
+  --w-50: #fff7ed;
+  --w-100: #ffedd5;
+  --w-200: #fed7aa;
+  --w-300: #fdba74;
+  --w-400: #c2410c;
+  --w-500: #c2410c;
+  --w-600: #c2410c;
+  --w-700: #9a3412;
+  --w-800: #7c2d12;
+  --w-900: #5c210d;
+  --w-950: #3b1407;
+}
+.dark {
+  --bg: #0a0a0a; --cta-hover: #e6b545; --surface: #141414; --surface-2: #1c1c1c; --border: #262626; --field-border: #6b6b6b;
+  --text: #e8e6e1; --text-muted: #a3a09a;
+  --brand: #3bb88a; --cta: #d9a21b; --cta-text: #0a0a0a;
+  --success: #4ade80; --danger: #f87171; --warning: #fb923c;
+  --n-50: #f4f3f0;
+  --n-100: #e8e6e1;
+  --n-200: #d2d0cb;
+  --n-300: #bdbab4;
+  --n-400: #a3a09a;
+  --n-500: #8c8984;
+  --n-600: #3a3a3a;
+  --n-700: #6b6b6b;
+  --n-800: #262626;
+  --n-900: #141414;
+  --n-950: #0a0a0a;
+  --b-50: #e6f4ee;
+  --b-100: #cdebdd;
+  --b-200: #9fe3c6;
+  --b-300: #6fd3ac;
+  --b-400: #3bb88a;
+  --b-500: #3bb88a;
+  --b-600: #3bb88a;
+  --b-700: #6fd3ac;
+  --b-800: #0e2a20;
+  --b-900: #0a1f18;
+  --b-950: #06130f;
+  --s-50: #f0fdf4;
+  --s-100: #dcfce7;
+  --s-200: #bbf7d0;
+  --s-300: #86efac;
+  --s-400: #4ade80;
+  --s-500: #4ade80;
+  --s-600: #4ade80;
+  --s-700: #86efac;
+  --s-800: #14532d;
+  --s-900: #0f3d22;
+  --s-950: #052e16;
+  --d-50: #fff1f2;
+  --d-100: #ffe4e6;
+  --d-200: #fecdd3;
+  --d-300: #fca5a5;
+  --d-400: #f87171;
+  --d-500: #f87171;
+  --d-600: #f87171;
+  --d-700: #fca5a5;
+  --d-800: #7f1d1d;
+  --d-900: #5f1616;
+  --d-950: #3b0d0d;
+  --w-50: #fff7ed;
+  --w-100: #ffedd5;
+  --w-200: #fed7aa;
+  --w-300: #fdba74;
+  --w-400: #fb923c;
+  --w-500: #fb923c;
+  --w-600: #fb923c;
+  --w-700: #fdba74;
+  --w-800: #7c2d12;
+  --w-900: #5c210d;
+  --w-950: #3b1407;
+}
+
+/* No escuro as cores de destaque são claras: texto branco em cima delas vira escuro (contraste AA) */
+.dark :is(.bg-sky-400,.bg-sky-500,.bg-sky-600,.bg-sky-700,.bg-blue-400,.bg-blue-500,.bg-blue-600,.bg-blue-700,.bg-indigo-400,.bg-indigo-500,.bg-indigo-600,.bg-indigo-700,.bg-violet-400,.bg-violet-500,.bg-violet-600,.bg-violet-700,.bg-purple-400,.bg-purple-500,.bg-purple-600,.bg-purple-700,.bg-cyan-400,.bg-cyan-500,.bg-cyan-600,.bg-cyan-700,.bg-teal-400,.bg-teal-500,.bg-teal-600,.bg-teal-700,.bg-fuchsia-400,.bg-fuchsia-500,.bg-fuchsia-600,.bg-fuchsia-700,.bg-pink-400,.bg-pink-500,.bg-pink-600,.bg-pink-700,.bg-emerald-400,.bg-emerald-500,.bg-emerald-600,.bg-emerald-700,.bg-green-400,.bg-green-500,.bg-green-600,.bg-green-700,.bg-lime-400,.bg-lime-500,.bg-lime-600,.bg-lime-700,.bg-rose-400,.bg-rose-500,.bg-rose-600,.bg-rose-700,.bg-red-400,.bg-red-500,.bg-red-600,.bg-red-700,.bg-amber-400,.bg-amber-500,.bg-amber-600,.bg-amber-700,.bg-yellow-400,.bg-yellow-500,.bg-yellow-600,.bg-yellow-700,.bg-orange-400,.bg-orange-500,.bg-orange-600,.bg-orange-700).text-white,
+.dark :is(.bg-sky-400,.bg-sky-500,.bg-sky-600,.bg-sky-700,.bg-blue-400,.bg-blue-500,.bg-blue-600,.bg-blue-700,.bg-indigo-400,.bg-indigo-500,.bg-indigo-600,.bg-indigo-700,.bg-violet-400,.bg-violet-500,.bg-violet-600,.bg-violet-700,.bg-purple-400,.bg-purple-500,.bg-purple-600,.bg-purple-700,.bg-cyan-400,.bg-cyan-500,.bg-cyan-600,.bg-cyan-700,.bg-teal-400,.bg-teal-500,.bg-teal-600,.bg-teal-700,.bg-fuchsia-400,.bg-fuchsia-500,.bg-fuchsia-600,.bg-fuchsia-700,.bg-pink-400,.bg-pink-500,.bg-pink-600,.bg-pink-700,.bg-emerald-400,.bg-emerald-500,.bg-emerald-600,.bg-emerald-700,.bg-green-400,.bg-green-500,.bg-green-600,.bg-green-700,.bg-lime-400,.bg-lime-500,.bg-lime-600,.bg-lime-700,.bg-rose-400,.bg-rose-500,.bg-rose-600,.bg-rose-700,.bg-red-400,.bg-red-500,.bg-red-600,.bg-red-700,.bg-amber-400,.bg-amber-500,.bg-amber-600,.bg-amber-700,.bg-yellow-400,.bg-yellow-500,.bg-yellow-600,.bg-yellow-700,.bg-orange-400,.bg-orange-500,.bg-orange-600,.bg-orange-700) .text-white { color: var(--bg); }
 
 @layer base {
   body {
-    @apply bg-[#F6F7F9] dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans antialiased;
+    background-color: var(--bg);
+    color: var(--text);
+    @apply font-sans antialiased;
   }
 }
 
@@ -65,25 +412,23 @@
 }
 
 .dark ::-webkit-scrollbar-thumb {
-  background: rgba(58, 63, 73, 0.5);
+  background: var(--border);
 }
 
 .dark ::-webkit-scrollbar-thumb:hover {
-  background: rgba(58, 63, 73, 0.8);
+  background: var(--field-border);
 }
 
 /* ---------- Janelas (modais) que cabem na tela do celular/tablet ---------- */
 .app-modal-panel {
-  --modal-bg: #ffffff;
+  --modal-bg: var(--surface);
   max-height: calc(100dvh - 2rem) !important;
   overflow-y: auto !important;
   overscroll-behavior: contain;
 }
-.app-modal-panel.bg-slate-900 {
-  --modal-bg: #181b21;
-}
+.app-modal-panel.bg-slate-900,
 .dark .app-modal-panel {
-  --modal-bg: #181b21;
+  --modal-bg: var(--surface);
 }
 /* Botões de concluir sempre visíveis no rodapé da janela */
 .app-modal-footer {
@@ -145,40 +490,41 @@
 }
 
 
-/* ---------- Dono do site: nome dourado brilhando ---------- */
-.owner-gold-name {
-  background: linear-gradient(100deg, #b45309 0%, #f59e0b 20%, #fde68a 40%, #fffbeb 50%, #fde68a 60%, #f59e0b 80%, #b45309 100%);
+/* ---------- Nome brilhante: esmeralda para todos, ouro para o Dono ----------
+   Os tons de cada tema mantêm contraste de texto grande (3:1) em todo o brilho. */
+.owner-gold-name,
+.user-blue-name {
   background-size: 250% auto;
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent !important;
   -webkit-text-fill-color: transparent;
-  animation: owner-gold-shine 3.2s linear infinite;
+  animation: name-shine 4s linear infinite;
   font-weight: 900;
 }
-.owner-gold-badge {
-  background: linear-gradient(135deg, #fde68a, #f59e0b);
-  color: #451a03;
-  border-color: rgba(251, 191, 36, 0.7);
-  box-shadow: 0 0 10px rgba(251, 191, 36, 0.45);
+.user-blue-name {
+  background-image: linear-gradient(100deg, #033326 0%, #04402f 30%, #0b5e46 45%, #1f7a5c 50%, #0b5e46 55%, #04402f 70%, #033326 100%);
 }
-@keyframes owner-gold-shine {
+.dark .user-blue-name {
+  background-image: linear-gradient(100deg, #2e9e78 0%, #3bb88a 30%, #6fd3ac 44%, #9fe3c6 50%, #6fd3ac 56%, #3bb88a 70%, #2e9e78 100%);
+}
+.owner-gold-name {
+  background-image: linear-gradient(100deg, #7a520a 0%, #a26f0c 30%, #a8740d 45%, #b07a0e 50%, #a8740d 55%, #a26f0c 70%, #7a520a 100%);
+  animation-duration: 3.2s;
+}
+.dark .owner-gold-name {
+  background-image: linear-gradient(100deg, #b8860b 0%, #d9a21b 25%, #e6b545 42%, #f0ce6a 50%, #e6b545 58%, #d9a21b 75%, #b8860b 100%);
+}
+@keyframes name-shine {
   to { background-position: -250% center; }
 }
-/* Nome do usuário comum: azul brilhante na paleta do site */
-.user-blue-name {
-  background: linear-gradient(100deg, #2563eb 0%, #60a5fa 30%, #93c5fd 44%, #bfdbfe 50%, #93c5fd 56%, #60a5fa 70%, #2563eb 100%);
-  background-size: 250% auto;
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent !important;
-  -webkit-text-fill-color: transparent;
-  animation: owner-gold-shine 4s linear infinite;
-  font-weight: 900;
-}
-/* Sem filtro de brilho nos nomes: em alguns navegadores ele desenhava um quadrado atrás do texto recortado */
 @media (prefers-reduced-motion: reduce) {
   .owner-gold-name, .user-blue-name { animation: none; }
+}
+.owner-gold-badge {
+  background: var(--surface-2);
+  color: var(--text);
+  border-color: var(--border);
 }
 
 /* ---------- Placa "NO AR" de estúdio / manutenção ---------- */
@@ -255,59 +601,23 @@
 }
 
 
-/* Moldura dourada do avatar do Dono (borda girando + brilho) */
-.owner-gold-frame {
-  position: relative;
-  padding: 4px;
-  isolation: isolate;
-  box-shadow: 0 0 18px rgba(251, 191, 36, 0.45), 0 0 42px rgba(245, 158, 11, 0.18);
-}
-.owner-gold-frame::before {
-  content: '';
-  position: absolute;
-  inset: -40%;
-  z-index: -1;
-  background: conic-gradient(from 0deg, #92400e, #f59e0b, #fde68a, #fffbeb, #fde68a, #f59e0b, #92400e, #f59e0b, #fde68a, #92400e);
-  animation: owner-frame-spin 5s linear infinite;
-}
-.owner-gold-frame > img {
-  position: relative;
-  border-radius: calc(1.5rem - 4px);
-}
-.owner-gold-frame--sm {
-  padding: 2px;
-  box-shadow: 0 0 10px rgba(251, 191, 36, 0.55);
-}
-.owner-gold-frame--sm > img { border-radius: 9999px; }
-@keyframes owner-frame-spin { to { transform: rotate(360deg); } }
-
-/* Moldura azul brilhante: padrão de todos os usuários (o Dono usa a dourada) */
+/* Moldura do avatar (Dono e usuários): borda simples de 1px, sem brilho */
+.owner-gold-frame,
 .user-blue-frame {
   position: relative;
-  padding: 4px;
-  isolation: isolate;
-  box-shadow: 0 0 18px rgba(59, 130, 246, 0.45), 0 0 42px rgba(37, 99, 235, 0.18);
+  padding: 3px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
 }
-.user-blue-frame::before {
-  content: '';
-  position: absolute;
-  inset: -40%;
-  z-index: -1;
-  background: conic-gradient(from 0deg, #1e3a8a, #2563eb, #93c5fd, #dbeafe, #93c5fd, #2563eb, #1e3a8a, #2563eb, #93c5fd, #1e3a8a);
-  animation: owner-frame-spin 5s linear infinite;
-}
+.owner-gold-frame > img,
 .user-blue-frame > img {
   position: relative;
   border-radius: calc(1.5rem - 4px);
 }
-.user-blue-frame--sm {
-  padding: 2px;
-  box-shadow: 0 0 10px rgba(59, 130, 246, 0.55);
-}
+.owner-gold-frame--sm,
+.user-blue-frame--sm { padding: 1px; }
+.owner-gold-frame--sm > img,
 .user-blue-frame--sm > img { border-radius: 9999px; }
-@media (prefers-reduced-motion: reduce) {
-  .owner-gold-frame::before, .user-blue-frame::before { animation: none; }
-}
 
 
 /* "Aperto" automático no botão Como Usar a Plataforma (conta nova) */
@@ -315,86 +625,43 @@
   animation: how-to-press 1.1s ease-in-out;
 }
 @keyframes how-to-press {
-  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); }
-  35% { transform: scale(1.08); box-shadow: 0 0 0 10px rgba(59, 130, 246, 0.25); }
+  0% { transform: scale(1); }
+  35% { transform: scale(1.08); }
   55% { transform: scale(0.95); }
-  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+  100% { transform: scale(1); }
 }
 
 /* ==========================================================================
-   MODO CLARO — fundo claro #F6F7F9, cartões brancos, texto grafite
-   (as cores vêm da escala do @theme lá em cima)
+   MODO CLARO (opcional) — os valores vêm dos tokens em :root
    ========================================================================== */
-html:not(.dark) body {
-  background: #f6f7f9;
-  color: #22262d;
-}
-html:not(.dark) .app-modal-panel { --modal-bg: #ffffff; }
+html:not(.dark) .app-modal-panel { --modal-bg: var(--surface); }
 
 @layer utilities {
-  :where(html:not(.dark)) .bg-\[\#F8FAFC\]:where(:not(.dark *)) { background-color: #f6f7f9; }
+  :where(html:not(.dark)) .bg-\[\#F8FAFC\]:where(:not(.dark *)) { background-color: var(--bg); }
   /* sombras neutras e discretas */
   :where(html:not(.dark)) .shadow-xs:where(:not(.dark *)),
-  :where(html:not(.dark)) .shadow-sm:where(:not(.dark *)) { box-shadow: 0 1px 2px rgba(15, 17, 21, 0.05), 0 2px 8px -2px rgba(15, 17, 21, 0.06); }
+  :where(html:not(.dark)) .shadow-sm:where(:not(.dark *)) { box-shadow: 0 1px 2px rgba(10, 10, 10, 0.05); }
 }
-
-/* nomes brilhantes legíveis sobre fundo claro */
-html:not(.dark) .user-blue-name:not(.dark *) {
-  background-image: linear-gradient(100deg, #1e40af 0%, #1d4ed8 25%, #3b82f6 45%, #60a5fa 50%, #3b82f6 55%, #1d4ed8 75%, #1e40af 100%);
-}
-html:not(.dark) .owner-gold-name:not(.dark *) {
-  background-image: linear-gradient(100deg, #92400e 0%, #b45309 22%, #d97706 42%, #f59e0b 50%, #d97706 58%, #b45309 78%, #92400e 100%);
-}
-html:not(.dark) ::-webkit-scrollbar-thumb { background: rgba(108, 115, 128, 0.35); }
+html:not(.dark) ::-webkit-scrollbar-thumb { background: var(--border); }
 
 /* troca de tema suave */
 html.theme-anim, html.theme-anim *, html.theme-anim *::before, html.theme-anim *::after {
   transition: background-color 0.35s ease, border-color 0.35s ease, color 0.25s ease !important;
 }
 
-/* Modo claro: tons 300/400 (feitos para fundo escuro) ficam mais fortes para manter o contraste */
+/* Modo claro: tons 300 (feitos para fundo escuro) ficam fortes para manter o contraste AA */
 @layer utilities {
-  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-sky-400:where(:not(.dark *)) { color: #2563eb; }
-  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-sky-300:where(:not(.dark *)) { color: #1d4ed8; }
-  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-blue-400:where(:not(.dark *)) { color: #2563eb; }
-  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-blue-300:where(:not(.dark *)) { color: #1d4ed8; }
-  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-indigo-400:where(:not(.dark *)) { color: #4f46e5; }
-  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-indigo-300:where(:not(.dark *)) { color: #4338ca; }
-  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-violet-400:where(:not(.dark *)) { color: #7c3aed; }
-  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-violet-300:where(:not(.dark *)) { color: #6d28d9; }
-  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-purple-400:where(:not(.dark *)) { color: #9333ea; }
-  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-purple-300:where(:not(.dark *)) { color: #7e22ce; }
-  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-emerald-400:where(:not(.dark *)) { color: #059669; }
-  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-emerald-300:where(:not(.dark *)) { color: #047857; }
-  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-green-400:where(:not(.dark *)) { color: #16a34a; }
-  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-green-300:where(:not(.dark *)) { color: #15803d; }
-  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-amber-400:where(:not(.dark *)) { color: #d97706; }
-  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-amber-300:where(:not(.dark *)) { color: #b45309; }
-  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-yellow-400:where(:not(.dark *)) { color: #ca8a04; }
-  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-yellow-300:where(:not(.dark *)) { color: #a16207; }
-  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-orange-400:where(:not(.dark *)) { color: #ea580c; }
-  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-orange-300:where(:not(.dark *)) { color: #c2410c; }
-  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-rose-400:where(:not(.dark *)) { color: #e11d48; }
-  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-rose-300:where(:not(.dark *)) { color: #be123c; }
-  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-red-400:where(:not(.dark *)) { color: #dc2626; }
-  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-red-300:where(:not(.dark *)) { color: #b91c1c; }
-  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-pink-400:where(:not(.dark *)) { color: #db2777; }
-  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-pink-300:where(:not(.dark *)) { color: #be185d; }
-  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-cyan-400:where(:not(.dark *)) { color: #0891b2; }
-  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-cyan-300:where(:not(.dark *)) { color: #0e7490; }
-  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-teal-400:where(:not(.dark *)) { color: #0d9488; }
-  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-teal-300:where(:not(.dark *)) { color: #0f766e; }
-  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-fuchsia-400:where(:not(.dark *)) { color: #c026d3; }
-  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-fuchsia-300:where(:not(.dark *)) { color: #a21caf; }
-  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-lime-400:where(:not(.dark *)) { color: #65a30d; }
-  :where(html:not(.dark)) :is(main, .app-modal-panel) .text-lime-300:where(:not(.dark *)) { color: #4d7c0f; }
+  :where(html:not(.dark)) :is(main, .app-modal-panel) :is(.text-sky-300, .text-blue-300, .text-indigo-300, .text-violet-300, .text-purple-300, .text-cyan-300, .text-teal-300, .text-fuchsia-300, .text-pink-300):where(:not(.dark *)) { color: var(--b-600); }
+  :where(html:not(.dark)) :is(main, .app-modal-panel) :is(.text-emerald-300, .text-green-300, .text-lime-300):where(:not(.dark *)) { color: var(--s-600); }
+  :where(html:not(.dark)) :is(main, .app-modal-panel) :is(.text-amber-300, .text-yellow-300, .text-orange-300):where(:not(.dark *)) { color: var(--w-600); }
+  :where(html:not(.dark)) :is(main, .app-modal-panel) :is(.text-rose-300, .text-red-300):where(:not(.dark *)) { color: var(--d-600); }
 }
 
 /* Texto na cor de destaque (técnica, tipo de erro, fase, projeto): use className="ink" e
    style={{ '--ink': cor }}. No claro a cor escurece para ter contraste; no escuro fica a cor-base.
    Fundos, bordas e ícones continuam usando a cor-base direto. */
 @layer utilities {
-  .ink { color: color-mix(in srgb, var(--ink, currentColor) 62%, #181b21); }
+  .ink { color: color-mix(in srgb, var(--ink, currentColor) 62%, var(--text)); }
   .dark .ink { color: var(--ink, currentColor); }
 }
 
@@ -429,11 +696,10 @@ html {
 .text-\[11px\], .text-\[12px\], .text-\[13px\] { font-size: 12.5px !important; }
 
 /* Cartões mais leves: borda quase invisível, sem caixa dentro de caixa pesada */
-html:not(.dark) main .border-slate-200, html:not(.dark) main .border-slate-100 { border-color: rgba(24, 27, 33, 0.07) !important; }
-.dark main .border-slate-800, .dark main .border-slate-700 { border-color: rgba(154, 161, 173, 0.11) !important; }
-main .rounded-3xl.border { box-shadow: 0 1px 2px rgba(15, 17, 21, 0.04); transition: border-color 0.2s ease, box-shadow 0.25s ease; }
-html:not(.dark) main .rounded-3xl.border:hover { box-shadow: 0 10px 30px -12px rgba(15, 17, 21, 0.14); }
-.dark main .rounded-3xl.border:hover { border-color: rgba(96, 165, 250, 0.22) !important; box-shadow: 0 12px 34px -14px rgba(59, 130, 246, 0.25); }
+html:not(.dark) main .border-slate-200, html:not(.dark) main .border-slate-100 { border-color: var(--border) !important; }
+.dark main .border-slate-800, .dark main .border-slate-700 { border-color: var(--border) !important; }
+main .rounded-3xl.border { box-shadow: none; transition: border-color 0.2s ease; }
+main .rounded-3xl.border:hover { border-color: var(--field-border) !important; }
 
 /* Vidro líquido: barra de baixo do celular flutuando sobre o conteúdo */
 .glass-bar {
@@ -447,8 +713,8 @@ html:not(.dark) main .rounded-3xl.border:hover { box-shadow: 0 10px 30px -12px r
   padding-bottom: 0 !important;
 }
 .dark .glass-bar {
-  border-color: rgba(154, 161, 173, 0.16);
-  background: linear-gradient(180deg, rgba(34, 38, 45, 0.62), rgba(24, 27, 33, 0.5));
+  border-color: var(--border);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
   box-shadow: 0 14px 40px -10px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 /* Vidro no topo e nas janelas: fundo desfocado atrás */
@@ -456,9 +722,9 @@ html:not(.dark) main .rounded-3xl.border:hover { box-shadow: 0 10px 30px -12px r
   background: rgba(255, 255, 255, 0.72) !important;
   -webkit-backdrop-filter: blur(18px) saturate(1.6);
   backdrop-filter: blur(18px) saturate(1.6);
-  border-bottom-color: rgba(24, 27, 33, 0.06) !important;
+  border-bottom-color: var(--border) !important;
 }
-.dark #tour-topbar { background: rgba(15, 17, 21, 0.6) !important; border-bottom-color: rgba(154, 161, 173, 0.1) !important; }
+.dark #tour-topbar { background: color-mix(in srgb, var(--bg) 85%, transparent) !important; border-bottom-color: var(--border) !important; }
 .app-modal { -webkit-backdrop-filter: blur(10px) saturate(1.3); backdrop-filter: blur(10px) saturate(1.3); }
 .app-modal-panel { box-shadow: 0 30px 80px -20px rgba(15, 17, 21, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.06) !important; }
 
@@ -471,31 +737,13 @@ main button:active:not(:disabled) { scale: 0.98; }
   main button:active:not(:disabled) { scale: 1; }
 }
 
-/* ---------- Fundo com profundidade (é ele que faz o vidro aparecer) ----------
-   Paleta sóbria: só um brilho discreto da cor de destaque no alto */
-.app-bg {
-  background-image:
-    radial-gradient(1100px 620px at 12% -8%, rgba(59, 130, 246, 0.09), transparent 62%),
-    radial-gradient(900px 560px at 108% 4%, rgba(59, 130, 246, 0.05), transparent 60%);
-  background-attachment: fixed;
-}
-html:not(.dark) .app-bg {
-  background-color: #f6f7f9;
-  background-image:
-    radial-gradient(1100px 620px at 12% -8%, rgba(59, 130, 246, 0.08), transparent 62%),
-    radial-gradient(900px 560px at 108% 4%, rgba(59, 130, 246, 0.04), transparent 60%);
-}
+/* ---------- Fundo da casca do app: liso, na cor --bg ---------- */
+.app-bg { background-color: var(--bg) !important; background-image: none; }
 
-/* ---------- Tema claro mais caprichado ---------- */
-html:not(.dark) main .rounded-3xl.border.bg-white {
-  background-color: rgba(255, 255, 255, 0.86) !important;
-  box-shadow: 0 1px 1px rgba(24, 27, 33, 0.03), 0 8px 24px -14px rgba(24, 27, 33, 0.14);
-}
-html:not(.dark) main .bg-slate-50 { background-color: rgba(237, 239, 242, 0.7) !important; }
-html:not(.dark) main .text-slate-500 { color: #5f6673 !important; }
-html:not(.dark) main .text-slate-400 { color: #828895 !important; }
-html:not(.dark) .glass-bar { border-color: rgba(24, 27, 33, 0.06); }
-.dark main .rounded-3xl.border.dark\:bg-slate-900 { background-color: rgba(24, 27, 33, 0.72) !important; }
+/* ---------- Cartões: superfície sólida nos dois temas ---------- */
+html:not(.dark) main .rounded-3xl.border.bg-white { background-color: var(--surface) !important; }
+html:not(.dark) .glass-bar { border-color: var(--border); }
+.dark main .rounded-3xl.border.dark\:bg-slate-900 { background-color: var(--surface) !important; }
 
 /* ---------- Esqueleto de carregamento ---------- */
 @keyframes skeleton-shine { from { background-position: 200% 0; } to { background-position: -200% 0; } }
@@ -534,3 +782,48 @@ html:has(#app-shell) body {
 [data-wide] .tab-root--form {
   max-width: 72rem;
 }
+
+/* =====================================================================
+   REGRAS DA PALETA (tokens)
+   ===================================================================== */
+/* Campos de formulário: borda com contraste mínimo 3:1 */
+:where(input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']), select, textarea):not(:focus) {
+  border-color: var(--field-border) !important;
+}
+/* Botões sem brilho colorido (a sombra colorida some; anéis de foco continuam) */
+[class*='shadow-sky-'], [class*='shadow-blue-'], [class*='shadow-indigo-'], [class*='shadow-violet-'], [class*='shadow-purple-'],
+[class*='shadow-emerald-'], [class*='shadow-green-'], [class*='shadow-rose-'], [class*='shadow-red-'], [class*='shadow-amber-'],
+[class*='shadow-orange-'], [class*='shadow-cyan-'], [class*='shadow-teal-'], [class*='shadow-pink-'], [class*='shadow-fuchsia-'] {
+  --tw-shadow-color: transparent !important;
+}
+/* Links de texto sublinhados */
+:where(main, .app-modal-panel, #tour-sidebar) a:not([class*='bg-']):not([role='button']),
+:where(main, .app-modal-panel) :is(button, a)[class*='text-sky-']:not([class^='bg-']):not([class*=' bg-']):not([class*='border']):not([class*='ring-']):not([role='tab']):not([role='switch']):not([aria-pressed]),
+.hover\:underline {
+  text-decoration-line: underline;
+  text-underline-offset: 3px;
+}
+/* Botão principal da tela (só um por tela) */
+.btn-cta {
+  background-color: var(--cta) !important;
+  color: var(--cta-text) !important;
+  box-shadow: none !important;
+  background-image: none !important;
+}
+.btn-cta:hover { background-color: var(--cta-hover) !important; }
+.btn-cta * { color: inherit !important; }
+/* Selos de contagem ("faltam 1", "4 hoje", "25"): fundo --surface-2, texto --text; vermelho só para atrasado */
+.count-badge {
+  background-color: var(--surface-2) !important;
+  color: var(--text) !important;
+  border: 1px solid var(--border);
+  background-image: none !important;
+}
+.count-badge--late {
+  background-color: var(--danger) !important;
+  color: var(--bg) !important;
+  border-color: transparent;
+}
+
+/* Claro mais escuro: bg-white vira a superfície da paleta (fora do menu, que é sempre escuro) */
+:where(html:not(.dark)) :is(.bg-white, .bg-white\/80, .bg-white\/90, .bg-white\/95):where(:not(.dark *)) { background-color: var(--surface); }

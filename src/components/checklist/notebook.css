@@ -5,10 +5,10 @@
   --nb-paper: #fffdf8;
   --nb-paper-2: #f8f5ee;
   --nb-paper-3: #f1ede4;
-  --nb-border: #e1e4ea;
-  --nb-line: #e8eaee;
-  --nb-hover: #f6f7f9;
-  --nb-hole: #dfe2e7;
+  --nb-border: var(--border);
+  --nb-line: color-mix(in srgb, var(--border) 70%, var(--surface-2));
+  --nb-hover: var(--bg);
+  --nb-hole: var(--border);
 
   position: relative;
   margin-top: 12px;
@@ -21,17 +21,17 @@
     0 5px 0 -1px var(--nb-border),
     0 10px 0 -5px var(--nb-paper-3),
     0 10px 0 -4px var(--nb-border),
-    0 14px 22px -14px rgb(24 27 33 / 0.25);
+    0 14px 22px -14px rgb(17 24 39 / 0.25);
 }
 
 .dark .nb {
-  --nb-paper: #1b1e24;
-  --nb-paper-2: #17191e;
-  --nb-paper-3: #131519;
-  --nb-border: #2c3038;
-  --nb-line: rgb(154 161 173 / 0.13);
-  --nb-hover: #22262d;
-  --nb-hole: #0f1115;
+  --nb-paper: color-mix(in srgb, var(--surface) 75%, var(--surface-2));
+  --nb-paper-2: var(--surface);
+  --nb-paper-3: color-mix(in srgb, var(--surface) 60%, var(--bg));
+  --nb-border: var(--border);
+  --nb-line: rgb(154 164 181 / 0.13);
+  --nb-hover: var(--surface-2);
+  --nb-hole: var(--bg);
   box-shadow:
     0 5px 0 -2px var(--nb-paper-2),
     0 5px 0 -1px var(--nb-border),
@@ -45,7 +45,7 @@
   --nb-paper: #fffbeb;
   --nb-paper-2: #fdf4d8;
   --nb-paper-3: #faedc6;
-  --nb-border: #fde68a;
+  --nb-border: var(--w-200);
   --nb-line: #fbe9b5;
   --nb-hover: #fff6d6;
 }
@@ -53,8 +53,8 @@
   --nb-paper: #1f1b14;
   --nb-paper-2: #1a1711;
   --nb-paper-3: #16130e;
-  --nb-border: rgb(245 158 11 / 0.28);
-  --nb-line: rgb(245 158 11 / 0.14);
+  --nb-border: color-mix(in srgb, var(--warning) 28%, transparent);
+  --nb-line: color-mix(in srgb, var(--warning) 14%, transparent);
   --nb-hover: #26211a;
 }
 
@@ -80,13 +80,13 @@
   inset: 0;
   border-radius: 999px;
   border: 2px solid transparent;
-  background: linear-gradient(90deg, #6c7380 0%, #f6f7f9 38%, #c9ced6 62%, #4e5562 100%) border-box;
+  background: linear-gradient(90deg, #625c55 0%, #edeae3 38%, #c4bfb4 62%, #45413c 100%) border-box;
   -webkit-mask: linear-gradient(#000 0 0) padding-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
   mask: linear-gradient(#000 0 0) padding-box exclude, linear-gradient(#000 0 0);
 }
 .dark .nb-ring::before {
-  background: linear-gradient(90deg, #3a3f49 0%, #c9ced6 40%, #9aa1ad 62%, #22262d 100%) border-box;
+  background: linear-gradient(90deg, #262626 0%, #c4bfb4 40%, #a3a09a 62%, #1c1c1c 100%) border-box;
 }
 /* Furo no papel por onde a argola passa */
 .nb-ring::after {
@@ -146,7 +146,7 @@
   opacity: 0.55;
 }
 .nb.nb--drop-target {
-  outline: 2px dashed #2563eb;
+  outline: 2px dashed var(--brand);
   outline-offset: 4px;
 }
 .nb {

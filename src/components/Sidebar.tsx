@@ -92,13 +92,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
 
   // Contadores de cada aba
   const BADGES: Record<string, { badge: string | null; badgeColor?: string }> = {
-    calendar: { badge: planLeft > 0 ? `faltam ${planLeft}` : null, badgeColor: 'bg-violet-500/20 text-violet-300 border border-violet-400/30' },
-    semester: { badge: upcomingExamsCount > 0 ? `${upcomingExamsCount} próx.` : null, badgeColor: 'bg-rose-500/20 text-rose-300 border border-rose-400/30' },
-    spaced_repetition: { badge: dueTopicsCount > 0 ? `${dueTopicsCount} hoje` : null, badgeColor: 'bg-blue-500/20 text-blue-300 border border-blue-400/30' },
-    checklist: { badge: pendingChecklistCount > 0 ? String(pendingChecklistCount) : null, badgeColor: 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/30' },
-    admin: { badge: '👑', badgeColor: 'bg-amber-500/20 text-amber-300 border border-amber-400/40' },
+    calendar: { badge: planLeft > 0 ? `faltam ${planLeft}` : null, badgeColor: 'count-badge' },
+    semester: { badge: upcomingExamsCount > 0 ? `${upcomingExamsCount} próx.` : null, badgeColor: 'count-badge' },
+    spaced_repetition: { badge: dueTopicsCount > 0 ? `${dueTopicsCount} hoje` : null, badgeColor: 'count-badge' },
+    checklist: { badge: pendingChecklistCount > 0 ? String(pendingChecklistCount) : null, badgeColor: 'count-badge' },
+    admin: { badge: '👑', badgeColor: 'count-badge' },
   };
-  const DOT: Record<SidebarSection, string> = { rotina: 'bg-sky-400', ferramentas: 'bg-rose-500', config: 'bg-amber-400' };
+  const DOT: Record<SidebarSection, string> = { rotina: 'bg-sky-400', ferramentas: 'bg-sky-400', config: 'bg-sky-400' };
 
   // Personalização da barra (Personalizar → Barra lateral)
   const sidebarPrefs = studyMethod.sidebar;
@@ -125,7 +125,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
         }}
         className={`sb-item group relative flex w-full items-center rounded-xl transition-colors duration-150 ${
           isExpanded ? 'justify-between gap-2.5 px-2.5 py-2.5 lg:py-[7px] text-sm lg:text-[13px]' : 'justify-center h-10'
-        } ${isActive ? 'text-white font-semibold' : 'text-slate-100 hover:text-white hover:bg-white/[0.05]'}`}
+        } ${isActive ? 'text-slate-100 font-semibold' : 'text-slate-300 hover:text-slate-100 hover:bg-white/[0.04]'}`}
       >
         {isActive && (
           <motion.span
@@ -138,7 +138,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
           {showIcons && (
             <span
               className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors duration-150 ${
-                isActive ? 'text-sky-300' : 'text-slate-300 group-hover:text-white'
+                isActive ? 'text-sky-400' : 'text-slate-300 group-hover:text-white'
               }`}
             >
               <Icon className="h-[18px] w-[18px] lg:h-4 lg:w-4" />
@@ -186,14 +186,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
       {/* Barra lateral: recolhida mostra só ícones */}
       <aside
         id="tour-sidebar"
-        className={`sb-root fixed top-0 bottom-0 left-0 z-[70] flex shrink-0 flex-col text-slate-300 transition-[width,transform,box-shadow] duration-200 ease-out motion-reduce:transition-none lg:static lg:translate-x-0 ${
+        className={`sb-root dark fixed top-0 bottom-0 left-0 z-[70] flex shrink-0 flex-col text-slate-300 transition-[width,transform,box-shadow] duration-200 ease-out motion-reduce:transition-none lg:static lg:translate-x-0 ${
           isMobileOpen ? 'translate-x-0' : '-translate-x-full'
         } ${isExpanded ? 'w-60' : 'w-[68px]'}`}
       >
         {/* Marca */}
         <div className={`flex items-center px-3.5 h-16 shrink-0 ${isExpanded ? 'justify-between' : 'justify-center'}`}>
           <div className="flex items-center gap-2.5 min-w-0 overflow-hidden">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-sky-600 to-sky-800 flex items-center justify-center shadow-lg shadow-sky-800/30 ring-1 ring-inset ring-white/20 text-white shrink-0">
+            <div className="w-9 h-9 rounded-xl bg-sky-800 flex items-center justify-center ring-1 ring-inset ring-sky-400/40 text-sky-400 shrink-0">
               <Stethoscope className="w-[18px] h-[18px]" />
             </div>
             {isExpanded && (
@@ -241,7 +241,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
                 <span className="text-xs font-bold text-sky-300 shrink-0 tabular-nums">{semPct}%</span>
               </div>
               <div className="w-full bg-white/[0.07] h-1 rounded-full overflow-hidden">
-                <div className="bg-gradient-to-r from-sky-500 to-blue-500 h-full transition-[width] duration-300 rounded-full" style={{ width: `${semPct}%` }} />
+                <div className="bg-slate-100 h-full transition-[width] duration-300 rounded-full" style={{ width: `${semPct}%` }} />
               </div>
               <div className="mt-1.5 text-[10px] text-slate-500">{semLeftLabel}</div>
             </button>
@@ -255,7 +255,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
             >
               <span className="text-[10px] font-bold text-sky-300 tabular-nums">{semPct}%</span>
               <div className="w-6 bg-white/[0.08] h-1 rounded-full overflow-hidden mt-1">
-                <div className="bg-sky-500 h-full rounded-full" style={{ width: `${semPct}%` }} />
+                <div className="bg-slate-100 h-full rounded-full" style={{ width: `${semPct}%` }} />
               </div>
             </button>
           ))}

@@ -15,7 +15,7 @@ const QUICK_SCREENS = [
     kicker: 'Regra de ouro',
     title: 'Revisão vem antes do conteúdo novo',
     text: 'Esquecer é normal. Revisar no dia certo, tentando lembrar antes de olhar, é o que faz o conteúdo ficar. Por isso o seu dia começa pelas revisões.',
-    color: '#3b82f6',
+    color: '#3db489',
     Art: QuickPriorityArt,
   },
   {
@@ -23,7 +23,7 @@ const QUICK_SCREENS = [
     kicker: 'Sem pensar no que fazer',
     title: 'Siga o próximo passo do seu plano',
     text: 'O site monta sozinho o plano de hoje, na ordem certa e do tamanho do seu tempo. Você só segue a lista do Planner › Hoje.',
-    color: '#8b5cf6',
+    color: '#3db489',
     Art: QuickNextStepArt,
   },
   {
@@ -31,7 +31,7 @@ const QUICK_SCREENS = [
     kicker: 'Agora é com você',
     title: 'Aperte Começar e foque',
     text: 'O Pomodoro abre com a tarefa e os passos da técnica. Um bloco de cada vez, com pausa de verdade. Dia ruim? Use o “Dia difícil”.',
-    color: '#f97316',
+    color: '#3db489',
     Art: QuickFocusArt,
   },
 ];
@@ -308,10 +308,9 @@ export const MethodGuideModal: React.FC = () => {
                       >
                         <span
                           className={`h-6 w-6 shrink-0 rounded-lg grid place-items-center text-[11px] font-black ${
-                            active ? 'text-white' : i < idx ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' : 'bg-slate-200/70 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
+                            active ? 'bg-sky-600 text-white' : i < idx ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' : 'bg-slate-200/70 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
                           }`}
-                          style={active ? { background: s.color } : undefined}
-                        >
+                                                  >
                           {i < idx ? <Check className="h-3.5 w-3.5" strokeWidth={3} /> : i + 1}
                         </span>
                         <span className={`text-xs leading-snug truncate ${active ? 'font-black text-slate-900 dark:text-white' : 'font-semibold text-slate-600 dark:text-slate-400'}`}>{s.short}</span>

@@ -7,12 +7,12 @@
   --p27-ov2: 0px;
   --p27-track-dur: 0ms;
   --p27-ease: cubic-bezier(0.34, 1.35, 0.64, 1);
-  --p27-track-off: rgba(24, 27, 33, 0.14);
-  --p27-track-on: #2563eb;
+  --p27-track-off: var(--field-border);
+  --p27-track-on: var(--brand);
 }
 .dark {
-  --p27-track-off: rgba(255, 255, 255, 0.15);
-  --p27-track-on: #2563eb;
+  --p27-track-off: var(--field-border);
+  --p27-track-on: var(--brand);
 }
 
 .p27-switch {
@@ -33,7 +33,7 @@
   background: var(--p27-track-on);
 }
 .p27-switch:focus-visible {
-  outline: 2px solid #3b82f6;
+  outline: 2px solid var(--brand);
   outline-offset: 2px;
 }
 .p27-switch:disabled {

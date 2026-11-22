@@ -16,7 +16,7 @@ import { ReorderList } from './shared/ReorderList';
 
 /** Índice do passo "Feynman" no checklist do estudo inicial */
 const FEYNMAN_STEP = '2';
-const BONUS = '#f97316';
+const BONUS = '#2e9e78';
 
 /** "Pré-teste: tente 3 a 5..." → ["Pré-teste", "tente 3 a 5..."] */
 const splitStep = (s: string): [string, string] => {
@@ -601,7 +601,7 @@ export const SubjectBlocksPanel: React.FC<SubjectBlocksPanelProps> = ({ subject,
                     const isBonus = !!t.bonus;
                     const isSeen = isTopicSeen(t) && !isBonus;
                     const isPending = isTopicPending(t);
-                    const dot = isBonus ? BONUS : isSeen ? '#10b981' : isPending ? '#e11d48' : undefined;
+                    const dot = isBonus ? BONUS : isSeen ? 'var(--success)' : isPending ? 'var(--danger)' : undefined;
                     const pill = 'h-10 sm:h-8 min-w-0 inline-flex items-center justify-center gap-1 px-2 sm:px-2.5 rounded-lg text-[11px] font-bold transition-colors';
                     return (
                       <SwipeRow
@@ -617,11 +617,11 @@ export const SubjectBlocksPanel: React.FC<SubjectBlocksPanelProps> = ({ subject,
                             {handle({ id: `struct-topic-drag-${t.id}`, disabled: !!q, className: 'h-8 w-6 -ml-1.5 -mr-1.5' })}
                             <AnimatedCheck
                               checked={isSeen || isBonus}
-                              color={dot || '#10b981'}
+                              color={dot || 'var(--success)'}
                               shape="round"
                               size={20}
                               className="border-2"
-                              offStyle={{ borderColor: dot || '#c9ced6', backgroundColor: dot || 'transparent' }}
+                              offStyle={{ borderColor: dot || 'var(--field-border)', backgroundColor: dot || 'transparent' }}
                             >
                               {isPending && <X className="h-3 w-3 text-white" strokeWidth={3} />}
                             </AnimatedCheck>
@@ -772,7 +772,7 @@ export const SubjectBlocksPanel: React.FC<SubjectBlocksPanelProps> = ({ subject,
                           )
                         )}
                         {detailsOpen[t.id] && (
-                          <SubItemsEditor idPrefix={`topic-${t.id}`} items={t.details} onChange={(d) => updateTopic(t.id, { details: d })} color="#10b981" />
+                          <SubItemsEditor idPrefix={`topic-${t.id}`} items={t.details} onChange={(d) => updateTopic(t.id, { details: d })} color="var(--success)" />
                         )}
                         {confirm?.kind === 'topic' && confirm.id === t.id && (
                           <div className="mt-2">

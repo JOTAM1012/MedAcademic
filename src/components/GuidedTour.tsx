@@ -362,7 +362,7 @@ export const GuidedTour: React.FC<GuidedTourProps> = ({
               height: targetRect.height + 12,
             }}
             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-            className="absolute rounded-xl ring-4 ring-cyan-500/80 shadow-[0_0_35px_rgba(6,182,212,0.5)] bg-transparent pointer-events-none z-[100000]"
+            className="absolute rounded-xl ring-4 ring-cyan-500/80 shadow-[0_0_35px_rgba(59, 184, 138,0.5)] bg-transparent pointer-events-none z-[100000]"
           >
             <div className="absolute -inset-1 rounded-xl bg-cyan-400/10 animate-pulse pointer-events-none" />
           </motion.div>
@@ -419,7 +419,7 @@ export const GuidedTour: React.FC<GuidedTourProps> = ({
                   onClick={() => setCurrentStepIndex(idx)}
                   className={`h-1.5 rounded-full transition-all duration-300 ${
                     idx === currentStepIndex
-                      ? 'w-6 bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.6)]'
+                      ? 'w-6 bg-cyan-400'
                       : 'w-1.5 bg-slate-700 hover:bg-slate-600'
                   }`}
                   title={`Ir para etapa ${idx + 1}`}

@@ -1293,7 +1293,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch {
       /* sem armazenamento */
     }
-    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', themeMode === 'dark' ? '#181b21' : '#f6f7f9');
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', themeMode === 'dark' ? '#0a0a0a' : '#edeae3');
   }, [themeMode]);
 
   // Global Timer Tick: recalcula pelo relógio, então o tempo fica certo mesmo que o navegador

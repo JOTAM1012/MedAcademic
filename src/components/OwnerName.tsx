@@ -5,36 +5,24 @@ import { useAccess } from '../context/AccessContext';
 interface OwnerNameProps {
   name: string;
   className?: string;
-  /** mostra o selo "Dono" ao lado */
+  /** mostra o selo "Dono"/"Moderador" ao lado */
   badge?: boolean;
   crown?: boolean;
 }
 
-// Nome do usuário: dourado para o Dono, violeta para Moderador, azul brilhante para os demais
+// Nome do usuário: brilho esmeralda para todos e dourado para o Dono (cores da paleta).
 export const OwnerName: React.FC<OwnerNameProps> = ({ name, className = '', badge = false, crown = false }) => {
   const { isOwner, role } = useAccess();
-  // Usuário comum: nome azul brilhante
-  if (!role)
-    return (
-      <span className="name-glow-blue">
-        <span className={`user-blue-name ${className}`}>{name}</span>
-      </span>
-    );
+  if (!role) return <span className={`user-blue-name ${className}`}>{name}</span>;
   return (
     <span className={`inline-flex items-center min-w-0 align-baseline ${badge || (crown && isOwner) ? 'gap-1.5' : ''}`}>
-      {crown && isOwner && <Crown className="h-[0.9em] w-[0.9em] shrink-0 text-amber-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.8)]" />}
-      <span className={isOwner ? 'name-glow-gold min-w-0' : 'min-w-0'}>
-        <span className={`${isOwner ? 'owner-gold-name' : 'text-violet-400'} ${className}`} title={isOwner ? 'Dono do MedAcademic' : 'Moderador'}>
-          {name}
-        </span>
+      {crown && isOwner && <Crown className="h-[0.9em] w-[0.9em] shrink-0 text-amber-400" aria-label="Dono" />}
+      <span className={`min-w-0 ${isOwner ? 'owner-gold-name' : 'user-blue-name'} ${className}`} title={isOwner ? 'Dono do MedAcademic' : 'Moderador'}>
+        {name}
       </span>
       {badge && (
-        <span
-          className={`shrink-0 text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-md border ${
-            isOwner ? 'owner-gold-badge inline-flex items-center' : 'bg-violet-500/15 text-violet-300 border-violet-500/40'
-          }`}
-        >
-          {isOwner ? <Crown className="h-3.5 w-3.5" aria-label="Dono" /> : 'Moderador'}
+        <span className="count-badge shrink-0 inline-flex items-center text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-md">
+          {isOwner ? <Crown className="h-3.5 w-3.5 text-amber-400" aria-label="Dono" /> : 'Moderador'}
         </span>
       )}
     </span>

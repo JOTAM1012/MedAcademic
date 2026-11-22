@@ -100,8 +100,8 @@ const watchWindow = (live: React.MutableRefObject<Live>) => {
 export default function SwipeRow({
   children,
   actions = DEFAULT_ACTIONS,
-  actionColor = '#e11d48',
-  drawerColor = '#4e5562',
+  actionColor = '#b91c1c',
+  drawerColor = '#45413c',
   rowColor = 'var(--swipe-row-bg)',
   textColor = 'inherit',
   height,

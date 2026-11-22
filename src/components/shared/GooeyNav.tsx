@@ -9,26 +9,26 @@ const useIsomorphicLayoutEffect = typeof window === 'undefined' ? useEffect : us
 
 const THEMES = {
   dark: {
-    '--gn-frame': 'rgba(38, 35, 46, 0.66)',
+    '--gn-frame': 'rgba(18, 27, 46, 0.66)',
     '--gn-frame-edge': 'rgba(255, 255, 255, 0.08)',
     '--gn-frame-highlight': 'rgba(255, 255, 255, 0.07)',
     '--gn-frame-shadow': '0 22px 44px -20px rgba(0, 0, 0, 0.8), 0 6px 16px -8px rgba(0, 0, 0, 0.5)',
-    '--gn-ink': '#f4f4f5',
-    '--gn-muted': 'rgba(244, 244, 245, 0.62)',
+    '--gn-ink': '#e8e6e1',
+    '--gn-muted': '#a3a09a',
   },
   light: {
-    '--gn-frame': 'rgba(240, 240, 243, 0.8)',
-    '--gn-frame-edge': 'rgba(24, 24, 27, 0.07)',
+    '--gn-frame': 'rgba(238, 240, 244, 0.8)',
+    '--gn-frame-edge': 'rgba(10, 10, 10, 0.07)',
     '--gn-frame-highlight': 'rgba(255, 255, 255, 0.95)',
-    '--gn-frame-shadow': '0 22px 44px -22px rgba(24, 24, 27, 0.3), 0 6px 16px -10px rgba(24, 24, 27, 0.16)',
-    '--gn-ink': '#27272a',
-    '--gn-muted': 'rgba(39, 39, 42, 0.62)',
+    '--gn-frame-shadow': '0 22px 44px -22px rgba(10, 10, 10, 0.3), 0 6px 16px -10px rgba(10, 10, 10, 0.16)',
+    '--gn-ink': '#0a0a0a',
+    '--gn-muted': '#45413c',
   },
 };
 
 const PILLS = {
-  dark: { color: '#f4f4f5', hover: 'rgba(255, 255, 255, 0.08)', shadow: 0.4 },
-  light: { color: '#27272a', hover: 'rgba(24, 24, 27, 0.06)', shadow: 0.2 },
+  dark: { color: '#e8e6e1', hover: 'rgba(255, 255, 255, 0.08)', shadow: 0.4 },
+  light: { color: '#0a0a0a', hover: 'rgba(10, 10, 10, 0.06)', shadow: 0.2 },
 };
 
 const SIZES = { sm: 'gooey-nav--sm', md: 'gooey-nav--md', lg: 'gooey-nav--lg' };
@@ -178,7 +178,7 @@ const parse = (value: string): number[] => {
   return [1, 1, 1, 1];
 };
 
-const contrastInk = (rgb: number[]) => (0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2] > 0.55 ? '#18161d' : '#ffffff');
+const contrastInk = (rgb: number[]) => (0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2] > 0.55 ? '#0a0a0a' : '#ffffff');
 
 const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
 

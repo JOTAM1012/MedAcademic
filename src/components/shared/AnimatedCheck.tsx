@@ -25,7 +25,7 @@ interface AnimatedCheckProps {
 
 export const AnimatedCheck: React.FC<AnimatedCheckProps> = ({
   checked,
-  color = '#10b981',
+  color = '#15803d',
   shape = 'square',
   size = 20,
   stroke = 3.2,

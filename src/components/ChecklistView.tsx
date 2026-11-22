@@ -31,7 +31,7 @@ import { ChecklistItem } from '../types';
 import { CHECKLIST_COLORS, CHECKLIST_TEMPLATES, formatDateBR, toYMD } from '../data/planning';
 import './checklist/notebook.css';
 
-const ACCENT = '#2563eb';
+const ACCENT = '#2e9e78';
 const RINGS = Array.from({ length: 11 });
 
 /** 1 coluna no celular, 2 no tablet (md), 3 em telas largas (xl) */
@@ -191,7 +191,7 @@ export const ChecklistView: React.FC = () => {
   const blocks: BlockView[] = useMemo(() => {
     const list: BlockView[] = [...checklistBlocks];
     if (checklist.some((i) => !i.blockId || !blockIds.has(i.blockId))) {
-      list.unshift({ id: GENERAL_ID, name: 'Geral', color: '#6c7380', emoji: '📋', virtual: true });
+      list.unshift({ id: GENERAL_ID, name: 'Geral', color: 'var(--n-400)', emoji: '📋', virtual: true });
     }
     return list;
   }, [checklistBlocks, checklist]);
@@ -915,7 +915,7 @@ export const ChecklistView: React.FC = () => {
             <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-amber-500/15">{focus.length}</span>
           </h2>
           <ul className="nb-ruled grid grid-cols-1 md:grid-cols-2 gap-x-4">
-            {focus.slice(0, 8).map((i) => renderItem(i, blockById(ownerOf(i))?.color || '#6c7380', true))}
+            {focus.slice(0, 8).map((i) => renderItem(i, blockById(ownerOf(i))?.color || 'var(--n-400)', true))}
           </ul>
         </section>
       )}

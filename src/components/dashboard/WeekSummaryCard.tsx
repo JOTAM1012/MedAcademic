@@ -36,7 +36,7 @@ export const WeekSummaryCard: React.FC = () => {
       id="week-summary-card"
       title={w.isSunday ? 'Resumo da semana' : 'Sua semana até aqui'}
       icon={CalendarRange}
-      color="#3b82f6"
+      color="#2e9e78"
       action={
         w.isSunday ? (
           <span className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-sky-50 dark:bg-sky-500/10 text-sky-700 dark:text-sky-300">

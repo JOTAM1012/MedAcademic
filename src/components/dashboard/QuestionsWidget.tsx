@@ -65,7 +65,7 @@ export const QuestionsWidget: React.FC<{ period: PeriodFilter; periodLabel: stri
       id="dash-questions"
       title="Acertos em questões"
       icon={Target}
-      color="#f59e0b"
+      color="#2e9e78"
       action={
         <LinkButton id="dash-questions-open" compact onClick={() => setCurrentTab('spaced_repetition')}>
           Revisões

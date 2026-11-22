@@ -77,7 +77,7 @@ const Toggle: React.FC<{ id: string; on: boolean; onChange: (v: boolean) => void
       <span className="block text-sm font-bold text-slate-900 dark:text-white">{label}</span>
       <span className="block text-[11px] text-slate-500 dark:text-slate-400">{hint}</span>
     </label>
-    <SquishSwitch id={id} checked={on} onChange={onChange} width={48} height={28} radius={14} trackColor="#c9ced6" trackOnColor="#2563eb" className="shrink-0" />
+    <SquishSwitch id={id} checked={on} onChange={onChange} width={48} height={28} radius={14} trackColor="var(--field-border)" trackOnColor="var(--brand)" className="shrink-0" />
   </div>
 );
 

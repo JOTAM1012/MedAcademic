@@ -43,7 +43,7 @@ export const IllusionOfCompetenceArt: React.FC = () => {
         {groups.map((g) => (
           <g key={g.label}>
             <rect x={g.x} y={base - (g.feel / 100) * h} width="34" height={(g.feel / 100) * h} rx="5" className="fill-slate-400 dark:fill-slate-500" />
-            <rect x={g.x + 38} y={base - (g.keep / 100) * h} width="34" height={(g.keep / 100) * h} rx="5" fill="#10b981" />
+            <rect x={g.x + 38} y={base - (g.keep / 100) * h} width="34" height={(g.keep / 100) * h} rx="5" fill="#15803d" />
             <text x={g.x + 36} y={base + 18} textAnchor="middle" className="fill-slate-600 dark:fill-slate-300" fontSize="11" fontWeight="700">
               {g.label}
             </text>
@@ -83,8 +83,8 @@ export const ForgettingCurveChart: React.FC = () => {
     <svg viewBox="0 0 340 200" className="w-full h-auto" role="img" aria-label="Curva do esquecimento: a economia ao reaprender cai de 58% em 20 minutos para 34% em 1 dia e 21% em 31 dias">
       <defs>
         <linearGradient id="guide-curve-fill" x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.28" />
-          <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
+          <stop offset="0%" stopColor="#2e9e78" stopOpacity="0.28" />
+          <stop offset="100%" stopColor="#2e9e78" stopOpacity="0" />
         </linearGradient>
       </defs>
       {[0, 25, 50, 75, 100].map((g) => (
@@ -96,17 +96,17 @@ export const ForgettingCurveChart: React.FC = () => {
         </g>
       ))}
       {/* faixa das primeiras 24 h: onde a maior parte se perde */}
-      <rect x={xOf(min)} y={T} width={xOf(day.lg) - xOf(min)} height={H} fill="#f59e0b" opacity="0.07" />
-      <text x={(xOf(min) + xOf(day.lg)) / 2} y={T + 10} textAnchor="middle" fill="#d97706" fontSize="9" fontWeight="700">
+      <rect x={xOf(min)} y={T} width={xOf(day.lg) - xOf(min)} height={H} fill="#b45309" opacity="0.07" />
+      <text x={(xOf(min) + xOf(day.lg)) / 2} y={T + 10} textAnchor="middle" className="fill-amber-700 dark:fill-amber-300" fontSize="9" fontWeight="700">
         primeiras 24 h
       </text>
       <path d={area} fill="url(#guide-curve-fill)" />
-      <path d={line} fill="none" stroke="#3b82f6" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+      <path d={line} fill="none" stroke="#2e9e78" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
       {pts.map((p) => {
         const isDay = p.label === '1 dia';
         return (
           <g key={p.label}>
-            <circle cx={xOf(p.lg)} cy={yOf(p.pct)} r={isDay ? 5.5 : 3.5} fill={isDay ? '#f59e0b' : '#3b82f6'} className="stroke-white dark:stroke-slate-950" strokeWidth="2" />
+            <circle cx={xOf(p.lg)} cy={yOf(p.pct)} r={isDay ? 5.5 : 3.5} fill={isDay ? '#b45309' : '#2e9e78'} className="stroke-white dark:stroke-slate-950" strokeWidth="2" />
             {labelled.has(p.label) && (
               <text x={xOf(p.lg) + (p.label === '31 dias' ? -2 : 0)} y={yOf(p.pct) - 10} textAnchor={p.label === '31 dias' ? 'end' : 'middle'} className="fill-slate-700 dark:fill-slate-200" fontSize="10" fontWeight="800">
                 {fmt(p.pct)}
@@ -261,7 +261,7 @@ export const PomodoroBarsArt: React.FC<{ blocks?: Array<{ focus: number; rest: n
               const focus = i % 2 === 0;
               const el = (
                 <g key={i}>
-                  <rect x={x + 1} y={r.y} width={Math.max(1, m * px - 2)} height="22" rx="6" fill={focus ? '#f97316' : '#10b981'} opacity={focus ? 1 : 0.85} />
+                  <rect x={x + 1} y={r.y} width={Math.max(1, m * px - 2)} height="22" rx="6" fill={focus ? '#1f7a5c' : '#625c55'} opacity={focus ? 1 : 0.85} />
                   {m * px >= 12 && (
                     <text x={x + (m * px) / 2} y={r.y + 15} textAnchor="middle" fill="#fff" fontSize="10" fontWeight="800">
                       {focus && m * px >= 62 ? `${m} min foco` : `${m}`}
@@ -291,9 +291,9 @@ export const PomodoroBarsArt: React.FC<{ blocks?: Array<{ focus: number; rest: n
 export const QuickPriorityArt: React.FC = () => (
   <div className="space-y-2" aria-hidden>
     {[
-      { n: 1, t: 'Revisões do dia', c: '#3b82f6', w: '100%', tag: 'primeiro' },
-      { n: 2, t: 'Questões e caderno de erros', c: '#8b5cf6', w: '88%' },
-      { n: 3, t: 'Conteúdo novo', c: '#10b981', w: '76%' },
+      { n: 1, t: 'Revisões do dia', c: '#1f7a5c', w: '100%', tag: 'primeiro' },
+      { n: 2, t: 'Questões e caderno de erros', c: '#1f7a5c', w: '88%' },
+      { n: 3, t: 'Conteúdo novo', c: '#1f7a5c', w: '76%' },
     ].map((r) => (
       <div
         key={r.n}
@@ -354,7 +354,7 @@ export const QuickFocusArt: React.FC = () => {
     <div className="flex flex-col items-center gap-3" aria-hidden>
       <svg viewBox="0 0 120 120" className="w-32 h-32">
         <circle cx="60" cy="60" r={r} fill="none" className="stroke-slate-200 dark:stroke-slate-800" strokeWidth="9" />
-        <circle cx="60" cy="60" r={r} fill="none" stroke="#f97316" strokeWidth="9" strokeLinecap="round" strokeDasharray={`${c * 0.72} ${c}`} transform="rotate(-90 60 60)" />
+        <circle cx="60" cy="60" r={r} fill="none" stroke="#2e9e78" strokeWidth="9" strokeLinecap="round" strokeDasharray={`${c * 0.72} ${c}`} transform="rotate(-90 60 60)" />
         <text x="60" y="62" textAnchor="middle" className="fill-slate-900 dark:fill-white" fontSize="22" fontWeight="900">
           {`${minutes}:00`}
         </text>

@@ -295,10 +295,9 @@ export const AddExamModal: React.FC<AddExamModalProps> = ({
                     type="button"
                     onClick={() => setType(k.id)}
                     className={`min-h-10 px-2 py-2 rounded-xl border text-[11px] font-bold transition-all ${
-                      active ? 'text-white shadow-sm' : 'border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-700'
+                      active ? 'bg-sky-600 border-sky-600 text-white' : 'border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-700'
                     }`}
-                    style={active ? { backgroundColor: k.color, borderColor: k.color } : undefined}
-                  >
+                                      >
                     {k.id}
                   </button>
                 );

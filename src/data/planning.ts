@@ -4,17 +4,17 @@ import { Exam, ExamShift, ScheduleClass, Subject } from '../types';
 // ---------- Grade de Semestre (provas) ----------
 
 export const EXAM_KINDS = [
-  { id: 'Prova Escrita', short: 'ESCRITA', color: '#2563eb' },
-  { id: 'Prova Objetiva', short: 'OBJETIVA', color: '#0891b2' },
-  { id: 'Escrita/Objetiva', short: 'MISTA', color: '#4f46e5' },
-  { id: 'OSCE', short: 'OSCE', color: '#e11d48' },
-  { id: 'Anatomia', short: 'ANATOMIA', color: '#ea580c' },
-  { id: 'Simulado', short: 'SIMULADO', color: '#7c3aed' },
-  { id: 'Multimídia', short: 'MULTIMÍDIA', color: '#db2777' },
-  { id: 'Formativa', short: 'FORMATIVA', color: '#059669' },
+  { id: 'Prova Escrita', short: 'ESCRITA', color: '#3db489' },
+  { id: 'Prova Objetiva', short: 'OBJETIVA', color: '#3db489' },
+  { id: 'Escrita/Objetiva', short: 'MISTA', color: '#3db489' },
+  { id: 'OSCE', short: 'OSCE', color: '#3db489' },
+  { id: 'Anatomia', short: 'ANATOMIA', color: '#3db489' },
+  { id: 'Simulado', short: 'SIMULADO', color: '#3db489' },
+  { id: 'Multimídia', short: 'MULTIMÍDIA', color: '#3db489' },
+  { id: 'Formativa', short: 'FORMATIVA', color: '#625c55' },
 ] as const;
 
-const LEGACY_EXAM_COLOR = '#6c7380';
+const LEGACY_EXAM_COLOR = '#625c55';
 
 export type ExamFormat = 'questions' | 'grade' | 'mixed';
 

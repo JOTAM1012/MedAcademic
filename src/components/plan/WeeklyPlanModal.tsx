@@ -167,7 +167,7 @@ export const WeeklyPlanModal: React.FC<WeeklyPlanModalProps> = ({ open, onClose 
                     <div className="mt-2.5">
                       <div className="h-2 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
                         <div
-                          className={`h-full rounded-full transition-all ${l.overloaded ? 'bg-amber-500' : 'bg-sky-500'}`}
+                          className={`h-full rounded-full transition-all ${l.overloaded ? 'bg-amber-500' : 'bg-slate-900 dark:bg-slate-100'}`}
                           style={{ width: `${l.demand > 0 ? Math.max(pct, 4) : 0}%` }}
                         />
                       </div>
@@ -327,7 +327,7 @@ export const WeeklyPlanModal: React.FC<WeeklyPlanModalProps> = ({ open, onClose 
                   const sub = subjectOf(b.subjectId);
                   return (
                     <li key={b.id} className="flex items-center gap-2 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950/40 p-2 pl-3">
-                      <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: sub?.color || '#6c7380' }} />
+                      <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: sub?.color || 'var(--n-400)' }} />
                       <div className="min-w-0 flex-1">
                         <p className="text-[13px] font-bold text-slate-900 dark:text-white truncate">{b.name}</p>
                         <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">{sub?.universitySubject || sub?.name}</p>
@@ -396,7 +396,7 @@ export const WeeklyPlanModal: React.FC<WeeklyPlanModalProps> = ({ open, onClose 
                   const sub = subjectOf(b.subjectId);
                   return (
                     <li key={b.id} className="flex items-center gap-2 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/40 p-2 pl-3">
-                      <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: sub?.color || '#6c7380' }} />
+                      <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: sub?.color || 'var(--n-400)' }} />
                       <div className="min-w-0 flex-1">
                         <p className="text-[13px] font-bold text-slate-900 dark:text-white truncate">{b.name}</p>
                         <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">{sub?.universitySubject || sub?.name}</p>

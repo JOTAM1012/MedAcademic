@@ -1,7 +1,7 @@
 .spring-check {
   --sc-ink: currentColor;
-  --sc-fill: #3b82f6;
-  --sc-check: #ffffff;
+  --sc-fill: var(--brand);
+  --sc-check: var(--surface);
   --sc-box: 20px;
   --sc-radius: 6px;
   --sc-font: 14px;

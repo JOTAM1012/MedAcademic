@@ -41,7 +41,7 @@ export const StudyTimeWidget: React.FC = () => {
   const delta = studied - lastWeekDays;
 
   return (
-    <WidgetCard id="dash-study-time" title="Constância da semana" icon={CalendarCheck} color="#10b981">
+    <WidgetCard id="dash-study-time" title="Constância da semana" icon={CalendarCheck} color="#2e9e78">
       <StatBody>
         <BigNumber>
           <CountUp value={studied} />

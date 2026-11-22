@@ -24,7 +24,7 @@
 }
 
 #toggle:focus-visible + svg {
-  outline: 2px solid #3b82f6;
+  outline: 2px solid var(--brand);
   outline-offset: 2px;
   border-radius: 999px;
 }

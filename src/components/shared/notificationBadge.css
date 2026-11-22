@@ -34,15 +34,15 @@
   align-items: center;
   justify-content: center;
   border-radius: 999px;
-  /* vermelho do site (rose) no degradê do selo */
-  background-image: linear-gradient(-51.52deg, #f43f5e 13.9%, #e11d48 112.7%);
-  color: #ffffff;
+  /* selo de contagem neutro (vermelho só para atrasado/alerta) */
+  background: var(--surface-2);
+  color: var(--text);
   font-weight: 700;
   font-size: 11px;
   line-height: 1;
   letter-spacing: -0.1px;
   font-variant-numeric: tabular-nums;
-  box-shadow: 0 0.4px 1.4px rgba(0, 0, 0, 0.17), 0 0.7px 2.7px rgba(0, 0, 0, 0.04), inset 0 -0.4px 0 rgba(0, 0, 0, 0.16), 0 0 0 2px var(--notif-badge-ring, #ffffff);
+  box-shadow: 0 0.4px 1.4px rgba(0, 0, 0, 0.17), 0 0.7px 2.7px rgba(0, 0, 0, 0.04), inset 0 -0.4px 0 rgba(0, 0, 0, 0.16), 0 0 0 2px var(--notif-badge-ring, var(--surface));
   transform-origin: center;
   transform: scale(1);
   opacity: 1;
@@ -51,7 +51,7 @@
     filter var(--badge-scale-open-dur) var(--badge-ease-scale-open);
 }
 .dark .notif-badge-inner {
-  --notif-badge-ring: #181b21;
+  --notif-badge-ring: var(--surface);
 }
 .notif-badge[data-open='false'] .notif-badge-inner {
   transform: scale(0);

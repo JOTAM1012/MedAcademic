@@ -1,19 +1,19 @@
 /* Deslizar para excluir. Cores do site: fundo da linha = fundo do cartão (claro/escuro). */
 :root {
-  --swipe-row-bg: #ffffff;
+  --swipe-row-bg: var(--surface);
 }
 .dark {
-  --swipe-row-bg: #181b21;
+  --swipe-row-bg: var(--surface);
 }
 
 .swipe-row {
   --sr-h: 64px;
   --sr-r: 16px;
   --sr-a: 80px;
-  --sr-row: #27272a;
-  --sr-text: #f5f5f5;
-  --sr-drawer: #3f3f46;
-  --sr-on-drawer: #ffffff;
+  --sr-row: var(--swipe-row-bg);
+  --sr-text: var(--text);
+  --sr-drawer: var(--surface-2);
+  --sr-on-drawer: var(--text);
   --sr-action: #e5484d;
   --sr-on-action: #ffffff;
   --sr-collapse: 200ms;

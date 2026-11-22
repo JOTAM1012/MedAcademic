@@ -86,8 +86,8 @@ export const WeeklyStatsCard: React.FC = () => {
   const targetHours = userProfile.weeklyTargetHours || 30;
   const progressPercent = Math.min(100, Math.round((Number(totalHours) / targetHours) * 100));
 
-  const gridColor = isDarkMode ? '#3a3f49' : '#edeff2';
-  const textColor = isDarkMode ? '#9aa1ad' : '#6c7380';
+  const gridColor = isDarkMode ? '#262626' : '#e5e1d8';
+  const textColor = isDarkMode ? '#a3a09a' : '#625c55';
 
   return (
     <div
@@ -261,7 +261,7 @@ export const WeeklyStatsCard: React.FC = () => {
                 yAxisId="left"
                 dataKey="horas"
                 name="Horas Estudadas"
-                fill="#60a5fa"
+                fill="#2e9e78"
                 radius={[6, 6, 0, 0]}
                 unit="h"
               />
@@ -273,7 +273,7 @@ export const WeeklyStatsCard: React.FC = () => {
                 type="monotone"
                 dataKey="metaHoras"
                 name="Meta Diária"
-                stroke="#9aa1ad"
+                stroke={isDarkMode ? '#a3a09a' : '#625c55'}
                 strokeDasharray="4 4"
                 strokeWidth={2}
                 dot={false}
@@ -287,9 +287,9 @@ export const WeeklyStatsCard: React.FC = () => {
                 type="monotone"
                 dataKey="taxaAcerto"
                 name="Taxa de Acerto (%)"
-                stroke="#10b981"
+                stroke={isDarkMode ? '#4ade80' : '#15803d'}
                 strokeWidth={3}
-                dot={{ r: 4, fill: '#10b981', strokeWidth: 2, stroke: isDarkMode ? '#181b21' : '#ffffff' }}
+                dot={{ r: 4, fill: isDarkMode ? '#4ade80' : '#15803d', strokeWidth: 2, stroke: isDarkMode ? '#141414' : '#ffffff' }}
                 activeDot={{ r: 6 }}
                 unit="%"
               />

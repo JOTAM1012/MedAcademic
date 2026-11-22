@@ -30,7 +30,7 @@ export const ReviewsWidget: React.FC = () => {
 
   const subName = (id: string) => {
     const s = subjects.find((x) => x.id === id);
-    return { name: s?.universitySubject || s?.name || '', color: s?.color || '#9aa1ad' };
+    return { name: s?.universitySubject || s?.name || '', color: s?.color || 'var(--n-400)' };
   };
   const weakName = weak ? weak.subject.universitySubject || weak.subject.name : '';
 
@@ -39,7 +39,7 @@ export const ReviewsWidget: React.FC = () => {
       id="dash-reviews"
       title="Revisões"
       icon={Repeat}
-      color="#8b5cf6"
+      color="#2e9e78"
       action={
         <LinkButton id="dash-reviews-open" compact onClick={() => setCurrentTab('spaced_repetition')}>
           Abrir

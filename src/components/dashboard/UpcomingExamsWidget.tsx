@@ -25,7 +25,7 @@ export const UpcomingExamsWidget: React.FC = () => {
       id="dash-exams"
       title="Próximas provas"
       icon={GraduationCap}
-      color="#6366f1"
+      color="#2e9e78"
       action={
         <LinkButton id="dash-exams-open" onClick={() => setCurrentTab('semester')}>
           Ver semestre
@@ -79,7 +79,7 @@ export const UpcomingExamsWidget: React.FC = () => {
                     {prog.topics > 0 && (
                       <div className="mt-1 flex items-center gap-2">
                         <div className="flex-1">
-                          <Bar pct={prog.pct} color="#6366f1" thin />
+                          <Bar pct={prog.pct} color="var(--text)" thin />
                         </div>
                         <span className="shrink-0 text-[10px] font-bold text-slate-500 dark:text-slate-400 tabular-nums">{prog.pct}% dos assuntos</span>
                       </div>

@@ -182,7 +182,7 @@ export const PersonalStudiesView: React.FC = () => {
             )}
           </div>
           <div className="mt-3 h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
-            <div className="h-full rounded-full bg-sky-500 transition-all duration-700" style={{ width: `${pct}%` }} />
+            <div className="h-full rounded-full bg-slate-900 dark:bg-slate-100 transition-all duration-700" style={{ width: `${pct}%` }} />
           </div>
 
           {todayProjects.length > 0 && (

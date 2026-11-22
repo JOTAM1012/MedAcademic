@@ -302,7 +302,7 @@ export const SemesterHistoryContent: React.FC = () => {
                           <tr key={e.id} className="border-t border-slate-100 dark:border-slate-800">
                             <td className="px-3 py-1.5 text-slate-500 w-12">{formatDM(e.date)}</td>
                             <td className="px-1 py-1.5">
-                              <span className="font-bold" style={{ color: kind.color }}>
+                              <span className="ink font-bold" style={{ ['--ink' as string]: kind.color }}>
                                 {kind.short}
                               </span>{' '}
                               <span className="text-slate-600 dark:text-slate-300">{e.title}</span>

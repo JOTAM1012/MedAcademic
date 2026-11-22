@@ -444,7 +444,7 @@
 .stepper__glider {
   background: var(--stepper-solid);
   box-shadow:
-    0 6px 16px -6px color-mix(in srgb, var(--stepper-solid) 70%, transparent),
+    0 6px 16px -6px rgba(10, 10, 10, 0.35),
     inset 0 1px 0 rgba(255, 255, 255, 0.18);
 }
 .stepper__segment[data-status='active'] .stepper__title {

@@ -152,8 +152,8 @@ export const MonthlyPerformanceChart: React.FC = () => {
     return chartData.reduce((acc, d) => acc + d.horas, 0).toFixed(1);
   }, [chartData]);
 
-  const gridColor = isDarkMode ? '#3a3f49' : '#edeff2';
-  const textColor = isDarkMode ? '#9aa1ad' : '#6c7380';
+  const gridColor = isDarkMode ? '#262626' : '#e5e1d8';
+  const textColor = isDarkMode ? '#a3a09a' : '#625c55';
 
   return (
     <div
@@ -367,17 +367,17 @@ export const MonthlyPerformanceChart: React.FC = () => {
               wrapperStyle={{ fontSize: '12px', fontWeight: 600 }}
             />
 
-            <ReferenceLine y={80} stroke="#9aa1ad" strokeDasharray="3 3" label={{ value: 'Meta de Excelência (80%)', fill: '#9aa1ad', fontSize: 10, position: 'insideTopRight' }} />
+            <ReferenceLine y={80} stroke={isDarkMode ? '#a3a09a' : '#625c55'} strokeDasharray="3 3" label={{ value: 'Meta de Excelência (80%)', fill: isDarkMode ? '#a3a09a' : '#625c55', fontSize: 10, position: 'insideTopRight' }} />
 
             {(activeMetric === 'all' || activeMetric === 'performance') && (
               <Line
                 type="monotone"
                 dataKey="desempenho"
                 name="Evolução do Desempenho"
-                stroke="#2563eb"
+                stroke="#2e9e78"
                 strokeWidth={3}
-                dot={{ r: viewMode === 'weekly' ? 5 : 2, fill: '#2563eb', strokeWidth: 2, stroke: isDarkMode ? '#181b21' : '#ffffff' }}
-                activeDot={{ r: 7, stroke: '#60a5fa', strokeWidth: 2 }}
+                dot={{ r: viewMode === 'weekly' ? 5 : 2, fill: '#2e9e78', strokeWidth: 2, stroke: isDarkMode ? '#141414' : '#ffffff' }}
+                activeDot={{ r: 7, stroke: isDarkMode ? '#3bb88a' : '#04402f', strokeWidth: 2 }}
                 unit="%"
               />
             )}
@@ -387,11 +387,11 @@ export const MonthlyPerformanceChart: React.FC = () => {
                 type="monotone"
                 dataKey="consistenciaPomodoro"
                 name="Consistência Pomodoro"
-                stroke="#f59e0b"
+                stroke={isDarkMode ? '#fbbf24' : '#b45309'}
                 strokeWidth={3}
                 strokeDasharray={activeMetric === 'all' ? undefined : undefined}
-                dot={{ r: viewMode === 'weekly' ? 5 : 2, fill: '#f59e0b', strokeWidth: 2, stroke: isDarkMode ? '#181b21' : '#ffffff' }}
-                activeDot={{ r: 7, stroke: '#fbbf24', strokeWidth: 2 }}
+                dot={{ r: viewMode === 'weekly' ? 5 : 2, fill: isDarkMode ? '#fbbf24' : '#b45309', strokeWidth: 2, stroke: isDarkMode ? '#141414' : '#ffffff' }}
+                activeDot={{ r: 7, stroke: isDarkMode ? '#fcd34d' : '#92400e', strokeWidth: 2 }}
                 unit="%"
               />
             )}

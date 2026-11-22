@@ -176,8 +176,8 @@ export const ContestsModal: React.FC<ContestsModalProps> = ({ open, onClose }) =
     setMode('list');
   };
 
-  const grid = isDarkMode ? '#22262d' : '#e1e4ea';
-  const tick = isDarkMode ? '#9aa1ad' : '#6c7380';
+  const grid = isDarkMode ? '#1c1c1c' : '#d9d5cc';
+  const tick = isDarkMode ? '#a3a09a' : '#625c55';
   const formPct = (() => {
     const t = num(draft.totalQuestions);
     const k = num(draft.correct);
@@ -290,7 +290,7 @@ export const ContestsModal: React.FC<ContestsModalProps> = ({ open, onClose }) =
                               );
                             }}
                           />
-                          <Line type="monotone" dataKey="pct" stroke="#2563eb" strokeWidth={2.5} dot={{ r: 3.5, fill: '#2563eb' }} activeDot={{ r: 5 }} />
+                          <Line type="monotone" dataKey="pct" stroke="#2e9e78" strokeWidth={2.5} dot={{ r: 3.5, fill: '#2e9e78' }} activeDot={{ r: 5 }} />
                         </LineChart>
                       </ResponsiveContainer>
                     </div>

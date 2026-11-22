@@ -162,10 +162,10 @@ export const DashboardView: React.FC = () => {
       <InstallAppBanner />
       {/* Primeiros passos (sem disciplinas) */}
       {subjects.length === 0 && (
-        <div className="rounded-3xl border border-sky-200 dark:border-sky-800/80 bg-sky-50/70 dark:bg-slate-900 p-5 sm:p-6">
+        <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 sm:p-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-start gap-3.5">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-sky-600 to-sky-800 text-white flex items-center justify-center shrink-0">
+              <div className="w-12 h-12 rounded-2xl bg-sky-100 dark:bg-sky-800 ring-1 ring-inset ring-sky-300/40 dark:ring-sky-400/40 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0">
                 <Stethoscope className="w-6 h-6" />
               </div>
               <div>
@@ -175,7 +175,7 @@ export const DashboardView: React.FC = () => {
                 <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
                   {isReturning ? dayGreeting : `Seja ${welcome} ao MedAcademic`}, <OwnerName name={firstName} />{' '}
                   {isOwnerAccount ? (
-                    <Crown className="inline h-[1em] w-[1em] -mt-1 text-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.8)]" aria-label="Dono" />
+                    <Crown className="inline h-[1em] w-[1em] -mt-1 text-slate-400" aria-label="Dono" />
                   ) : (
                     '🩺'
                   )}
@@ -194,12 +194,12 @@ export const DashboardView: React.FC = () => {
                 onClick={() => setIsOnboardingOpen(true)}
                 className="min-h-[40px] px-3.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-700/80 transition-all flex items-center gap-1.5 cursor-pointer"
               >
-                <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
+                <Sparkles className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
                 <span>Ver tutorial</span>
               </button>
               <button
                 onClick={() => setCurrentTab('structure')}
-                className="min-h-[40px] px-4 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+                className="min-h-[40px] px-4 rounded-xl border border-slate-400 dark:border-slate-700 bg-transparent text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer"
               >
                 <Plus className="w-4 h-4" />
                 <span>Cadastrar disciplina</span>
@@ -218,7 +218,7 @@ export const DashboardView: React.FC = () => {
               {isOwnerAccount ? (
                 <Crown
                   id="greeting-owner-crown"
-                  className="inline h-[1em] w-[1em] -mt-1 text-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.8)]"
+                  className="inline h-[1em] w-[1em] -mt-1 text-slate-400"
                   aria-label="Dono"
                 />
               ) : (

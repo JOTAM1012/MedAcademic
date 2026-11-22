@@ -265,7 +265,7 @@ export const SubjectChecklistPanel: React.FC<Props> = ({ subject }) => {
                 {/* anel de progresso */}
                 <div
                   className="h-7 w-7 shrink-0 rounded-full grid place-items-center text-[9px] font-black"
-                  style={{ background: `conic-gradient(${accent} ${mPct * 3.6}deg, rgba(154,161,173,0.25) 0deg)` }}
+                  style={{ background: `conic-gradient(${accent} ${mPct * 3.6}deg, rgba(163, 160, 154,0.25) 0deg)` }}
                 >
                   <span className="h-5 w-5 rounded-full bg-white dark:bg-slate-900 grid place-items-center text-slate-600 dark:text-slate-300">
                     {done ? <Check className="h-3 w-3 text-emerald-500" /> : mPct}

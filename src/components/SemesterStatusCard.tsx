@@ -18,7 +18,7 @@ const GrowBar: React.FC<{ pct: number }> = ({ pct }) => {
   const shown = useGrowFromZero(Math.max(0, Math.min(100, pct)));
   return (
     <div className="mt-2 h-1 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-      <div className="h-full rounded-full bg-sky-500 transition-[width] duration-700 ease-out motion-reduce:transition-none" style={{ width: `${shown}%` }} />
+      <div className="h-full rounded-full bg-slate-900 dark:bg-slate-100 transition-[width] duration-700 ease-out motion-reduce:transition-none" style={{ width: `${shown}%` }} />
     </div>
   );
 };

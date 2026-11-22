@@ -160,7 +160,7 @@ export const ExamGradesList: React.FC<ExamGradesListProps> = ({ onEdit, onNew })
             <h3 className="text-sm font-bold text-slate-900 dark:text-white truncate">{examMainTitle(exam, subjects)}</h3>
             {sub && <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">{sub}</p>}
             <div className="mt-1 flex items-center gap-x-2 gap-y-0.5 flex-wrap text-[10px] text-slate-500 dark:text-slate-400">
-              <span className="font-black tracking-wide" style={{ color: kind.color }}>
+              <span className="ink font-black tracking-wide" style={{ ['--ink' as string]: kind.color }}>
                 {kind.short}
               </span>
               {(time || shift) && (

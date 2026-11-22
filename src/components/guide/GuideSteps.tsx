@@ -68,7 +68,7 @@ const SectionTitle: React.FC<{ children: React.ReactNode }> = ({ children }) => 
   <h3 className="text-[11px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 mt-1">{children}</h3>
 );
 
-const Point: React.FC<{ emoji?: string; color?: string; title: React.ReactNode; children?: React.ReactNode }> = ({ emoji, color = '#3b82f6', title, children }) => (
+const Point: React.FC<{ emoji?: string; color?: string; title: React.ReactNode; children?: React.ReactNode }> = ({ emoji, color = '#2e9e78', title, children }) => (
   <li className="flex items-start gap-3">
     <span className="mt-0.5 h-8 w-8 shrink-0 rounded-xl grid place-items-center text-base" style={{ background: `${color}1a` }}>
       {emoji || <Check className="h-4 w-4" style={{ color }} />}
@@ -113,7 +113,7 @@ export const GUIDE_STEPS: GuideStep[] = [
     emoji: '🤔',
     short: 'Por que método?',
     title: 'Por que seguir um método?',
-    color: '#3b82f6',
+    color: '#3db489',
     render: () => (
       <div className="space-y-4">
         <Lead>
@@ -123,13 +123,13 @@ export const GUIDE_STEPS: GuideStep[] = [
           <IllusionOfCompetenceArt />
         </IllustrationFrame>
         <ul className="space-y-3">
-          <Point emoji="🪞" color="#6c7380" title="Reler dá a ilusão de que você sabe">
+          <Point emoji="🪞" color="#625c55" title="Reler dá a ilusão de que você sabe">
             O texto parece familiar, e familiar parece “sei”. Mas na prova ninguém te mostra o texto.
           </Point>
-          <Point emoji="🧠" color="#10b981" title="Tentar lembrar é o que fixa">
+          <Point emoji="🧠" color="#2e9e78" title="Tentar lembrar é o que fixa">
             Questões, folha em branco e explicar em voz alta obrigam o cérebro a buscar a informação. É isso que fortalece a memória.
           </Point>
-          <Point emoji="💪" color="#f59e0b" title="Parece mais difícil, e é por isso que funciona">
+          <Point emoji="💪" color="#2e9e78" title="Parece mais difícil, e é por isso que funciona">
             Se der trabalho, não quer dizer que está dando errado. Esse esforço é justamente o que faz o conteúdo ficar.
           </Point>
         </ul>
@@ -144,7 +144,7 @@ export const GUIDE_STEPS: GuideStep[] = [
     emoji: '📉',
     short: 'Curva do esquecimento',
     title: 'A curva do esquecimento',
-    color: '#f59e0b',
+    color: '#3db489',
     render: () => (
       <div className="space-y-4">
         <Lead>
@@ -158,13 +158,13 @@ export const GUIDE_STEPS: GuideStep[] = [
         </IllustrationFrame>
         <SectionTitle>Três cuidados ao ler a curva</SectionTitle>
         <ul className="space-y-3">
-          <Point emoji="⚠️" color="#e11d48" title="Não é “esquecemos 70% em 24 horas”">
+          <Point emoji="⚠️" color="#b45309" title="Não é “esquecemos 70% em 24 horas”">
             O número mede economia ao reaprender, com sílabas sem sentido. Não é uma porcentagem de matéria perdida.
           </Point>
-          <Point emoji="🗂️" color="#8b5cf6" title="Esquecer não é apagar">
+          <Point emoji="🗂️" color="#2e9e78" title="Esquecer não é apagar">
             Mesmo depois de um mês ainda sobra economia: reestudar fica mais rápido. A memória enfraquece, mas não some.
           </Point>
-          <Point emoji="🔗" color="#10b981" title="Conteúdo com significado cai mais devagar">
+          <Point emoji="🔗" color="#2e9e78" title="Conteúdo com significado cai mais devagar">
             Medicina entendida (mecanismo, ligação com a clínica) é esquecida bem mais devagar que sílabas soltas.
           </Point>
         </ul>
@@ -179,7 +179,7 @@ export const GUIDE_STEPS: GuideStep[] = [
     emoji: '🔁',
     short: 'Suas revisões',
     title: 'Suas revisões: quando e como',
-    color: '#8b5cf6',
+    color: '#3db489',
     render: () => (
       <div className="space-y-4">
         <Lead>Cada tema que você estuda entra numa linha do tempo. Em cada volta você usa uma técnica diferente, sempre tentando lembrar antes de olhar.</Lead>
@@ -235,7 +235,7 @@ export const GUIDE_STEPS: GuideStep[] = [
     emoji: '🎯',
     short: 'Questões e caderno de erros',
     title: 'Questões e caderno de erros',
-    color: '#e11d48',
+    color: '#3db489',
     render: () => (
       <div className="space-y-4">
         <Lead>Questão não é só para medir: é a melhor forma de revisar. O jeito de fazer muda tudo.</Lead>
@@ -302,15 +302,15 @@ export const GUIDE_STEPS: GuideStep[] = [
     emoji: '☀️',
     short: 'Seu plano do dia',
     title: 'Seu plano do dia',
-    color: '#10b981',
+    color: '#3db489',
     render: ({ prefs }) => (
       <div className="space-y-4">
         <Lead>Todo dia o site monta sozinho o que estudar, na ordem certa e do tamanho do seu tempo. Quando o dia aperta, a prioridade é sempre esta:</Lead>
         <div className="grid grid-cols-3 gap-2">
           {[
-            { n: 1, t: 'Revisões', c: '#3b82f6' },
-            { n: 2, t: 'Questões', c: '#8b5cf6' },
-            { n: 3, t: 'Conteúdo novo', c: '#10b981' },
+            { n: 1, t: 'Revisões', c: '#1f7a5c' },
+            { n: 2, t: 'Questões', c: '#1f7a5c' },
+            { n: 3, t: 'Conteúdo novo', c: '#1f7a5c' },
           ].map((p) => (
             <div key={p.n} className="rounded-2xl border p-2.5 text-center" style={{ borderColor: `${p.c}40`, background: `${p.c}10` }}>
               <span className="mx-auto h-7 w-7 rounded-lg grid place-items-center text-xs font-black text-white" style={{ background: p.c }}>
@@ -371,14 +371,14 @@ export const GUIDE_STEPS: GuideStep[] = [
     emoji: '🗓️',
     short: 'Sua semana e seu mês',
     title: 'Sua semana e seu mês',
-    color: '#6366f1',
+    color: '#3db489',
     render: ({ prefs }) => {
       const order = [1, 2, 3, 4, 5, 6, 0];
       const kindOf = (d: number) => (prefs.restDay === d ? 'rest' : prefs.mixedDay === d ? 'mixed' : 'normal');
       const KIND = {
-        normal: { e: '🌱', t: 'Temas novos', c: '#10b981' },
-        mixed: { e: '🔀', t: 'Misturadas', c: '#ec4899' },
-        rest: { e: '🛋️', t: 'Descanso', c: '#3b82f6' },
+        normal: { e: '🌱', t: 'Temas novos', c: '#3db489' },
+        mixed: { e: '🔀', t: 'Misturadas', c: '#3db489' },
+        rest: { e: '🛋️', t: 'Descanso', c: '#a3a09a' },
       } as const;
       return (
         <div className="space-y-4">
@@ -414,22 +414,22 @@ export const GUIDE_STEPS: GuideStep[] = [
             ))}
           </p>
           <ul className="space-y-3">
-            <Point emoji="🌱" color="#10b981" title="Dias de semana: temas novos conforme a grade">
+            <Point emoji="🌱" color="#2e9e78" title="Dias de semana: temas novos conforme a grade">
               1 a 2 temas novos por dia, sempre depois das revisões do dia.
             </Point>
-            <Point emoji="🔀" color="#ec4899" title="Dia das misturadas: questões de várias áreas + caderno de erros">
+            <Point emoji="🔀" color="#2e9e78" title="Dia das misturadas: questões de várias áreas + caderno de erros">
               Misturar temas treina escolher a estratégia certa, como na prova.
             </Point>
-            <Point emoji="🛋️" color="#3b82f6" title="Descanso de verdade + 20 min para planejar">
+            <Point emoji="🛋️" color="#a3a09a" title="Descanso de verdade + 20 min para planejar">
               Use “Planejar semana” no Planner: ele distribui os temas novos nos dias sozinho, e você ajusta se quiser.
             </Point>
           </ul>
           <SectionTitle>No mês</SectionTitle>
           <ul className="space-y-3">
-            <Point emoji="📅" color="#f59e0b" title="As revisões de 30 dias aparecem sozinhas">
+            <Point emoji="📅" color="#2e9e78" title="As revisões de 30 dias aparecem sozinhas">
               Você não precisa lembrar de nada: o tema reaparece no plano do dia certo.
             </Point>
-            <Point emoji="📝" color="#6366f1" title="Provas puxam a prioridade">
+            <Point emoji="📝" color="#2e9e78" title="Provas puxam a prioridade">
               Na semana da prova, as revisões daquela disciplina sobem. Nos últimos dias entram simulados e blocos misturados. Na véspera: caderno de erros e sono.
             </Point>
           </ul>
@@ -442,7 +442,7 @@ export const GUIDE_STEPS: GuideStep[] = [
     emoji: '🧬',
     short: 'Cada fase estuda de um jeito',
     title: 'Cada fase estuda de um jeito',
-    color: '#10b981',
+    color: '#3db489',
     render: ({ phase, residencyPrep }) => (
       <div className="space-y-4">
         <Lead>O site ajusta o plano à fase do seu curso (pelo semestre atual): tamanho dos blocos, temas por dia e tarefas fixas.</Lead>
@@ -462,7 +462,7 @@ export const GUIDE_STEPS: GuideStep[] = [
                     {p.emoji} {p.label}
                   </p>
                   {current && (
-                    <span className="shrink-0 text-[10px] font-black uppercase tracking-wider text-white rounded-full px-2 py-0.5" style={{ background: p.color }}>
+                    <span className="shrink-0 text-[10px] font-black uppercase tracking-wider text-white rounded-full px-2 py-0.5 bg-sky-600">
                       Você está aqui
                     </span>
                   )}
@@ -487,12 +487,12 @@ export const GUIDE_STEPS: GuideStep[] = [
         </div>
         <div
           id="guide-phase-residencia"
-          className={`rounded-2xl border p-3.5 ${residencyPrep ? 'ring-2 ring-rose-500/50' : ''}`}
-          style={{ borderColor: residencyPrep ? '#e11d4880' : '#e11d4833', background: residencyPrep ? '#e11d4814' : '#e11d4808' }}
+          className={`rounded-2xl border p-3.5 ${residencyPrep ? 'ring-2 ring-sky-500/50' : ''}`}
+          style={{ borderColor: residencyPrep ? '#6b8fcb80' : '#6b8fcb33', background: residencyPrep ? '#6b8fcb14' : '#6b8fcb08' }}
         >
           <div className="flex items-center justify-between gap-2">
             <p className="text-sm font-black text-slate-900 dark:text-white">🎯 Preparação para residência</p>
-            {residencyPrep && <span className="shrink-0 text-[10px] font-black uppercase tracking-wider text-white rounded-full px-2 py-0.5 bg-rose-600">Você está aqui</span>}
+            {residencyPrep && <span className="shrink-0 text-[10px] font-black uppercase tracking-wider text-white rounded-full px-2 py-0.5 bg-sky-600">Você está aqui</span>}
           </div>
           <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 leading-relaxed">
             Questões viram o eixo do dia, com caderno de erros e simulados no fim de semana. Liga quando você define a prova-alvo no internato ou cria um projeto de Residência em Estudos pessoais.
@@ -506,7 +506,7 @@ export const GUIDE_STEPS: GuideStep[] = [
     emoji: '🍅',
     short: 'Pomodoro e Feynman',
     title: 'Pomodoro e Feynman',
-    color: '#f97316',
+    color: '#3db489',
     render: ({ prefs }) => (
       <div className="space-y-4">
         <Lead>Duas ferramentas simples que tornam o estudo ativo: blocos de foco com pausa de verdade, e explicar para aprender.</Lead>
@@ -540,10 +540,10 @@ export const GUIDE_STEPS: GuideStep[] = [
           </p>
         </div>
         <ul className="space-y-3">
-          <Point emoji="🎯" color="#f97316" title="Cada bloco tem uma tarefa concreta">
+          <Point emoji="🎯" color="#2e9e78" title="Cada bloco tem uma tarefa concreta">
             “Fazer 20 questões de asma” em vez de “estudar pneumo”.
           </Point>
-          <Point emoji="🔢" color="#f97316" title="Conte blocos, não horas">
+          <Point emoji="🔢" color="#2e9e78" title="Conte blocos, não horas">
             4 blocos bem feitos valem mais que 6 horas com o celular do lado.
           </Point>
         </ul>
@@ -572,7 +572,7 @@ export const GUIDE_STEPS: GuideStep[] = [
     emoji: '🌙',
     short: 'Checklist, sono e saúde mental',
     title: 'Checklist, sono e saúde mental',
-    color: '#6366f1',
+    color: '#3db489',
     render: () => (
       <div className="space-y-4">
         <Lead>Sete perguntas para fechar o dia. Algumas o site marca sozinho quando percebe; as outras você marca.</Lead>
@@ -607,16 +607,16 @@ export const GUIDE_STEPS: GuideStep[] = [
     emoji: '🧭',
     short: 'Como usar o site',
     title: 'Como usar o site, passo a passo',
-    color: '#3b82f6',
+    color: '#3db489',
     render: ({ goTo }) => {
       const items: Array<{ id: Parameters<GuideContext['goTo']>[0]; icon: React.ElementType; color: string; title: string; text: string }> = [
-        { id: 'structure', icon: Layers, color: '#6366f1', title: 'Disciplinas', text: 'Cadastre suas disciplinas e os temas que vai estudar.' },
-        { id: 'calendar', icon: CalendarDays, color: '#8b5cf6', title: 'Planner › Hoje', text: 'Abra todo dia e siga o próximo passo do plano.' },
-        { id: 'spaced_repetition', icon: Repeat, color: '#3b82f6', title: 'Revisões', text: 'Faça a revisão com a técnica indicada e registre como foi.' },
-        { id: 'erros', icon: NotebookPen, color: '#f59e0b', title: 'Caderno de erros', text: 'Anote cada erro em 1 linha e refaça quando ele voltar.' },
-        { id: 'stopwatch', icon: Timer, color: '#f97316', title: 'Pomodoro', text: 'Foque em blocos. O “Começar” do plano já liga a tarefa aqui.' },
-        { id: 'personal', icon: FolderHeart, color: '#e11d48', title: 'Estudos pessoais', text: 'Residência, liga, idioma, cursos: com meta semanal e revisões.' },
-        { id: 'routine', icon: SlidersHorizontal, color: '#10b981', title: 'Minha rotina', text: 'Ajuste blocos por dia, dia de descanso e dia das misturadas.' },
+        { id: 'structure', icon: Layers, color: '#2e9e78', title: 'Disciplinas', text: 'Cadastre suas disciplinas e os temas que vai estudar.' },
+        { id: 'calendar', icon: CalendarDays, color: '#2e9e78', title: 'Planner › Hoje', text: 'Abra todo dia e siga o próximo passo do plano.' },
+        { id: 'spaced_repetition', icon: Repeat, color: '#2e9e78', title: 'Revisões', text: 'Faça a revisão com a técnica indicada e registre como foi.' },
+        { id: 'erros', icon: NotebookPen, color: '#2e9e78', title: 'Caderno de erros', text: 'Anote cada erro em 1 linha e refaça quando ele voltar.' },
+        { id: 'stopwatch', icon: Timer, color: '#2e9e78', title: 'Pomodoro', text: 'Foque em blocos. O “Começar” do plano já liga a tarefa aqui.' },
+        { id: 'personal', icon: FolderHeart, color: '#2e9e78', title: 'Estudos pessoais', text: 'Residência, liga, idioma, cursos: com meta semanal e revisões.' },
+        { id: 'routine', icon: SlidersHorizontal, color: '#2e9e78', title: 'Minha rotina', text: 'Ajuste blocos por dia, dia de descanso e dia das misturadas.' },
       ];
       return (
         <div className="space-y-4">

@@ -50,10 +50,10 @@
 
 @keyframes ac-ring {
   from {
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--ac-color, #10b981) 55%, transparent);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--ac-color, var(--success)) 55%, transparent);
   }
   to {
-    box-shadow: 0 0 0 7px color-mix(in srgb, var(--ac-color, #10b981) 0%, transparent);
+    box-shadow: 0 0 0 7px color-mix(in srgb, var(--ac-color, var(--success)) 0%, transparent);
   }
 }
 

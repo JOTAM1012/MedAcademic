@@ -97,7 +97,7 @@ const SubRow: React.FC<{
         className="mt-[3px] h-4 w-4 shrink-0 rounded-full grid place-items-center"
         aria-label={s.done ? `Desmarcar ${s.title}` : `Marcar ${s.title} como visto`}
       >
-        <AnimatedCheck checked={!!s.done} color={color} shape="round" size={16} stroke={4} className="border-2" offStyle={{ borderColor: '#9aa1ad', backgroundColor: 'transparent' }} />
+        <AnimatedCheck checked={!!s.done} color={color} shape="round" size={16} stroke={4} className="border-2" offStyle={{ borderColor: 'var(--field-border)', backgroundColor: 'transparent' }} />
       </button>
       {editing?.id === s.id ? (
         <input
@@ -149,7 +149,7 @@ interface Props {
   onHide?: () => void;
 }
 
-export const SubItemsEditor: React.FC<Props> = ({ items, onChange, color = '#10b981', idPrefix, onHide }) => {
+export const SubItemsEditor: React.FC<Props> = ({ items, onChange, color = '#15803d', idPrefix, onHide }) => {
   const list = items || [];
   const [draft, setDraft] = useState('');
   const [editing, setEditing] = useState<{ id: string; value: string } | null>(null);

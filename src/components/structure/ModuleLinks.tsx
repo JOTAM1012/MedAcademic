@@ -118,7 +118,7 @@ export const ModuleLinks: React.FC<Props> = ({ module, onOpenSubject, embedded, 
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
                     {sub ? subjectName(sub) : ''} · {b.reviewStatus === 'estudando' ? 'em estudo' : 'em revisão'} · {st.seen}/{st.total}
                   </p>
-                  <Bar pct={st.pct} color={sub ? subjectColor(sub) : '#3b82f6'} className="mt-1" />
+                  <Bar pct={st.pct} color={sub ? subjectColor(sub) : 'var(--brand)'} className="mt-1" />
                 </div>
                 <button type="button" aria-label={`Desvincular ${b.name}`} onClick={() => toggleBlock(b.id)} className="h-9 w-9 shrink-0 rounded-xl flex items-center justify-center text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10">
                   <X className="h-4 w-4" />

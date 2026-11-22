@@ -111,6 +111,6 @@ export const goalTone = (v: number | undefined, goal: number) =>
         ? 'text-amber-600 dark:text-amber-400'
         : 'text-rose-600 dark:text-rose-400';
 
-export const goalBar = (v: number | undefined, goal: number) => (v === undefined ? '#9aa1ad' : v >= goal ? '#10b981' : v >= goal - 15 ? '#f59e0b' : '#f43f5e');
+export const goalBar = (v: number | undefined, goal: number) => (v === undefined ? '#a3a09a' : v >= goal ? 'var(--success)' : v >= goal - 15 ? 'var(--warning)' : 'var(--danger)');
 
 export const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;

@@ -175,7 +175,7 @@ export const GuidedReviewSession: React.FC<GuidedReviewSessionProps> = ({ initia
           </div>
         </div>
         <div className="h-2 rounded-full bg-white dark:bg-slate-800 overflow-hidden" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100}>
-          <div className="h-full rounded-full bg-sky-500 transition-all duration-500" style={{ width: `${progress}%` }} />
+          <div className="h-full rounded-full bg-slate-900 dark:bg-slate-100 transition-all duration-500" style={{ width: `${progress}%` }} />
         </div>
       </div>
 

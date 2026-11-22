@@ -10,14 +10,14 @@
   --shake-ease: cubic-bezier(0.22, 1, 0.36, 1);
   --field-error-revert: 280ms;
   /* cores do site (rose) no lugar das --stage-* */
-  --field-error-border: #e11d48;
-  --field-error-ring: rgba(225, 29, 72, 0.16);
-  --field-error-text: #e11d48;
+  --field-error-border: var(--danger);
+  --field-error-ring: color-mix(in srgb, var(--danger) 16%, transparent);
+  --field-error-text: var(--danger);
 }
 .dark {
-  --field-error-border: #fb7185;
-  --field-error-ring: rgba(251, 113, 133, 0.18);
-  --field-error-text: #fda4af;
+  --field-error-border: var(--danger);
+  --field-error-ring: color-mix(in srgb, var(--danger) 18%, transparent);
+  --field-error-text: var(--danger);
 }
 
 .is-shaking {

@@ -1,12 +1,10 @@
-/* Barra lateral: escura e calma nos dois temas, com cartões de vidro discretos */
+/* Barra lateral: sempre no tema escuro (a <aside> tem a classe "dark"), cores só dos tokens */
 .sb-root {
-  background:
-    radial-gradient(120% 40% at 0% 0%, rgba(59, 130, 246, 0.08), transparent 60%),
-    linear-gradient(180deg, #13151a 0%, #0f1115 100%);
-  border-right: 1px solid rgba(154, 161, 173, 0.08);
+  background: var(--bg);
+  border-right: 1px solid var(--border);
 }
 .sb-root--floating {
-  box-shadow: 18px 0 50px -18px rgba(15, 17, 21, 0.85), 1px 0 0 rgba(96, 165, 250, 0.15);
+  box-shadow: 18px 0 50px -18px rgba(0, 0, 0, 0.7);
 }
 
 .sb-label {
@@ -14,41 +12,36 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.14em;
-  color: rgb(225 228 234);
+  color: var(--text-muted);
 }
 
-/* Pílula do item ativo (desliza entre os itens) */
+/* Item ativo: fundo sólido --surface-2 + barra lateral --brand (sem degradê) */
 .sb-pill {
-  background: linear-gradient(180deg, rgba(96, 165, 250, 0.16), rgba(37, 99, 235, 0.12));
-  box-shadow: inset 0 0 0 1px rgba(96, 165, 250, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  background: var(--surface-2);
 }
 .sb-pill::before {
   content: '';
   position: absolute;
   left: 0;
   top: 50%;
-  height: 16px;
+  height: 18px;
   width: 3px;
-  margin-top: -8px;
+  margin-top: -9px;
   border-radius: 0 3px 3px 0;
-  background: rgb(96 165 250);
+  background: var(--brand);
 }
 
 .sb-item:focus-visible {
-  outline: 2px solid rgba(96, 165, 250, 0.6);
+  outline: 2px solid var(--brand);
   outline-offset: 1px;
 }
 
-/* Cartões de vidro (semestre e conta): não têm janelas dentro */
+/* Cartões do rodapé (semestre e conta): superfície com borda de 1px */
 .sb-glass {
-  border: 1px solid rgba(154, 161, 173, 0.1);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
-  -webkit-backdrop-filter: blur(14px) saturate(1.4);
-  backdrop-filter: blur(14px) saturate(1.4);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 8px 24px -16px rgba(0, 0, 0, 0.6);
-  transition: background-color 150ms ease, border-color 150ms ease;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  transition: border-color 150ms ease;
 }
 button.sb-glass:hover {
-  border-color: rgba(96, 165, 250, 0.22);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.03));
+  border-color: var(--field-border);
 }

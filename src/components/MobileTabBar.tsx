@@ -157,14 +157,14 @@ export const MobileTabBar: React.FC = () => {
                         active ? 'is-active' : ''
                       }`}
                     >
-                      <span className={`flex h-11 w-11 items-center justify-center rounded-[14px] bg-gradient-to-br ${item.color} text-white shadow-md ring-1 ring-inset ring-white/20`}>
+                      <span className={`flex h-11 w-11 items-center justify-center rounded-[14px] bg-slate-100 dark:bg-slate-800 text-sky-600 dark:text-sky-400 ring-1 ring-inset ring-slate-200 dark:ring-slate-700`}>
                         <Icon className="h-5 w-5" />
                       </span>
                       <span className={`text-[11px] font-bold leading-tight text-center ${active ? 'text-blue-600 dark:text-blue-400' : 'text-slate-700 dark:text-slate-200'}`}>
                         {item.label}
                       </span>
                       {item.badge && (
-                        <span className="absolute top-1.5 right-1.5 min-w-5 h-5 px-1 rounded-full bg-rose-500 text-white text-[10px] font-black flex items-center justify-center">
+                        <span className="count-badge absolute top-1.5 right-1.5 min-w-5 h-5 px-1 rounded-full text-[10px] font-black flex items-center justify-center">
                           {item.badge}
                         </span>
                       )}
@@ -200,18 +200,18 @@ export const MobileTabBar: React.FC = () => {
               >
                 <span
                   className={`relative flex h-9 w-14 items-center justify-center rounded-2xl transition-colors duration-200 ${
-                    active ? 'text-white' : 'text-slate-500 dark:text-slate-400'
+                    active ? 'text-sky-600 dark:text-sky-400' : 'text-slate-500 dark:text-slate-400'
                   }`}
                 >
                   {active && (
                     <motion.span
                       layoutId="mobile-tab-pill"
-                      className="absolute inset-0 rounded-2xl bg-blue-600 shadow-lg shadow-blue-600/30"
+                      className="absolute inset-0 rounded-2xl bg-slate-100 dark:bg-slate-800 ring-1 ring-inset ring-slate-200 dark:ring-slate-700"
                       transition={{ type: 'spring', stiffness: 420, damping: 34 }}
                     />
                   )}
                   <Icon className="relative h-5 w-5" />
-                  {badge && <span className="absolute top-1 right-3 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-white dark:ring-slate-900" />}
+                  {badge && <span className="absolute top-1 right-3 h-2.5 w-2.5 rounded-full bg-sky-500 ring-2 ring-white dark:ring-slate-900" />}
                 </span>
                 <span className={`text-[11px] leading-none truncate max-w-full px-0.5 ${active ? 'font-black text-blue-600 dark:text-blue-400' : 'font-semibold text-slate-500 dark:text-slate-400'}`}>
                   {label}

@@ -276,7 +276,7 @@ export const AcademicStructureView: React.FC<AcademicStructureViewProps> = ({ on
         <div className="min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white">Disciplinas & assuntos</h1>
-            <span id="cycle-structure-badge" className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: `${cycleInfo.color}1a`, color: cycleInfo.color }}>
+            <span id="cycle-structure-badge" className="ink text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: `${cycleInfo.color}1a`, ['--ink' as string]: cycleInfo.color }}>
               {cycleInfo.label}
             </span>
           </div>
@@ -308,7 +308,7 @@ export const AcademicStructureView: React.FC<AcademicStructureViewProps> = ({ on
           <button
             id="academic-add-subject-btn"
             onClick={onOpenAddSubject}
-            className={`h-10 inline-flex items-center justify-center gap-1.5 px-3.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold ${
+            className={`btn-cta h-10 inline-flex items-center justify-center gap-1.5 px-3.5 rounded-xl text-xs font-bold ${
               showContests || showPastTop ? '' : 'col-span-2'
             }`}
           >

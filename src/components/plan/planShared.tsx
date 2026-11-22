@@ -52,13 +52,13 @@ export const isRealTask = (t: PlanTask) => t.kind !== 'blank_page' && t.kind !==
 /** Rótulo curto e neutro do tipo do dia (selo da Semana, Planejar semana) */
 export const DAY_KIND_INFO: Record<DayKind, { label: string; emoji: string; cls: string }> = {
   normal: { label: 'Dia normal', emoji: '📚', cls: 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700' },
-  mixed: { label: 'Misturadas', emoji: '🔀', cls: 'bg-pink-50 text-pink-700 border-pink-200 dark:bg-pink-500/10 dark:text-pink-300 dark:border-pink-500/30' },
-  rest: { label: 'Descanso', emoji: '😌', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/30' },
-  low_energy: { label: 'Dia difícil', emoji: '🌧️', cls: 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-500/10 dark:text-indigo-300 dark:border-indigo-500/30' },
-  plantao: { label: 'Plantão', emoji: '🏥', cls: 'bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-500/10 dark:text-violet-300 dark:border-violet-500/30' },
-  pos_plantao: { label: 'Pós-plantão', emoji: '😴', cls: 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-500/10 dark:text-sky-300 dark:border-sky-500/30' },
-  prova: { label: 'Prova hoje', emoji: '📝', cls: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-500/30' },
-  pos_prova: { label: 'Pós-prova', emoji: '🛋️', cls: 'bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-500/10 dark:text-teal-300 dark:border-teal-500/30' },
+  mixed: { label: 'Misturadas', emoji: '🔀', cls: 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700' },
+  rest: { label: 'Descanso', emoji: '😌', cls: 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700' },
+  low_energy: { label: 'Dia difícil', emoji: '🌧️', cls: 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700' },
+  plantao: { label: 'Plantão', emoji: '🏥', cls: 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700' },
+  pos_plantao: { label: 'Pós-plantão', emoji: '😴', cls: 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700' },
+  prova: { label: 'Prova hoje', emoji: '📝', cls: 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-500/10 dark:text-sky-300 dark:border-sky-500/30' },
+  pos_prova: { label: 'Pós-prova', emoji: '🛋️', cls: 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700' },
 };
 
 /** Unidade interna da capacidade do plano (minutos). O que o aluno vê segue o bloco dele. */

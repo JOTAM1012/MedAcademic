@@ -479,23 +479,8 @@ export const TodayPlanPanel: React.FC<TodayPlanPanelProps> = ({ compact, onOpenW
     return (
       <div
         id="today-now-card"
-        className="relative overflow-hidden rounded-[28px] border bg-white dark:bg-slate-900 shadow-lg shadow-slate-900/[0.06] dark:shadow-black/40"
-        style={{ borderColor: `${t.color}59` }}
+        className="relative overflow-hidden rounded-[28px] border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900"
       >
-        {/* Brilho na cor da disciplina: só decoração, atrás do conteúdo */}
-        <span
-          aria-hidden
-          className="pointer-events-none absolute inset-0"
-          style={{
-            background: `radial-gradient(130% 90% at 0% 0%, ${t.color}38 0%, ${t.color}14 38%, transparent 70%), radial-gradient(70% 60% at 100% 100%, ${t.color}14 0%, transparent 70%)`,
-          }}
-        />
-        <span
-          aria-hidden
-          className="pointer-events-none absolute -top-20 -left-16 h-56 w-56 rounded-full blur-3xl opacity-40 dark:opacity-30"
-          style={{ backgroundColor: t.color }}
-        />
-        <span aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-1" style={{ background: `linear-gradient(90deg, ${t.color}, ${t.color}00)` }} />
         <div className={`relative ${small ? 'p-4' : 'p-4 sm:p-6'}`}>
           <div className="flex items-center justify-between gap-3">
             <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.16em] px-2.5 py-1 rounded-full bg-sky-600 text-white shadow-sm">
@@ -565,10 +550,10 @@ export const TodayPlanPanel: React.FC<TodayPlanPanelProps> = ({ compact, onOpenW
 
           {(() => {
             // Botão principal largo (tela cheia no celular); os outros ficam discretos ao lado/abaixo
-            const primary = `w-full sm:w-auto sm:min-w-[220px] rounded-2xl bg-sky-600 hover:bg-sky-500 active:bg-sky-700 text-white font-black inline-flex items-center justify-center gap-2 transition-colors ${
+            const primary = `btn-cta w-full sm:w-auto sm:min-w-[220px] rounded-2xl font-black inline-flex items-center justify-center gap-2 transition-colors ${
               small ? 'min-h-[48px] px-5 text-sm' : 'min-h-[52px] px-7 text-base'
             }`;
-            const primaryStyle = { boxShadow: `0 12px 28px -12px ${t.color}, 0 4px 12px -6px rgba(37,99,235,0.45)` };
+            const primaryStyle = undefined;
             const quiet = `${small ? 'min-h-[40px]' : 'min-h-[44px]'} px-3 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 bg-white/70 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-700/80 hover:text-slate-900 dark:hover:text-white hover:border-slate-300 dark:hover:border-slate-600 inline-flex items-center gap-1.5 transition-colors`;
             return (
               <div className={`${small ? 'mt-3' : 'mt-5'} flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2`}>
@@ -624,7 +609,7 @@ export const TodayPlanPanel: React.FC<TodayPlanPanelProps> = ({ compact, onOpenW
         </span>
       </div>
       <div className="mt-1.5 h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-        <div className="h-full rounded-full bg-gradient-to-r from-sky-500 to-emerald-500 transition-all" style={{ width: `${plan.doneCount > 0 ? Math.max(pct, 4) : 0}%` }} />
+        <div className="h-full rounded-full bg-slate-900 dark:bg-slate-100 transition-all" style={{ width: `${plan.doneCount > 0 ? Math.max(pct, 4) : 0}%` }} />
       </div>
       {plan.overBy > 0 && !allDone && (
         <p id="today-over-time" className="mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">

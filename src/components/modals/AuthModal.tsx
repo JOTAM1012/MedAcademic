@@ -359,7 +359,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isPage = false }) => {
               <div className="pt-2 space-y-3">
                 <button
                   type="submit"
-                  className="auth-btn-primary w-full py-2.5 rounded-xl text-white text-xs font-bold flex items-center justify-center gap-2 cursor-pointer"
+                  className="auth-btn-primary btn-cta w-full py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <ArrowRight className="h-4 w-4" />
                   Entrar no Meu Perfil

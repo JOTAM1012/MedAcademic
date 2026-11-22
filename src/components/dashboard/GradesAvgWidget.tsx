@@ -30,7 +30,7 @@ export const GradesAvgWidget: React.FC<{ period: PeriodFilter; periodLabel: stri
       id="dash-grades-avg"
       title="Média em provas"
       icon={Award}
-      color="#6366f1"
+      color="#2e9e78"
       action={
         <LinkButton id="dash-grades-open" compact onClick={() => setCurrentTab('semester')}>
           Ver semestre
