@@ -305,7 +305,7 @@ const AppContent: React.FC = () => {
         {/* Esqueleto da tela: mostra o formato do site enquanto os dados chegam */}
         <div className="hidden lg:flex w-64 shrink-0 flex-col gap-3 bg-slate-900 p-4">
           <div className="flex items-center gap-2.5 mb-3">
-            <div className="h-9 w-9 rounded-xl bg-gradient-to-tr from-sky-500 to-blue-600 flex items-center justify-center">
+            <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-sky-600 to-sky-800 flex items-center justify-center">
               <Stethoscope className="h-5 w-5 text-white" />
             </div>
             <div className="skeleton h-4 w-28 rounded-md" />

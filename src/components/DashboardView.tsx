@@ -165,7 +165,7 @@ export const DashboardView: React.FC = () => {
         <div className="rounded-3xl border border-sky-200 dark:border-sky-800/80 bg-sky-50/70 dark:bg-slate-900 p-5 sm:p-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-start gap-3.5">
-              <div className="w-12 h-12 rounded-2xl bg-sky-500 text-white flex items-center justify-center shrink-0">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-sky-600 to-sky-800 text-white flex items-center justify-center shrink-0">
                 <Stethoscope className="w-6 h-6" />
               </div>
               <div>
