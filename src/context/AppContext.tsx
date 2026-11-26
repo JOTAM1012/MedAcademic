@@ -549,6 +549,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [cloudSyncStatus, setCloudSyncStatus] = useState<CloudSyncStatus>('synced');
   const [lastCloudSync, setLastCloudSync] = useState<Date | null>(null);
   const isSyncInProgressRef = useRef<boolean>(false);
+  // Última versão da nuvem que este aparelho conhece (updated_at). Se a nuvem ficar mais nova
+  // (mudança feita em outro aparelho ou direto no banco), o aparelho baixa em vez de sobrescrever.
+  const remoteUpdatedAtRef = useRef<string | null>(null);
+  const applyCloudRef = useRef<((cloudData: any, replace?: boolean) => void) | null>(null);
+  const isNewerStamp = (a?: string | null, b?: string | null) => !!a && !!b && new Date(a).getTime() > new Date(b).getTime() + 1;
+  const rememberCloudStamp = (stamp: string) => {
+    remoteUpdatedAtRef.current = stamp;
+    if (!activeUserId) return;
+    try {
+      localStorage.setItem(getUserKey('cloud_synced_at', activeUserId), stamp);
+    } catch {
+      // sem espaço: segue só em memória
+    }
+  };
   const [syncNonce, setSyncNonce] = useState(0); // bumped on reconnect to force a sync
 
   const INITIAL_TUTOR_MESSAGES = [
@@ -768,8 +782,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     };
 
-    // Applies the state saved in the cloud over the local cache
-    const applyCloudData = (cloudData: any) => {
+    // Applies the state saved in the cloud over the local cache.
+    // replace = a nuvem é mais nova que a última sincronia deste aparelho: o método de estudo vem inteiro
+    // da nuvem (sem juntar), para que remoções feitas em outro lugar não voltem.
+    const applyCloudData = (cloudData: any, replace = false) => {
       if (Array.isArray(cloudData.semesters) && cloudData.semesters.length > 0) {
         setSemesters(cloudData.semesters);
         setIDBData(`semesters_${activeUserId}`, cloudData.semesters);
@@ -837,9 +853,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
       // Método de estudo: objeto (não array); junta por dia/id com o que está neste aparelho
       if (cloudData.studyMethod && typeof cloudData.studyMethod === 'object') {
-        setStudyMethod((prev) => mergeStudyMethod(prev, cloudData.studyMethod));
+        setStudyMethod((prev) => (replace ? normalizeStudyMethod(cloudData.studyMethod) : mergeStudyMethod(prev, cloudData.studyMethod)));
       }
     };
+    applyCloudRef.current = applyCloudData;
+    const lastSyncKey = getUserKey('cloud_synced_at', activeUserId);
+    remoteUpdatedAtRef.current = localStorage.getItem(lastSyncKey);
 
     // First cloud save of a new account: built from what is cached on this device
     const buildBootstrapState = () => {
@@ -892,7 +911,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
       const { data, error } = await supabase
         .from(APP_STATE_TABLE)
-        .select('data')
+        .select('data, updated_at')
         .eq('user_id', cloudUserId)
         .maybeSingle();
       if (!isSubscribed) return;
@@ -902,14 +921,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return;
       }
       if (data?.data && Object.keys(data.data).length > 0) {
-        applyCloudData(data.data);
+        const known = remoteUpdatedAtRef.current;
+        applyCloudData(data.data, isNewerStamp(data.updated_at, known));
+        rememberCloudStamp(data.updated_at);
         setCloudSyncStatus('synced');
         setLastCloudSync(new Date());
         return;
       }
+      const bootStamp = new Date().toISOString();
       const { error: upsertError } = await supabase
         .from(APP_STATE_TABLE)
-        .upsert({ user_id: cloudUserId, data: buildBootstrapState(), updated_at: new Date().toISOString() });
+        .upsert({ user_id: cloudUserId, data: buildBootstrapState(), updated_at: bootStamp });
+      if (!upsertError) rememberCloudStamp(bootStamp);
       if (!isSubscribed) return;
       if (upsertError) {
         console.warn('[Supabase] Falha no primeiro salvamento na nuvem:', upsertError.message);
@@ -1170,18 +1193,35 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     updatedAt: new Date().toISOString(),
   });
 
+  // Se a nuvem estiver mais nova do que a versão que este aparelho conhece, baixa e aplica por cima.
+  // Devolve true quando baixou (aí o envio deste aparelho é pulado para não apagar a mudança de fora).
+  const pullIfCloudNewer = async (): Promise<boolean> => {
+    if (!supabase || !cloudUserId || !remoteUpdatedAtRef.current) return false;
+    const { data: meta, error: metaError } = await supabase.from(APP_STATE_TABLE).select('updated_at').eq('user_id', cloudUserId).maybeSingle();
+    if (metaError || !meta?.updated_at || !isNewerStamp(meta.updated_at, remoteUpdatedAtRef.current)) return false;
+    const { data, error } = await supabase.from(APP_STATE_TABLE).select('data, updated_at').eq('user_id', cloudUserId).maybeSingle();
+    if (error || !data?.data || Object.keys(data.data).length === 0) return false;
+    applyCloudRef.current?.(data.data, true);
+    rememberCloudStamp(data.updated_at);
+    return true;
+  };
+
   // Upserts the state; returns true on success. Status handling is left to the callers.
   const pushStateToCloud = async (): Promise<boolean> => {
     if (!supabase || !cloudUserId) return false;
     isSyncInProgressRef.current = true;
     try {
+      // Mudança feita em outro lugar (outro aparelho ou direto na nuvem): baixa em vez de sobrescrever
+      if (await pullIfCloudNewer()) return true;
+      const stamp = new Date().toISOString();
       const { error } = await supabase
         .from(APP_STATE_TABLE)
-        .upsert({ user_id: cloudUserId, data: buildCloudState(), updated_at: new Date().toISOString() });
+        .upsert({ user_id: cloudUserId, data: buildCloudState(), updated_at: stamp });
       if (error) {
         console.warn('[Supabase] Falha ao sincronizar:', error.message);
         return false;
       }
+      rememberCloudStamp(stamp);
       return true;
     } catch (err) {
       console.warn('[Supabase] Falha ao sincronizar:', err);
@@ -1234,6 +1274,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     questionLogs,
     studyMethod,
   ]);
+
+  // Ao voltar para o site (aba, app instalado ou janela em foco), confere se a nuvem tem algo mais novo
+  useEffect(() => {
+    if (!activeUserId || !cloudUserId || !isInitialLoadComplete) return;
+    let lastCheck = 0;
+    const check = async () => {
+      if (document.visibilityState !== 'visible') return;
+      if (isSyncInProgressRef.current) return;
+      const now = Date.now();
+      if (now - lastCheck < 10000) return;
+      lastCheck = now;
+      try {
+        if (await pullIfCloudNewer()) {
+          setCloudSyncStatus('synced');
+          setLastCloudSync(new Date());
+        }
+      } catch (err) {
+        console.warn('[Supabase] Falha ao conferir a nuvem:', err);
+      }
+    };
+    document.addEventListener('visibilitychange', check);
+    window.addEventListener('focus', check);
+    return () => {
+      document.removeEventListener('visibilitychange', check);
+      window.removeEventListener('focus', check);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeUserId, cloudUserId, isInitialLoadComplete]);
 
   // Force Cloud Sync manually
   const forceCloudSync = async () => {
