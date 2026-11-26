@@ -264,7 +264,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
         {isExpanded ? (
           <div
             id="sidebar-account-card"
-            className={`${semBounds ? '' : 'mt-auto '}sb-glass mx-2.5 mb-3 flex items-center gap-2 rounded-2xl p-2`}
+            className={`${semBounds ? '' : 'mt-auto '}sb-glass mx-2.5 mb-3 flex items-center gap-1 rounded-2xl p-2`}
           >
             <button
               type="button"
@@ -278,20 +278,24 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
             >
               <span className="relative shrink-0">
                 <span
-                  className={`block h-8 w-8 overflow-hidden rounded-full bg-blue-950 ${isOwner ? 'owner-gold-frame owner-gold-frame--sm' : 'user-blue-frame user-blue-frame--sm'}`}
+                  className={`block h-10 w-10 overflow-hidden rounded-full bg-slate-800 ${isOwner ? 'owner-gold-frame owner-gold-frame--sm' : 'user-blue-frame user-blue-frame--sm'}`}
                 >
                   <img src={userProfile.avatarUrl || CARTOON_AVATARS[0].url} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
                 </span>
                 <span
-                  className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-slate-900 ${syncDot} ${
+                  className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full ring-2 ring-slate-950 ${syncDot} ${
                     cloudSyncStatus === 'syncing' ? 'animate-pulse motion-reduce:animate-none' : ''
                   }`}
-                  title={cloudSyncStatus === 'synced' ? 'Salvo na nuvem' : cloudSyncStatus === 'syncing' ? 'Salvando…' : 'Offline: salvo neste aparelho'}
+                  aria-hidden
                 />
               </span>
-              <span className="min-w-0">
-                <span className="block truncate text-[13px] font-semibold text-slate-100 group-hover:text-sky-300 transition-colors">
-                  <OwnerName name={userProfile.name.split(' ')[0]} crown={false} />
+              {/* Primeiro e segundo nome + estado da nuvem */}
+              <span className="min-w-0 flex-1">
+                <span id="sidebar-account-name" className="block truncate text-[13px] font-semibold leading-tight text-slate-100">
+                  <OwnerName name={userProfile.name.trim().split(/\s+/).slice(0, 2).join(' ')} crown={false} />
+                </span>
+                <span className="mt-0.5 block truncate text-[11px] text-slate-400 group-hover:text-slate-200 transition-colors">
+                  {cloudSyncStatus === 'synced' ? 'Salvo na nuvem' : cloudSyncStatus === 'syncing' ? 'Salvando…' : 'Salvo neste aparelho'}
                 </span>
               </span>
             </button>
@@ -299,12 +303,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
               type="button"
               id="dock-logout-btn"
               onClick={logout}
-              className="flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2 text-xs font-semibold text-slate-400 hover:bg-rose-500/10 hover:text-rose-300 transition-colors"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-slate-400 hover:bg-rose-500/10 hover:text-rose-300 transition-colors"
               title="Sair da conta"
               aria-label="Sair da conta"
             >
-              <LogOut className="h-3.5 w-3.5" />
-              Sair
+              <LogOut className="h-4 w-4" />
             </button>
           </div>
         ) : (

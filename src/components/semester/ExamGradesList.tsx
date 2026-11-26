@@ -175,8 +175,14 @@ export const ExamGradesList: React.FC<ExamGradesListProps> = ({ onEdit, onNew })
               )}
               {exam.weight !== 1 && <span>Peso {String(exam.weight).replace('.', ',')}</span>}
               {detail && <span>{detail}</span>}
-              {!past && exam.grade === undefined && diff <= 14 && (
-                <span className="font-bold text-rose-600 dark:text-rose-400">{diff === 0 ? 'hoje' : diff === 1 ? 'amanhã' : `em ${diff} dias`}</span>
+              {/* Dias que faltam: em todas as provas futuras sem nota (vermelho só na última semana) */}
+              {!past && exam.grade === undefined && (
+                <span
+                  id={`sem-exam-days-${exam.id}`}
+                  className={`px-1.5 py-px rounded-full text-[10px] font-bold ${diff <= 7 ? 'count-badge--late' : 'count-badge'}`}
+                >
+                  {diff === 0 ? 'É hoje' : diff === 1 ? 'Falta 1 dia' : `Faltam ${diff} dias`}
+                </span>
               )}
             </div>
           </div>
@@ -220,7 +226,15 @@ export const ExamGradesList: React.FC<ExamGradesListProps> = ({ onEdit, onNew })
               >
                 <PenLine className="h-3.5 w-3.5" /> Lançar resultado
               </button>
-            ) : null
+            ) : (
+              <button
+                id={`sem-exam-grade-${exam.id}`}
+                onClick={() => onEdit(exam, { focusResult: true })}
+                className="min-h-10 px-3 rounded-xl text-[11px] font-bold text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-1.5"
+              >
+                <PenLine className="h-3.5 w-3.5" /> Pôr nota
+              </button>
+            )
           ) : (
             <button
               onClick={() => onEdit(exam, { focusResult: true })}
