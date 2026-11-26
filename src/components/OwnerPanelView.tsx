@@ -198,7 +198,7 @@ export const OwnerPanelView: React.FC = () => {
       <div className="flex items-center justify-between gap-3 pb-4 border-b border-amber-400/20">
         <div className="flex items-center gap-3 min-w-0">
           <span className="h-10 w-10 shrink-0 rounded-xl bg-amber-400/15 text-amber-500 dark:text-amber-300 grid place-items-center">
-            <Crown className="h-5 w-5" />
+            <Crown className="h-5 w-5 owner-crown" />
           </span>
           <div className="min-w-0">
             <h1 className="text-lg font-black owner-gold-name leading-tight">Painel do Dono</h1>

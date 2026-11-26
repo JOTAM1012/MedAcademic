@@ -141,7 +141,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
                 isActive ? 'text-sky-400' : 'text-slate-300 group-hover:text-white'
               }`}
             >
-              <Icon className="h-[18px] w-[18px] lg:h-4 lg:w-4" />
+              <Icon className={`h-[18px] w-[18px] lg:h-4 lg:w-4 ${item.id === 'admin' ? 'owner-crown' : ''}`} />
             </span>
           )}
           {isExpanded && <span className={`truncate whitespace-nowrap ${showIcons ? '' : 'py-1 pl-1.5'}`}>{item.label}</span>}
@@ -289,13 +289,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
                   aria-hidden
                 />
               </span>
-              {/* Primeiro e segundo nome + estado da nuvem */}
+              {/* Primeiro e segundo nome, grande e em destaque (o ponto na foto mostra a nuvem) */}
               <span className="min-w-0 flex-1">
-                <span id="sidebar-account-name" className="block truncate text-[13px] font-semibold leading-tight text-slate-100">
+                <span id="sidebar-account-name" className="block truncate text-base font-black leading-tight tracking-tight text-slate-100">
                   <OwnerName name={userProfile.name.trim().split(/\s+/).slice(0, 2).join(' ')} crown={false} />
-                </span>
-                <span className="mt-0.5 block truncate text-[11px] text-slate-400 group-hover:text-slate-200 transition-colors">
-                  {cloudSyncStatus === 'synced' ? 'Salvo na nuvem' : cloudSyncStatus === 'syncing' ? 'Salvando…' : 'Salvo neste aparelho'}
                 </span>
               </span>
             </button>

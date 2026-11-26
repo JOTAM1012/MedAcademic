@@ -16,13 +16,13 @@ export const OwnerName: React.FC<OwnerNameProps> = ({ name, className = '', badg
   if (!role) return <span className={`user-blue-name ${className}`}>{name}</span>;
   return (
     <span className={`inline-flex items-center min-w-0 align-baseline ${badge || (crown && isOwner) ? 'gap-1.5' : ''}`}>
-      {crown && isOwner && <Crown className="h-[0.9em] w-[0.9em] shrink-0 text-amber-400" aria-label="Dono" />}
+      {crown && isOwner && <Crown className="h-[0.9em] w-[0.9em] shrink-0 owner-crown" aria-label="Dono" />}
       <span className={`min-w-0 ${isOwner ? 'owner-gold-name' : 'user-blue-name'} ${className}`} title={isOwner ? 'Dono do MedAcademic' : 'Moderador'}>
         {name}
       </span>
       {badge && (
         <span className="count-badge shrink-0 inline-flex items-center text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-md">
-          {isOwner ? <Crown className="h-3.5 w-3.5 text-amber-400" aria-label="Dono" /> : 'Moderador'}
+          {isOwner ? <Crown className="h-3.5 w-3.5 owner-crown" aria-label="Dono" /> : 'Moderador'}
         </span>
       )}
     </span>

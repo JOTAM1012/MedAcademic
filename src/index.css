@@ -515,6 +515,9 @@
 .dark .owner-gold-name {
   background-image: linear-gradient(100deg, #b8860b 0%, #d9a21b 25%, #e6b545 42%, #f0ce6a 50%, #e6b545 58%, #d9a21b 75%, #b8860b 100%);
 }
+/* Coroa do Dono no mesmo dourado do nome */
+.owner-crown { color: #a26f0c; }
+.dark .owner-crown { color: #e6b545; }
 @keyframes name-shine {
   to { background-position: -250% center; }
 }

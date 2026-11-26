@@ -175,7 +175,7 @@ export const DashboardView: React.FC = () => {
                 <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
                   {isReturning ? dayGreeting : `Seja ${welcome} ao MedAcademic`}, <OwnerName name={firstName} />{' '}
                   {isOwnerAccount ? (
-                    <Crown className="inline h-[1em] w-[1em] -mt-1 text-slate-400" aria-label="Dono" />
+                    <Crown className="inline h-[1em] w-[1em] -mt-1 owner-crown" aria-label="Dono" />
                   ) : (
                     '🩺'
                   )}
@@ -218,7 +218,7 @@ export const DashboardView: React.FC = () => {
               {isOwnerAccount ? (
                 <Crown
                   id="greeting-owner-crown"
-                  className="inline h-[1em] w-[1em] -mt-1 text-slate-400"
+                  className="inline h-[1em] w-[1em] -mt-1 owner-crown"
                   aria-label="Dono"
                 />
               ) : (
