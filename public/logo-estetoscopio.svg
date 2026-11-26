@@ -1,17 +1,60 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
-<defs>
-  <radialGradient id="g" cx="50%" cy="46%" r="72%">
-    <stop offset="0" stop-color="#0D2115"/>
-    <stop offset="0.55" stop-color="#060F0A"/>
-    <stop offset="1" stop-color="#040A07"/>
-  </radialGradient>
-  <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
-    <feGaussianBlur stdDeviation="24"/>
-  </filter>
-</defs>
-<rect width="1024" height="1024" rx="120" ry="120" fill="url(#g)"/>
-<g filter="url(#glow)" opacity="0.9"><g transform="translate(212 212) scale(25)" fill="none" stroke="#00FF87" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" ><path d="M6.2 3H4a2 2 0 0 0-2 2v4a6 6 0 0 0 12 0V5a2 2 0 0 0-2-2H9.8"/><path d="M8 15a6 6 0 0 0 12 0v-3"/><circle cx="20" cy="10" r="2"/></g></g>
-<g transform="translate(212 212) scale(25)" fill="none" stroke="#00FF87" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" ><path d="M6.2 3H4a2 2 0 0 0-2 2v4a6 6 0 0 0 12 0V5a2 2 0 0 0-2-2H9.8"/><path d="M8 15a6 6 0 0 0 12 0v-3"/><circle cx="20" cy="10" r="2"/></g>
-<g transform="translate(212 212) scale(25)" fill="none" stroke="#05F292" stroke-width="1.7"><circle cx="20" cy="10" r="2"/></g>
-<g transform="translate(212 212) scale(25)" fill="none" stroke="#B8FFDD" stroke-width="0.55" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"><path d="M6.2 3H4a2 2 0 0 0-2 2v4a6 6 0 0 0 12 0V5a2 2 0 0 0-2-2H9.8"/><path d="M8 15a6 6 0 0 0 12 0v-3"/><circle cx="20" cy="10" r="2"/></g>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <radialGradient id="bgGrad" cx="50%" cy="48%" r="60%" fx="50%" fy="48%">
+      <stop offset="0%" stop-color="#0f2b1b" />
+      <stop offset="55%" stop-color="#08190f" />
+      <stop offset="100%" stop-color="#040d08" />
+    </radialGradient>
+    <linearGradient id="rimGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#268754" stop-opacity="0.9" />
+      <stop offset="35%" stop-color="#11472b" stop-opacity="0.4" />
+      <stop offset="100%" stop-color="#040d08" stop-opacity="0" />
+    </linearGradient>
+    <radialGradient id="ambientGlow" cx="48%" cy="50%" r="42%">
+      <stop offset="0%" stop-color="#00ff87" stop-opacity="0.18" />
+      <stop offset="100%" stop-color="#00ff87" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="stethoGrad" x1="35%" y1="75%" x2="75%" y2="20%">
+      <stop offset="0%" stop-color="#d8ffea" />
+      <stop offset="40%" stop-color="#4ade80" />
+      <stop offset="100%" stop-color="#10d17d" />
+    </linearGradient>
+    <filter id="neonGlow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="14" result="blurWide" />
+      <feColorMatrix in="blurWide" type="matrix" values="0 0 0 0 0
+                0 1 0 0 0.95
+                0 0 0 0 0.5
+                0 0 0 0.55 0" result="glowWide" />
+      <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="blurTight" />
+      <feColorMatrix in="blurTight" type="matrix" values="0 0 0 0 0.2
+                0 1 0 0 1
+                0 0 0 0 0.65
+                0 0 0 0.8 0" result="glowTight" />
+      <feMerge>
+        <feMergeNode in="glowWide" />
+        <feMergeNode in="glowTight" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+  <rect x="22" y="22" width="468" height="468" rx="112" ry="112" fill="url(#bgGrad)" stroke="url(#rimGrad)" stroke-width="4" />
+  <rect x="22" y="22" width="468" height="468" rx="112" ry="112" fill="url(#ambientGlow)" />
+  <g filter="url(#neonGlow)">
+    <path d="M 178 152
+         C 156 152, 148 164, 148 184
+         L 148 226
+         C 148 266, 174 292, 206 292
+         C 238 292, 264 266, 264 226
+         L 264 184
+         C 264 164, 256 152, 234 152" fill="none" stroke="url(#stethoGrad)" stroke-width="22" stroke-linecap="round" stroke-linejoin="round" />
+    <path d="M 206 292
+         C 206 338, 236 364, 275 364
+         C 314 364, 342 338, 342 280" fill="none" stroke="url(#stethoGrad)" stroke-width="22" stroke-linecap="round" stroke-linejoin="round" />
+    <path d="M 342 216
+         A 34 34 0 1 0 342 284
+         A 34 34 0 1 0 342 216 Z
+         M 342 237
+         A 13 13 0 1 1 342 263
+         A 13 13 0 1 1 342 237 Z" fill="url(#stethoGrad)" fill-rule="evenodd" />
+  </g>
 </svg>
